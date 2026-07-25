@@ -1,0 +1,647 @@
+{
+  "common": {
+    "language": "Langue",
+    "languages": {
+      "en": "Anglais",
+      "fr": "Français"
+    },
+    "actions": {
+      "profile": "Profil",
+      "preferences": "Préférences de l’espace",
+      "notifications": "Notifications",
+      "signOut": "Se déconnecter",
+      "create": "Créer",
+      "edit": "Modifier",
+      "apply": "Appliquer",
+      "reset": "Réinitialiser",
+      "saveChanges": "Enregistrer",
+      "createTicket": "Créer un ticket",
+      "editTicket": "Modifier le ticket",
+      "saving": "Enregistrement...",
+      "boardSummary": "Résumé board",
+      "exportCsv": "Exporter CSV"
+    },
+    "states": {
+      "loading": "Chargement..."
+    }
+  },
+  "header": {
+    "premiumShell": "Shell premium",
+    "workspace": "Espace"
+  },
+  "navigation": {
+    "groups": {
+      "workspace": "Espace de travail",
+      "business": "Business",
+      "system": "Système"
+    },
+    "items": {
+      "overview": {
+        "label": "Vue générale",
+        "description": "Visibilité transverse et signal exécutif."
+      },
+      "projects": {
+        "label": "Projets",
+        "description": "Programmes, jalons et responsabilités."
+      },
+      "tickets": {
+        "label": "Tickets",
+        "description": "Incidents, demandes et sujets opérationnels."
+      },
+      "my-work": {
+        "label": "Mon travail",
+        "description": "Exécution assignée, échéances et activité récente."
+      },
+      "planning": {
+        "label": "Planning",
+        "description": "Roadmaps, capacité et exécution à venir."
+      },
+      "roadmap": {
+        "label": "Roadmap",
+        "description": "Jalons, phases de delivery et horizon futur."
+      },
+      "calendar": {
+        "label": "Calendrier",
+        "description": "Dates opérationnelles, échéances et jalons."
+      },
+      "team": {
+        "label": "Équipe",
+        "description": "Personnes, rôles et coordination."
+      },
+      "reports": {
+        "label": "Rapports",
+        "description": "Synthèses quotidiennes, hebdo, projet et exécutif."
+      },
+      "clients": {
+        "label": "Clients",
+        "description": "Comptes clients et relation delivery."
+      },
+      "contracts": {
+        "label": "Contrats",
+        "description": "Accords commerciaux et engagements."
+      },
+      "documents": {
+        "label": "Documents",
+        "description": "Fichiers internes, actifs et archives contrôlées."
+      },
+      "finance": {
+        "label": "Finance",
+        "description": "Coûts, facturation et pilotage financier."
+      },
+      "activity": {
+        "label": "Activité",
+        "description": "Actions récentes, traces et événements."
+      },
+      "shareholders": {
+        "label": "Actionnaires",
+        "description": "Visibilité ownership et gouvernance."
+      },
+      "settings": {
+        "label": "Paramètres",
+        "description": "Préférences et configuration de l’application."
+      },
+      "notifications": {
+        "label": "Notifications",
+        "description": "Mentions, assignations et mises à jour."
+      }
+    },
+    "liveShell": "Shell actif"
+  },
+  "overviewPage": {
+    "alerts": {
+      "shareholderTitle": "Alertes stratégiques",
+      "shareholderSubtitle": "Risques de planification et de gouvernance à haut niveau dérivés des données d’exécution actuelles.",
+      "defaultTitle": "Alertes opérationnelles",
+      "defaultSubtitle": "Risques tickets, échéances, jalons et charge dérivés du planning en direct."
+    }
+  },
+  "overview": {
+    "eyebrow": "Vue exécutive",
+    "titles": {
+      "shareholder": "Une vue stratégique simplifiée de la performance BUMEX IT.",
+      "employee": "Votre espace de delivery pour le cycle opérationnel en cours.",
+      "default": "Une surface de pilotage en direct pour la performance BUMEX IT."
+    },
+    "subtitles": {
+      "shareholder": "Signaux high-level, visibilité risque et contexte board sans bruit opérationnel.",
+      "employee": "Une vue concentrée sur votre exécution, votre charge assignée et les signaux de delivery prioritaires.",
+      "default": "Un dashboard investor-grade avec métriques fortes, visibilité opérationnelle et signaux prospectifs."
+    },
+    "hero": {
+      "badge": "Mode haute visibilité",
+      "titles": {
+        "shareholder": "La performance stratégique reste stable, avec deux zones delivery demandant une vigilance board plus forte.",
+        "employee": "Votre flux de delivery avance bien, mais la concentration de charge en milieu de semaine demande de l’attention.",
+        "default": "L’exécution progresse au-dessus du plan, mais la concentration delivery demande de l’attention."
+      },
+      "descriptions": {
+        "shareholder": "Les indicateurs principaux restent solides. Les principaux points de pression à court terme concernent la charge support et quelques validations impactant la prévision.",
+        "employee": "Le travail assigné progresse proprement, la réactivité ticket s’est améliorée, et la pression principale vient d’une demande support concentrée.",
+        "default": "Les projets avancent vite, la réponse ticket s’est améliorée, et la production opérationnelle est solide. La pression principale reste concentrée sur le support et deux programmes freinés par des validations."
+      },
+      "confidence": "Confiance delivery",
+      "focus": "Focus personnel",
+      "riskReview": "Revue de risque",
+      "watchlist": "Watchlist board",
+      "programs": "2 programmes",
+      "signalTitle": "Signal principal",
+      "signalDescription": "La capacité support demande de l’attention avant une escalade en milieu de semaine.",
+      "watchClosely": "À surveiller",
+      "signalFooter": "Une exécution solide compense les points de pression actuels",
+      "healthScore": "Score de santé",
+      "healthDetail": "Confiance delivery composite",
+      "focusWindow": "Fenêtre de focus",
+      "focusWindowValue": "7 jours",
+      "focusWindowDetail": "Échéances et actions de leadership"
+    },
+    "sections": {
+      "teamWorkload": "Visualisation de la charge équipe",
+      "assignedWorkload": "Charge équipe assignée",
+      "workloadDescription": "Répartition actuelle de l’effort par unité, avec emphase au survol pour comparer rapidement.",
+      "kpis": "KPIs",
+      "performancePulse": "Pulse de performance opérationnelle",
+      "insights": "Insights",
+      "focusToday": "Focus du jour",
+      "strategicFocus": "Focus stratégique",
+      "weeklyProgress": "Progression hebdomadaire",
+      "weeklyProgressDescription": "Travail terminé versus charge active sur la semaine.",
+      "projectHealth": "Indicateurs de santé projet",
+      "projectHealthDescription": "Lecture rapide de la confiance delivery stratégique.",
+      "taskDistribution": "Répartition des tâches",
+      "taskDistributionDescription": "Part du travail par domaine de delivery.",
+      "activityTimeline": "Timeline d’activité",
+      "activityTimelineDescription": "Mouvements récents dans le système opérationnel.",
+      "upcomingDeadlines": "Échéances à venir",
+      "upcomingDeadlinesDescription": "Événements et engagements à garder visibles.",
+      "atRiskProjects": "Projets à risque",
+      "atRiskProjectsDescription": "Zones demandant une attention exécutive avant aggravation.",
+      "next7Days": "Planification des 7 prochains jours",
+      "next7DaysDescription": "Aperçu du rythme opérationnel à venir."
+    },
+    "misc": {
+      "capacity": "Capacité",
+      "allStatuses": "Tous statuts",
+      "healthScore": "Score de santé",
+      "currentResilience": "Résilience actuelle",
+      "planningReadiness": "Maturité planning",
+      "planningReadinessDetail": "Structuré pour les futurs modules de timeline",
+      "stable": "Stable",
+      "strong": "Fort",
+      "excellent": "Excellent",
+      "watch": "Surveillance",
+      "atRisk": "À risque",
+      "mix": "Mix",
+      "activity": "Activité",
+      "planning": "Planning",
+      "risks": "Risques",
+      "sevenDayView": "Vue 7 jours"
+    },
+    "datasets": {
+      "kpis": [
+        {
+          "title": "Projets actifs",
+          "caption": "4 nouveaux lancements ce mois"
+        },
+        {
+          "title": "Tickets ouverts",
+          "caption": "Le temps de réponse SLA s’améliore"
+        },
+        {
+          "title": "Tâches terminées",
+          "caption": "La vélocité d’exécution accélère"
+        },
+        {
+          "title": "Paiements en attente",
+          "caption": "2 factures dépassent la fenêtre cible"
+        }
+      ],
+      "workload": ["Infrastructure", "Produit", "Support", "Sécurité", "Data"],
+      "taskDistribution": ["Delivery", "Opérations", "Conformité", "Finance"],
+      "projectHealth": [
+        { "name": "Déploiement Atlas ERP", "status": "Fort", "owner": "Infrastructure" },
+        { "name": "Portail client Nimbus", "status": "Surveillance", "owner": "Produit" },
+        { "name": "Audit sécurité Orion", "status": "Excellent", "owner": "Sécurité" },
+        { "name": "Hub Data Vertex", "status": "À risque", "owner": "Data" }
+      ],
+      "focusToday": [
+        {
+          "label": "Pulse exécutif",
+          "title": "La vélocité delivery dépasse la prévision",
+          "description": "La complétion des tâches suit une trajectoire 14% au-dessus du benchmark des sept derniers jours."
+        },
+        {
+          "label": "Signal équipe",
+          "title": "La charge support approche la saturation",
+          "description": "La capacité de tri reste saine, mais la file actuelle suggère une pression staffing plus tard dans la semaine."
+        },
+        {
+          "label": "Commercial",
+          "title": "Deux contrats enterprise sont prêts pour le circuit d’approbation",
+          "description": "Les commentaires juridiques sont levés et la validation finance peut être lancée une fois l’espace connecté."
+        }
+      ],
+      "activityFeed": [
+        {
+          "title": "Revue sécurité validée pour l’audit Orion",
+          "description": "Les contrôles de risque ont été validés et la note de leadership publiée.",
+          "actor": "Security Office"
+        },
+        {
+          "title": "Escalade client reçue pour le rollout Nimbus",
+          "description": "Les leads support et produit se sont alignés sur la mitigation et le timing de réponse.",
+          "actor": "Client Success"
+        },
+        {
+          "title": "Pack de facturation généré pour le cycle finance d’avril",
+          "description": "La file des paiements en attente a été rafraîchie avec deux nouveaux sujets enterprise.",
+          "actor": "Finance Ops"
+        },
+        {
+          "title": "Mise à jour de ressources soumise par le lead infrastructure",
+          "description": "L’allocation de capacité a changé pour le flux de migration Atlas.",
+          "actor": "PMO"
+        }
+      ],
+      "atRiskProjects": [
+        {
+          "title": "Hub Data Vertex",
+          "owner": "Plateforme Data",
+          "risk": "L’extension de périmètre dépasse la capacité d’intégration.",
+          "severity": "Élevé"
+        },
+        {
+          "title": "Portail client Nimbus",
+          "owner": "Delivery Produit",
+          "risk": "Les validations stakeholders retardent la design freeze.",
+          "severity": "Moyen"
+        }
+      ],
+      "upcomingDeadlines": [
+        {
+          "title": "Revue de préparation migration Atlas",
+          "date": "Demain",
+          "detail": "Checkpoint exécutif avec les sponsors infrastructure et finance."
+        },
+        {
+          "title": "Mémo steering client Nimbus",
+          "date": "Dans 2 jours",
+          "detail": "Le package de statut et la recommandation de lancement révisée sont attendus."
+        },
+        {
+          "title": "Fenêtre d’approbation contrat d’avril",
+          "date": "Dans 5 jours",
+          "detail": "Deux avenants enterprise demandent une confirmation finale."
+        },
+        {
+          "title": "Soumission des preuves sécurité",
+          "date": "Dans 7 jours",
+          "detail": "Les artefacts d’audit sont planifiés pour livraison aux reviewers externes."
+        }
+      ],
+      "nextSevenDays": [
+        { "day": "Lun", "title": "Sync PMO", "theme": "Alignement roadmap et blockers" },
+        { "day": "Mar", "title": "Checkpoint sécurité", "theme": "Preuves d’audit et validations" },
+        { "day": "Mer", "title": "Steering client", "theme": "Suivi de l’escalade Nimbus" },
+        { "day": "Jeu", "title": "Préparation clôture finance", "theme": "Validation des factures et approbations" },
+        { "day": "Ven", "title": "Revue leadership", "theme": "Résumé hebdo board-ready" },
+        { "day": "Sam", "title": "Opérations légères", "theme": "Couverture de monitoring réduite" },
+        { "day": "Dim", "title": "Reset planning", "theme": "Séquençage de la semaine et focus" }
+      ]
+    }
+  },
+  "tickets": {
+    "page": {
+      "eyebrow": "Module tickets",
+      "titles": {
+        "shareholder": "Visibilité exécutive sur le flux de tickets opérationnels.",
+        "employee": "Vos tickets assignés, votre charge d’exécution et vos priorités.",
+        "default": "Un workspace ticket premium pour opérations, delivery et support."
+      },
+      "subtitles": {
+        "shareholder": "Synthèses read-only centrées sur la pression delivery, les mouvements de backlog et le risque high-level.",
+        "employee": "Suivez les tickets qui vous sont assignés, mettez à jour l’exécution et gardez le travail visible dans l’organisation.",
+        "default": "Recherchez, filtrez, créez et gérez bugs, demandes support, tâches internes et travail lié aux clients dans un module enterprise."
+      },
+      "summaryMode": "Mode résumé",
+      "interactiveMode": "Gestion interactive du travail",
+      "queue": "File",
+      "kanbanBoard": "Board Kanban",
+      "ticketList": "Liste des tickets",
+      "results": "résultats",
+      "stats": {
+        "visibleTickets": { "label": "Tickets visibles", "detail": "Charge actuelle dans le scope" },
+        "myTickets": { "label": "Mes tickets", "detail": "Assignés à l’utilisateur courant" },
+        "urgent": { "label": "Urgent", "detail": "Pression priorité maximale" },
+        "blocked": { "label": "Bloqués", "detail": "Exécution demandant de l’attention" }
+      }
+    },
+    "emptyState": {
+      "title": "Aucun ticket ne correspond à la vue actuelle",
+      "description": "Affinez les filtres, élargissez la recherche, ou créez un ticket pour commencer à suivre le travail opérationnel.",
+      "noAccess": "Aucun droit de création"
+    },
+    "form": {
+      "createTitle": "Créer un ticket",
+      "editTitle": "Modifier le ticket",
+      "createDescription": "Créez un nouveau ticket lié à un projet, un assigné et un contexte opérationnel.",
+      "editDescription": "Mettez à jour les détails du ticket, le suivi de charge et les métadonnées d’exécution.",
+      "employeeEditDescription": "Mettez à jour votre travail assigné tout en conservant l’ownership projet et l’assignation.",
+      "fields": {
+        "title": "Titre",
+        "description": "Description",
+        "project": "Projet",
+        "assignee": "Assigné",
+        "reporter": "Reporteur",
+        "status": "Statut",
+        "priority": "Priorité",
+        "type": "Type",
+        "dueDate": "Date d’échéance",
+        "estimatedHours": "Heures estimées",
+        "actualHours": "Heures réelles",
+        "githubIssueUrl": "URL GitHub issue"
+      },
+      "placeholders": {
+        "description": "Contexte opérationnel, détails du bug ou résultat attendu",
+        "optional": "Optionnel",
+        "github": "https://github.com/..."
+      },
+      "select": {
+        "selectProject": "Sélectionner un projet",
+        "unassigned": "Non assigné",
+        "noReporter": "Aucun reporteur",
+        "locked": "Verrouillé",
+        "statuses": {
+          "backlog": "Backlog",
+          "todo": "À faire",
+          "in_progress": "En cours",
+          "review": "Revue",
+          "blocked": "Bloqué",
+          "done": "Terminé",
+          "archived": "Archivé"
+        },
+        "priorities": {
+          "low": "Faible",
+          "medium": "Moyenne",
+          "high": "Haute",
+          "urgent": "Urgente"
+        },
+        "types": {
+          "task": "Tâche",
+          "bug": "Bug",
+          "feature": "Feature",
+          "support": "Support",
+          "client_request": "Demande client",
+          "internal": "Interne"
+        }
+      }
+    },
+    "filters": {
+      "allStatuses": "Tous les statuts",
+      "searchPlaceholder": "Rechercher tickets, bugs, demandes client ou travail support",
+      "allPriorities": "Toutes les priorités",
+      "allAssignees": "Tous les assignés",
+      "allProjects": "Tous les projets",
+      "anyDueDate": "Toute échéance",
+      "overdue": "En retard",
+      "dueIn7Days": "Échéance dans 7 jours",
+      "dueIn30Days": "Échéance dans 30 jours",
+      "noDeadline": "Aucune échéance",
+      "allTypes": "Tous les types"
+    }
+  },
+  "finance": {
+    "hub": {
+      "eyebrow": "Finance",
+      "title": "Un espace finance simple séparé entre argent entrant et argent sortant.",
+      "subtitleShareholder": "Ouvrez la vue entrante ou sortante selon le cote du business que vous voulez consulter.",
+      "subtitleDefault": "Utilisez un côté pour la facturation et l'encaissement client, et l'autre pour les fournisseurs, les outils et les dépenses de l'entreprise.",
+      "incomingEyebrow": "Entrees",
+      "incomingTitle": "Factures clients et encaissements",
+      "incomingDescription": "Créez des factures, suivez le statut en attente ou payé, et gardez visible l'argent qui vient des clients vers l'entreprise.",
+      "openIncoming": "Ouvrir les entrees",
+      "pendingInvoices": "Factures en attente",
+      "expectedCash": "Tresorerie attendue",
+      "overdue": "En retard",
+      "outgoingEyebrow": "Sorties",
+      "outgoingTitle": "Depenses, fournisseurs et paiements sortants",
+      "outgoingDescription": "Suivez ce que l'entreprise paie aux autres, classez chaque sortie et gardez le justificatif rattaché.",
+      "openOutgoing": "Ouvrir les sorties",
+      "thisMonth": "Ce mois",
+      "confirmed": "Confirmés",
+      "netEstimate": "Estimation nette"
+    },
+    "incoming": {
+      "eyebrow": "Finance entrante",
+      "title": "Tout ce qui concerne l'argent qui vient des clients.",
+      "subtitle": "Créez des factures, marquez-les en attente, en brouillon ou payées, puis suivez les paiements entrants avec justificatifs.",
+      "actions": {
+        "createInvoice": "Créer une facture",
+        "addIncomingPayment": "Ajouter un paiement entrant",
+        "backToFinance": "Retour à finance",
+        "fullInvoices": "Liste complete des factures",
+        "fullIncomingPayments": "Liste complete des paiements entrants"
+      },
+      "cards": {
+        "pendingInvoices": "Factures en attente",
+        "pendingInvoicesDetail": "Factures clients actives en attente de paiement",
+        "receivedPayments": "Paiements reçus",
+        "receivedPaymentsDetail": "Argent déjà encaissé depuis les clients",
+        "expectedPayments": "Paiements attendus",
+        "expectedPaymentsDetail": "Argent entrant encore à encaisser"
+      },
+      "sections": {
+        "invoices": "Factures",
+        "latestInvoices": "Dernières factures clients",
+        "incomingPayments": "Paiements entrants",
+        "latestCollections": "Derniers encaissements clients"
+      },
+      "misc": {
+        "noClient": "Aucun client",
+        "due": "échéance",
+        "paid": "payé",
+        "incomingPayment": "Paiement entrant"
+      }
+    },
+    "outgoing": {
+      "eyebrow": "Finance sortante",
+      "title": "Tout ce qui concerne l'argent que l'entreprise paie.",
+      "subtitle": "Suivez les paiements fournisseurs, outils, services, salaires et toute autre sortie avec justificatif.",
+      "actions": {
+        "addOutgoingPayment": "Ajouter un paiement sortant",
+        "backToFinance": "Retour à finance",
+        "fullOutgoingList": "Liste complete des sorties"
+      },
+      "cards": {
+        "plannedPending": "Planifié + en attente",
+        "plannedPendingDetail": "Sorties pas encore finalisées",
+        "confirmed": "Confirmés",
+        "confirmedDetail": "Mouvements sortants déjà confirmés",
+        "thisMonth": "Ce mois",
+        "thisMonthDetail": "Montant sortant suivi sur le mois"
+      },
+      "sections": {
+        "outgoingPayments": "Paiements sortants",
+        "latestExpenseMovements": "Derniers mouvements de depense"
+      }
+    },
+    "invoiceForm": {
+      "titleCreate": "Nouvelle facture client",
+      "titleEdit": "Mettre à jour la facture",
+      "description": "Construisez un dossier de facturation propre pour les revenus clients, gardez le statut visible et joignez directement un justificatif.",
+      "generatedAutomatically": "Généré automatiquement",
+      "noTaxHint": "Utilisez `0` si cette facture n'a pas de taxe.",
+      "supportingFileHint": "Joignez le PDF final de la facture, une copie signee par le client ou tout autre fichier utile.",
+      "fields": {
+        "invoiceNumber": "Numéro de facture",
+        "status": "Statut",
+        "client": "Client",
+        "currency": "Devise",
+        "project": "Projet",
+        "contract": "Contrat",
+        "issueDate": "Date d'émission",
+        "dueDate": "Date d'échéance",
+        "subtotal": "Sous-total",
+        "taxRate": "Taux de taxe %",
+        "supportingFile": "Fichier de facture ou justificatif",
+        "notes": "Notes"
+      },
+      "placeholders": {
+        "selectClient": "Selectionner un client",
+        "noLinkedProject": "Aucun projet lié",
+        "noLinkedContract": "Aucun contrat lié"
+      },
+      "actions": {
+        "create": "Créer la facture",
+        "edit": "Modifier la facture",
+        "save": "Enregistrer"
+      },
+      "preview": {
+        "eyebrow": "Aperçu en direct",
+        "pendingInvoice": "Facture en attente",
+        "invoice": "Facture",
+        "description": "Le statut de la facture démarre en attente par défaut. Vous pouvez ensuite la passer en brouillon, en attente ou payée.",
+        "taxAmount": "Montant de la taxe",
+        "grandTotal": "Total général",
+        "billingLogic": "Logique de facturation",
+        "billingLogicDescription": "Saisissez le sous-total une seule fois, mettez un taux de taxe seulement si nécessaire, et le formulaire calcule la taxe et le total automatiquement."
+      }
+    },
+    "paymentForm": {
+      "titleCreate": "Créer un paiement",
+      "titleEdit": "Modifier le paiement",
+      "description": "Suivez les paiements clients attendus ou reçus avec le projet, le contrat et la facture liés.",
+      "supportingFileHint": "Ajoutez une preuve de paiement, un avis bancaire, un reçu scanné ou tout autre justificatif client.",
+      "fields": {
+        "client": "Client",
+        "invoice": "Facture",
+        "project": "Projet",
+        "contract": "Contrat",
+        "amount": "Montant",
+        "currency": "Devise",
+        "dueDate": "Date d'échéance",
+        "paymentDate": "Date de paiement",
+        "method": "Methode",
+        "status": "Statut",
+        "reference": "Référence",
+        "notes": "Notes",
+        "supportingDocument": "Document justificatif"
+      },
+      "placeholders": {
+        "selectClient": "Sélectionner un client",
+        "noLinkedInvoice": "Aucune facture liée",
+        "noLinkedProject": "Aucun projet lié",
+        "noLinkedContract": "Aucun contrat lié"
+      },
+      "actions": {
+        "create": "Créer le paiement",
+        "edit": "Modifier le paiement",
+        "save": "Enregistrer"
+      }
+    },
+    "transferForm": {
+      "titleCreate": "Créer un transfert",
+      "titleEdit": "Modifier le transfert",
+      "description": "Suivez les transferts sortants sans transformer l'espace en produit bancaire.",
+      "supportingFileHint": "Ajoutez une facture fournisseur, un reçu, une preuve de transfert, un justificatif fiscal ou tout autre document de dépense.",
+      "fields": {
+        "reference": "Référence du transfert",
+        "beneficiary": "Bénéficiaire",
+        "bank": "Banque du beneficiaire",
+        "account": "Compte du beneficiaire",
+        "amount": "Montant",
+        "currency": "Devise",
+        "transferDate": "Date du transfert",
+        "status": "Statut",
+        "category": "Catégorie",
+        "relatedProject": "Projet lié",
+        "relatedClient": "Client lié",
+        "notes": "Notes",
+        "supportingDocument": "Document justificatif"
+      },
+      "placeholders": {
+        "noLinkedProject": "Aucun projet lié",
+        "noLinkedClient": "Aucun client lié"
+      },
+      "actions": {
+        "create": "Créer le transfert",
+        "edit": "Modifier le transfert",
+        "save": "Enregistrer"
+      }
+    },
+    "status": {
+      "invoice": {
+        "draft": "Brouillon",
+        "sent": "En attente",
+        "partially_paid": "Partiellement payée",
+        "paid": "Payée",
+        "overdue": "En retard",
+        "cancelled": "Annulée",
+        "archived": "Archivée"
+      },
+      "payment": {
+        "expected": "Attendu",
+        "received": "Reçu",
+        "late": "En retard",
+        "cancelled": "Annulé",
+        "reconciled": "Rapproché"
+      },
+      "transfer": {
+        "planned": "Planifié",
+        "pending": "En attente",
+        "sent": "Envoyé",
+        "confirmed": "Confirmé",
+        "failed": "Échoué",
+        "cancelled": "Annulé"
+      }
+    },
+    "methods": {
+      "bank_transfer": "Virement bancaire",
+      "card": "Carte",
+      "cash": "Espèces",
+      "check": "Chèque",
+      "mobile_money": "Mobile money",
+      "other": "Autre"
+    },
+    "categories": {
+      "supplier": "Fournisseur",
+      "salary": "Salaire",
+      "subcontractor": "Sous-traitant",
+      "software": "Logiciel",
+      "hosting": "Hébergement",
+      "taxes": "Taxes",
+      "rent": "Loyer",
+      "other": "Autre"
+    },
+    "invoiceFilters": {
+      "searchPlaceholder": "Rechercher un numéro de facture ou des notes",
+      "allClients": "Tous les clients",
+      "allProjects": "Tous les projets",
+      "allContracts": "Tous les contrats",
+      "allStatuses": "Tous les statuts",
+      "anyDueDate": "Toute échéance",
+      "overdue": "En retard",
+      "next7Days": "7 prochains jours",
+      "next30Days": "30 prochains jours"
+    }
+  }
+}
