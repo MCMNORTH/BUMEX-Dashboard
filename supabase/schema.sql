@@ -243,6 +243,8 @@ create table public.clients (
   website text,
   tax_id text,
   status public.client_status not null default 'prospect',
+  prospect_stage text,
+  next_follow_up_at date,
   account_manager_id uuid references public.profiles (id) on delete set null,
   notes text,
   created_at timestamptz not null default timezone('utc', now()),
@@ -253,6 +255,9 @@ create table public.clients (
   ),
   constraint clients_website_format_chk check (
     website is null or website ~* '^https?://'
+  ),
+  constraint clients_prospect_stage_chk check (
+    prospect_stage is null or prospect_stage in ('initial_contact', 'qualification', 'negotiation', 'proposal_sent', 'pending_signature')
   )
 );
 

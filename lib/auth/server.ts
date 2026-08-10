@@ -133,11 +133,7 @@ export type AuthContext = {
 };
 
 export function isDevPreviewAuthEnabled() {
-  if (!hasSupabaseEnv()) {
-    return true;
-  }
-
-  return process.env.ENABLE_LOCAL_PREVIEW_AUTH === "1";
+  return process.env.NODE_ENV === "development" && process.env.ENABLE_LOCAL_PREVIEW_AUTH === "1";
 }
 
 export function getDevPreviewAuthContext(): AuthContext & {

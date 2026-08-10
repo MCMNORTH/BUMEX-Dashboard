@@ -1,15 +1,9 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { ClientTimelineFilter } from "@/types/client";
-
-const filters: Array<{ value: ClientTimelineFilter; label: string }> = [
-  { value: "all", label: "All" },
-  { value: "projects", label: "Projects" },
-  { value: "tickets", label: "Tickets" },
-  { value: "contracts", label: "Contracts" },
-  { value: "documents", label: "Documents" },
-  { value: "client", label: "Client" },
-];
 
 export function ClientHistoryFilters({
   selected,
@@ -18,6 +12,16 @@ export function ClientHistoryFilters({
   selected: ClientTimelineFilter;
   total: number;
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
+  const filters: Array<{ value: ClientTimelineFilter; label: string }> = [
+    { value: "all", label: isFr ? "Tout" : "All" },
+    { value: "projects", label: isFr ? "Projets" : "Projects" },
+    { value: "tickets", label: isFr ? "Tickets" : "Tickets" },
+    { value: "contracts", label: isFr ? "Contrats" : "Contracts" },
+    { value: "documents", label: isFr ? "Documents" : "Documents" },
+    { value: "client", label: isFr ? "Client" : "Client" },
+  ];
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex flex-wrap gap-2">
@@ -33,7 +37,7 @@ export function ClientHistoryFilters({
         ))}
       </div>
       <Badge variant="secondary" className="rounded-full px-3 py-1">
-        {total} events
+        {total} {isFr ? "événements" : "events"}
       </Badge>
     </div>
   );

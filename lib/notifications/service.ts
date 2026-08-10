@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireAuthenticatedUser } from "@/lib/auth/server";
 import type { CommentEntityType, CommentRecord } from "@/types/comment";
 import type {
   MentionCandidate,
@@ -117,6 +118,11 @@ async function createNotifications(
   if (error) {
     throw new Error(error.message);
   }
+}
+
+async function getCurrentNotificationUserId() {
+  const auth = await requireAuthenticatedUser();
+  return auth.profile.id;
 }
 
 export async function createScopedNotifications({
@@ -264,6 +270,7 @@ export async function createStatusChangeNotification({
 }
 
 export async function getRecentNotifications(limit = 8) {
+  const userId = await getCurrentNotificationUserId();
   const supabase = await createClient();
 
   if (!supabase) {
@@ -273,6 +280,7 @@ export async function getRecentNotifications(limit = 8) {
   const { data, error } = await supabase
     .from("notifications")
     .select("id, user_id, type, title, body, entity_type, entity_id, is_read, created_at, archived_at")
+    .eq("user_id", userId)
     .is("archived_at", null)
     .order("created_at", { ascending: false })
     .limit(limit)
@@ -286,6 +294,7 @@ export async function getRecentNotifications(limit = 8) {
 }
 
 export async function getUnreadNotificationCount() {
+  const userId = await getCurrentNotificationUserId();
   const supabase = await createClient();
 
   if (!supabase) {
@@ -295,6 +304,7 @@ export async function getUnreadNotificationCount() {
   const { count, error } = await supabase
     .from("notifications")
     .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
     .is("archived_at", null)
     .eq("is_read", false);
 
@@ -334,6 +344,7 @@ export async function getNotificationRecipientsForProject(projectId: string) {
 }
 
 export async function markNotificationAsRead(notificationId: string) {
+  const userId = await getCurrentNotificationUserId();
   const supabase = await createClient();
 
   if (!supabase) {
@@ -343,6 +354,7 @@ export async function markNotificationAsRead(notificationId: string) {
   const { error } = await supabase
     .from("notifications")
     .update({ is_read: true })
+    .eq("user_id", userId)
     .eq("id", notificationId)
     .is("archived_at", null);
 
@@ -352,6 +364,7 @@ export async function markNotificationAsRead(notificationId: string) {
 }
 
 export async function markAllNotificationsAsRead() {
+  const userId = await getCurrentNotificationUserId();
   const supabase = await createClient();
 
   if (!supabase) {
@@ -361,6 +374,7 @@ export async function markAllNotificationsAsRead() {
   const { error } = await supabase
     .from("notifications")
     .update({ is_read: true })
+    .eq("user_id", userId)
     .is("archived_at", null)
     .eq("is_read", false);
 
@@ -370,6 +384,7 @@ export async function markAllNotificationsAsRead() {
 }
 
 export async function getUserNotifications(filters: NotificationFilters = {}) {
+  const userId = await getCurrentNotificationUserId();
   const supabase = await createClient();
 
   if (!supabase) {
@@ -379,6 +394,7 @@ export async function getUserNotifications(filters: NotificationFilters = {}) {
   let query = supabase
     .from("notifications")
     .select("id, user_id, type, title, body, entity_type, entity_id, is_read, created_at, archived_at")
+    .eq("user_id", userId)
     .is("archived_at", null)
     .order("created_at", { ascending: false });
 
@@ -422,6 +438,7 @@ export async function getUserNotifications(filters: NotificationFilters = {}) {
 }
 
 export async function archiveNotification(notificationId: string) {
+  const userId = await getCurrentNotificationUserId();
   const supabase = await createClient();
 
   if (!supabase) {
@@ -431,6 +448,7 @@ export async function archiveNotification(notificationId: string) {
   const { error } = await supabase
     .from("notifications")
     .update({ archived_at: new Date().toISOString(), is_read: true })
+    .eq("user_id", userId)
     .eq("id", notificationId)
     .is("archived_at", null);
 

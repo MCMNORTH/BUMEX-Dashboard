@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, Copy, Download } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/layout/i18n-provider";
 
 export function CopyReportButton({
   text,
@@ -12,6 +13,8 @@ export function CopyReportButton({
   text: string;
   filename: string;
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -34,11 +37,11 @@ export function CopyReportButton({
     <div className="flex flex-wrap gap-2">
       <Button type="button" variant="secondary" className="rounded-full px-4" onClick={handleCopy}>
         {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-        {copied ? "Copied" : "Copy report"}
+        {copied ? (isFr ? "Copié" : "Copied") : (isFr ? "Copier le rapport" : "Copy report")}
       </Button>
       <Button type="button" variant="secondary" className="rounded-full px-4" onClick={handleDownload}>
         <Download className="size-4" />
-        Export text
+        {isFr ? "Exporter en texte" : "Export text"}
       </Button>
     </div>
   );

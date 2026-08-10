@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { requireRouteAccess } from "@/lib/auth/server";
 import { archiveClient, createClientRecord, getClientById, updateClient } from "@/lib/clients/service";
 import type { AppRole } from "@/types/auth";
-import type { ClientFormValues, ClientStatus, ClientType } from "@/types/client";
+import type { ClientFormValues, ClientStatus, ClientType, ProspectStage } from "@/types/client";
 
 export type ClientActionState = {
   error?: string;
@@ -32,6 +32,8 @@ function parseClientFormData(formData: FormData): ClientFormValues {
     website: getString(formData, "website"),
     tax_id: getString(formData, "tax_id"),
     status: getString(formData, "status") as ClientStatus,
+    prospect_stage: getString(formData, "prospect_stage") as ProspectStage | "",
+    next_follow_up_at: getString(formData, "next_follow_up_at"),
     account_manager_id: getString(formData, "account_manager_id"),
     notes: getString(formData, "notes"),
   };

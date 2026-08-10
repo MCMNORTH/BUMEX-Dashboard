@@ -152,12 +152,21 @@ export function AuthProvider({
   }, [disableAuthSync, router]);
 
   const value = useMemo<AuthContextValue>(() => {
+    const resolvedActiveEntityCode =
+      profile?.is_super_admin
+        ? (initialActiveEntityCode ?? profile.entity_code ?? null)
+        : (profile?.entity_code ?? initialActiveEntityCode ?? null);
+    const resolvedAvailableEntityCodes =
+      profile?.is_super_admin
+        ? initialAvailableEntityCodes
+        : (profile?.entity_code ? [profile.entity_code] : []);
+
     return {
       user,
       profile,
       loading,
-      activeEntityCode: initialActiveEntityCode,
-      availableEntityCodes: initialAvailableEntityCodes,
+      activeEntityCode: resolvedActiveEntityCode,
+      availableEntityCodes: resolvedAvailableEntityCodes,
       permissions: buildPermissionSetForContext({
         role: profile?.role ?? null,
         isSuperAdmin: profile?.is_super_admin ?? false,

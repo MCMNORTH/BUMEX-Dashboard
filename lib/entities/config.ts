@@ -119,11 +119,11 @@ export const bumexEntities: BumexEntity[] = [
     logoPath: "/entities/bumex-avocat.png",
     billingName: "BUMEX Avocat",
     title: {
-      fr: "Pilotage juridique, dossiers contentieux et execution du pole avocat.",
+      fr: "Pilotage juridique, dossiers contentieux et exécution du pôle avocat.",
       en: "Legal operations, casework, and execution for the law practice.",
     },
     description: {
-      fr: "L'espace dedie aux affaires juridiques, au suivi des dossiers et a la coordination des interventions avocat.",
+      fr: "L'espace dédié aux affaires juridiques, au suivi des dossiers et à la coordination des interventions avocat.",
       en: "A dedicated environment for legal matters, case tracking, and lawyer coordination.",
     },
     primaryColor: "#b88400",

@@ -6,6 +6,7 @@ import { AgendaList } from "@/components/calendar/agenda-list";
 import { CalendarEventCard } from "@/components/calendar/calendar-event-card";
 import { CalendarEventDrawer } from "@/components/calendar/calendar-event-drawer";
 import { Card, CardContent } from "@/components/ui/card";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { CalendarEvent, CalendarView } from "@/types/calendar";
 
 function startOfMonth(date: Date) {
@@ -44,10 +45,12 @@ function MonthGrid({
   date,
   events,
   onSelect,
+  isFr,
 }: {
   date: Date;
   events: CalendarEvent[];
   onSelect: (event: CalendarEvent) => void;
+  isFr: boolean;
 }) {
   const monthStart = startOfMonth(date);
   const gridStart = startOfWeek(monthStart);
@@ -57,7 +60,7 @@ function MonthGrid({
   return (
     <div className="overflow-x-auto pb-2">
       <div className="grid min-w-[62rem] gap-3 grid-cols-7">
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => (
+        {(isFr ? ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]).map((label) => (
           <div key={label} className="rounded-2xl border border-border/60 bg-background/35 px-3 py-2 text-center text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
             {label}
           </div>
@@ -83,7 +86,7 @@ function MonthGrid({
                 ))}
                 {dayEvents.length > 3 ? (
                   <div className="rounded-xl border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-                    +{dayEvents.length - 3} more events
+                    +{dayEvents.length - 3} {isFr ? "événements supplémentaires" : "more events"}
                   </div>
                 ) : null}
               </div>
@@ -99,10 +102,12 @@ function WeekGrid({
   date,
   events,
   onSelect,
+  isFr,
 }: {
   date: Date;
   events: CalendarEvent[];
   onSelect: (event: CalendarEvent) => void;
+  isFr: boolean;
 }) {
   const weekStart = startOfWeek(date);
   const grouped = groupEvents(events);
@@ -119,7 +124,7 @@ function WeekGrid({
             <div key={key} className="rounded-[24px] border border-border/65 bg-background/40 p-4">
               <div className="mb-4">
                 <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
-                  {new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(day)}
+                  {new Intl.DateTimeFormat(isFr ? "fr-FR" : "en-US", { weekday: "short" }).format(day)}
                 </p>
                 <p className="mt-1 text-lg font-semibold">{day.getDate()}</p>
               </div>
@@ -130,7 +135,7 @@ function WeekGrid({
                   ))
                 ) : (
                   <div className="rounded-xl border border-dashed border-border/60 px-3 py-4 text-xs text-muted-foreground">
-                    No events
+                    {isFr ? "Aucun événement" : "No events"}
                   </div>
                 )}
               </div>
@@ -151,6 +156,8 @@ export function OperationalCalendar({
   view: CalendarView;
   date: Date;
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const sortedEvents = useMemo(
     () => [...events].sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime()),
@@ -164,9 +171,9 @@ export function OperationalCalendar({
           {view === "agenda" ? (
             <AgendaList events={sortedEvents} onSelect={setSelectedEvent} />
           ) : view === "week" ? (
-            <WeekGrid date={date} events={sortedEvents} onSelect={setSelectedEvent} />
+            <WeekGrid date={date} events={sortedEvents} onSelect={setSelectedEvent} isFr={isFr} />
           ) : (
-            <MonthGrid date={date} events={sortedEvents} onSelect={setSelectedEvent} />
+            <MonthGrid date={date} events={sortedEvents} onSelect={setSelectedEvent} isFr={isFr} />
           )}
         </CardContent>
       </Card>

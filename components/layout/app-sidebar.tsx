@@ -242,6 +242,7 @@ function SidebarContent({
             const section = sectionConfig[key];
             const Icon = section.icon;
             const selected = key === activeSection;
+            const sectionTitle = t(`navigation.groups.${key}`, section.title);
 
             return (
               <button
@@ -256,11 +257,11 @@ function SidebarContent({
                   collapsed && "px-0",
                 )}
                 aria-pressed={selected}
-                title={section.title}
+                title={sectionTitle}
               >
                 <Icon className="size-3.5 shrink-0" strokeWidth={1.9} />
                 <span className={cn("text-[9px] leading-none font-semibold text-current", collapsed && "hidden")}>
-                  {collapsed ? section.shortLabel : section.title}
+                  {collapsed ? section.shortLabel : sectionTitle}
                 </span>
               </button>
             );
@@ -284,7 +285,7 @@ function SidebarContent({
                   </p>
                 </div>
                 <p className="mt-1 text-[13px] leading-5 font-medium tracking-[-0.02em] text-foreground">
-                  {currentSection.description}
+                  {t(`navigation.groupDescriptions.${activeSection}`, currentSection.description)}
                 </p>
               </div>
             </div>

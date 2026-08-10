@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, CalendarClock, FolderKanban, GitBranch, TimerReset } from "lucide-react";
 
+import { useI18n } from "@/components/layout/i18n-provider";
 import {
   formatHours,
   formatTicketDate,
@@ -36,6 +39,8 @@ const dueTone = {
 } as const;
 
 export function TicketCard({ ticket }: { ticket: TicketRecord }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   const dueState = getTicketDueState(ticket.due_date);
 
   return (
@@ -54,7 +59,7 @@ export function TicketCard({ ticket }: { ticket: TicketRecord }) {
                   {ticket.title}
                 </h3>
                 <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                  {ticket.description || "No ticket description has been added yet."}
+                  {ticket.description || (isFr ? "Aucune description n'a encore été ajoutée à ce ticket." : "No ticket description has been added yet.")}
                 </p>
               </div>
             </div>
@@ -65,31 +70,31 @@ export function TicketCard({ ticket }: { ticket: TicketRecord }) {
 
           <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
             <div className="rounded-xl border border-border/70 bg-background/45 p-3 dark:border-white/10 dark:bg-slate-900/58">
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Project</p>
-              <p className="mt-2 text-sm font-medium">{ticket.project?.name ?? "Not linked"}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.client?.name ?? "No client"}</p>
+              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Projet" : "Project"}</p>
+              <p className="mt-2 text-sm font-medium">{ticket.project?.name ?? (isFr ? "Non lié" : "Not linked")}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.client?.name ?? (isFr ? "Aucun client" : "No client")}</p>
             </div>
             <div className="rounded-xl border border-border/70 bg-background/45 p-3 dark:border-white/10 dark:bg-slate-900/58">
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Deadline</p>
+              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Échéance" : "Deadline"}</p>
               <p className="mt-2 text-sm font-medium">{formatTicketDate(ticket.due_date)}</p>
               <div className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${dueTone[dueState]}`}>
                 {getTicketDueLabel(ticket.due_date)}
               </div>
             </div>
             <div className="rounded-xl border border-border/70 bg-background/45 p-3 dark:border-white/10 dark:bg-slate-900/58">
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Assignee</p>
+              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Assigné" : "Assignee"}</p>
               <div className="mt-2 flex items-center gap-2">
                 <Avatar className="size-8">
                   <AvatarFallback>{getInitials(ticket.assignee?.full_name)}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-sm font-medium">{ticket.assignee?.full_name ?? "Unassigned"}</p>
-                  <p className="text-xs text-muted-foreground">{ticket.assignee?.role ?? "No role"}</p>
+                  <p className="text-sm font-medium">{ticket.assignee?.full_name ?? (isFr ? "Non assigné" : "Unassigned")}</p>
+                  <p className="text-xs text-muted-foreground">{ticket.assignee?.role ?? (isFr ? "Aucun rôle" : "No role")}</p>
                 </div>
               </div>
             </div>
             <div className="rounded-xl border border-border/70 bg-background/45 p-3 dark:border-white/10 dark:bg-slate-900/58">
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Tracking</p>
+              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Suivi" : "Tracking"}</p>
               <div className="mt-2 space-y-2 text-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="flex items-center gap-2 text-muted-foreground">
@@ -111,16 +116,16 @@ export function TicketCard({ ticket }: { ticket: TicketRecord }) {
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span>Reporter {ticket.reporter?.full_name ?? "Unknown"}</span>
+              <span>{isFr ? "Reporteur" : "Reporter"} {ticket.reporter?.full_name ?? (isFr ? "Inconnu" : "Unknown")}</span>
               {ticket.github_issue_url ? (
                   <span className="inline-flex items-center gap-1 rounded-full border border-border/65 bg-background/40 px-2.5 py-1">
                   <GitBranch className="size-3.5" />
-                  GitHub linked
+                  {isFr ? "GitHub lié" : "GitHub linked"}
                 </span>
               ) : null}
             </div>
             <Badge variant="secondary" className="rounded-full px-3 py-1">
-              View detail
+              {isFr ? "Voir le détail" : "View detail"}
               <ArrowRight className="ml-1 size-3.5" />
             </Badge>
           </div>

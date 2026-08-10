@@ -14,7 +14,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const openMobileSidebar = useCallback(() => setMobileOpen(true), []);
 
   return (
-    <div className="min-h-screen bg-[#161a22] text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       <AppSidebar
         collapsed={collapsed}
         onToggleCollapsed={toggleCollapsed}
@@ -23,12 +23,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       />
       <div
         className={cn(
-          "min-h-screen min-w-0 bg-[#161a22]",
+          "min-h-screen min-w-0 bg-background",
           collapsed ? "lg:pl-24" : "lg:pl-72",
         )}
       >
-        <main className="min-h-screen min-w-0 bg-[#161a22]">
-          <div className="flex min-h-screen w-full min-w-0 flex-col bg-[#161a22]">
+        <main className="min-h-screen min-w-0 bg-background">
+          <div className="flex min-h-screen w-full min-w-0 flex-col bg-background">
             <AppHeader onOpenMobileSidebar={openMobileSidebar} />
             <div className="app-density min-w-0 flex-1 px-3 py-4 sm:px-5 lg:px-6">
               {children}

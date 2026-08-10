@@ -1,14 +1,16 @@
 export function DateRangePicker({
   startDate,
   endDate,
+  isFr = false,
 }: {
   startDate: string;
   endDate: string;
+  isFr?: boolean;
 }) {
   return (
     <>
       <div className="space-y-2">
-        <label htmlFor="report-start" className="text-sm font-medium">Start date</label>
+        <label htmlFor="report-start" className="text-sm font-medium">{isFr ? "Date de début" : "Start date"}</label>
         <input
           id="report-start"
           name="start"
@@ -18,7 +20,7 @@ export function DateRangePicker({
         />
       </div>
       <div className="space-y-2">
-        <label htmlFor="report-end" className="text-sm font-medium">End date</label>
+        <label htmlFor="report-end" className="text-sm font-medium">{isFr ? "Date de fin" : "End date"}</label>
         <input
           id="report-end"
           name="end"

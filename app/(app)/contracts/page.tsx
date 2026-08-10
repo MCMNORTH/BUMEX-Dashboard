@@ -5,7 +5,6 @@ import { getCurrentLocale } from "@/lib/i18n/server";
 import { getContracts, getContractsDueForRenewal, getContractsFilterData } from "@/lib/contracts/service";
 import { formatNumber } from "@/lib/formatters";
 import { PageHeader } from "@/components/layout/page-header";
-import { ExportCsvButton } from "@/components/shared/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ContractCard } from "@/components/contracts/contract-card";
@@ -48,17 +47,6 @@ export default async function ContractsPage({
   const activeCount = contracts.filter((contract) => contract.status === "active").length;
   const renewingSoon = renewalContracts.length;
   const signedCount = contracts.filter((contract) => contract.status === "signed").length;
-  const exportRows = contracts.map((contract) => ({
-    title: contract.title,
-    client: contract.client?.name ?? "",
-    project: contract.project?.name ?? "",
-    status: contract.status,
-    contract_type: contract.contract_type,
-    amount: contract.amount ?? "",
-    currency: contract.currency,
-    renewal_date: contract.renewal_date ?? "",
-    end_date: contract.end_date ?? "",
-  }));
 
   return (
     <div className="space-y-6">
@@ -136,7 +124,6 @@ export default async function ContractsPage({
               <h2 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Liste des contrats" : "Contract list"}</h2>
             </div>
             <div className="flex items-center gap-2">
-              <ExportCsvButton filename="contracts-export" rows={exportRows} />
               <Badge variant="secondary" className="rounded-full px-3 py-1">{formatNumber(contracts.length)} {isFr ? "résultats" : "results"}</Badge>
             </div>
           </div>

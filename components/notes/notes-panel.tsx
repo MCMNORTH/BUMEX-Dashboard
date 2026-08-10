@@ -9,6 +9,7 @@ import { PinnedNotesSection } from "@/components/notes/pinned-notes-section";
 import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { AppRole } from "@/types/auth";
 import { canCreateNoteByRole, type InternalNoteEntityType, type InternalNoteRecord, type NoteVisibility } from "@/types/note";
 
@@ -31,6 +32,8 @@ export function NotesPanel({
   title?: string;
   description?: string;
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   const [editingId, setEditingId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [visibility, setVisibility] = useState<"all" | NoteVisibility>("all");
@@ -72,9 +75,9 @@ export function NotesPanel({
       <CardHeader>
         <div className="flex items-center gap-2">
           <StickyNote className="size-4 text-primary" />
-          <CardTitle>{title}</CardTitle>
+          <CardTitle>{isFr && title === "Project notes" ? "Notes du projet" : title}</CardTitle>
         </div>
-        <p className="text-sm leading-6 text-muted-foreground">{description}</p>
+        <p className="text-sm leading-6 text-muted-foreground">{isFr && description === "Structured delivery notes, executive context, and operational follow-up for this project." ? "Notes de livraison structurées, contexte exécutif et suivi opérationnel de ce projet." : description}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {canCreate ? (
@@ -98,7 +101,7 @@ export function NotesPanel({
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
-              placeholder="Search notes, authors, or executive context"
+              placeholder={isFr ? "Rechercher des notes, auteurs ou contexte exécutif" : "Search notes, authors, or executive context"}
               className="pl-10"
               onChange={(event) => setQuery(event.target.value)}
             />
@@ -108,11 +111,11 @@ export function NotesPanel({
             value={visibility}
             onValueChange={(value) => setVisibility(value as "all" | NoteVisibility)}
             options={[
-              { value: "all", label: "All visibilities" },
-              { value: "private", label: "Private" },
-              { value: "team", label: "Team" },
-              { value: "management", label: "Management" },
-              { value: "shareholders", label: "Shareholders" },
+              { value: "all", label: isFr ? "Toutes les visibilités" : "All visibilities" },
+              { value: "private", label: isFr ? "Privée" : "Private" },
+              { value: "team", label: isFr ? "Équipe" : "Team" },
+              { value: "management", label: isFr ? "Direction" : "Management" },
+              { value: "shareholders", label: isFr ? "Actionnaires" : "Shareholders" },
             ]}
           />
         </div>
@@ -146,7 +149,7 @@ export function NotesPanel({
           </div>
         ) : (
           <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-            No active notes match the current filters for this entity.
+            {isFr ? "Aucune note active ne correspond aux filtres actuels pour cet élément." : "No active notes match the current filters for this entity."}
           </div>
         )}
       </CardContent>

@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, CircleAlert, FolderKanban, ListTodo } from "lucide-react";
 
+import { useI18n } from "@/components/layout/i18n-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { formatNumber } from "@/lib/formatters";
@@ -39,6 +42,8 @@ const assignmentCopy: Record<AssignmentState, { label: string; tone: string; not
 };
 
 export function TeamMemberCard({ member }: { member: TeamMemberRecord }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   const state = assignmentCopy[member.assignment_state];
   const pressureCount = member.overdue_tasks_count + member.blocked_tasks_count;
   const currentFocus = member.current_focus[0];
@@ -60,17 +65,24 @@ export function TeamMemberCard({ member }: { member: TeamMemberRecord }) {
               <p className="truncate text-[1.1rem] font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">
                 {member.full_name}
               </p>
-              <p className="truncate text-sm text-slate-500 dark:text-slate-400">{member.job_title ?? "Team member"}</p>
+              <p className="truncate text-sm text-slate-500 dark:text-slate-400">{member.job_title ?? (isFr ? "Membre de l'équipe" : "Team member")}</p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className={`rounded-full px-2.5 py-0.5 text-[10px] tracking-[0.14em] uppercase ${state.tone}`}>
-              {state.label}
+              {isFr
+                ? {
+                    available: "Prêt",
+                    steady: "En rythme",
+                    loaded: "Chargé",
+                    attention: "Attention",
+                  }[member.assignment_state]
+                : state.label}
             </Badge>
             {pressureCount ? (
               <Badge variant="outline" className="rounded-full border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[10px] text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/12 dark:text-rose-200">
-                {pressureCount} issue{pressureCount > 1 ? "s" : ""}
+                {isFr ? `${pressureCount} incident${pressureCount > 1 ? "s" : ""}` : `${pressureCount} issue${pressureCount > 1 ? "s" : ""}`}
               </Badge>
             ) : null}
           </div>
@@ -81,13 +93,13 @@ export function TeamMemberCard({ member }: { member: TeamMemberRecord }) {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                  Current focus
+                  {isFr ? "Focus actuel" : "Current focus"}
                 </p>
                 <p className="mt-2 truncate text-sm font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">
-                  {currentFocus?.title ?? "No active task"}
+                  {currentFocus?.title ?? (isFr ? "Aucune tâche active" : "No active task")}
                 </p>
                 <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
-                  {currentFocus?.project_name ?? "No project assigned"}
+                  {currentFocus?.project_name ?? (isFr ? "Aucun projet assigné" : "No project assigned")}
                 </p>
               </div>
               <div className="rounded-full border border-sky-100 bg-sky-50/80 px-2 py-0.5 text-[9px] font-semibold tracking-[0.14em] text-sky-700 uppercase dark:border-sky-400/15 dark:bg-sky-400/10 dark:text-sky-200">
@@ -97,13 +109,13 @@ export function TeamMemberCard({ member }: { member: TeamMemberRecord }) {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <Metric icon={FolderKanban} label="Projects" value={formatNumber(member.active_projects_count)} accent="sky" />
-            <Metric icon={ListTodo} label="Tasks" value={formatNumber(member.active_tasks_count)} accent="indigo" />
-            <Metric icon={CircleAlert} label="Risk" value={formatNumber(pressureCount)} accent={pressureCount ? "rose" : "slate"} />
+            <Metric icon={FolderKanban} label={isFr ? "Projets" : "Projects"} value={formatNumber(member.active_projects_count)} accent="sky" />
+            <Metric icon={ListTodo} label={isFr ? "Tâches" : "Tasks"} value={formatNumber(member.active_tasks_count)} accent="indigo" />
+            <Metric icon={CircleAlert} label={isFr ? "Risque" : "Risk"} value={formatNumber(pressureCount)} accent={pressureCount ? "rose" : "slate"} />
           </div>
 
           <div className="inline-flex items-center justify-end gap-2 text-sm font-medium text-slate-700 transition-colors group-hover:text-[#244b86] dark:text-slate-200 dark:group-hover:text-sky-300">
-            View profile
+            {isFr ? "Voir le profil" : "View profile"}
             <span className="flex size-8 items-center justify-center rounded-full border border-border/70 bg-white/75 dark:border-white/10 dark:bg-white/5">
               <ArrowRight className="size-4" />
             </span>

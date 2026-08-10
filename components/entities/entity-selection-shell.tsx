@@ -37,11 +37,11 @@ export function EntitySelectionShell({ error = "" }: { error?: string }) {
         <div className="w-full max-w-3xl rounded-[28px] border border-white/75 bg-white/95 p-5 shadow-[0_42px_120px_rgba(15,23,42,0.22)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/72 dark:shadow-[0_30px_90px_rgba(0,0,0,0.45)] sm:p-6">
           <div className="max-w-md">
               <h1 className="text-2xl font-semibold tracking-[-0.06em] text-slate-950 dark:text-slate-50 sm:text-3xl">
-                {locale === "fr" ? "Choisissez votre entite active." : "Choose your active entity."}
+                {locale === "fr" ? "Choisissez votre entité active." : "Choose your active entity."}
               </h1>
               <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-300">
                 {locale === "fr"
-                  ? "Choisissez une entite."
+                  ? "Choisissez une entité."
                   : "Choose one entity."}
               </p>
           </div>

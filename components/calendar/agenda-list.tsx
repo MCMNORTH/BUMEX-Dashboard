@@ -1,6 +1,7 @@
 "use client";
 
 import { CalendarEventCard } from "@/components/calendar/calendar-event-card";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { CalendarEvent } from "@/types/calendar";
 
 export function AgendaList({
@@ -10,10 +11,11 @@ export function AgendaList({
   events: CalendarEvent[];
   onSelect: (event: CalendarEvent) => void;
 }) {
+  const { locale } = useI18n();
   if (!events.length) {
     return (
       <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
-        No events in the current agenda scope.
+        {locale === "fr" ? "Aucun événement dans la période affichée." : "No events in the current agenda scope."}
       </div>
     );
   }
@@ -26,4 +28,3 @@ export function AgendaList({
     </div>
   );
 }
-

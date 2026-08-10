@@ -77,7 +77,7 @@ export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
   const displayEntityWarning = hasSessionEntityOverride
     ? (entityActionWarning || (
         locale === "fr"
-          ? `L'entite ${activeEntity?.name ?? activeEntityCode} est bien active pour votre session super admin. La synchronisation definitive en base reste en attente.`
+          ? `L'entité ${activeEntity?.name ?? activeEntityCode} est bien active pour votre session super admin. La synchronisation définitive en base reste en attente.`
           : `${activeEntity?.name ?? activeEntityCode} is active for your super admin session. The final database profile sync is still pending.`
       ))
     : profile?.entity_code && profile.entity_code === activeEntityCode
@@ -195,7 +195,7 @@ export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
                 <>
                   <div className="px-2 py-1.5">
                     <p className="px-2 text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
-                      {locale === "fr" ? "Entite active" : "Active entity"}
+                      {locale === "fr" ? "Entité active" : "Active entity"}
                     </p>
                     <button
                       type="button"
@@ -259,11 +259,11 @@ export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
         <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {locale === "fr" ? "Changer l'entite active" : "Change active entity"}
+              {locale === "fr" ? "Changer l'entité active" : "Change active entity"}
             </DialogTitle>
           <DialogDescription>
             {locale === "fr"
-              ? "Cette action met a jour votre profil super admin et l'entite affichee dans toute l'application."
+              ? "Cette action met à jour votre profil super admin et l'entité affichée dans toute l'application."
               : "This updates your super admin profile and the entity shown across the application."}
           </DialogDescription>
         </DialogHeader>
@@ -303,14 +303,14 @@ export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
                     <p className="mt-2 text-xs text-muted-foreground">
                       {entity.code === pendingEntityCode && isSwitchingEntity
                         ? locale === "fr"
-                          ? "Mise a jour en cours..."
+                          ? "Mise à jour en cours..."
                           : "Updating entity..."
                         : entity.code === activeEntityCode
                           ? locale === "fr"
-                            ? "Entite actuellement active."
+                            ? "Entité actuellement active."
                             : "Currently active."
                           : locale === "fr"
-                            ? "Cliquer pour utiliser cette entite."
+                            ? "Cliquer pour utiliser cette entité."
                             : "Click to use this entity."}
                     </p>
                   </div>

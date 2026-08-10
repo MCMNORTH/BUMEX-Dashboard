@@ -312,6 +312,7 @@ export type FinanceOverview = {
   totalOverdue: number;
   totalOutgoingThisMonth: number;
   pendingInvoices: number;
+  pendingInvoiceAmount: number;
   confirmedTransfers: number;
   revenueSummary: number;
   expectedPayments: number;

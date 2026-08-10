@@ -4,8 +4,11 @@ import { useState } from "react";
 import { Printer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/layout/i18n-provider";
 
 export function PrintButton() {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   const [printing, setPrinting] = useState(false);
 
   return (
@@ -22,7 +25,7 @@ export function PrintButton() {
       }}
     >
       <Printer className="mr-2 size-4" />
-      {printing ? "Opening print…" : "Export PDF"}
+      {printing ? (isFr ? "Ouverture de l’impression…" : "Opening print…") : (isFr ? "Exporter en PDF" : "Export PDF")}
     </Button>
   );
 }

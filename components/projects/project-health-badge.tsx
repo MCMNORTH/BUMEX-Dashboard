@@ -1,6 +1,9 @@
+"use client";
+
 import { Activity, ShieldAlert, ShieldCheck } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { ProjectHealth } from "@/types/project";
 
 const config = {
@@ -30,6 +33,7 @@ const config = {
 >;
 
 export function ProjectHealthBadge({ health }: { health: ProjectHealth }) {
+  const { locale } = useI18n();
   const Icon = config[health].icon;
 
   return (
@@ -38,7 +42,7 @@ export function ProjectHealthBadge({ health }: { health: ProjectHealth }) {
       className={`rounded-full px-3 py-1 text-[11px] tracking-[0.16em] uppercase ${config[health].className}`}
     >
       <Icon className="mr-1 size-3.5" />
-      {config[health].label}
+      {locale === "fr" ? ({ healthy: "Bon", warning: "Vigilance", at_risk: "À risque", delayed: "En retard" } as const)[health] : config[health].label}
     </Badge>
   );
 }

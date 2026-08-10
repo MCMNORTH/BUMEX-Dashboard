@@ -6,10 +6,12 @@ import { MilestoneStatusBadge } from "@/components/roadmap/milestone-status-badg
 import { ProjectHealthBadge } from "@/components/projects/project-health-badge";
 import { TicketPriorityBadge } from "@/components/tickets/ticket-priority-badge";
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { CalendarEvent } from "@/types/calendar";
 
-function getTypeLabel(type: CalendarEvent["type"]) {
-  return type.replaceAll("_", " ");
+function getTypeLabel(type: CalendarEvent["type"], isFr: boolean) {
+  if (!isFr) return type.replaceAll("_", " ");
+  return ({ project_deadline: "Échéance projet", milestone: "Jalon", ticket_due: "Échéance ticket", contract_renewal: "Renouvellement contrat", invoice_due: "Échéance facture", payment_due: "Échéance paiement" } as Record<string, string>)[type] ?? type.replaceAll("_", " ");
 }
 
 export function CalendarEventCard({
@@ -21,6 +23,7 @@ export function CalendarEventCard({
   onSelect: (event: CalendarEvent) => void;
   compact?: boolean;
 }) {
+  const { locale } = useI18n();
   return (
     <button
       type="button"
@@ -44,7 +47,7 @@ export function CalendarEventCard({
           </div>
         </div>
         <Badge variant="secondary" className="rounded-full px-2.5 py-1 text-[10px] uppercase">
-          {getTypeLabel(event.type)}
+          {getTypeLabel(event.type, locale === "fr")}
         </Badge>
       </div>
 
@@ -72,4 +75,3 @@ export function CalendarEventCard({
     </button>
   );
 }
-

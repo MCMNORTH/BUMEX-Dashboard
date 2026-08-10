@@ -8,6 +8,7 @@ import {
   updateDocumentAction,
   type DocumentActionState,
 } from "@/app/(app)/documents/actions";
+import { useI18n } from "@/components/layout/i18n-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,6 +36,8 @@ export function DocumentUploadForm({
   defaults?: Partial<DocumentFormValues> & { document_id?: string };
   triggerLabel?: string;
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   const [state, formAction] = useActionState(
     mode === "create" ? createDocumentAction : updateDocumentAction,
     initialState,
@@ -46,20 +49,20 @@ export function DocumentUploadForm({
         {mode === "create" ? (
           <Button className="rounded-full px-5">
             <CloudUpload className="size-4" />
-            {triggerLabel ?? "Upload document"}
+            {triggerLabel ?? (isFr ? "Importer un document" : "Upload document")}
           </Button>
         ) : (
           <Button variant="secondary" className="rounded-full px-5">
             <SquarePen className="size-4" />
-            {triggerLabel ?? "Edit metadata"}
+            {triggerLabel ?? (isFr ? "Modifier les métadonnées" : "Edit metadata")}
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{mode === "create" ? "Upload document" : "Edit document"}</DialogTitle>
+          <DialogTitle>{mode === "create" ? (isFr ? "Importer un document" : "Upload document") : (isFr ? "Modifier le document" : "Edit document")}</DialogTitle>
           <DialogDescription>
-            Register controlled records with visibility, linked business scope, and archive-ready metadata.
+            {isFr ? "Enregistrez des documents contrôlés avec visibilité, périmètre métier lié et métadonnées prêtes pour l'archive." : "Register controlled records with visibility, linked business scope, and archive-ready metadata."}
           </DialogDescription>
         </DialogHeader>
 
@@ -70,7 +73,7 @@ export function DocumentUploadForm({
 
           <div className="space-y-2 sm:col-span-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-title`}>
-              Title
+              {isFr ? "Titre" : "Title"}
             </label>
             <Input id={`${mode}-title`} name="title" defaultValue={defaults?.title ?? ""} required />
           </div>
@@ -78,87 +81,87 @@ export function DocumentUploadForm({
           {mode === "create" ? (
             <div className="space-y-2 sm:col-span-2">
               <label className="text-sm font-medium" htmlFor={`${mode}-file`}>
-                File
+                {isFr ? "Fichier" : "File"}
               </label>
               <Input id={`${mode}-file`} name="file" type="file" required />
               <p className="text-xs text-muted-foreground">
-                Files are limited to 10 MB and stored in the protected documents bucket.
+                {isFr ? "Les fichiers sont limités à 10 Mo et stockés dans l'espace protégé des documents." : "Files are limited to 10 MB and stored in the protected documents bucket."}
               </p>
             </div>
           ) : null}
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-document-type`}>
-              Document type
+              {isFr ? "Type de document" : "Document type"}
             </label>
             <ModernSelect
               id={`${mode}-document-type`}
               name="document_type"
               defaultValue={defaults?.document_type ?? "report"}
               options={[
-                { value: "contract", label: "Contract" },
-                { value: "invoice", label: "Invoice" },
-                { value: "receipt", label: "Receipt" },
-                { value: "bank_transfer", label: "Bank transfer" },
-                { value: "proposal", label: "Proposal" },
-                { value: "report", label: "Report" },
-                { value: "meeting_note", label: "Meeting note" },
-                { value: "technical_document", label: "Technical document" },
-                { value: "legal_document", label: "Legal document" },
-                { value: "other", label: "Other" },
+                { value: "contract", label: isFr ? "Contrat" : "Contract" },
+                { value: "invoice", label: isFr ? "Facture" : "Invoice" },
+                { value: "receipt", label: isFr ? "Reçu" : "Receipt" },
+                { value: "bank_transfer", label: isFr ? "Virement bancaire" : "Bank transfer" },
+                { value: "proposal", label: isFr ? "Proposition" : "Proposal" },
+                { value: "report", label: isFr ? "Rapport" : "Report" },
+                { value: "meeting_note", label: isFr ? "Note de réunion" : "Meeting note" },
+                { value: "technical_document", label: isFr ? "Document technique" : "Technical document" },
+                { value: "legal_document", label: isFr ? "Document juridique" : "Legal document" },
+                { value: "other", label: isFr ? "Autre" : "Other" },
               ]}
             />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-visibility`}>
-              Visibility
+              {isFr ? "Visibilité" : "Visibility"}
             </label>
             <ModernSelect
               id={`${mode}-visibility`}
               name="visibility"
               defaultValue={defaults?.visibility ?? "internal"}
               options={[
-                { value: "internal", label: "Internal" },
+                { value: "internal", label: isFr ? "Interne" : "Internal" },
                 { value: "management", label: "Management" },
-                { value: "shareholders", label: "Shareholders" },
-                { value: "restricted", label: "Restricted" },
+                { value: "shareholders", label: isFr ? "Actionnaires" : "Shareholders" },
+                { value: "restricted", label: isFr ? "Restreint" : "Restricted" },
               ]}
             />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-related-type`}>
-              Linked to
+              {isFr ? "Lié à" : "Linked to"}
             </label>
             <ModernSelect
               id={`${mode}-related-type`}
               name="related_type"
               defaultValue={defaults?.related_type ?? "archive"}
               options={[
-                { value: "archive", label: "General archive" },
+                { value: "archive", label: isFr ? "Archive générale" : "General archive" },
                 { value: "client", label: "Client" },
-                { value: "project", label: "Project" },
-                { value: "contract", label: "Contract" },
-                { value: "invoice", label: "Invoice" },
+                { value: "project", label: isFr ? "Projet" : "Project" },
+                { value: "contract", label: isFr ? "Contrat" : "Contract" },
+                { value: "invoice", label: isFr ? "Facture" : "Invoice" },
                 { value: "task", label: "Ticket" },
-                { value: "payment", label: "Payment" },
-                { value: "transfer", label: "Transfer" },
+                { value: "payment", label: isFr ? "Paiement" : "Payment" },
+                { value: "transfer", label: isFr ? "Transfert" : "Transfer" },
               ]}
             />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-related-id`}>
-              Linked record
+              {isFr ? "Enregistrement lié" : "Linked record"}
             </label>
             <ModernSelect
               id={`${mode}-related-id`}
               name="related_id"
               defaultValue={defaults?.related_id ?? ""}
-              placeholder="Archive / none"
+              placeholder={isFr ? "Archive / aucun" : "Archive / none"}
               options={[
-                { value: "", label: "Archive / none" },
+                { value: "", label: isFr ? "Archive / aucun" : "Archive / none" },
                 ...(defaults?.related_type === "payment" && defaults?.related_id
                   ? [{ value: defaults.related_id, label: `Payment: ${defaults.related_id}` }]
                   : []),
@@ -196,13 +199,13 @@ export function DocumentUploadForm({
               ]}
             />
             <p className="text-xs text-muted-foreground">
-              Match the linked record with the selected relation. Archive documents can stay unlinked.
+              {isFr ? "Faites correspondre l'enregistrement lié avec la relation sélectionnée. Les archives peuvent rester sans lien." : "Match the linked record with the selected relation. Archive documents can stay unlinked."}
             </p>
           </div>
 
           <div className="space-y-2 sm:col-span-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-description`}>
-              Description
+              {isFr ? "Description" : "Description"}
             </label>
             <Textarea id={`${mode}-description`} name="description" defaultValue={defaults?.description ?? ""} />
           </div>
@@ -215,7 +218,7 @@ export function DocumentUploadForm({
 
           <div className="sm:col-span-2 flex justify-end">
             <Button type="submit" className="rounded-2xl px-5">
-              {mode === "create" ? "Upload document" : "Save metadata"}
+              {mode === "create" ? (isFr ? "Importer le document" : "Upload document") : (isFr ? "Enregistrer les métadonnées" : "Save metadata")}
             </Button>
           </div>
         </form>

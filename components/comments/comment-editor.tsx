@@ -7,18 +7,19 @@ import { Bold, List, MessageSquarePlus } from "lucide-react";
 
 import { createCommentAction, updateCommentAction } from "@/app/(app)/comments/actions";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { AppRole } from "@/types/auth";
 import type { CommentActionState, CommentEntityType, CommentRecord } from "@/types/comment";
 import type { MentionCandidate } from "@/types/notification";
 
 const initialState: CommentActionState = {};
 
-function SubmitButton({ mode }: { mode: "create" | "edit" }) {
+function SubmitButton({ mode, isFr }: { mode: "create" | "edit"; isFr: boolean }) {
   const { pending } = useFormStatus();
 
   return (
     <Button type="submit" className="rounded-2xl px-5" disabled={pending}>
-      {pending ? "Saving..." : mode === "create" ? "Add comment" : "Save changes"}
+      {pending ? (isFr ? "Enregistrement..." : "Saving...") : mode === "create" ? (isFr ? "Ajouter un commentaire" : "Add comment") : (isFr ? "Enregistrer" : "Save changes")}
     </Button>
   );
 }
@@ -59,6 +60,8 @@ export function CommentEditor({
   onCancel?: () => void;
   onSuccess?: () => void;
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   const router = useRouter();
   const formRef = useRef<HTMLFormElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -122,15 +125,15 @@ export function CommentEditor({
       <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
         <div className="flex items-center gap-1 rounded-full border border-border/65 bg-background/45 px-3 py-1">
           <Bold className="size-3.5" />
-          Formatting placeholder
+          {isFr ? "Mise en forme à venir" : "Formatting placeholder"}
         </div>
         <div className="flex items-center gap-1 rounded-full border border-border/65 bg-background/45 px-3 py-1">
           <List className="size-3.5" />
-          Bullet lists soon
+          {isFr ? "Listes à puces bientôt" : "Bullet lists soon"}
         </div>
         <div className="flex items-center gap-1 rounded-full border border-border/65 bg-background/45 px-3 py-1">
           <MessageSquarePlus className="size-3.5" />
-          Mentions enabled
+          {isFr ? "Mentions activées" : "Mentions enabled"}
         </div>
       </div>
 
@@ -139,7 +142,7 @@ export function CommentEditor({
         name="body"
         value={body}
         rows={mode === "create" ? 4 : 3}
-        placeholder="Write a clear internal note, blocker, handoff, or context update"
+        placeholder={isFr ? "Écrivez une note interne, un blocage, une passation ou une mise à jour de contexte" : "Write a clear internal note, blocker, handoff, or context update"}
         className="min-h-[120px] w-full rounded-2xl border border-input bg-background/70 px-4 py-3 text-sm outline-none focus-visible:ring-4 focus-visible:ring-ring/55"
         onChange={(event) => {
           setBody(event.target.value);
@@ -152,7 +155,7 @@ export function CommentEditor({
       {mentionState && filteredCandidates.length ? (
         <div className="rounded-2xl border border-border/65 bg-background/55 p-2">
           <p className="px-2 py-1 text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-            Mention people
+            {isFr ? "Mentionner des personnes" : "Mention people"}
           </p>
           <div className="mt-1 grid gap-1">
             {filteredCandidates.map((candidate) => (
@@ -174,7 +177,7 @@ export function CommentEditor({
         {canMarkInternal && mode === "create" ? (
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
             <input type="checkbox" name="is_internal" defaultChecked className="rounded border-input" />
-            Internal comment
+            {isFr ? "Commentaire interne" : "Internal comment"}
           </label>
         ) : (
           <input type="hidden" name="is_internal" value={comment?.is_internal ? "on" : ""} />
@@ -183,10 +186,10 @@ export function CommentEditor({
         <div className="flex gap-2">
           {mode === "edit" && onCancel ? (
             <Button type="button" variant="ghost" className="rounded-2xl px-5" onClick={onCancel}>
-              Cancel
+              {isFr ? "Annuler" : "Cancel"}
             </Button>
           ) : null}
-          <SubmitButton mode={mode} />
+          <SubmitButton mode={mode} isFr={isFr} />
         </div>
       </div>
 

@@ -1,8 +1,11 @@
+"use client";
+
 import { AlertTriangle } from "lucide-react";
 
 import { PaymentDetailDrawer } from "@/components/payments/payment-detail-drawer";
 import { PaymentStatusBadge } from "@/components/payments/payment-status-badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { useI18n } from "@/components/layout/i18n-provider";
 import { formatFinanceCurrency } from "@/lib/finance/helpers";
 import { formatDate } from "@/lib/projects/helpers";
 import type { AppRole } from "@/types/auth";
@@ -23,13 +26,15 @@ export function OverduePaymentAlert({
   currentUserId: string;
   mentionCandidates: MentionCandidate[];
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   return (
     <Card className="border-rose-500/18 bg-card/72 backdrop-blur-xl">
       <CardContent className="space-y-4 px-5 py-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Overdue payments</p>
-            <h3 className="mt-2 text-lg font-semibold tracking-tight">Collections needing attention</h3>
+            <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Encaissements en retard" : "Overdue payments"}</p>
+            <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Encaissements à surveiller" : "Collections needing attention"}</h3>
           </div>
           <div className="mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-500/12">
             <AlertTriangle className="size-5 text-rose-400" />
@@ -53,7 +58,7 @@ export function OverduePaymentAlert({
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-medium">{payment.client?.name ?? payment.reference ?? "Payment"}</p>
+                        <p className="text-sm font-medium">{payment.client?.name ?? payment.reference ?? (isFr ? "Encaissement" : "Payment")}</p>
                         <p className="mt-1 text-xs text-muted-foreground">
                           Due {formatDate(payment.due_date)} {payment.project ? `• ${payment.project.name}` : ""}
                         </p>
@@ -70,7 +75,7 @@ export function OverduePaymentAlert({
           </div>
         ) : (
           <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-            No overdue payments are currently visible in your finance scope.
+            {isFr ? "Aucun encaissement en retard n’est actuellement visible dans votre périmètre financier." : "No overdue payments are currently visible in your finance scope."}
           </div>
         )}
       </CardContent>

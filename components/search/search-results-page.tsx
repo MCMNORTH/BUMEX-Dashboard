@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Search } from "lucide-react";
 
+import { useI18n } from "@/components/layout/i18n-provider";
 import { EmptyState } from "@/components/layout/empty-state";
 import { SectionCard } from "@/components/layout/section-card";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,8 @@ export function SearchResultsPage({
   initialQuery: string;
   results: GlobalSearchResult[];
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   const router = useRouter();
   const [category, setCategory] = useState<CategoryKey>("all");
   const [draftQuery, setDraftQuery] = useState(initialQuery);
@@ -104,9 +107,9 @@ export function SearchResultsPage({
   return (
     <div className="space-y-6">
       <SectionCard
-        eyebrow="Search controls"
-        title="Search across your visible workspace"
-        description="Jump between projects, delivery work, clients, documents, finance summaries, and people from one controlled search surface."
+        eyebrow={isFr ? "Contrôles de recherche" : "Search controls"}
+        title={isFr ? "Recherchez dans votre espace visible" : "Search across your visible workspace"}
+        description={isFr ? "Naviguez entre projets, travail delivery, clients, documents, finance et équipes depuis une seule surface de recherche." : "Jump between projects, delivery work, clients, documents, finance summaries, and people from one controlled search surface."}
         contentClassName="space-y-4 px-5 py-5"
       >
         <form
@@ -124,13 +127,13 @@ export function SearchResultsPage({
               name="q"
               value={draftQuery}
               onChange={(event) => setDraftQuery(event.target.value)}
-              placeholder="Search across the workspace"
+              placeholder={isFr ? "Rechercher dans l'espace de travail" : "Search across the workspace"}
               className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-              aria-label="Search query"
+              aria-label={isFr ? "Requête de recherche" : "Search query"}
             />
           </div>
           <Button type="submit" className="h-12 rounded-2xl px-5">
-            Search
+            {isFr ? "Rechercher" : "Search"}
           </Button>
         </form>
 
@@ -155,22 +158,26 @@ export function SearchResultsPage({
 
       {!initialQuery ? (
         <SearchStateEmpty
-          title="Start with a query"
-          description="Search projects, tickets, clients, contracts, documents, finance records, and team members from one place."
+          title={isFr ? "Commencez par une recherche" : "Start with a query"}
+          description={isFr ? "Recherchez projets, tickets, clients, contrats, documents, finance et membres d'équipe depuis un seul endroit." : "Search projects, tickets, clients, contracts, documents, finance records, and team members from one place."}
+          locale={locale}
         />
       ) : visibleResults.length === 0 ? (
         <SearchStateEmpty
-          title="No results found"
-          description="Try another keyword or switch back to All to widen the current result scope."
+          title={isFr ? "Aucun résultat trouvé" : "No results found"}
+          description={isFr ? "Essayez un autre mot-clé ou revenez à Tout pour élargir le périmètre actuel." : "Try another keyword or switch back to All to widen the current result scope."}
+          locale={locale}
         />
       ) : (
         <div className="space-y-6">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
-              {visibleResults.length} result{visibleResults.length === 1 ? "" : "s"} in {categoryConfig[category].label.toLowerCase()}
+              {isFr
+                ? `${visibleResults.length} résultat${visibleResults.length === 1 ? "" : "s"} dans ${categoryConfig[category].label.toLowerCase()}`
+                : `${visibleResults.length} result${visibleResults.length === 1 ? "" : "s"} in ${categoryConfig[category].label.toLowerCase()}`}
             </p>
             <Badge variant="secondary" className="rounded-full px-3 py-1">
-              {results.length} total
+              {results.length} {isFr ? "au total" : "total"}
             </Badge>
           </div>
 
@@ -203,7 +210,7 @@ export function SearchResultsPage({
                           ) : null}
                           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                             {result.relatedLabel ? <span>{result.relatedLabel}</span> : null}
-                            {result.updatedAt ? <span>Updated {formatDate(result.updatedAt)}</span> : null}
+                            {result.updatedAt ? <span>{isFr ? "Mis à jour" : "Updated"} {formatDate(result.updatedAt, locale)}</span> : null}
                           </div>
                         </div>
                         <ArrowRight className="mt-1 size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
@@ -223,15 +230,17 @@ export function SearchResultsPage({
 function SearchStateEmpty({
   title,
   description,
+  locale,
 }: {
   title: string;
   description: string;
+  locale: "en" | "fr";
 }) {
-  return <EmptyState title={title} description={description} label="Search workspace" icon={Search} />;
+  return <EmptyState title={title} description={description} label={locale === "fr" ? "Rechercher" : "Search workspace"} icon={Search} />;
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
+function formatDate(value: string, locale: "en" | "fr") {
+  return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",

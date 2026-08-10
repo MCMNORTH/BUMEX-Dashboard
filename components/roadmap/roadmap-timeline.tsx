@@ -31,6 +31,7 @@ export function RoadmapTimeline({
   summaryMode,
   returnTo,
   view,
+  isFr = false,
 }: {
   projects: RoadmapProjectRecord[];
   periods: RoadmapPeriod[];
@@ -39,6 +40,7 @@ export function RoadmapTimeline({
   summaryMode: boolean;
   returnTo: string;
   view: RoadmapView;
+  isFr?: boolean;
 }) {
   const groups = groupProjects(projects, view);
 
@@ -46,10 +48,10 @@ export function RoadmapTimeline({
     <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
       <CardHeader className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Roadmap timeline</p>
-          <CardTitle className="mt-2 text-2xl tracking-[-0.04em]">Project horizon and milestone flow</CardTitle>
+          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Chronologie de la roadmap" : "Roadmap timeline"}</p>
+          <CardTitle className="mt-2 text-2xl tracking-[-0.04em]">{isFr ? "Horizon des projets et suivi des jalons" : "Project horizon and milestone flow"}</CardTitle>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-            Delivery lanes surface project duration, checkpoint timing, and health signals in a single executive planning view.
+            {isFr ? "Visualisez la durée des projets, les jalons et les indicateurs de santé dans une seule vue de pilotage." : "Delivery lanes surface project duration, checkpoint timing, and health signals in a single executive planning view."}
           </p>
         </div>
         {canManage ? <MilestoneForm mode="create" filterData={filterData} returnTo={returnTo} /> : null}
@@ -86,15 +88,16 @@ export function RoadmapTimeline({
                       canManage={canManage}
                       returnTo={returnTo}
                       summaryMode={summaryMode}
+                      isFr={isFr}
                     />
                   ))}
                 </div>
               ))
             ) : (
               <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center">
-                <p className="text-base font-medium">No roadmap items match the current filters.</p>
+                <p className="text-base font-medium">{isFr ? "Aucun élément de roadmap ne correspond aux filtres actuels." : "No roadmap items match the current filters."}</p>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Adjust the view or filters to surface projects and milestones in this planning horizon.
+                  {isFr ? "Modifiez la vue ou les filtres pour afficher les projets et jalons de cet horizon." : "Adjust the view or filters to surface projects and milestones in this planning horizon."}
                 </p>
               </div>
             )}

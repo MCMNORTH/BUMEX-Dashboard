@@ -346,9 +346,7 @@ export async function getOverviewDashboardData(
     isInRange(ticket.updated_at, previousMonthStart, currentMonthStart),
   ).length;
 
-  const pendingAmount = finance
-    ? finance.expectedPayments + finance.overduePayments
-    : 0;
+  const pendingAmount = finance?.pendingInvoiceAmount ?? 0;
   const pendingInvoiceCount = finance?.pendingInvoices ?? 0;
   const highestWorkload = workload
     .slice()

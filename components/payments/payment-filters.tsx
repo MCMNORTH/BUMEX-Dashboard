@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { Search } from "lucide-react";
 
+import { useI18n } from "@/components/layout/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
@@ -13,13 +16,16 @@ export function PaymentFilters({
   filters: FinanceFilters;
   filterData: PaymentFiltersData;
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
+
   return (
     <form className="grid gap-3 rounded-[28px] border border-border/70 bg-card/72 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl xl:grid-cols-[1.15fr_repeat(5,minmax(0,1fr))_auto]">
       <div className="relative">
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           name="search"
-          placeholder="Search by reference or notes"
+          placeholder={isFr ? "Rechercher par référence ou notes" : "Search by reference or notes"}
           defaultValue={filters.search ?? ""}
           className="pl-11"
         />
@@ -28,9 +34,9 @@ export function PaymentFilters({
       <ModernSelect
         name="client"
         defaultValue={filters.clientId ?? ""}
-        placeholder="All clients"
+        placeholder={isFr ? "Tous les clients" : "All clients"}
         options={[
-          { value: "", label: "All clients" },
+          { value: "", label: isFr ? "Tous les clients" : "All clients" },
           ...filterData.clients.map((client) => ({ value: client.id, label: client.name })),
         ]}
       />
@@ -38,9 +44,9 @@ export function PaymentFilters({
       <ModernSelect
         name="project"
         defaultValue={filters.projectId ?? ""}
-        placeholder="All projects"
+        placeholder={isFr ? "Tous les projets" : "All projects"}
         options={[
-          { value: "", label: "All projects" },
+          { value: "", label: isFr ? "Tous les projets" : "All projects" },
           ...filterData.projects.map((project) => ({ value: project.id, label: project.name })),
         ]}
       />
@@ -48,9 +54,9 @@ export function PaymentFilters({
       <ModernSelect
         name="contract"
         defaultValue={filters.contractId ?? ""}
-        placeholder="All contracts"
+        placeholder={isFr ? "Tous les contrats" : "All contracts"}
         options={[
-          { value: "", label: "All contracts" },
+          { value: "", label: isFr ? "Tous les contrats" : "All contracts" },
           ...filterData.contracts.map((contract) => ({ value: contract.id, label: contract.title })),
         ]}
       />
@@ -58,29 +64,29 @@ export function PaymentFilters({
       <ModernSelect
         name="status"
         defaultValue={filters.status ?? ""}
-        placeholder="All statuses"
+        placeholder={isFr ? "Tous les statuts" : "All statuses"}
         options={[
-          { value: "", label: "All statuses" },
-          { value: "expected", label: "Expected" },
-          { value: "received", label: "Received" },
-          { value: "late", label: "Late" },
-          { value: "cancelled", label: "Cancelled" },
-          { value: "reconciled", label: "Reconciled" },
+          { value: "", label: isFr ? "Tous les statuts" : "All statuses" },
+          { value: "expected", label: isFr ? "Attendu" : "Expected" },
+          { value: "received", label: isFr ? "Reçu" : "Received" },
+          { value: "late", label: isFr ? "En retard" : "Late" },
+          { value: "cancelled", label: isFr ? "Annulé" : "Cancelled" },
+          { value: "reconciled", label: isFr ? "Rapproché" : "Reconciled" },
         ]}
       />
 
       <ModernSelect
         name="method"
         defaultValue={filters.method ?? ""}
-        placeholder="All methods"
+        placeholder={isFr ? "Toutes les méthodes" : "All methods"}
         options={[
-          { value: "", label: "All methods" },
-          { value: "bank_transfer", label: "Bank transfer" },
-          { value: "card", label: "Card" },
-          { value: "cash", label: "Cash" },
-          { value: "check", label: "Check" },
+          { value: "", label: isFr ? "Toutes les méthodes" : "All methods" },
+          { value: "bank_transfer", label: isFr ? "Virement bancaire" : "Bank transfer" },
+          { value: "card", label: isFr ? "Carte" : "Card" },
+          { value: "cash", label: isFr ? "Espèces" : "Cash" },
+          { value: "check", label: isFr ? "Chèque" : "Check" },
           { value: "mobile_money", label: "Mobile money" },
-          { value: "other", label: "Other" },
+          { value: "other", label: isFr ? "Autre" : "Other" },
         ]}
       />
 
@@ -88,17 +94,17 @@ export function PaymentFilters({
         name="due"
         defaultValue={filters.dueWindow ?? "all"}
         options={[
-          { value: "all", label: "Any due date" },
-          { value: "overdue", label: "Overdue" },
-          { value: "next_7_days", label: "Next 7 days" },
-          { value: "next_30_days", label: "Next 30 days" },
+          { value: "all", label: isFr ? "Toute échéance" : "Any due date" },
+          { value: "overdue", label: isFr ? "En retard" : "Overdue" },
+          { value: "next_7_days", label: isFr ? "7 prochains jours" : "Next 7 days" },
+          { value: "next_30_days", label: isFr ? "30 prochains jours" : "Next 30 days" },
         ]}
       />
 
       <div className="flex gap-2">
-        <Button type="submit" className="rounded-2xl px-5">Apply</Button>
+        <Button type="submit" className="rounded-2xl px-5">{isFr ? "Appliquer" : "Apply"}</Button>
         <Button asChild variant="secondary" className="rounded-2xl px-5">
-          <Link href="/finance/payments">Reset</Link>
+          <Link href="/finance/payments">{isFr ? "Réinitialiser" : "Reset"}</Link>
         </Button>
       </div>
     </form>

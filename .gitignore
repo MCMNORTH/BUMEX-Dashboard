@@ -54,3 +54,5 @@ tmp/
 *.docx
 ~$*.docx
 scripts/__pycache__/
+
+.vercel

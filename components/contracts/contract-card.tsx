@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, CalendarClock, FileText, Landmark } from "lucide-react";
 
@@ -5,9 +7,12 @@ import { ContractStatusBadge } from "@/components/contracts/contract-status-badg
 import { ContractTypeBadge } from "@/components/contracts/contract-type-badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency, formatDate } from "@/lib/projects/helpers";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { ContractRecord } from "@/types/contract";
 
 export function ContractCard({ contract }: { contract: ContractRecord }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   return (
     <Link href={`/contracts/${contract.id}`} className="block">
       <Card className="surface-highlight group overflow-hidden rounded-[30px] border-border/70 bg-white/96 shadow-[0_24px_64px_-46px_rgba(37,99,235,0.24)] transition-all duration-300 hover:-translate-y-1 hover:border-sky-200/80 hover:shadow-[0_30px_72px_-48px_rgba(37,99,235,0.3)] dark:bg-[#161b26] dark:shadow-none dark:hover:border-sky-400/20">
@@ -23,7 +28,7 @@ export function ContractCard({ contract }: { contract: ContractRecord }) {
                   {contract.title}
                 </h3>
                 <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                  {contract.contract_number ?? contract.payment_terms ?? "Structured commercial agreement linked to delivery operations."}
+                  {contract.contract_number ?? contract.payment_terms ?? (isFr ? "Accord commercial structuré lié aux opérations de livraison." : "Structured commercial agreement linked to delivery operations.")}
                 </p>
               </div>
             </div>
@@ -33,10 +38,10 @@ export function ContractCard({ contract }: { contract: ContractRecord }) {
           </div>
 
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,0.78fr))]">
-            <InsightPanel label="Client" value={contract.client?.name ?? "Not linked"} tone="sky" />
-            <InsightPanel label="Value" value={formatCurrency(contract.amount)} tone="indigo" />
-            <InsightPanel label="Renewal" value={formatDate(contract.renewal_date)} tone="amber" />
-            <InsightPanel label="Owner" value={contract.responsibleUser?.full_name ?? "Unassigned"} tone="slate" />
+            <InsightPanel label={isFr ? "Client" : "Client"} value={contract.client?.name ?? (isFr ? "Non lié" : "Not linked")} tone="sky" />
+            <InsightPanel label={isFr ? "Valeur" : "Value"} value={formatCurrency(contract.amount)} tone="indigo" />
+            <InsightPanel label={isFr ? "Renouvellement" : "Renewal"} value={formatDate(contract.renewal_date)} tone="amber" />
+            <InsightPanel label={isFr ? "Responsable" : "Owner"} value={contract.responsibleUser?.full_name ?? (isFr ? "Non assigné" : "Unassigned")} tone="slate" />
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border/60 pt-1 dark:border-white/10">
@@ -51,7 +56,7 @@ export function ContractCard({ contract }: { contract: ContractRecord }) {
               </span>
             </div>
             <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 transition-colors group-hover:text-[#244b86] dark:text-slate-200 dark:group-hover:text-sky-300">
-              View detail
+              {isFr ? "Voir le détail" : "View detail"}
               <span className="flex size-8 items-center justify-center rounded-full border border-border/70 bg-white/75 dark:border-white/10 dark:bg-white/5">
                 <ArrowRight className="size-4" />
               </span>

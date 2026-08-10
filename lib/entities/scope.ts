@@ -54,9 +54,7 @@ export function isEntityScopingEnabled() {
     return false;
   }
 
-  // Keep legacy production databases operational until the entity foundation
-  // migration is explicitly enabled in the environment.
-  return false && !isDevPreviewAuthEnabled();
+  return !isDevPreviewAuthEnabled();
 }
 
 export function applyEntityScope<TQuery>(

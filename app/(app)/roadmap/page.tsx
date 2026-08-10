@@ -11,6 +11,7 @@ import { ProjectHealthBadge } from "@/components/projects/project-health-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireRouteAccess } from "@/lib/auth/server";
+import { getCurrentLocale } from "@/lib/i18n/server";
 import { isManagerLikeRole } from "@/lib/auth/permissions";
 import { formatNumber } from "@/lib/formatters";
 import { formatRoadmapDate, getRoadmapRange, getRoadmapSummary, shiftRoadmapStart } from "@/lib/roadmap/helpers";
@@ -27,6 +28,7 @@ export default async function RoadmapPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const auth = await requireRouteAccess("roadmap");
+  const isFr = (await getCurrentLocale()) === "fr";
   const params = (await searchParams) ?? {};
   const view = (getString(params.view) as RoadmapView) || "month";
   const period = getString(params.period) ?? new Date().toISOString().slice(0, 10);
@@ -76,17 +78,17 @@ export default async function RoadmapPage({
           eyebrow="Roadmap"
           title={
             summaryMode
-              ? "High-level portfolio roadmap for governance and shareholder visibility."
-              : "An executive roadmap surface for future delivery phases, milestones, and timing risk."
+              ? (isFr ? "Une roadmap portefeuille pour la gouvernance et la visibilité des actionnaires." : "High-level portfolio roadmap for governance and shareholder visibility.")
+              : (isFr ? "Une roadmap de pilotage pour les phases à venir, les jalons et les risques de calendrier." : "An executive roadmap surface for future delivery phases, milestones, and timing risk.")
           }
           subtitle={
             summaryMode
-              ? "Summary mode surfaces project horizon, progress, and health without exposing internal milestone detail."
-              : "Track project lanes, milestone timing, and emerging delivery risk using the same connected project and ticket data that powers execution."
+              ? (isFr ? "Le mode synthèse affiche l’horizon, la progression et la santé des projets sans exposer les détails internes." : "Summary mode surfaces project horizon, progress, and health without exposing internal milestone detail.")
+              : (isFr ? "Suivez les projets, les jalons et les risques grâce aux données connectées des projets et tickets." : "Track project lanes, milestone timing, and emerging delivery risk using the same connected project and ticket data that powers execution.")
           }
         />
         <Badge variant="secondary" className="w-fit rounded-full px-3 py-1">
-          {summaryMode ? "High-level view" : "Connected to projects and tickets"}
+          {summaryMode ? (isFr ? "Vue de synthèse" : "High-level view") : (isFr ? "Connecté aux projets et tickets" : "Connected to projects and tickets")}
         </Badge>
       </div>
 
@@ -96,9 +98,9 @@ export default async function RoadmapPage({
             <ChevronLeft className="size-4" />
           </Link>
           <div>
-            <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Visible horizon</p>
+            <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Horizon visible" : "Visible horizon"}</p>
             <p className="mt-1 text-lg font-semibold tracking-[-0.03em]">
-              {periods[0].label} to {periods.at(-1)?.label}
+              {periods[0].label} {isFr ? "à" : "to"} {periods.at(-1)?.label}
             </p>
           </div>
           <Link href={nextHref} className="flex size-11 items-center justify-center rounded-2xl border border-border/65 bg-background/45 transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:text-white">
@@ -107,7 +109,7 @@ export default async function RoadmapPage({
         </div>
 
         <Link href={todayHref} className="inline-flex h-11 items-center justify-center rounded-2xl border border-primary/30 bg-primary/12 px-4 text-sm font-medium text-primary transition-all hover:border-primary/40 hover:bg-primary/18">
-          Today
+          {isFr ? "Aujourd’hui" : "Today"}
         </Link>
       </div>
 
@@ -117,27 +119,27 @@ export default async function RoadmapPage({
         {[
           {
             icon: FolderKanban,
-            label: "Visible projects",
+            label: isFr ? "Projets visibles" : "Visible projects",
             value: formatNumber(summary.visibleProjects),
-            detail: "Projects inside the current roadmap scope",
+            detail: isFr ? "Projets inclus dans le périmètre de la roadmap" : "Projects inside the current roadmap scope",
           },
           {
             icon: Flag,
-            label: "Open milestones",
+            label: isFr ? "Jalons ouverts" : "Open milestones",
             value: formatNumber(summary.openMilestones),
-            detail: "Planned and in-flight checkpoints",
+            detail: isFr ? "Points de contrôle planifiés ou en cours" : "Planned and in-flight checkpoints",
           },
           {
             icon: AlertTriangle,
-            label: "Delayed milestones",
+            label: isFr ? "Jalons en retard" : "Delayed milestones",
             value: formatNumber(summary.delayedMilestones),
-            detail: "Delivery points already marked as delayed",
+            detail: isFr ? "Jalons déjà signalés en retard" : "Delivery points already marked as delayed",
           },
           {
             icon: CalendarRange,
-            label: "Completed",
+            label: isFr ? "Terminés" : "Completed",
             value: formatNumber(summary.completedMilestones),
-            detail: "Milestones already delivered in scope",
+            detail: isFr ? "Jalons déjà livrés dans le périmètre" : "Milestones already delivered in scope",
           },
         ].map(({ icon: Icon, label, value, detail }) => (
           <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
@@ -165,14 +167,15 @@ export default async function RoadmapPage({
         summaryMode={summaryMode}
         returnTo={returnTo}
         view={view}
+        isFr={isFr}
       />
 
       <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
         <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
           <CardContent className="space-y-4 px-5 py-5">
             <div>
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Upcoming milestones</p>
-              <h3 className="mt-2 text-lg font-semibold tracking-tight">Near-term checkpoints</h3>
+              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Jalons à venir" : "Upcoming milestones"}</p>
+              <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Points de contrôle proches" : "Near-term checkpoints"}</h3>
             </div>
             {visibleMilestones.length ? (
               visibleMilestones.slice(0, 6).map((milestone) => (
@@ -191,7 +194,7 @@ export default async function RoadmapPage({
               ))
             ) : (
               <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                No milestones are scheduled in the visible range.
+                {isFr ? "Aucun jalon n’est planifié dans la période affichée." : "No milestones are scheduled in the visible range."}
               </div>
             )}
           </CardContent>
@@ -200,8 +203,8 @@ export default async function RoadmapPage({
         <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
           <CardContent className="space-y-4 px-5 py-5">
             <div>
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Portfolio health</p>
-              <h3 className="mt-2 text-lg font-semibold tracking-tight">Priority programs in focus</h3>
+              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Santé du portefeuille" : "Portfolio health"}</p>
+              <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Programmes prioritaires" : "Priority programs in focus"}</h3>
             </div>
             {projects.length ? (
               projects
@@ -214,7 +217,7 @@ export default async function RoadmapPage({
                       <div>
                         <p className="text-sm font-medium">{project.name}</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {project.client?.name ?? "Internal"} / {project.nextMilestone ? `Next: ${project.nextMilestone.title}` : "No pending milestone"}
+                          {project.client?.name ?? (isFr ? "Interne" : "Internal")} / {project.nextMilestone ? `${isFr ? "Suivant :" : "Next:"} ${project.nextMilestone.title}` : (isFr ? "Aucun jalon en attente" : "No pending milestone")}
                         </p>
                       </div>
                       <ProjectHealthBadge health={project.health} />
@@ -223,7 +226,7 @@ export default async function RoadmapPage({
                 ))
             ) : (
               <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                No projects available in the selected roadmap scope.
+                {isFr ? "Aucun projet disponible dans le périmètre sélectionné." : "No projects available in the selected roadmap scope."}
               </div>
             )}
           </CardContent>
@@ -233,8 +236,8 @@ export default async function RoadmapPage({
       {!summaryMode ? (
         <ActivityFeed
           activities={milestoneActivity}
-          title="Milestone activity"
-          description="Creation, deadline, ownership, and completion changes across the visible roadmap."
+          title={isFr ? "Activité des jalons" : "Milestone activity"}
+          description={isFr ? "Créations, échéances, responsables et changements de statut dans la roadmap affichée." : "Creation, deadline, ownership, and completion changes across the visible roadmap."}
         />
       ) : null}
     </div>

@@ -21,16 +21,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
 import { Textarea } from "@/components/ui/textarea";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { RoadmapFilterData, MilestoneFormValues } from "@/types/milestone";
 
 const initialState: MilestoneActionState = {};
 
-function SubmitButton({ mode }: { mode: "create" | "edit" }) {
+function SubmitButton({ mode, isFr }: { mode: "create" | "edit"; isFr: boolean }) {
   const { pending } = useFormStatus();
 
   return (
     <Button type="submit" className="rounded-2xl px-5" disabled={pending}>
-      {pending ? "Saving..." : mode === "create" ? "Create milestone" : "Save changes"}
+      {pending ? (isFr ? "Enregistrement..." : "Saving...") : mode === "create" ? (isFr ? "Créer le jalon" : "Create milestone") : (isFr ? "Enregistrer" : "Save changes")}
     </Button>
   );
 }
@@ -48,6 +49,8 @@ export function MilestoneForm({
   returnTo: string;
   triggerLabel?: string;
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   const [state, formAction] = useActionState(
     mode === "create" ? createMilestoneAction : updateMilestoneAction,
     initialState,
@@ -59,21 +62,21 @@ export function MilestoneForm({
         {mode === "create" ? (
           <Button className="rounded-full px-5">
             <Plus className="size-4" />
-            {triggerLabel ?? "Create milestone"}
+            {triggerLabel ?? (isFr ? "Créer un jalon" : "Create milestone")}
           </Button>
         ) : (
           <Button variant="secondary" className="rounded-full px-4">
             <SquarePen className="size-4" />
-            {triggerLabel ?? "Edit"}
+            {triggerLabel ?? (isFr ? "Modifier" : "Edit")}
           </Button>
         )}
       </DialogTrigger>
 
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{mode === "create" ? "Create milestone" : "Edit milestone"}</DialogTitle>
+          <DialogTitle>{mode === "create" ? (isFr ? "Créer un jalon" : "Create milestone") : (isFr ? "Modifier le jalon" : "Edit milestone")}</DialogTitle>
           <DialogDescription>
-            Define a delivery checkpoint with clear timing, ownership, and roadmap visibility.
+            {isFr ? "Définissez un jalon avec son échéance, son responsable et sa visibilité dans la roadmap." : "Define a delivery checkpoint with clear timing, ownership, and roadmap visibility."}
           </DialogDescription>
         </DialogHeader>
 
@@ -170,7 +173,7 @@ export function MilestoneForm({
           ) : null}
 
           <div className="sm:col-span-2 flex justify-end">
-            <SubmitButton mode={mode} />
+            <SubmitButton mode={mode} isFr={isFr} />
           </div>
         </form>
       </DialogContent>

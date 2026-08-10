@@ -1,6 +1,7 @@
 "use client";
 
 import { QueryToast } from "@/components/ui/query-toast";
+import { useI18n } from "@/components/layout/i18n-provider";
 
 const toastMessages: Record<string, { title: string; description: string; tone: "success" | "error" }> = {
   "client-created": {
@@ -26,5 +27,12 @@ const toastMessages: Record<string, { title: string; description: string; tone: 
 } as const;
 
 export function ClientToast() {
-  return <QueryToast messages={toastMessages} />;
+  const { locale } = useI18n();
+  const messages = locale === "fr" ? {
+    "client-created": { title: "Client créé", description: "La fiche client a été ajoutée au portefeuille.", tone: "success" as const },
+    "client-updated": { title: "Client mis à jour", description: "Les modifications sont maintenant visibles dans l’espace de travail.", tone: "success" as const },
+    "client-archived": { title: "Client archivé", description: "Le client a été archivé avec succès.", tone: "success" as const },
+    "client-archive-error": { title: "Archivage impossible", description: "Ce client ne peut pas être archivé avec vos droits actuels.", tone: "error" as const },
+  } : toastMessages;
+  return <QueryToast messages={messages} />;
 }

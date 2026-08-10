@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireFinanceOperationsAccess } from "@/lib/auth/server";
+import { getCurrentLocale } from "@/lib/i18n/server";
 import { getCommentsForEntities } from "@/lib/comments/service";
 import { formatFinanceCurrency, getTransferEntityLabel } from "@/lib/finance/helpers";
 import { formatNumber } from "@/lib/formatters";
@@ -32,18 +33,18 @@ function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function getMonthBucket(dateValue: string) {
+function getMonthBucket(dateValue: string, locale: "fr" | "en") {
   const date = new Date(dateValue);
-  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-US", { month: "long", year: "numeric" }).format(date);
 }
 
-function buildStructuredTransferGroups(transfers: Awaited<ReturnType<typeof getTransfers>>) {
+function buildStructuredTransferGroups(transfers: Awaited<ReturnType<typeof getTransfers>>, locale: "fr" | "en") {
   const paidTransfers = transfers.filter((transfer) => transfer.status === "confirmed" || transfer.status === "sent");
   const groups = new Map<string, Map<string, typeof paidTransfers>>();
 
   for (const transfer of paidTransfers) {
     const entityKey = transfer.entity;
-    const monthKey = getMonthBucket(transfer.transfer_date);
+    const monthKey = getMonthBucket(transfer.transfer_date, locale);
     const entityGroup = groups.get(entityKey) ?? new Map<string, typeof paidTransfers>();
     const monthGroup = entityGroup.get(monthKey) ?? [];
     monthGroup.push(transfer);
@@ -69,6 +70,8 @@ export default async function FinanceTransfersPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const auth = await requireFinanceOperationsAccess();
+  const locale = await getCurrentLocale();
+  const isFr = locale === "fr";
   const params = (await searchParams) ?? {};
   const filters: TransferFiltersType = {
     search: getString(params.search) ?? "",
@@ -90,7 +93,7 @@ export default async function FinanceTransfersPage({
 
   const canManage = auth.role === "admin" || auth.role === "manager";
   const summary = getTransferSummary(transfers);
-  const structuredGroups = buildStructuredTransferGroups(transfers);
+  const structuredGroups = buildStructuredTransferGroups(transfers, locale);
   const entitySummary = ["bumex_it", "insec", "cnam_intec", "ltm_yh", "unassigned"].map((entity) => {
     const entityTransfers = transfers.filter((transfer) => transfer.entity === entity);
     return {
@@ -107,9 +110,9 @@ export default async function FinanceTransfersPage({
 
       <div className="flex flex-col gap-4">
         <PageHeader
-          eyebrow="Outgoing registry"
-          title="Track paid supplier invoices, outgoing commitments, and portfolio-level spending with a structured finance register."
-          subtitle="Organize every outgoing payment by entity, by financial category, and by date so paid bills remain easy to audit and review."
+          eyebrow={isFr ? "Registre des décaissements" : "Outgoing registry"}
+          title={isFr ? "Suivez les factures fournisseurs réglées, les engagements sortants et les dépenses dans un registre financier structuré." : "Track paid supplier invoices, outgoing commitments, and portfolio-level spending with a structured finance register."}
+          subtitle={isFr ? "Organisez chaque décaissement par entité, catégorie financière et date afin de faciliter le contrôle des dépenses." : "Organize every outgoing payment by entity, by financial category, and by date so paid bills remain easy to audit and review."}
         />
         {canManage ? (
           <div className="flex justify-end">
@@ -118,10 +121,10 @@ export default async function FinanceTransfersPage({
         ) : null}
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="secondary" className="rounded-full px-4">
-            <Link href="/finance/outgoing">Outgoing overview</Link>
+            <Link href="/finance/outgoing">{isFr ? "Vue des décaissements" : "Outgoing overview"}</Link>
           </Button>
           <Button asChild className="rounded-full px-4">
-            <Link href="/finance/transfers">Outgoing transfers</Link>
+            <Link href="/finance/transfers">{isFr ? "Décaissements" : "Outgoing transfers"}</Link>
           </Button>
         </div>
       </div>
@@ -130,36 +133,36 @@ export default async function FinanceTransfersPage({
         {[
           {
             icon: CircleDashed,
-            label: "Planned transfers",
+            label: isFr ? "Décaissements planifiés" : "Planned transfers",
             value: formatNumber(summary.plannedCount),
-            detail: "Scheduled but not released",
+            detail: isFr ? "Planifiés mais non exécutés" : "Scheduled but not released",
           },
           {
             icon: ArrowRightLeft,
-            label: "Pending transfers",
+            label: isFr ? "Décaissements en attente" : "Pending transfers",
             value: formatNumber(summary.pendingCount),
-            detail: "Awaiting execution confirmation",
+            detail: isFr ? "En attente de confirmation d’exécution" : "Awaiting execution confirmation",
           },
           {
             icon: CircleCheckBig,
-            label: "Confirmed transfers",
+            label: isFr ? "Décaissements confirmés" : "Confirmed transfers",
             value: formatNumber(summary.confirmedCount),
-            detail: "Confirmed outgoing movements",
+            detail: isFr ? "Mouvements sortants confirmés" : "Confirmed outgoing movements",
           },
           {
             icon: CircleX,
-            label: "Failed transfers",
+            label: isFr ? "Décaissements échoués" : "Failed transfers",
             value: formatNumber(summary.failedCount),
-            detail: "Execution issues needing review",
+            detail: isFr ? "Anomalies d’exécution à examiner" : "Execution issues needing review",
           },
           {
             icon: BanknoteArrowDown,
-            label: "Outgoing this month",
+            label: isFr ? "Décaissements ce mois-ci" : "Outgoing this month",
             value: formatFinanceCurrency(
               monthlyTransfers.reduce((sum, transfer) => sum + transfer.amount, 0),
               monthlyTransfers[0]?.currency ?? "USD",
             ),
-            detail: "Tracked outgoing amount this month",
+            detail: isFr ? "Montant des décaissements suivis ce mois-ci" : "Tracked outgoing amount this month",
           },
         ].map(({ icon: Icon, label, value, detail }) => (
           <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
@@ -188,7 +191,7 @@ export default async function FinanceTransfersPage({
               <TransferEntityBadge entity={item.entity as "bumex_it" | "insec" | "cnam_intec" | "ltm_yh" | "unassigned"} />
               <div>
                 <p className="mt-3 text-2xl font-semibold tracking-[-0.05em]">{formatFinanceCurrency(item.amount, transfers[0]?.currency ?? "USD")}</p>
-                <p className="mt-2 text-sm text-muted-foreground">{item.paidCount} paid item(s) • {item.count} total item(s)</p>
+                <p className="mt-2 text-sm text-muted-foreground">{isFr ? `${item.paidCount} élément${item.paidCount === 1 ? " réglé" : "s réglés"} • ${item.count} élément${item.count === 1 ? " au total" : "s au total"}` : `${item.paidCount} paid item(s) • ${item.count} total item(s)`}</p>
               </div>
             </CardContent>
           </Card>
@@ -198,10 +201,10 @@ export default async function FinanceTransfersPage({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">Structured paid register</p>
-            <h2 className="mt-2 text-xl font-semibold tracking-tight">Paid items grouped by entity and month</h2>
+            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">{isFr ? "Registre des règlements" : "Structured paid register"}</p>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Éléments réglés par entité et par mois" : "Paid items grouped by entity and month"}</h2>
           </div>
-          <Badge variant="secondary" className="rounded-full px-3 py-1">{formatNumber(structuredGroups.reduce((sum, group) => sum + group.count, 0))} paid results</Badge>
+          <Badge variant="secondary" className="rounded-full px-3 py-1">{formatNumber(structuredGroups.reduce((sum, group) => sum + group.count, 0))} {isFr ? "règlements" : "paid results"}</Badge>
         </div>
 
         {structuredGroups.length ? (
@@ -212,8 +215,8 @@ export default async function FinanceTransfersPage({
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                       <TransferEntityBadge entity={group.entity as "bumex_it" | "insec" | "cnam_intec" | "ltm_yh" | "unassigned"} />
-                      <h3 className="mt-3 text-xl font-semibold tracking-tight">{getTransferEntityLabel(group.entity)}</h3>
-                      <p className="mt-2 text-sm text-muted-foreground">{group.count} paid record(s) grouped in a date-first register.</p>
+                      <h3 className="mt-3 text-xl font-semibold tracking-tight">{getTransferEntityLabel(group.entity, locale)}</h3>
+                      <p className="mt-2 text-sm text-muted-foreground">{isFr ? `${group.count} règlement${group.count === 1 ? " regroupé" : "s regroupés"} dans un registre chronologique.` : `${group.count} paid record(s) grouped in a date-first register.`}</p>
                     </div>
                     <p className="text-xl font-semibold tracking-[-0.04em]">{formatFinanceCurrency(group.totalAmount, transfers[0]?.currency ?? "USD")}</p>
                   </div>
@@ -224,7 +227,7 @@ export default async function FinanceTransfersPage({
                         <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <p className="text-sm font-semibold">{monthGroup.month}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">{monthGroup.items.length} paid item(s)</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{isFr ? `${monthGroup.items.length} élément${monthGroup.items.length === 1 ? " réglé" : "s réglés"}` : `${monthGroup.items.length} paid item(s)`}</p>
                           </div>
                           <p className="text-sm font-semibold">{formatFinanceCurrency(monthGroup.totalAmount, monthGroup.items[0]?.currency ?? "USD")}</p>
                         </div>
@@ -236,7 +239,7 @@ export default async function FinanceTransfersPage({
                                 <div>
                                   <p className="text-sm font-semibold">{transfer.beneficiary_name}</p>
                                   <p className="mt-1 text-xs text-muted-foreground">{transfer.transfer_reference} • {formatDate(transfer.transfer_date)}</p>
-                                  <p className="mt-3 text-xs text-muted-foreground">{transfer.notes ?? "No note attached."}</p>
+                                  <p className="mt-3 text-xs text-muted-foreground">{transfer.notes ?? (isFr ? "Aucune note associée." : "No note attached.")}</p>
                                 </div>
                                 <div className="text-right">
                                   <div className="flex flex-wrap justify-end gap-2">
@@ -258,7 +261,7 @@ export default async function FinanceTransfersPage({
           </div>
         ) : (
           <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
-            No paid outgoing records are visible yet for the current filters.
+            {isFr ? "Aucun décaissement réglé n’est visible avec les filtres actuels." : "No paid outgoing records are visible yet for the current filters."}
           </div>
         )}
       </div>
@@ -266,10 +269,10 @@ export default async function FinanceTransfersPage({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">Outgoing ledger</p>
-            <h2 className="mt-2 text-xl font-semibold tracking-tight">Transfers list</h2>
+            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">{isFr ? "Registre des décaissements" : "Outgoing ledger"}</p>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Liste des décaissements" : "Transfers list"}</h2>
           </div>
-          <Badge variant="secondary" className="rounded-full px-3 py-1">{formatNumber(transfers.length)} results</Badge>
+          <Badge variant="secondary" className="rounded-full px-3 py-1">{formatNumber(transfers.length)} {isFr ? "résultats" : "results"}</Badge>
         </div>
 
         {transfers.length ? (
@@ -303,7 +306,7 @@ export default async function FinanceTransfersPage({
           </>
         ) : (
           <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
-            No transfers match the current filters.
+            {isFr ? "Aucun décaissement ne correspond aux filtres actuels." : "No transfers match the current filters."}
           </div>
         )}
       </div>

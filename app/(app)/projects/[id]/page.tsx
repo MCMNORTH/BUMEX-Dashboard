@@ -5,6 +5,7 @@ import { PlanningRiskPanel } from "@/components/alerts/planning-risk-panel";
 import { CommentsPanel } from "@/components/comments/comments-panel";
 import { NotesPanel } from "@/components/notes/notes-panel";
 import { requireRouteAccess } from "@/lib/auth/server";
+import { getCurrentLocale } from "@/lib/i18n/server";
 import { isManagerLikeRole } from "@/lib/auth/permissions";
 import { getProjectRisks } from "@/lib/alerts/service";
 import { getCommentsForEntity } from "@/lib/comments/service";
@@ -26,6 +27,8 @@ export default async function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const auth = await requireRouteAccess("projects");
+  const isFr = (await getCurrentLocale()) === "fr";
+  const tr = (fr: string, en: string) => isFr ? fr : en;
   const { id } = await params;
   const [project, filterData, comments, notes, mentionCandidates] = await Promise.all([
     getProjectById(id),
@@ -57,29 +60,29 @@ export default async function ProjectDetailPage({
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
           <CardHeader>
-            <CardTitle>Project overview</CardTitle>
+            <CardTitle>{tr("Vue d’ensemble du projet", "Project overview")}</CardTitle>
             <CardDescription>
-              Delivery intelligence based on ticket progress, operational pressure, and milestone timing.
+              {tr("Analyse de livraison fondée sur l’avancement des tickets, la pression opérationnelle et les jalons.", "Delivery intelligence based on ticket progress, operational pressure, and milestone timing.")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Progress</p>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{tr("Progression", "Progress")}</p>
                 <p className="mt-2 text-3xl font-semibold tracking-[-0.05em]">{project.progress}%</p>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {project.completedTasks} of {project.totalTasks} active tickets completed
+                  {isFr ? `${project.completedTasks} sur ${project.totalTasks} tickets actifs terminés` : `${project.completedTasks} of ${project.totalTasks} active tickets completed`}
                 </p>
               </div>
               <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Deadline</p>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{tr("Échéance", "Deadline")}</p>
                 <p className="mt-2 text-sm font-medium">{formatDate(project.end_date)}</p>
                 <p className="mt-2 text-xs text-muted-foreground">{project.deadlineState}</p>
               </div>
               <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Budget</p>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{tr("Budget", "Budget")}</p>
                 <p className="mt-2 text-sm font-medium">{formatCurrency(project.budget_amount)}</p>
-                <p className="mt-2 text-xs text-muted-foreground">Financial summary placeholder ready</p>
+                <p className="mt-2 text-xs text-muted-foreground">{tr("La synthèse financière sera disponible ici.", "Financial summary placeholder ready")}</p>
               </div>
             </div>
 
@@ -87,12 +90,12 @@ export default async function ProjectDetailPage({
               <ProjectStatusBadge status={project.status} />
               <ProjectHealthBadge health={project.health} />
               <Badge variant="secondary" className="rounded-full px-3 py-1">
-                {project.members.length} active members
+                {isFr ? `${project.members.length} membres actifs` : `${project.members.length} active members`}
               </Badge>
             </div>
 
             <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-              <p className="text-sm font-medium">Members</p>
+              <p className="text-sm font-medium">{tr("Membres", "Members")}</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {project.members.length ? (
                   project.members.map((member) => (
@@ -106,7 +109,7 @@ export default async function ProjectDetailPage({
                   ))
                 ) : (
                   <div className="sm:col-span-2 rounded-2xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                    No members are linked yet.
+                    {tr("Aucun membre n’est encore lié.", "No members are linked yet.")}
                   </div>
                 )}
               </div>
@@ -114,12 +117,12 @@ export default async function ProjectDetailPage({
 
             <div className="grid gap-3 sm:grid-cols-3">
               {[
-                { label: "Backlog", value: project.statusBreakdown.backlog },
-                { label: "To do", value: project.statusBreakdown.todo },
-                { label: "In progress", value: project.statusBreakdown.in_progress },
-                { label: "Review", value: project.statusBreakdown.review },
-                { label: "Blocked", value: project.statusBreakdown.blocked },
-                { label: "Done", value: project.statusBreakdown.done },
+                { label: tr("En attente", "Backlog"), value: project.statusBreakdown.backlog },
+                { label: tr("À faire", "To do"), value: project.statusBreakdown.todo },
+                { label: tr("En cours", "In progress"), value: project.statusBreakdown.in_progress },
+                { label: tr("En révision", "Review"), value: project.statusBreakdown.review },
+                { label: tr("Bloqué", "Blocked"), value: project.statusBreakdown.blocked },
+                { label: tr("Terminé", "Done"), value: project.statusBreakdown.done },
               ].map((item) => (
                 <div key={item.label} className="rounded-2xl border border-border/65 bg-background/38 p-4">
                   <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{item.label}</p>
@@ -135,24 +138,24 @@ export default async function ProjectDetailPage({
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Gauge className="size-4 text-primary" />
-                <CardTitle>Project health</CardTitle>
+                <CardTitle>{tr("Santé du projet", "Project health")}</CardTitle>
               </div>
-              <CardDescription>Ticket-driven health based on progress, blockers, urgency, and deadlines.</CardDescription>
+              <CardDescription>{tr("Santé basée sur l’avancement, les blocages, l’urgence et les échéances.", "Ticket-driven health based on progress, blockers, urgency, and deadlines.")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium">Current delivery signal</p>
+                  <p className="text-sm font-medium">{tr("Signal de livraison actuel", "Current delivery signal")}</p>
                   <ProjectHealthBadge health={project.health} />
                 </div>
                 <p className="mt-3 text-sm text-muted-foreground">
                   {project.health === "delayed"
-                    ? "The deadline has passed while active delivery work is still open."
+                    ? tr("L’échéance est dépassée alors que du travail de livraison reste ouvert.", "The deadline has passed while active delivery work is still open.")
                     : project.health === "at_risk"
-                      ? "Urgent, blocked, or overdue tickets are raising execution risk."
+                      ? tr("Des tickets urgents, bloqués ou en retard augmentent le risque d’exécution.", "Urgent, blocked, or overdue tickets are raising execution risk.")
                       : project.health === "warning"
-                        ? "The deadline is approaching and current progress needs acceleration."
-                        : "The project is moving with a stable delivery profile."}
+                        ? tr("L’échéance approche et la progression doit s’accélérer.", "The deadline is approaching and current progress needs acceleration.")
+                        : tr("Le projet avance avec un profil de livraison stable.", "The project is moving with a stable delivery profile.")}
                 </p>
               </div>
             </CardContent>
@@ -160,8 +163,8 @@ export default async function ProjectDetailPage({
 
           <PlanningRiskPanel
             alerts={projectAlerts}
-            title="Project alerts"
-            subtitle="Focused risk indicators for the current delivery stream."
+            title={tr("Alertes du projet", "Project alerts")}
+            subtitle={tr("Indicateurs de risque ciblés pour le flux de livraison actuel.", "Focused risk indicators for the current delivery stream.")}
             compact
           />
 
@@ -228,12 +231,12 @@ export default async function ProjectDetailPage({
 
           <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
             <CardHeader>
-              <CardTitle>Financial summary</CardTitle>
-              <CardDescription>Reserved for payments, billing status, and transfer insights.</CardDescription>
+              <CardTitle>{tr("Synthèse financière", "Financial summary")}</CardTitle>
+              <CardDescription>{tr("Réservée aux paiements, à la facturation et aux transferts.", "Reserved for payments, billing status, and transfer insights.")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                Financial tracking is ready for integration in the next phase.
+                {tr("Le suivi financier sera intégré dans la prochaine phase.", "Financial tracking is ready for integration in the next phase.")}
               </div>
             </CardContent>
           </Card>
@@ -241,11 +244,11 @@ export default async function ProjectDetailPage({
           <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
             <CardHeader>
               <CardTitle>Documents</CardTitle>
-              <CardDescription>Reserved surface for files, approvals, and storage links.</CardDescription>
+              <CardDescription>{tr("Espace réservé aux fichiers, validations et liens de stockage.", "Reserved surface for files, approvals, and storage links.")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                Documents placeholder ready for project-linked file management.
+                {tr("La gestion des documents liés au projet sera disponible ici.", "Documents placeholder ready for project-linked file management.")}
               </div>
             </CardContent>
           </Card>
@@ -256,9 +259,9 @@ export default async function ProjectDetailPage({
         <CardHeader>
           <div className="flex items-center gap-2">
             <Ticket className="size-4 text-primary" />
-            <CardTitle>Linked tickets preview</CardTitle>
+            <CardTitle>{tr("Aperçu des tickets liés", "Linked tickets preview")}</CardTitle>
           </div>
-          <CardDescription>Connected ticket view used to calculate delivery progress and pressure.</CardDescription>
+          <CardDescription>{tr("Vue des tickets utilisée pour calculer l’avancement et la pression de livraison.", "Connected ticket view used to calculate delivery progress and pressure.")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {project.tasks.length ? (
@@ -271,14 +274,14 @@ export default async function ProjectDetailPage({
                   </Badge>
                 </div>
                 <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-                  <span>Priority {task.priority}</span>
-                  <span>Due {formatDate(task.due_date)}</span>
+                  <span>{tr("Priorité", "Priority")} {task.priority}</span>
+                  <span>{tr("Échéance", "Due")} {formatDate(task.due_date)}</span>
                 </div>
               </div>
             ))
           ) : (
             <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-              No linked tickets yet. Ticket preview will populate once operational tasks are connected.
+              {tr("Aucun ticket lié pour le moment. L’aperçu sera rempli lorsque des tâches opérationnelles seront reliées.", "No linked tickets yet. Ticket preview will populate once operational tasks are connected.")}
             </div>
           )}
         </CardContent>
@@ -286,8 +289,8 @@ export default async function ProjectDetailPage({
 
       <ActivityFeed
         activities={project.recentActivity}
-        title="Recent activity"
-        description="Latest project and ticket changes recorded for this delivery stream."
+        title={tr("Activité récente", "Recent activity")}
+        description={tr("Derniers changements de projet et tickets enregistrés pour ce flux de livraison.", "Latest project and ticket changes recorded for this delivery stream.")}
       />
 
       <NotesPanel

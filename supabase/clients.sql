@@ -44,6 +44,12 @@ alter table public.clients add column if not exists city text;
 alter table public.clients add column if not exists website text;
 alter table public.clients add column if not exists tax_id text;
 alter table public.clients add column if not exists status public.client_status not null default 'prospect';
+alter table public.clients add column if not exists prospect_stage text;
+alter table public.clients add column if not exists next_follow_up_at date;
+alter table public.clients drop constraint if exists clients_prospect_stage_chk;
+alter table public.clients add constraint clients_prospect_stage_chk check (
+  prospect_stage is null or prospect_stage in ('initial_contact', 'qualification', 'negotiation', 'proposal_sent', 'pending_signature')
+);
 alter table public.clients add column if not exists account_manager_id uuid references public.profiles (id) on delete set null;
 alter table public.clients add column if not exists notes text;
 alter table public.clients add column if not exists updated_at timestamptz not null default timezone('utc', now());

@@ -24,6 +24,7 @@ import type {
   ClientRelationshipSummary,
   ClientRecord,
   ClientStatus,
+  ProspectStage,
   ClientTimelineFilter,
   ClientTimelineItem,
   RelationshipHealth,
@@ -62,6 +63,8 @@ type ClientRow = {
   website: string | null;
   tax_id: string | null;
   status: ClientStatus;
+  prospect_stage: ProspectStage | null;
+  next_follow_up_at: string | null;
   account_manager_id: string | null;
   notes: string | null;
   created_at: string;
@@ -360,6 +363,8 @@ function mapClient(
     website: row.website,
     tax_id: role === "shareholder" ? null : row.tax_id,
     status: row.status,
+    prospect_stage: row.prospect_stage,
+    next_follow_up_at: row.next_follow_up_at,
     account_manager_id: row.account_manager_id,
     notes: role === "shareholder" ? null : row.notes,
     created_at: row.created_at,
@@ -399,6 +404,8 @@ export async function getClients(role: AppRole, filters: ClientFilters = {}) {
         website,
         tax_id,
         status,
+        prospect_stage,
+        next_follow_up_at,
         account_manager_id,
         notes,
         created_at,
@@ -436,6 +443,10 @@ export async function getClients(role: AppRole, filters: ClientFilters = {}) {
 
   if (filters.status) {
     query = query.eq("status", filters.status);
+  }
+
+  if (filters.prospectStage) {
+    query = query.eq("prospect_stage", filters.prospectStage);
   }
 
   if (filters.type) {
@@ -513,6 +524,8 @@ export async function getClientById(id: string, role: AppRole) {
         website,
         tax_id,
         status,
+        prospect_stage,
+        next_follow_up_at,
         account_manager_id,
         notes,
         created_at,
@@ -934,6 +947,8 @@ function parseClientPayload(values: ClientFormValues) {
     website: values.website.trim() || null,
     tax_id: values.tax_id.trim() || null,
     status: values.status,
+    prospect_stage: values.status === "prospect" ? values.prospect_stage || "initial_contact" : null,
+    next_follow_up_at: values.status === "prospect" ? values.next_follow_up_at || null : null,
     account_manager_id: values.account_manager_id || null,
     notes: values.notes.trim() || null,
   };

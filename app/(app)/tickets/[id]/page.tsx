@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Clock3, GitBranch, Paperclip } from "lucide-react";
 
 import { requireRouteAccess } from "@/lib/auth/server";
+import { getCurrentLocale } from "@/lib/i18n/server";
 import { isManagerLikeRole } from "@/lib/auth/permissions";
 import { CommentsPanel } from "@/components/comments/comments-panel";
 import { getCommentsForEntity } from "@/lib/comments/service";
@@ -22,6 +23,8 @@ export default async function TicketDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const auth = await requireRouteAccess("tickets");
+  const isFr = (await getCurrentLocale()) === "fr";
+  const tr = (fr: string, en: string) => isFr ? fr : en;
   const { id } = await params;
   const [ticket, filterData, assigneeWorkloads, suggestedAssignees, comments, mentionCandidates] = await Promise.all([
     getTicketById(id, auth.role),
@@ -58,48 +61,48 @@ export default async function TicketDetailPage({
       <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
         <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
           <CardHeader>
-            <CardTitle>Ticket overview</CardTitle>
+            <CardTitle>{tr("Vue d’ensemble du ticket", "Ticket overview")}</CardTitle>
             <CardDescription>
-              Operational scope, execution timing, and project context for this ticket.
+              {tr("Périmètre opérationnel, échéances et contexte projet de ce ticket.", "Operational scope, execution timing, and project context for this ticket.")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Project</p>
-                <p className="mt-2 text-sm font-medium">{ticket.project?.name ?? "Not linked"}</p>
-                <p className="mt-2 text-xs text-muted-foreground">{ticket.project?.client?.name ?? "No client linked"}</p>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{tr("Projet", "Project")}</p>
+                <p className="mt-2 text-sm font-medium">{ticket.project?.name ?? tr("Non lié", "Not linked")}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{ticket.project?.client?.name ?? tr("Aucun client lié", "No client linked")}</p>
               </div>
               <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Assignee</p>
-                <p className="mt-2 text-sm font-medium">{ticket.assignee?.full_name ?? "Unassigned"}</p>
-                <p className="mt-2 text-xs text-muted-foreground">{ticket.assignee?.role ?? "No role"}</p>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{tr("Assigné", "Assignee")}</p>
+                <p className="mt-2 text-sm font-medium">{ticket.assignee?.full_name ?? tr("Non assigné", "Unassigned")}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{ticket.assignee?.role ?? tr("Aucun rôle", "No role")}</p>
               </div>
               <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Reporter</p>
-                <p className="mt-2 text-sm font-medium">{ticket.reporter?.full_name ?? "Unknown"}</p>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{tr("Reporteur", "Reporter")}</p>
+                <p className="mt-2 text-sm font-medium">{ticket.reporter?.full_name ?? tr("Inconnu", "Unknown")}</p>
                 <p className="mt-2 text-xs text-muted-foreground">{formatTicketDate(ticket.created_at)}</p>
               </div>
             </div>
 
             <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-              <p className="text-sm font-medium">Description</p>
+              <p className="text-sm font-medium">{tr("Description", "Description")}</p>
               <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                {ticket.description || "No description is available for this ticket."}
+                {ticket.description || tr("Aucune description n’est disponible pour ce ticket.", "No description is available for this ticket.")}
               </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Estimate</p>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{tr("Estimation", "Estimate")}</p>
                 <p className="mt-2 text-sm font-medium">
-                  {ticket.estimated_hours !== null ? `${ticket.estimated_hours.toFixed(1)}h` : "Not set"}
+                  {ticket.estimated_hours !== null ? `${ticket.estimated_hours.toFixed(1)}h` : tr("Non défini", "Not set")}
                 </p>
               </div>
               <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Actual</p>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{tr("Réel", "Actual")}</p>
                 <p className="mt-2 text-sm font-medium">
-                  {ticket.actual_hours !== null ? `${ticket.actual_hours.toFixed(1)}h` : "Not set"}
+                  {ticket.actual_hours !== null ? `${ticket.actual_hours.toFixed(1)}h` : tr("Non défini", "Not set")}
                 </p>
               </div>
               <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
@@ -108,12 +111,12 @@ export default async function TicketDetailPage({
                   <Button asChild variant="secondary" className="mt-2 rounded-full px-4">
                     <Link href={ticket.github_issue_url} target="_blank" rel="noreferrer">
                       <GitBranch className="size-4" />
-                      Open issue
+                      {tr("Ouvrir l’incident", "Open issue")}
                     </Link>
                   </Button>
                 ) : (
                   <p className="mt-2 text-sm text-muted-foreground">
-                    {auth.role === "shareholder" ? "Hidden in summary mode" : "No GitHub issue linked"}
+                    {auth.role === "shareholder" ? tr("Masqué en mode synthèse", "Hidden in summary mode") : tr("Aucun incident GitHub lié", "No GitHub issue linked")}
                   </p>
                 )}
               </div>
@@ -124,23 +127,23 @@ export default async function TicketDetailPage({
         <div className="grid gap-4">
           <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
             <CardHeader>
-              <CardTitle>Activity history</CardTitle>
+              <CardTitle>{tr("Historique d’activité", "Activity history")}</CardTitle>
               <CardDescription>
                 {auth.role === "shareholder"
-                  ? "Shareholder access is limited to high-level ticket summaries."
-                  : "Latest updates recorded for this ticket and its parent project."}
+                  ? tr("L’accès actionnaire est limité aux synthèses de haut niveau.", "Shareholder access is limited to high-level ticket summaries.")
+                  : tr("Dernières mises à jour de ce ticket et de son projet parent.", "Latest updates recorded for this ticket and its parent project.")}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {auth.role === "shareholder" ? (
                 <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                  Detailed activity history is intentionally hidden in summary mode.
+                  {tr("L’historique détaillé est masqué en mode synthèse.", "Detailed activity history is intentionally hidden in summary mode.")}
                 </div>
               ) : (
                 <ActivityFeed
                   activities={ticket.activity}
-                  title="Ticket history"
-                  description="Status, assignment, priority, and due date changes for this ticket."
+                  title={tr("Historique du ticket", "Ticket history")}
+                  description={tr("Changements de statut, d’assignation, de priorité et d’échéance.", "Status, assignment, priority, and due date changes for this ticket.")}
                   embedded
                 />
               )}
@@ -161,13 +164,13 @@ export default async function TicketDetailPage({
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Paperclip className="size-4 text-primary" />
-                <CardTitle>Attachments</CardTitle>
+                <CardTitle>{tr("Pièces jointes", "Attachments")}</CardTitle>
               </div>
-              <CardDescription>Reserved space for files, screenshots, and implementation artifacts.</CardDescription>
+              <CardDescription>{tr("Espace réservé aux fichiers, captures et éléments de réalisation.", "Reserved space for files, screenshots, and implementation artifacts.")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                Attachment handling will be introduced in the documents phase.
+                {tr("La gestion des pièces jointes sera ajoutée dans la phase Documents.", "Attachment handling will be introduced in the documents phase.")}
               </div>
             </CardContent>
           </Card>
@@ -178,9 +181,9 @@ export default async function TicketDetailPage({
         <CardHeader>
           <div className="flex items-center gap-2">
             <Clock3 className="size-4 text-primary" />
-            <CardTitle>Linked project snapshot</CardTitle>
+            <CardTitle>{tr("Aperçu du projet lié", "Linked project snapshot")}</CardTitle>
           </div>
-          <CardDescription>Quick project context so ticket decisions stay connected to delivery health.</CardDescription>
+          <CardDescription>{tr("Contexte rapide du projet pour garder les décisions liées à la santé de livraison.", "Quick project context so ticket decisions stay connected to delivery health.")}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-border/65 bg-background/38 p-4">

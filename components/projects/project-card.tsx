@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, CalendarClock, FolderGit2, UsersRound } from "lucide-react";
 
+import { useI18n } from "@/components/layout/i18n-provider";
 import { formatNumber } from "@/lib/formatters";
 import { formatDate } from "@/lib/projects/helpers";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -31,6 +34,8 @@ const deadlineLabels: Record<ProjectRecord["deadlineState"], string> = {
 };
 
 export function ProjectCard({ project }: { project: ProjectRecord }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   return (
     <Link href={`/projects/${project.id}`} className="block">
       <Card className="group relative overflow-hidden border-slate-200 bg-white shadow-[var(--shadow-soft)] transition-[border-color,box-shadow] duration-200 hover:border-primary/25 dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
@@ -46,7 +51,7 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
                   {project.name}
                 </h3>
                 <p className="max-w-xl text-[12px] leading-5 text-muted-foreground">
-                  {project.description || "Structured delivery program with enterprise reporting surfaces."}
+                  {project.description || (isFr ? "Programme delivery structuré avec surfaces de reporting enterprise." : "Structured delivery program with enterprise reporting surfaces.")}
                 </p>
               </div>
             </div>
@@ -58,16 +63,21 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
           <div className="grid gap-2.5 sm:grid-cols-3">
             <div className="rounded-[16px] border border-slate-200 bg-slate-50/70 p-2.5 dark:border-white/10 dark:bg-white/[0.04]">
               <p className="text-[10px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">Client</p>
-              <p className="mt-1.5 text-[12px] font-medium">{project.client?.name ?? "Not linked"}</p>
+              <p className="mt-1.5 text-[12px] font-medium">{project.client?.name ?? (isFr ? "Non lié" : "Not linked")}</p>
             </div>
             <div className="rounded-[16px] border border-slate-200 bg-slate-50/70 p-2.5 dark:border-white/10 dark:bg-white/[0.04]">
-              <p className="text-[10px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">Deadline</p>
+              <p className="text-[10px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">{isFr ? "Échéance" : "Deadline"}</p>
               <p className="mt-1.5 text-[12px] font-medium">{formatDate(project.end_date)}</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">{deadlineLabels[project.deadlineState]}</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">{isFr ? ({
+                "on-track": "Dans les temps",
+                "due-soon": "Bientôt dû",
+                overdue: "En retard",
+                none: "Aucune échéance",
+              } as const)[project.deadlineState] : deadlineLabels[project.deadlineState]}</p>
             </div>
             <div className="rounded-[16px] border border-slate-200 bg-slate-50/70 p-2.5 dark:border-white/10 dark:bg-white/[0.04]">
-              <p className="text-[10px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">Progress</p>
-              <p className="mt-1.5 text-[12px] font-medium">{project.progress}% complete</p>
+              <p className="text-[10px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">{isFr ? "Progression" : "Progress"}</p>
+              <p className="mt-1.5 text-[12px] font-medium">{project.progress}% {isFr ? "complété" : "complete"}</p>
               <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-secondary/70">
                 <div
                   className="h-full rounded-full bg-blue-500"
@@ -81,11 +91,11 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
             <div className="flex items-center gap-3 text-[12px] text-muted-foreground">
               <span className="flex items-center gap-2">
                 <UsersRound className="size-3.5" />
-                {formatNumber(project.members.length)} members
+                {formatNumber(project.members.length)} {isFr ? "membres" : "members"}
               </span>
               <span className="flex items-center gap-2">
                 <CalendarClock className="size-3.5" />
-                {formatNumber(project.totalTasks)} active tickets
+                {formatNumber(project.totalTasks)} {isFr ? "tickets actifs" : "active tickets"}
               </span>
             </div>
 
@@ -95,11 +105,11 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
                   <AvatarFallback>{getInitials(project.owner?.full_name)}</AvatarFallback>
                 </Avatar>
                 <span className="text-[12px] text-foreground/90">
-                  {project.owner?.full_name ?? "Unassigned"}
+                  {project.owner?.full_name ?? (isFr ? "Non assigné" : "Unassigned")}
                 </span>
               </div>
               <Badge variant="secondary" className="rounded-full px-2.5 py-1 text-[11px]">
-                View detail
+                {isFr ? "Voir le détail" : "View detail"}
                 <ArrowRight className="ml-1 size-3" />
               </Badge>
             </div>

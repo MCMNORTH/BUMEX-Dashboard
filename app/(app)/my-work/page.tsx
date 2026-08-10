@@ -37,12 +37,12 @@ export default async function MyWorkPage({
         eyebrow={isFr ? "Mon travail" : "My work"}
         title={
           isFr
-            ? "Une vue d'execution personnelle structuree pour vos livrables assignes."
+            ? "Une vue d'exécution personnelle structurée pour vos livrables assignés."
             : "A structured personal execution view for assigned delivery."
         }
         subtitle={
           isFr
-            ? "Suivez vos tickets, isolez la pression des echeances et faites avancer le travail d'un etat a l'autre sans quitter l'espace de travail."
+            ? "Suivez vos tickets, isolez la pression des échéances et faites avancer le travail d'un état à l'autre sans quitter l'espace de travail."
             : "Track your own tickets, isolate deadline pressure, and move work across execution states without leaving the workspace."
         }
       />
@@ -83,7 +83,7 @@ async function MyWorkContent({
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <p className="max-w-3xl text-sm text-muted-foreground">
           {isFr
-            ? "File personnelle connectee a vos affectations actuelles et a la pression de livraison."
+            ? "File personnelle connectée à vos affectations actuelles et à la pression de livraison."
             : "Personal queue connected to your current assignments and delivery pressure."}
         </p>
       </div>
@@ -92,7 +92,7 @@ async function MyWorkContent({
         {[
           {
             icon: FolderKanban,
-            label: isFr ? "Tickets assignes" : "Assigned tickets",
+            label: isFr ? "Tickets assignés" : "Assigned tickets",
             value: formatNumber(stats.mine),
             detail: isFr ? "Charge personnelle actuelle" : "Current personal workload",
           },
@@ -100,19 +100,19 @@ async function MyWorkContent({
             icon: ShieldAlert,
             label: isFr ? "En retard" : "Overdue",
             value: formatNumber(overdueTickets.length),
-            detail: isFr ? "Necessite une attention immediate" : "Needs immediate attention",
+            detail: isFr ? "Nécessite une attention immédiate" : "Needs immediate attention",
           },
           {
             icon: Clock3,
-            label: isFr ? "A traiter cette semaine" : "Due this week",
+            label: isFr ? "À traiter cette semaine" : "Due this week",
             value: formatNumber(dueThisWeek.length),
             detail: isFr ? "Pression sur les 7 prochains jours" : "Next 7 days pressure",
           },
           {
             icon: CheckCircle2,
-            label: isFr ? "Termines" : "Completed",
+            label: isFr ? "Terminés" : "Completed",
             value: formatNumber(completedWork.length),
-            detail: isFr ? "Execution finalisee" : "Finished execution",
+            detail: isFr ? "Exécution finalisée" : "Finished execution",
           },
         ].map(({ icon: Icon, label, value, detail }) => (
           <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
@@ -144,16 +144,16 @@ async function MyWorkContent({
             <CardContent className="space-y-4 px-5 py-5">
               <div>
                 <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Tickets en retard" : "Overdue tickets"}</p>
-                <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Action immediate" : "Immediate action"}</h3>
+                <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Action immédiate" : "Immediate action"}</h3>
               </div>
               {overdueTickets.length ? (
                 overdueTickets.slice(0, 5).map((ticket) => (
                   <div key={ticket.id} className="rounded-[22px] border border-border/65 bg-background/38 p-4">
                     <p className="text-sm font-medium">{ticket.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lie" : "No project linked")}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
                     <div className="mt-3 flex items-center justify-between gap-2">
                       <Badge variant="outline" className="rounded-full border-rose-200 bg-rose-50 px-3 py-1 text-rose-700 dark:border-rose-300/10 dark:bg-rose-500/12 dark:text-rose-100">
-                        {isFr ? "en retard" : "overdue"}
+                        {isFr ? "En retard" : "Overdue"}
                       </Badge>
                       <span className="text-xs text-muted-foreground">{ticket.due_date ?? (isFr ? "Aucune date" : "No date")}</span>
                     </div>
@@ -161,7 +161,7 @@ async function MyWorkContent({
                 ))
               ) : (
                 <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                  {isFr ? "Aucun ticket en retard ne vous est assigne." : "No overdue tickets are assigned to you."}
+                  {isFr ? "Aucun ticket en retard ne vous est assigné." : "No overdue tickets are assigned to you."}
                 </div>
               )}
             </CardContent>
@@ -170,17 +170,17 @@ async function MyWorkContent({
           <Card className="border-border/70 bg-card/72 shadow-[var(--shadow-soft)] backdrop-blur-xl">
             <CardContent className="space-y-4 px-5 py-5">
               <div>
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "A traiter cette semaine" : "Due this week"}</p>
-                <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Focus a court terme" : "Near-term focus"}</h3>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "À traiter cette semaine" : "Due this week"}</p>
+                <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Focus à court terme" : "Near-term focus"}</h3>
               </div>
               {dueThisWeek.length ? (
                 dueThisWeek.slice(0, 5).map((ticket) => (
                   <div key={ticket.id} className="rounded-[22px] border border-border/65 bg-background/38 p-4">
                     <p className="text-sm font-medium">{ticket.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lie" : "No project linked")}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
                     <div className="mt-3 flex items-center justify-between gap-2">
                       <Badge variant="outline" className="rounded-full border-amber-200 bg-amber-50 px-3 py-1 text-amber-700 dark:border-amber-300/10 dark:bg-amber-500/12 dark:text-amber-100">
-                        {isFr ? "bientot du" : "due soon"}
+                        {isFr ? "Bientôt dû" : "Due soon"}
                       </Badge>
                       <span className="text-xs text-muted-foreground">{ticket.due_date ?? (isFr ? "Aucune date" : "No date")}</span>
                     </div>
@@ -189,7 +189,7 @@ async function MyWorkContent({
               ) : (
                 <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
                   {isFr
-                    ? "Rien n'est a echeance cette semaine dans votre file actuelle."
+                    ? "Rien n'est à échéance cette semaine dans votre file actuelle."
                     : "Nothing is due this week in your current queue."}
                 </div>
               )}
@@ -199,14 +199,14 @@ async function MyWorkContent({
           <Card className="border-border/70 bg-card/72 shadow-[var(--shadow-soft)] backdrop-blur-xl">
             <CardContent className="space-y-4 px-5 py-5">
               <div>
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Recemment mis a jour" : "Recently updated"}</p>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Récemment mis à jour" : "Recently updated"}</p>
                 <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Derniers mouvements" : "Latest movement"}</h3>
               </div>
               {recentlyUpdated.length ? (
                 recentlyUpdated.map((ticket) => (
                   <div key={ticket.id} className="rounded-[22px] border border-border/65 bg-background/38 p-4">
                     <p className="text-sm font-medium">{ticket.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lie" : "No project linked")}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
                     <div className="mt-3 flex items-center justify-between gap-2">
                       <Badge variant="secondary" className="rounded-full px-3 py-1">
                         {ticket.status.replace("_", " ")}
@@ -217,7 +217,7 @@ async function MyWorkContent({
                 ))
               ) : (
                 <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                  {isFr ? "Aucune mise a jour recente n'est encore visible." : "No recent updates are visible yet."}
+                  {isFr ? "Aucune mise à jour récente n'est encore visible." : "No recent updates are visible yet."}
                 </div>
               )}
             </CardContent>
@@ -226,20 +226,20 @@ async function MyWorkContent({
           <Card className="border-border/70 bg-card/72 shadow-[var(--shadow-soft)] backdrop-blur-xl">
             <CardContent className="space-y-4 px-5 py-5">
               <div>
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Travail termine" : "Completed work"}</p>
-                <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Recemment clotures" : "Recently closed"}</h3>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Travail terminé" : "Completed work"}</p>
+                <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Récemment clôturés" : "Recently closed"}</h3>
               </div>
               {completedWork.slice(0, 5).length ? (
                 completedWork.slice(0, 5).map((ticket) => (
                   <div key={ticket.id} className="rounded-[22px] border border-border/65 bg-background/38 p-4">
                     <p className="text-sm font-medium">{ticket.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lie" : "No project linked")}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
                   </div>
                 ))
               ) : (
                 <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
                   {isFr
-                    ? "Le travail termine apparaitra ici une fois que les tickets passeront a l'etat termine."
+                    ? "Le travail terminé apparaîtra ici une fois que les tickets passeront à l'état terminé."
                     : "Completed work will appear here once tickets move to done."}
                 </div>
               )}
@@ -251,10 +251,10 @@ async function MyWorkContent({
       {(auth.role === "admin" || isManagerLikeRole(auth.role)) && workload.length ? (
         <TicketWorkloadPreview
           workload={workload}
-          title={isFr ? "Apercu de la charge equipe" : "Team workload preview"}
+          title={isFr ? "Aperçu de la charge équipe" : "Team workload preview"}
           subtitle={
             isFr
-              ? "Lecture rapide de la capacite sur les personnes visibles, de la charge en retard et de la pression d'execution active."
+              ? "Lecture rapide de la capacité sur les personnes visibles, de la charge en retard et de la pression d'exécution active."
               : "Quick capacity scan across visible assignees, overdue load, and active execution pressure."
           }
         />

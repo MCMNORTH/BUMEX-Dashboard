@@ -21,6 +21,7 @@ export function RoadmapLane({
   filterData,
   returnTo,
   summaryMode,
+  isFr = false,
 }: {
   project: RoadmapProjectRecord;
   periods: RoadmapPeriod[];
@@ -28,6 +29,7 @@ export function RoadmapLane({
   filterData: RoadmapFilterData;
   returnTo: string;
   summaryMode: boolean;
+  isFr?: boolean;
 }) {
   const rangeStart = new Date(periods[0].start);
   const rangeEnd = new Date(periods.at(-1)?.end ?? periods[0].end);
@@ -52,7 +54,7 @@ export function RoadmapLane({
               <div>
                 <h3 className="text-lg font-semibold tracking-[-0.03em]">{project.name}</h3>
                 <p className="text-sm text-muted-foreground">
-                  {project.client?.name ?? "Internal"} / {project.owner?.full_name ?? "No owner"}
+                  {project.client?.name ?? (isFr ? "Interne" : "Internal")} / {project.owner?.full_name ?? (isFr ? "Aucun responsable" : "No owner")}
                 </p>
               </div>
             </div>
@@ -64,15 +66,15 @@ export function RoadmapLane({
 
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-border/65 bg-background/42 px-4 py-3">
-            <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">Progress</p>
+            <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">{isFr ? "Progression" : "Progress"}</p>
             <p className="mt-2 text-xl font-semibold tracking-[-0.04em]">{project.progress}%</p>
           </div>
           <div className="rounded-2xl border border-border/65 bg-background/42 px-4 py-3">
-            <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">Milestones</p>
+            <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">{isFr ? "Jalons" : "Milestones"}</p>
             <p className="mt-2 text-xl font-semibold tracking-[-0.04em]">{project.totalMilestones}</p>
           </div>
           <div className="rounded-2xl border border-border/65 bg-background/42 px-4 py-3">
-            <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">Open</p>
+            <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">{isFr ? "Ouverts" : "Open"}</p>
             <p className="mt-2 text-xl font-semibold tracking-[-0.04em]">{project.openMilestones}</p>
           </div>
         </div>
@@ -116,15 +118,15 @@ export function RoadmapLane({
       <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <CalendarClock className="size-3.5" />
-          {project.start_date ?? "Open start"} <ArrowRight className="size-3.5" /> {project.end_date ?? "Open end"}
+          {project.start_date ?? (isFr ? "Début non défini" : "Open start")} <ArrowRight className="size-3.5" /> {project.end_date ?? (isFr ? "Fin non définie" : "Open end")}
         </span>
         <span className="flex items-center gap-1.5">
           <CircleAlert className="size-3.5" />
-          {project.delayedMilestones} delayed milestones
+          {project.delayedMilestones} {isFr ? "jalon(s) en retard" : "delayed milestones"}
         </span>
         {project.nextMilestone ? (
           <Badge variant="secondary" className="rounded-full px-3 py-1">
-            Next: {project.nextMilestone.title}
+            {isFr ? "Suivant :" : "Next:"} {project.nextMilestone.title}
           </Badge>
         ) : null}
       </div>
@@ -143,11 +145,10 @@ export function RoadmapLane({
           ))
         ) : (
           <div className="xl:col-span-2 rounded-[24px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-            No milestones inside the selected roadmap horizon.
+            {isFr ? "Aucun jalon dans l’horizon sélectionné." : "No milestones inside the selected roadmap horizon."}
           </div>
         )}
       </div>
     </div>
   );
 }
-

@@ -23,6 +23,7 @@ import {
 import { formatFinanceCurrency } from "@/lib/finance/helpers";
 import { formatNumber } from "@/lib/formatters";
 import { requireIncomingFinanceOperationsAccess } from "@/lib/auth/server";
+import { getCurrentLocale } from "@/lib/i18n/server";
 import { getCommentsForEntities } from "@/lib/comments/service";
 import { getMentionCandidates } from "@/lib/notifications/service";
 import type { CommentRecord } from "@/types/comment";
@@ -38,6 +39,7 @@ export default async function FinancePaymentsPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const auth = await requireIncomingFinanceOperationsAccess();
+  const isFr = (await getCurrentLocale()) === "fr";
   const params = (await searchParams) ?? {};
   const filters: FinanceFilters = {
     search: getString(params.search) ?? "",
@@ -67,9 +69,9 @@ export default async function FinancePaymentsPage({
 
       <div className="flex flex-col gap-4">
         <PageHeader
-          eyebrow="Payments module"
-          title="A controlled payment tracking workspace for expected, overdue, and received client cash flow."
-          subtitle="Track operational receivables by client, project, contract, and due date with premium visibility over collection pressure and payment movement."
+          eyebrow={isFr ? "Module encaissements" : "Payments module"}
+          title={isFr ? "Un espace de suivi des encaissements attendus, en retard et reçus." : "A controlled payment tracking workspace for expected, overdue, and received client cash flow."}
+          subtitle={isFr ? "Suivez les créances par client, projet, contrat et échéance avec une visibilité claire sur les encaissements." : "Track operational receivables by client, project, contract, and due date with premium visibility over collection pressure and payment movement."}
         />
         {canManage ? (
           <div className="flex justify-end">
@@ -80,10 +82,10 @@ export default async function FinancePaymentsPage({
 
       <div className="flex flex-wrap gap-2">
         <Button asChild variant="secondary" className="rounded-full px-4">
-          <Link href="/finance/incoming">Incoming overview</Link>
+          <Link href="/finance/incoming">{isFr ? "Vue des encaissements" : "Incoming overview"}</Link>
         </Button>
         <Button asChild variant="secondary" className="rounded-full px-4">
-          <Link href="/finance/invoices">Invoices</Link>
+          <Link href="/finance/invoices">{isFr ? "Factures" : "Invoices"}</Link>
         </Button>
       </div>
 
@@ -91,30 +93,30 @@ export default async function FinancePaymentsPage({
         {[
           {
             icon: WalletCards,
-            label: "Visible payments",
+            label: isFr ? "Encaissements visibles" : "Visible payments",
             value: formatNumber(summary.total),
-            detail: "Payments in the current finance scope",
+            detail: isFr ? "Encaissements dans le périmètre financier actuel" : "Payments in the current finance scope",
           },
           {
             icon: AlertTriangle,
-            label: "Overdue amount",
+            label: isFr ? "Montant en retard" : "Overdue amount",
             value: formatFinanceCurrency(
               overduePayments.reduce((sum, payment) => sum + payment.amount, 0),
               overduePayments[0]?.currency ?? "USD",
             ),
-            detail: `${formatNumber(summary.overdueCount)} late payment${summary.overdueCount === 1 ? "" : "s"}`,
+            detail: isFr ? `${formatNumber(summary.overdueCount)} encaissement${summary.overdueCount === 1 ? " en retard" : "s en retard"}` : `${formatNumber(summary.overdueCount)} late payment${summary.overdueCount === 1 ? "" : "s"}`,
           },
           {
             icon: Clock3,
-            label: "Expected amount",
+            label: isFr ? "Montant attendu" : "Expected amount",
             value: formatFinanceCurrency(summary.totalExpectedAmount, expectedPayments[0]?.currency ?? "USD"),
-            detail: `${formatNumber(summary.expectedCount)} expected payment${summary.expectedCount === 1 ? "" : "s"}`,
+            detail: isFr ? `${formatNumber(summary.expectedCount)} encaissement${summary.expectedCount === 1 ? " attendu" : "s attendus"}` : `${formatNumber(summary.expectedCount)} expected payment${summary.expectedCount === 1 ? "" : "s"}`,
           },
           {
             icon: Landmark,
-            label: "Received amount",
+            label: isFr ? "Montant reçu" : "Received amount",
             value: formatFinanceCurrency(summary.totalReceivedAmount, receivedPayments[0]?.currency ?? "USD"),
-            detail: `${formatNumber(summary.receivedCount)} received or reconciled`,
+            detail: isFr ? `${formatNumber(summary.receivedCount)} reçu${summary.receivedCount === 1 ? "" : "s"} ou rapproché${summary.receivedCount === 1 ? "" : "s"}` : `${formatNumber(summary.receivedCount)} received or reconciled`,
           },
         ].map(({ icon: Icon, label, value, detail }) => (
           <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
@@ -149,8 +151,8 @@ export default async function FinancePaymentsPage({
           <CardContent className="space-y-4 px-5 py-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Expected payments</p>
-                <h3 className="mt-2 text-lg font-semibold tracking-tight">Upcoming collection pipeline</h3>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Encaissements attendus" : "Expected payments"}</p>
+                <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Encaissements à venir" : "Upcoming collection pipeline"}</h3>
               </div>
               <ArrowDownCircle className="size-5 text-primary" />
             </div>
@@ -169,9 +171,9 @@ export default async function FinancePaymentsPage({
                     trigger={
                       <Button variant="ghost" className="h-auto w-full justify-start rounded-[22px] border border-border/65 bg-background/35 px-4 py-3">
                         <div className="w-full text-left">
-                          <p className="text-sm font-medium">{payment.client?.name ?? "Client payment"}</p>
+                          <p className="text-sm font-medium">{payment.client?.name ?? (isFr ? "Encaissement client" : "Client payment")}</p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {formatFinanceCurrency(payment.amount, payment.currency)} due {payment.due_date ?? "unscheduled"}
+                            {formatFinanceCurrency(payment.amount, payment.currency)} {isFr ? "prévu le" : "due"} {payment.due_date ?? (isFr ? "non planifié" : "unscheduled")}
                           </p>
                         </div>
                       </Button>
@@ -181,7 +183,7 @@ export default async function FinancePaymentsPage({
               </div>
             ) : (
               <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                No expected payments are currently visible.
+                {isFr ? "Aucun encaissement attendu n’est actuellement visible." : "No expected payments are currently visible."}
               </div>
             )}
           </CardContent>
@@ -191,8 +193,8 @@ export default async function FinancePaymentsPage({
           <CardContent className="space-y-4 px-5 py-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Received payments</p>
-                <h3 className="mt-2 text-lg font-semibold tracking-tight">Latest incoming cash movement</h3>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Encaissements reçus" : "Received payments"}</p>
+                <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Dernier encaissement reçu" : "Latest incoming cash movement"}</h3>
               </div>
               <Landmark className="size-5 text-primary" />
             </div>
@@ -211,9 +213,9 @@ export default async function FinancePaymentsPage({
                     trigger={
                       <Button variant="ghost" className="h-auto w-full justify-start rounded-[22px] border border-border/65 bg-background/35 px-4 py-3">
                         <div className="w-full text-left">
-                          <p className="text-sm font-medium">{payment.client?.name ?? "Client payment"}</p>
+                          <p className="text-sm font-medium">{payment.client?.name ?? (isFr ? "Encaissement client" : "Client payment")}</p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {formatFinanceCurrency(payment.amount, payment.currency)} received {payment.payment_date ?? "recently"}
+                            {formatFinanceCurrency(payment.amount, payment.currency)} {isFr ? "reçu le" : "received"} {payment.payment_date ?? (isFr ? "récemment" : "recently")}
                           </p>
                         </div>
                       </Button>
@@ -223,7 +225,7 @@ export default async function FinancePaymentsPage({
               </div>
             ) : (
               <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                No received payments have been recorded in your current scope.
+                {isFr ? "Aucun encaissement reçu n’a été enregistré dans votre périmètre actuel." : "No received payments have been recorded in your current scope."}
               </div>
             )}
           </CardContent>
@@ -233,11 +235,11 @@ export default async function FinancePaymentsPage({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">Ledger</p>
-            <h2 className="mt-2 text-xl font-semibold tracking-tight">Payments list</h2>
+            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">{isFr ? "Registre" : "Ledger"}</p>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Liste des encaissements" : "Payments list"}</h2>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="rounded-full px-3 py-1">{formatNumber(payments.length)} results</Badge>
+            <Badge variant="secondary" className="rounded-full px-3 py-1">{formatNumber(payments.length)} {isFr ? "résultats" : "results"}</Badge>
           </div>
         </div>
 
@@ -272,7 +274,7 @@ export default async function FinancePaymentsPage({
           </>
         ) : (
           <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
-            No payments match the current filters.
+            {isFr ? "Aucun encaissement ne correspond aux filtres actuels." : "No payments match the current filters."}
           </div>
         )}
       </div>

@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { Search } from "lucide-react";
 
+import { useI18n } from "@/components/layout/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
@@ -13,13 +16,16 @@ export function TransferFilters({
   filters: TransferFiltersType;
   filterData: TransferFiltersData;
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
+
   return (
     <form className="grid gap-3 rounded-[28px] border border-border/70 bg-card/72 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl xl:grid-cols-[1.2fr_repeat(6,minmax(0,1fr))_auto]">
       <div className="relative">
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           name="search"
-          placeholder="Search beneficiary, reference, bank, notes"
+          placeholder={isFr ? "Rechercher un bénéficiaire, une référence, banque ou notes" : "Search beneficiary, reference, bank, notes"}
           defaultValue={filters.search ?? ""}
           className="pl-11"
         />
@@ -28,9 +34,9 @@ export function TransferFilters({
       <ModernSelect
         name="client"
         defaultValue={filters.clientId ?? ""}
-        placeholder="All clients"
+        placeholder={isFr ? "Tous les clients" : "All clients"}
         options={[
-          { value: "", label: "All clients" },
+          { value: "", label: isFr ? "Tous les clients" : "All clients" },
           ...filterData.clients.map((client) => ({ value: client.id, label: client.name })),
         ]}
       />
@@ -38,9 +44,9 @@ export function TransferFilters({
       <ModernSelect
         name="project"
         defaultValue={filters.projectId ?? ""}
-        placeholder="All projects"
+        placeholder={isFr ? "Tous les projets" : "All projects"}
         options={[
-          { value: "", label: "All projects" },
+          { value: "", label: isFr ? "Tous les projets" : "All projects" },
           ...filterData.projects.map((project) => ({ value: project.id, label: project.name })),
         ]}
       />
@@ -48,46 +54,46 @@ export function TransferFilters({
       <ModernSelect
         name="status"
         defaultValue={filters.status ?? ""}
-        placeholder="All statuses"
+        placeholder={isFr ? "Tous les statuts" : "All statuses"}
         options={[
-          { value: "", label: "All statuses" },
-          { value: "planned", label: "Planned" },
-          { value: "pending", label: "Pending" },
-          { value: "sent", label: "Sent" },
-          { value: "confirmed", label: "Confirmed" },
-          { value: "failed", label: "Failed" },
-          { value: "cancelled", label: "Cancelled" },
+          { value: "", label: isFr ? "Tous les statuts" : "All statuses" },
+          { value: "planned", label: isFr ? "Planifié" : "Planned" },
+          { value: "pending", label: isFr ? "En attente" : "Pending" },
+          { value: "sent", label: isFr ? "Envoyé" : "Sent" },
+          { value: "confirmed", label: isFr ? "Confirmé" : "Confirmed" },
+          { value: "failed", label: isFr ? "Échoué" : "Failed" },
+          { value: "cancelled", label: isFr ? "Annulé" : "Cancelled" },
         ]}
       />
 
       <ModernSelect
         name="category"
         defaultValue={filters.category ?? ""}
-        placeholder="All categories"
+        placeholder={isFr ? "Toutes les catégories" : "All categories"}
         options={[
-          { value: "", label: "All categories" },
-          { value: "supplier", label: "Supplier" },
-          { value: "salary", label: "Salary" },
-          { value: "subcontractor", label: "Subcontractor" },
-          { value: "software", label: "Software" },
-          { value: "hosting", label: "Hosting" },
+          { value: "", label: isFr ? "Toutes les catégories" : "All categories" },
+          { value: "supplier", label: isFr ? "Fournisseur" : "Supplier" },
+          { value: "salary", label: isFr ? "Salaire" : "Salary" },
+          { value: "subcontractor", label: isFr ? "Sous-traitant" : "Subcontractor" },
+          { value: "software", label: isFr ? "Logiciel" : "Software" },
+          { value: "hosting", label: isFr ? "Hébergement" : "Hosting" },
           { value: "taxes", label: "Taxes" },
-          { value: "rent", label: "Rent" },
-          { value: "other", label: "Other" },
+          { value: "rent", label: isFr ? "Loyer" : "Rent" },
+          { value: "other", label: isFr ? "Autre" : "Other" },
         ]}
       />
 
       <ModernSelect
         name="entity"
         defaultValue={filters.entity ?? ""}
-        placeholder="All entities"
+        placeholder={isFr ? "Toutes les entités" : "All entities"}
         options={[
-          { value: "", label: "All entities" },
+          { value: "", label: isFr ? "Toutes les entités" : "All entities" },
           { value: "bumex_it", label: "BUMEX IT" },
           { value: "insec", label: "INSEC" },
           { value: "cnam_intec", label: "CNAM INTEC" },
           { value: "ltm_yh", label: "LTM-YH" },
-          { value: "unassigned", label: "Unassigned" },
+          { value: "unassigned", label: isFr ? "Non assignée" : "Unassigned" },
         ]}
       />
 
@@ -95,17 +101,17 @@ export function TransferFilters({
         name="date"
         defaultValue={filters.dateWindow ?? "all"}
         options={[
-          { value: "all", label: "Any date" },
-          { value: "this_month", label: "This month" },
-          { value: "next_30_days", label: "Next 30 days" },
-          { value: "past_30_days", label: "Past 30 days" },
+          { value: "all", label: isFr ? "Toute date" : "Any date" },
+          { value: "this_month", label: isFr ? "Ce mois-ci" : "This month" },
+          { value: "next_30_days", label: isFr ? "30 prochains jours" : "Next 30 days" },
+          { value: "past_30_days", label: isFr ? "30 derniers jours" : "Past 30 days" },
         ]}
       />
 
       <div className="flex gap-2">
-        <Button type="submit" className="rounded-2xl px-5">Apply</Button>
+        <Button type="submit" className="rounded-2xl px-5">{isFr ? "Appliquer" : "Apply"}</Button>
         <Button asChild variant="secondary" className="rounded-2xl px-5">
-          <Link href="/finance/transfers">Reset</Link>
+          <Link href="/finance/transfers">{isFr ? "Réinitialiser" : "Reset"}</Link>
         </Button>
       </div>
     </form>

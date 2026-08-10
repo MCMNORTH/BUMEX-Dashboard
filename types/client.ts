@@ -6,6 +6,7 @@ import type { ProjectRecord } from "@/types/project";
 import type { TicketRecord } from "@/types/ticket";
 
 export type ClientStatus = "prospect" | "active" | "inactive" | "suspended" | "archived";
+export type ProspectStage = "initial_contact" | "qualification" | "negotiation" | "proposal_sent" | "pending_signature";
 export type ClientType = "company" | "public_institution" | "ngo" | "individual" | "other";
 
 export type ClientAccountManager = Pick<Profile, "id" | "full_name" | "email" | "avatar_url" | "role">;
@@ -101,6 +102,8 @@ export type ClientRecord = {
   website: string | null;
   tax_id: string | null;
   status: ClientStatus;
+  prospect_stage: ProspectStage | null;
+  next_follow_up_at: string | null;
   account_manager_id: string | null;
   notes: string | null;
   created_at: string;
@@ -122,6 +125,7 @@ export type ClientRecord = {
 export type ClientFilters = {
   search?: string;
   status?: ClientStatus | "";
+  prospectStage?: ProspectStage | "";
   type?: ClientType | "";
   accountManagerId?: string;
 };
@@ -139,6 +143,8 @@ export type ClientFormValues = {
   website: string;
   tax_id: string;
   status: ClientStatus;
+  prospect_stage: ProspectStage | "";
+  next_follow_up_at: string;
   account_manager_id: string;
   notes: string;
 };

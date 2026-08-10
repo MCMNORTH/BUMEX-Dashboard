@@ -21,6 +21,7 @@ import { FormattedNumberInput } from "@/components/ui/formatted-number-input";
 import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
 import { Textarea } from "@/components/ui/textarea";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { ProjectFiltersData, ProjectFormValues } from "@/types/project";
 
 const initialState: ProjectActionState = {};
@@ -38,6 +39,8 @@ export function ProjectForm({
   defaults,
   triggerLabel,
 }: ProjectFormProps) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   const [state, formAction] = useActionState(
     mode === "create" ? createProjectAction : updateProjectAction,
     initialState,
@@ -49,22 +52,22 @@ export function ProjectForm({
         {mode === "create" ? (
           <Button className="rounded-full px-5">
             <Plus className="size-4" />
-            {triggerLabel ?? "Create project"}
+            {triggerLabel ?? (isFr ? "Créer un projet" : "Create project")}
           </Button>
         ) : (
           <Button variant="secondary" className="rounded-full px-5">
             <SquarePen className="size-4" />
-            {triggerLabel ?? "Edit project"}
+            {triggerLabel ?? (isFr ? "Modifier le projet" : "Edit project")}
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{mode === "create" ? "Create project" : "Edit project"}</DialogTitle>
+          <DialogTitle>{mode === "create" ? (isFr ? "Créer un projet" : "Create project") : (isFr ? "Modifier le projet" : "Edit project")}</DialogTitle>
           <DialogDescription>
             {mode === "create"
-              ? "Create a new delivery initiative with the right ownership, scope, and timing."
-              : "Update the project definition, ownership, and delivery metadata."}
+              ? (isFr ? "Créez une nouvelle initiative avec les bons responsables, périmètre et échéances." : "Create a new delivery initiative with the right ownership, scope, and timing.")
+              : (isFr ? "Mettez à jour la définition, les responsables et les informations du projet." : "Update the project definition, ownership, and delivery metadata.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -199,7 +202,7 @@ export function ProjectForm({
 
           <div className="sm:col-span-2 flex justify-end gap-2">
             <Button type="submit" className="rounded-2xl px-5">
-              {mode === "create" ? "Create project" : "Save changes"}
+              {mode === "create" ? (isFr ? "Créer le projet" : "Create project") : (isFr ? "Enregistrer" : "Save changes")}
             </Button>
           </div>
         </form>

@@ -1,5 +1,7 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
-import { getPaymentMethodLabel } from "@/lib/finance/helpers";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { PaymentMethod } from "@/types/finance";
 
 const methodStyles: Record<PaymentMethod, string> = {
@@ -12,9 +14,10 @@ const methodStyles: Record<PaymentMethod, string> = {
 };
 
 export function PaymentMethodBadge({ method }: { method: PaymentMethod }) {
+  const { t } = useI18n();
   return (
     <Badge className={`rounded-full border px-3 py-1 capitalize ${methodStyles[method]}`}>
-      {getPaymentMethodLabel(method)}
+      {t(`finance.methods.${method}`, method.replaceAll("_", " "))}
     </Badge>
   );
 }

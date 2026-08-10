@@ -58,7 +58,7 @@ export function MyWorkViewPanel({
       ) : (
         <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
           {isFr
-            ? "Aucun ticket ne vous est assigne dans le perimetre actuel."
+            ? "Aucun ticket ne vous est assigné dans le périmètre actuel."
             : "No tickets are assigned to you in the current scope."}
         </div>
       )}
@@ -101,7 +101,7 @@ function CardShell({
                 ? "Mon tableau Kanban"
                 : "My Kanban board"
               : isFr
-                ? "Liste de mes tickets assignes"
+                ? "Liste de mes tickets assignés"
                 : "Assigned ticket list"}
           </h2>
         </div>

@@ -11,6 +11,7 @@ export function CalendarToolbar({
   nextHref,
   todayHref,
   baseHref,
+  isFr = false,
 }: {
   view: CalendarView;
   label: string;
@@ -18,6 +19,7 @@ export function CalendarToolbar({
   nextHref: string;
   todayHref: string;
   baseHref: (nextView: CalendarView) => string;
+  isFr?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-3 rounded-[28px] border border-border/70 bg-card/72 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
@@ -26,7 +28,7 @@ export function CalendarToolbar({
           <ChevronLeft className="size-4" />
         </Link>
         <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Calendar range</p>
+          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Période du calendrier" : "Calendar range"}</p>
           <p className="mt-1 text-lg font-semibold tracking-[-0.03em]">{label}</p>
         </div>
         <Link href={nextHref} className="flex size-11 items-center justify-center rounded-2xl border border-border/65 bg-background/45 transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:text-white">
@@ -41,18 +43,17 @@ export function CalendarToolbar({
             href={baseHref(item)}
             className={`inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-medium transition-all ${view === item ? "border border-primary/30 bg-primary/12 text-primary" : "border border-border/65 bg-background/40 text-muted-foreground hover:text-foreground"}`}
           >
-            {item[0].toUpperCase() + item.slice(1)}
+            {isFr ? ({ month: "Mois", week: "Semaine", agenda: "Agenda" }[item]) : item[0].toUpperCase() + item.slice(1)}
           </Link>
         ))}
         <Link href={todayHref} className="inline-flex h-10 items-center justify-center rounded-full border border-border/65 bg-background/40 px-4 text-sm font-medium transition-all hover:text-foreground">
           <CalendarDays className="mr-2 size-4" />
-          Today
+          {isFr ? "Aujourd’hui" : "Today"}
         </Link>
         <Badge variant="secondary" className="rounded-full px-3 py-1">
-          Interactive calendar
+          {isFr ? "Calendrier interactif" : "Interactive calendar"}
         </Badge>
       </div>
     </div>
   );
 }
-

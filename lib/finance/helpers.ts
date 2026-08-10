@@ -61,7 +61,7 @@ export function getTransferCategoryLabel(category: string) {
   return category.replaceAll("_", " ");
 }
 
-export function getTransferEntityLabel(entity: string) {
+export function getTransferEntityLabel(entity: string, locale: "fr" | "en" = "en") {
   switch (entity) {
     case "bumex_it":
       return "BUMEX IT";
@@ -72,7 +72,7 @@ export function getTransferEntityLabel(entity: string) {
     case "ltm_yh":
       return "LTM-YH";
     default:
-      return "Unassigned";
+      return locale === "fr" ? "Non attribuée" : "Unassigned";
   }
 }
 

@@ -52,19 +52,16 @@ function NavigationItemComponent({
       active: "border-[#0c66e4]/18 bg-[#e9f2ff] text-[#0c66e4] dark:border-[#579dff]/30 dark:bg-[#1c2b41] dark:text-[#9fc5ff]",
       icon: "text-[#0c66e4] dark:text-[#9fc5ff]",
       rail: "bg-[#0c66e4]",
-      description: "text-[#0c66e4]/75 dark:text-[#9fc5ff]/80",
     },
     business: {
       active: "border-[#c25100]/18 bg-[#fff3eb] text-[#a54800] dark:border-[#f59e6b]/30 dark:bg-[#3c2617] dark:text-[#ffb689]",
       icon: "text-[#a54800] dark:text-[#ffb689]",
       rail: "bg-[#c25100]",
-      description: "text-[#a54800]/75 dark:text-[#ffb689]/80",
     },
     system: {
       active: "border-[#7f56d9]/18 bg-[#f4efff] text-[#6941c6] dark:border-[#a78bfa]/30 dark:bg-[#2f234a] dark:text-[#d0bcff]",
       icon: "text-[#6941c6] dark:text-[#d0bcff]",
       rail: "bg-[#7f56d9]",
-      description: "text-[#6941c6]/75 dark:text-[#d0bcff]/80",
     },
   }[theme];
 
@@ -126,14 +123,6 @@ function NavigationItemComponent({
         )}
       >
         <span className="block text-[12.5px] leading-4.5 font-medium tracking-[-0.01em] break-words">{item.label}</span>
-        <span
-          className={cn(
-            "mt-0.5 block text-[10px] leading-4 break-words",
-            active ? themeClasses.description : "text-muted-foreground",
-          )}
-        >
-          {item.description}
-        </span>
       </span>
       {active ? (
         <>

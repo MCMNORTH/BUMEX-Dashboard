@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
 import { Textarea } from "@/components/ui/textarea";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { ContractFiltersData, ContractFormValues } from "@/types/contract";
 
 const initialState: ContractActionState = {};
@@ -35,6 +36,8 @@ export function ContractForm({
   defaults?: Partial<ContractFormValues> & { contract_id?: string };
   triggerLabel?: string;
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   const [state, formAction] = useActionState(
     mode === "create" ? createContractAction : updateContractAction,
     initialState,
@@ -46,20 +49,20 @@ export function ContractForm({
         {mode === "create" ? (
           <Button className="rounded-full px-5">
             <Plus className="size-4" />
-            {triggerLabel ?? "Create contract"}
+            {triggerLabel ?? (isFr ? "Créer un contrat" : "Create contract")}
           </Button>
         ) : (
           <Button variant="secondary" className="rounded-full px-5">
             <SquarePen className="size-4" />
-            {triggerLabel ?? "Edit contract"}
+            {triggerLabel ?? (isFr ? "Modifier le contrat" : "Edit contract")}
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{mode === "create" ? "Create contract" : "Edit contract"}</DialogTitle>
+          <DialogTitle>{mode === "create" ? (isFr ? "Créer un contrat" : "Create contract") : (isFr ? "Modifier le contrat" : "Edit contract")}</DialogTitle>
           <DialogDescription>
-            Manage contract metadata, renewal timing, linked client/project scope, and commercial context.
+            {isFr ? "Gérez les informations du contrat, les renouvellements, les liens client/projet et le contexte commercial." : "Manage contract metadata, renewal timing, linked client/project scope, and commercial context."}
           </DialogDescription>
         </DialogHeader>
 
@@ -196,7 +199,7 @@ export function ContractForm({
 
           <div className="sm:col-span-2 flex justify-end gap-2">
             <Button type="submit" className="rounded-2xl px-5">
-              {mode === "create" ? "Create contract" : "Save changes"}
+              {mode === "create" ? (isFr ? "Créer le contrat" : "Create contract") : (isFr ? "Enregistrer" : "Save changes")}
             </Button>
           </div>
         </form>

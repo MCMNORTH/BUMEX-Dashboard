@@ -9,7 +9,9 @@
       "profile": "Profile",
       "preferences": "Workspace preferences",
       "notifications": "Notifications",
-      "signOut": "Sign out",
+    "signOut": "Sign out",
+    "cancel": "Cancel",
+    "confirmSignOut": "Yes, sign out",
       "create": "Create",
       "edit": "Edit",
       "apply": "Apply",
@@ -21,7 +23,7 @@
       "boardSummary": "Board summary",
       "exportCsv": "Export CSV"
     },
-    "states": {
+  "states": {
       "loading": "Loading..."
     }
   },
@@ -34,6 +36,11 @@
       "workspace": "Workspace",
       "business": "Business",
       "system": "System"
+    },
+    "groupDescriptions": {
+      "workspace": "Delivery, planning, execution, and team operations.",
+      "business": "Clients, contracts, documents, finance, and governance.",
+      "system": "Configuration, notifications, and platform controls."
     },
     "items": {
       "overview": {
@@ -106,6 +113,47 @@
       }
     },
     "liveShell": "Live shell"
+  },
+  "search": {
+    "placeholder": "Search workspace",
+    "ariaLabel": "Global search",
+    "loading": "Searching workspace...",
+    "error": "Search is temporarily unavailable.",
+    "minimumCharacters": "Type at least 2 characters to search.",
+    "empty": "No matching records found.",
+    "viewAll": "View all results",
+    "action": "Search",
+    "clear": "Clear search",
+    "recent": "Recent searches",
+    "suggestions": "Suggested destinations",
+    "explore": "Explore workspace",
+    "keyboardHint": "Use ↑ ↓ to navigate and Enter to open",
+    "quick": {
+      "overview": "Overview",
+      "overviewDescription": "Key activity and performance indicators",
+      "projects": "Projects",
+      "projectsDescription": "Programmes, milestones and delivery",
+      "tickets": "Tickets",
+      "ticketsDescription": "Tasks, incidents and requests",
+      "clients": "Clients",
+      "clientsDescription": "Accounts and commercial relationships",
+      "calendar": "Calendar",
+      "calendarDescription": "Deadlines and upcoming events",
+      "team": "Team",
+      "teamDescription": "People, roles and availability",
+      "documents": "Documents",
+      "documentsDescription": "Files and controlled records"
+    },
+    "entityLabels": {
+      "project": "Projects",
+      "ticket": "Tickets",
+      "client": "Clients",
+      "contract": "Contracts",
+      "document": "Documents",
+      "invoice": "Invoices",
+      "payment": "Payments",
+      "teamMember": "Team members"
+    }
   },
   "overviewPage": {
     "alerts": {
@@ -643,5 +691,8 @@
       "next7Days": "Next 7 days",
       "next30Days": "Next 30 days"
     }
+  }
+  ,"confirmations": {
+    "signOut": "Are you sure you want to sign out? Your current session will end immediately."
   }
 }

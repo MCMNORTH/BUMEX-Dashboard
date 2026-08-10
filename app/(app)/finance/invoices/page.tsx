@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireIncomingFinanceOperationsAccess } from "@/lib/auth/server";
+import { getCurrentLocale } from "@/lib/i18n/server";
 import { getCommentsForEntities } from "@/lib/comments/service";
 import { formatFinanceCurrency } from "@/lib/finance/helpers";
 import { formatNumber } from "@/lib/formatters";
@@ -29,6 +30,7 @@ export default async function FinanceInvoicesPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const auth = await requireIncomingFinanceOperationsAccess();
+  const isFr = (await getCurrentLocale()) === "fr";
   const params = (await searchParams) ?? {};
   const filters: InvoiceFiltersType = {
     search: getString(params.search) ?? "",
@@ -54,9 +56,9 @@ export default async function FinanceInvoicesPage({
 
       <div className="flex flex-col gap-4">
         <PageHeader
-          eyebrow="Invoices module"
-          title="Track invoice issuance, collection status, receipts, and remaining balance in one operational finance workspace."
-          subtitle="Manage client billing, keep invoice status clear, and follow incoming cash from issue to payment."
+          eyebrow={isFr ? "Module factures" : "Invoices module"}
+          title={isFr ? "Suivez l’émission des factures, l’état des encaissements, les justificatifs et le solde restant dans un espace financier opérationnel." : "Track invoice issuance, collection status, receipts, and remaining balance in one operational finance workspace."}
+          subtitle={isFr ? "Gérez la facturation clients, clarifiez l’état des factures et suivez les encaissements de l’émission au paiement." : "Manage client billing, keep invoice status clear, and follow incoming cash from issue to payment."}
         />
         {canManage ? (
           <div className="flex justify-end">
@@ -65,24 +67,24 @@ export default async function FinanceInvoicesPage({
         ) : null}
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="secondary" className="rounded-full px-4">
-            <Link href="/finance/incoming">Incoming overview</Link>
+            <Link href="/finance/incoming">{isFr ? "Vue des encaissements" : "Incoming overview"}</Link>
           </Button>
           <Button asChild variant="secondary" className="rounded-full px-4">
-            <Link href="/finance/payments">Incoming payments</Link>
+            <Link href="/finance/payments">{isFr ? "Encaissements" : "Incoming payments"}</Link>
           </Button>
           <Button asChild className="rounded-full px-4">
-            <Link href="/finance/invoices">Invoices</Link>
+            <Link href="/finance/invoices">{isFr ? "Factures" : "Invoices"}</Link>
           </Button>
         </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-5">
         {[
-          { icon: FilePenLine, label: "Standby invoices", value: formatNumber(summary.draftCount), detail: "Prepared but not yet active" },
-          { icon: FileText, label: "Pending invoices", value: formatNumber(summary.sentCount), detail: "Issued and awaiting collection" },
-          { icon: CalendarClock, label: "Overdue invoices", value: formatNumber(summary.overdueCount), detail: "Past due with balance outstanding" },
-          { icon: Landmark, label: "Paid invoices", value: formatNumber(summary.paidCount), detail: "Fully covered by linked payments" },
-          { icon: Wallet, label: "Invoiced this month", value: formatFinanceCurrency(summary.totalInvoicedThisMonth, invoices[0]?.currency ?? "USD"), detail: "Gross invoiced amount in current month" },
+          { icon: FilePenLine, label: isFr ? "Factures en attente" : "Standby invoices", value: formatNumber(summary.draftCount), detail: isFr ? "Préparées mais pas encore actives" : "Prepared but not yet active" },
+          { icon: FileText, label: isFr ? "Factures à encaisser" : "Pending invoices", value: formatNumber(summary.sentCount), detail: isFr ? "Émises et en attente d’encaissement" : "Issued and awaiting collection" },
+          { icon: CalendarClock, label: isFr ? "Factures en retard" : "Overdue invoices", value: formatNumber(summary.overdueCount), detail: isFr ? "Échéance dépassée avec solde restant" : "Past due with balance outstanding" },
+          { icon: Landmark, label: isFr ? "Factures réglées" : "Paid invoices", value: formatNumber(summary.paidCount), detail: isFr ? "Entièrement couvertes par les paiements liés" : "Fully covered by linked payments" },
+          { icon: Wallet, label: isFr ? "Facturé ce mois-ci" : "Invoiced this month", value: formatFinanceCurrency(summary.totalInvoicedThisMonth, invoices[0]?.currency ?? "USD"), detail: isFr ? "Montant total facturé ce mois-ci" : "Gross invoiced amount in current month" },
         ].map(({ icon: Icon, label, value, detail }) => (
           <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
             <CardContent className="px-5 py-5">
@@ -106,11 +108,11 @@ export default async function FinanceInvoicesPage({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">Invoice ledger</p>
-            <h2 className="mt-2 text-xl font-semibold tracking-tight">Invoices list</h2>
+            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">{isFr ? "Registre des factures" : "Invoice ledger"}</p>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Liste des factures" : "Invoices list"}</h2>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="rounded-full px-3 py-1">{formatNumber(invoices.length)} results</Badge>
+            <Badge variant="secondary" className="rounded-full px-3 py-1">{formatNumber(invoices.length)} {isFr ? "résultats" : "results"}</Badge>
           </div>
         </div>
 
@@ -146,7 +148,7 @@ export default async function FinanceInvoicesPage({
           </>
         ) : (
           <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
-            No invoices match the current filters.
+            {isFr ? "Aucune facture ne correspond aux filtres actuels." : "No invoices match the current filters."}
           </div>
         )}
       </div>

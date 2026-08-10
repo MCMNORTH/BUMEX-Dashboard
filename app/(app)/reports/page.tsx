@@ -9,7 +9,7 @@ import { requireRouteAccess } from "@/lib/auth/server";
 import { formatNumber } from "@/lib/formatters";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { generateReport, getDefaultDateRange, getReportBuilderData } from "@/lib/reports/service";
-import { reportTypeLabels } from "@/components/reports/report-type-selector";
+import { frenchReportTypeLabels, reportTypeLabels } from "@/components/reports/report-type-selector";
 import type { ReportBuilderFilters, ReportType } from "@/types/report";
 
 function getString(value: string | string[] | undefined) {
@@ -91,7 +91,7 @@ export default async function ReportsPage({
           {
             icon: FileText,
             label: isFr ? "Rapport sélectionné" : "Selected report",
-            value: reportTypeLabels[type],
+            value: isFr ? frenchReportTypeLabels[type] : reportTypeLabels[type],
             detail: isFr ? "Modèle actuellement affiché" : "Current template in preview",
           },
           {
@@ -118,9 +118,9 @@ export default async function ReportsPage({
       </div>
 
       <div className="print-hidden">
-        <ReportBuilder builderData={builderData} filters={filters} role={auth.role} />
+        <ReportBuilder builderData={builderData} filters={filters} role={auth.role} isFr={isFr} />
       </div>
-      <ReportPreview report={report} />
+      <ReportPreview report={report} isFr={isFr} />
     </div>
   );
 }

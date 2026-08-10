@@ -3330,6 +3330,7 @@ export async function getFinanceOverview(role: AppRole): Promise<FinanceOverview
       totalOverdue: summary.overdueExposure,
       totalOutgoingThisMonth: summary.expenses,
       pendingInvoices: summary.unpaidInvoices,
+      pendingInvoiceAmount: summary.expectedCollections + summary.overdueExposure,
       confirmedTransfers: summary.confirmedTransfers,
       revenueSummary: summary.revenue,
       expectedPayments: summary.expectedCollections,
@@ -3371,6 +3372,9 @@ export async function getFinanceOverview(role: AppRole): Promise<FinanceOverview
     .filter((transfer) => isCurrentMonth(transfer.transfer_date) && (transfer.status === "sent" || transfer.status === "confirmed"))
     .reduce((sum, transfer) => sum + transfer.amount, 0);
   const pendingInvoices = invoices.filter((invoice) => invoice.paymentStatus !== "paid" && invoice.paymentStatus !== "cancelled" && invoice.paymentStatus !== "archived").length;
+  const pendingInvoiceAmount = invoices
+    .filter((invoice) => invoice.paymentStatus !== "paid" && invoice.paymentStatus !== "cancelled" && invoice.paymentStatus !== "archived")
+    .reduce((sum, invoice) => sum + invoice.remainingBalance, 0);
   const confirmedTransfers = transfers.filter((transfer) => transfer.status === "confirmed").length;
   const paidInvoices = invoices.filter((invoice) => invoice.paymentStatus === "paid").length;
   const unpaidInvoices = invoices.filter((invoice) => invoice.paymentStatus !== "paid" && invoice.paymentStatus !== "cancelled" && invoice.paymentStatus !== "archived").length;
@@ -3429,6 +3433,7 @@ export async function getFinanceOverview(role: AppRole): Promise<FinanceOverview
     totalOverdue,
     totalOutgoingThisMonth,
     pendingInvoices,
+    pendingInvoiceAmount,
     confirmedTransfers,
     revenueSummary: invoices.reduce((sum, invoice) => sum + invoice.amount_ttc, 0),
     expectedPayments: payments.filter((payment) => payment.status === "expected").length,

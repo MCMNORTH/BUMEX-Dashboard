@@ -1,4 +1,7 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { ProjectStatus } from "@/types/project";
 
 const statusLabels: Record<ProjectStatus, string> = {
@@ -18,12 +21,14 @@ const statusClasses: Record<ProjectStatus, string> = {
 };
 
 export function ProjectStatusBadge({ status }: { status: ProjectStatus }) {
+  const { locale } = useI18n();
+  const labels = locale === "fr" ? { draft: "Brouillon", active: "Actif", on_hold: "En pause", completed: "Terminé", cancelled: "Annulé" } : statusLabels;
   return (
     <Badge
       variant="outline"
       className={`rounded-full px-3 py-1 text-[11px] tracking-[0.16em] uppercase ${statusClasses[status]}`}
     >
-      {statusLabels[status]}
+      {labels[status]}
     </Badge>
   );
 }

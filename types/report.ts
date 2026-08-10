@@ -39,8 +39,6 @@ export type ReportDocument = {
   summary: string;
   sections: ReportSection[];
   text: string;
-  csvFilename?: string;
-  csvRows?: Array<Record<string, string | number | boolean | null | undefined>>;
 };
 
 export type ReportBuilderFilters = {

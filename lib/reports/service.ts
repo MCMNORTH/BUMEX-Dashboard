@@ -449,14 +449,6 @@ export async function generateProjectStatusReport(context: ReportContext): Promi
       { key: "blockers", title: "Recent activity", items: recentActivity },
       buildNotesSection("project_status"),
     ],
-    csvFilename: `project-status-${project.id}.csv`,
-    csvRows: tickets.map((ticket) => ({
-      title: ticket.title,
-      status: ticket.status,
-      priority: ticket.priority,
-      due_date: ticket.due_date ?? "",
-      project: ticket.project?.name ?? project.name,
-    })),
   });
 }
 
@@ -490,25 +482,6 @@ export async function generateFinanceSummaryReport(context: ReportContext): Prom
       { key: "blockers", title: "Finance risks", items: risks.slice(0, 8).map((risk) => `${risk.title} / ${risk.description}`) },
       buildNotesSection("finance_summary"),
     ],
-    csvFilename: "finance-summary.csv",
-    csvRows: [
-      ...invoices.slice(0, 12).map((invoice) => ({
-        type: "invoice",
-        label: invoice.invoice_number,
-        status: invoice.paymentStatus,
-        client: invoice.client?.name ?? "",
-        amount: invoice.amount_ttc,
-        remaining_balance: invoice.remainingBalance,
-      })),
-      ...payments.slice(0, 12).map((payment) => ({
-        type: "payment",
-        label: payment.client?.name ?? "Client payment",
-        status: payment.status,
-        client: payment.client?.name ?? "",
-        amount: payment.amount,
-        due_date: payment.due_date ?? "",
-      })),
-    ],
   });
 }
 
@@ -535,17 +508,6 @@ export async function generateTeamWorkloadReport(context: ReportContext): Promis
       { key: "risks", title: "Capacity risks", items: overloadedMembers.slice(0, 8).map((member) => `${member.full_name} / ${member.utilization_percentage}% utilization / ${member.overdue_items} overdue item(s)`) },
       buildNotesSection("team_workload"),
     ],
-    csvFilename: "team-workload.csv",
-    csvRows: workload.map((member) => ({
-      full_name: member.full_name,
-      availability: member.availability_status,
-      active_work_items: member.active_work_items,
-      overdue_items: member.overdue_items,
-      estimated_hours: member.estimated_hours_total,
-      weekly_capacity_hours: member.weekly_capacity_hours,
-      utilization_percentage: member.utilization_percentage,
-      workload_level: member.workload_level,
-    })),
   });
 }
 
@@ -581,23 +543,6 @@ export async function generateClientRelationshipReport(context: ReportContext): 
       { key: "risks", title: "Relationship risks", items: [`Overdue tickets: ${summary.overdueTickets}`, `Delayed projects: ${summary.delayedProjects}`, `Expired contracts: ${summary.expiredContracts}`] },
       buildNotesSection("client_relationship"),
     ],
-    csvFilename: `client-relationship-${client.id}.csv`,
-    csvRows: [
-      ...client.linkedProjects.map((project) => ({
-        type: "project",
-        name: project.name,
-        status: project.status,
-        progress: project.progress,
-        health: project.health,
-      })),
-      ...contracts.map((contract) => ({
-        type: "contract",
-        name: contract.title,
-        status: contract.status,
-        renewal_date: contract.renewal_date ?? "",
-        days_until_renewal: contract.daysUntilRenewal ?? "",
-      })),
-    ],
   });
 }
 
@@ -620,13 +565,6 @@ export async function generateShareholderExecutiveReport(context: ReportContext)
       { key: "risks", title: "Risks", items: data.financeRisks.slice(0, 8).map((risk) => `${risk.title} / ${risk.description}`) },
       { key: "notes", title: "Management notes visible to shareholders", items: data.shareholderNotes.length ? data.shareholderNotes : ["No shareholder-visible management notes in the current window."] },
     ],
-    csvFilename: "shareholder-executive.csv",
-    csvRows: data.projects.slice(0, 12).map((project) => ({
-      project: project.name,
-      status: project.status,
-      progress: project.progress,
-      health: project.health,
-    })),
   });
 }
 

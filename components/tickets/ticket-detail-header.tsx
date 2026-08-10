@@ -1,6 +1,9 @@
+"use client";
+
 import { Trash2 } from "lucide-react";
 
 import { deleteTicketAction } from "@/app/(app)/tickets/actions";
+import { useI18n } from "@/components/layout/i18n-provider";
 import {
   formatHours,
   formatTicketDate,
@@ -44,7 +47,12 @@ export function TicketDetailHeader({
   assigneeWorkloads,
   suggestedAssignees,
 }: TicketDetailHeaderProps) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   const dueState = getTicketDueState(ticket.due_date);
+  const dueLabel = isFr
+    ? ({ none: "Aucune échéance", planned: "Planifiée", soon: "Échéance proche", overdue: "En retard" } as const)[dueState]
+    : getTicketDueLabel(ticket.due_date);
 
   return (
     <div className="grid gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--shadow-soft)] xl:grid-cols-[1.1fr_0.9fr]">
@@ -54,14 +62,14 @@ export function TicketDetailHeader({
           <TicketPriorityBadge priority={ticket.priority} />
           <TicketTypeBadge type={ticket.type} />
           <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.16em] uppercase ${dueTone[dueState]}`}>
-            {getTicketDueLabel(ticket.due_date)}
+            {dueLabel}
           </span>
         </div>
 
         <div className="space-y-3">
           <h1 className="text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">{ticket.title}</h1>
           <p className="max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
-            {ticket.description || "No operational summary has been attached to this ticket yet."}
+            {ticket.description || (isFr ? "Aucun résumé opérationnel n'a encore été rattaché à ce ticket." : "No operational summary has been attached to this ticket yet.")}
           </p>
         </div>
 
@@ -95,13 +103,13 @@ export function TicketDetailHeader({
             <ConfirmActionForm
               action={deleteTicketAction}
               fields={{ ticket_id: ticket.id }}
-              title="Delete ticket?"
-              description={`This will permanently delete "${ticket.title}". This action cannot be undone.`}
-              confirmLabel="Delete ticket"
+              title={isFr ? "Supprimer le ticket ?" : "Delete ticket?"}
+              description={isFr ? `Cela supprimera définitivement "${ticket.title}". Cette action est irréversible.` : `This will permanently delete "${ticket.title}". This action cannot be undone.`}
+              confirmLabel={isFr ? "Supprimer le ticket" : "Delete ticket"}
               trigger={(
                 <Button type="button" variant="ghost" className="rounded-full px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
                   <Trash2 className="size-4" />
-                  Delete
+                  {isFr ? "Supprimer" : "Delete"}
                 </Button>
               )}
             />
@@ -109,7 +117,7 @@ export function TicketDetailHeader({
 
           {role === "shareholder" ? (
             <Badge variant="outline" className="rounded-full px-3 py-1">
-              Summary-only shareholder view
+              {isFr ? "Vue synthèse actionnaire" : "Summary-only shareholder view"}
             </Badge>
           ) : null}
         </div>
@@ -117,36 +125,36 @@ export function TicketDetailHeader({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Project</p>
-          <p className="mt-2 text-sm font-medium">{ticket.project?.name ?? "Not linked"}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.client?.name ?? "No client"}</p>
+          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Projet" : "Project"}</p>
+          <p className="mt-2 text-sm font-medium">{ticket.project?.name ?? (isFr ? "Non lié" : "Not linked")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.client?.name ?? (isFr ? "Aucun client" : "No client")}</p>
         </div>
         <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Assignee</p>
-          <p className="mt-2 text-sm font-medium">{ticket.assignee?.full_name ?? "Unassigned"}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{ticket.assignee?.email ?? "No email"}</p>
+          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Assigné" : "Assignee"}</p>
+          <p className="mt-2 text-sm font-medium">{ticket.assignee?.full_name ?? (isFr ? "Non assigné" : "Unassigned")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{ticket.assignee?.email ?? (isFr ? "Aucun e-mail" : "No email")}</p>
         </div>
         <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Reporter</p>
-          <p className="mt-2 text-sm font-medium">{ticket.reporter?.full_name ?? "Unknown"}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{ticket.reporter?.email ?? "No email"}</p>
+          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Reporteur" : "Reporter"}</p>
+          <p className="mt-2 text-sm font-medium">{ticket.reporter?.full_name ?? (isFr ? "Inconnu" : "Unknown")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{ticket.reporter?.email ?? (isFr ? "Aucun e-mail" : "No email")}</p>
         </div>
         <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Tracking</p>
-          <p className="mt-2 text-sm font-medium">{formatHours(ticket.actual_hours)} used</p>
+          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Suivi" : "Tracking"}</p>
+          <p className="mt-2 text-sm font-medium">{formatHours(ticket.actual_hours)} {isFr ? "utilisées" : "used"}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {formatHours(ticket.estimated_hours)} estimated
+            {formatHours(ticket.estimated_hours)} {isFr ? "estimées" : "estimated"}
           </p>
         </div>
         <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Due date</p>
+          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Date d'échéance" : "Due date"}</p>
           <p className="mt-2 text-sm font-medium">{formatTicketDate(ticket.due_date)}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{getTicketDueLabel(ticket.due_date)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{dueLabel}</p>
         </div>
         <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Last update</p>
+          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Dernière mise à jour" : "Last update"}</p>
           <p className="mt-2 text-sm font-medium">{formatTicketDate(ticket.updated_at)}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Created {formatTicketDate(ticket.created_at)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{isFr ? "Créé" : "Created"} {formatTicketDate(ticket.created_at)}</p>
         </div>
       </div>
     </div>

@@ -7,7 +7,6 @@ import { getCurrentLocale, getDictionary, getMessage } from "@/lib/i18n/server";
 import { getTeamWorkload } from "@/lib/team/service";
 import { getTeamWorkloadPreview, getTickets, getTicketsFilterData, getTicketStats } from "@/lib/tickets/service";
 import { PageHeader } from "@/components/layout/page-header";
-import { ExportCsvButton } from "@/components/shared/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { TicketEmptyState } from "@/components/tickets/ticket-empty-state";
@@ -104,16 +103,6 @@ async function TicketsContent({
   const stats = getTicketStats(tickets, auth.profile.id);
   const workload = getTeamWorkloadPreview(tickets);
   const queryString = buildQueryString(params);
-  const exportRows = tickets.map((ticket) => ({
-    title: ticket.title,
-    status: ticket.status,
-    priority: ticket.priority,
-    type: ticket.type,
-    project: ticket.project?.name ?? "",
-    assignee: ticket.assignee?.full_name ?? "",
-    due_date: ticket.due_date ?? "",
-    updated_at: ticket.updated_at,
-  }));
 
   return (
     <>
@@ -212,7 +201,6 @@ async function TicketsContent({
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          <ExportCsvButton filename="tickets-export" rows={exportRows} />
           <Badge variant="secondary" className="rounded-full px-3 py-1">
             {tickets.length} {getMessage(dictionary, "tickets.page.results", "results")}
           </Badge>

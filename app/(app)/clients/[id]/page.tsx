@@ -11,6 +11,7 @@ import { NotesPanel } from "@/components/notes/notes-panel";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireRouteAccess } from "@/lib/auth/server";
+import { getCurrentLocale } from "@/lib/i18n/server";
 import { getCommentsForEntity } from "@/lib/comments/service";
 import { getNotesForEntity } from "@/lib/notes/service";
 import { getMentionCandidates } from "@/lib/notifications/service";
@@ -24,7 +25,7 @@ import {
   getClientsFilterData,
 } from "@/lib/clients/service";
 import { formatDate } from "@/lib/projects/helpers";
-import type { ClientTimelineFilter } from "@/types/client";
+import type { ClientRecord, ClientTimelineFilter } from "@/types/client";
 
 function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -38,6 +39,8 @@ export default async function ClientDetailPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const auth = await requireRouteAccess("clients");
+  const locale = await getCurrentLocale();
+  const isFr = locale === "fr";
   const { id } = await params;
   const urlParams = (await searchParams) ?? {};
   const historyFilter = (getString(urlParams.history) as ClientTimelineFilter | undefined) ?? "all";
@@ -61,55 +64,73 @@ export default async function ClientDetailPage({
 
   const canManage =
     auth.role === "admin" || (auth.role === "manager" && client.account_manager_id === auth.profile.id);
+  const isOpportunity = client.status === "prospect";
 
   return (
     <div className="space-y-6">
       <ClientToast />
       <ClientDetailHeader client={client} role={auth.role} canManage={canManage} filterData={filterData} />
+      {isOpportunity ? (
+        <OpportunityWorkspace client={client} isFr={isFr} />
+      ) : (
+        <>
       <ClientSummaryCards summary={summary} />
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
           <CardHeader>
-            <CardTitle>Client overview</CardTitle>
+              <CardTitle>{isFr ? "Vue d’ensemble du client" : "Client overview"}</CardTitle>
             <CardDescription>
-              Relationship context, contact details, delivery pressure, and portfolio status for this account.
+              {isFr ? "Contexte de la relation, coordonnées et état du portefeuille pour ce client." : "Relationship context, contact details, delivery pressure, and portfolio status for this account."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Status</p>
-                <p className="mt-2 text-sm font-medium">{client.status}</p>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Situation" : "Status"}</p>
+                <p className="mt-2 text-sm font-medium">{client.status === "prospect" ? (isFr ? "Contact à suivre" : "Prospect") : client.status === "active" ? (isFr ? "Client actif" : "Active") : client.status}</p>
               </div>
               <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Type</p>
-                <p className="mt-2 text-sm font-medium">{client.type.replaceAll("_", " ")}</p>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Type" : "Type"}</p>
+                <p className="mt-2 text-sm font-medium">{client.type === "company" ? (isFr ? "Entreprise" : "Company") : client.type.replaceAll("_", " ")}</p>
               </div>
               <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Last activity</p>
+                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Dernière activité" : "Last activity"}</p>
                 <p className="mt-2 text-sm font-medium">{formatDate(summary.lastActivityDate)}</p>
               </div>
             </div>
 
+            {client.status === "prospect" ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4">
+                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Phase commerciale</p>
+                  <p className="mt-2 text-sm font-medium">{client.prospect_stage === "proposal_sent" ? (isFr ? "Proposition envoyée" : "Proposal sent") : client.prospect_stage === "negotiation" ? (isFr ? "En négociation" : "Negotiation") : client.prospect_stage === "pending_signature" ? (isFr ? "À signer" : "Pending signature") : client.prospect_stage === "qualification" ? (isFr ? "À qualifier" : "Qualification") : (isFr ? "Premier contact" : "Initial contact")}</p>
+                </div>
+                <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4">
+                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Prochain suivi</p>
+                  <p className="mt-2 text-sm font-medium">{formatDate(client.next_follow_up_at)}</p>
+                </div>
+              </div>
+            ) : null}
+
             <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-              <p className="text-sm font-medium">Contact information</p>
+              <p className="text-sm font-medium">{isFr ? "Coordonnées" : "Contact information"}</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl border border-border/65 bg-background/45 p-4">
                   <p className="text-sm font-medium">Email</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{client.contact_email ?? "Not set"}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{client.contact_email ?? (isFr ? "Non renseigné" : "Not set")}</p>
                 </div>
                 <div className="rounded-2xl border border-border/65 bg-background/45 p-4">
-                  <p className="text-sm font-medium">Phone</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{client.contact_phone ?? "Not set"}</p>
+                  <p className="text-sm font-medium">{isFr ? "Téléphone" : "Phone"}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{client.contact_phone ?? (isFr ? "Non renseigné" : "Not set")}</p>
                 </div>
                 <div className="rounded-2xl border border-border/65 bg-background/45 p-4">
-                  <p className="text-sm font-medium">Address</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{client.address ?? "Not set"}</p>
+                  <p className="text-sm font-medium">{isFr ? "Adresse" : "Address"}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{client.address ?? (isFr ? "Non renseignée" : "Not set")}</p>
                 </div>
                 <div className="rounded-2xl border border-border/65 bg-background/45 p-4">
-                  <p className="text-sm font-medium">Tax ID</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{client.tax_id ?? "Not set"}</p>
+                  <p className="text-sm font-medium">{isFr ? "Identifiant fiscal" : "Tax ID"}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{client.tax_id ?? (isFr ? "Non renseigné" : "Not set")}</p>
                 </div>
               </div>
             </div>
@@ -255,6 +276,8 @@ export default async function ClientDetailPage({
           </Card>
         </div>
       </div>
+        </>
+      )}
 
       <div className="space-y-4">
         <ClientHistoryFilters selected={historyFilter} total={timeline.length} />
@@ -290,6 +313,67 @@ export default async function ClientDetailPage({
         currentUserId={auth.profile.id}
         mentionCandidates={mentionCandidates}
       />
+    </div>
+  );
+}
+
+function OpportunityWorkspace({ client, isFr }: { client: ClientRecord; isFr: boolean }) {
+  const stage = {
+    initial_contact: isFr ? "Premier contact" : "Initial contact",
+    qualification: isFr ? "À qualifier" : "Qualification",
+    negotiation: isFr ? "En négociation" : "Negotiation",
+    proposal_sent: isFr ? "Proposition envoyée" : "Proposal sent",
+    pending_signature: isFr ? "En attente de signature" : "Pending signature",
+  }[client.prospect_stage ?? "initial_contact"];
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+      <Card className="border-violet-500/20 bg-card/72 backdrop-blur-xl">
+        <CardHeader>
+          <CardTitle>{isFr ? "Suivi commercial" : "Sales follow-up"}</CardTitle>
+          <CardDescription>
+            {isFr
+              ? "Cette opportunité n’a pas encore de contrat signé : aucun projet, ticket ou élément de prestation ne lui est associé."
+              : "This opportunity has no signed contract yet, so it has no projects, tickets, or delivery records."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          <OpportunityField label={isFr ? "Étape commerciale" : "Sales stage"} value={stage} accent />
+          <OpportunityField label={isFr ? "Prochaine relance" : "Next follow-up"} value={formatDate(client.next_follow_up_at)} accent />
+          <OpportunityField label={isFr ? "Dernière activité" : "Last activity"} value={formatDate(client.lastActivityAt)} />
+          <OpportunityField label={isFr ? "Note / prochaine action" : "Note / next action"} value={client.notes || (isFr ? "Aucune note pour le moment" : "No note yet")} />
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <CardHeader>
+          <CardTitle>{isFr ? "Responsable et coordonnées" : "Owner and contact details"}</CardTitle>
+          <CardDescription>
+            {isFr ? "Attribuez un responsable depuis le bouton Modifier." : "Assign an owner from the Edit button."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          <OpportunityField
+            label={isFr ? "Responsable du suivi" : "Follow-up owner"}
+            value={client.accountManager?.full_name ?? (isFr ? "À attribuer" : "Unassigned")}
+            detail={client.accountManager?.email ?? (isFr ? "Aucun e-mail" : "No email")}
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <OpportunityField label="E-mail" value={client.contact_email ?? (isFr ? "Non renseigné" : "Not set")} />
+            <OpportunityField label={isFr ? "Téléphone" : "Phone"} value={client.contact_phone ?? (isFr ? "Non renseigné" : "Not set")} />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function OpportunityField({ label, value, detail, accent = false }: { label: string; value: string; detail?: string; accent?: boolean }) {
+  return (
+    <div className={`rounded-2xl border p-4 ${accent ? "border-violet-500/20 bg-violet-500/5" : "border-border/65 bg-background/38"}`}>
+      <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{label}</p>
+      <p className="mt-2 text-sm font-medium">{value}</p>
+      {detail ? <p className="mt-1 text-xs text-muted-foreground">{detail}</p> : null}
     </div>
   );
 }

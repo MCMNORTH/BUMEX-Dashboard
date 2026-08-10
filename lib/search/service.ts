@@ -1,6 +1,7 @@
 import "server-only";
 
 import { canViewInternalTickets, canViewSensitiveFinance } from "@/lib/auth/permissions";
+import { applyEntityScope, getOptionalCurrentEntityCode } from "@/lib/entities/scope";
 import {
   canSearchEntity,
   canViewSearchResult,
@@ -19,6 +20,39 @@ type SearchViewer = {
 
 function withWildcards(query: string) {
   return `%${query.trim()}%`;
+}
+
+function normalizeSearchValue(value: string | null | undefined) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase();
+}
+
+function searchScore(result: GlobalSearchResult, query: string) {
+  const normalizedQuery = normalizeSearchValue(query);
+  const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+  const title = normalizeSearchValue(result.title);
+  const description = normalizeSearchValue(result.description);
+  const relatedLabel = normalizeSearchValue(result.relatedLabel);
+  const allText = `${title} ${description} ${relatedLabel}`;
+
+  let score = 0;
+
+  if (title === normalizedQuery) score += 1_000;
+  else if (title.startsWith(normalizedQuery)) score += 600;
+  else if (title.includes(normalizedQuery)) score += 350;
+  else if (description.includes(normalizedQuery) || relatedLabel.includes(normalizedQuery)) score += 160;
+
+  score += terms.reduce((total, term) => total + (title.includes(term) ? 60 : allText.includes(term) ? 20 : 0), 0);
+
+  if (result.updatedAt) {
+    const ageInDays = (Date.now() - new Date(result.updatedAt).getTime()) / 86_400_000;
+    if (ageInDays <= 7) score += 12;
+    else if (ageInDays <= 30) score += 6;
+  }
+
+  return score;
 }
 
 function entityLabel(entityType: GlobalSearchEntityType) {
@@ -48,8 +82,9 @@ export async function searchProjects(query: string, limit = RESULT_LIMIT) {
   return safeSearch(async () => {
     const supabase = await createClient();
     if (!supabase) return [];
+    const entityCode = await getOptionalCurrentEntityCode();
 
-    const { data, error } = await supabase
+    let queryBuilder = supabase
       .from("projects")
       .select(
         `
@@ -64,7 +99,13 @@ export async function searchProjects(query: string, limit = RESULT_LIMIT) {
         `,
       )
       .or(`name.ilike.${withWildcards(query)},description.ilike.${withWildcards(query)}`)
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (entityCode) {
+      queryBuilder = applyEntityScope(queryBuilder, entityCode);
+    }
+
+    const { data, error } = await queryBuilder
       .limit(limit)
       .returns<Array<{
         id: string;
@@ -94,8 +135,9 @@ export async function searchTickets(query: string, limit = RESULT_LIMIT) {
   return safeSearch(async () => {
     const supabase = await createClient();
     if (!supabase) return [];
+    const entityCode = await getOptionalCurrentEntityCode();
 
-    const { data, error } = await supabase
+    let queryBuilder = supabase
       .from("tasks")
       .select(
         `
@@ -114,7 +156,13 @@ export async function searchTickets(query: string, limit = RESULT_LIMIT) {
         `,
       )
       .or(`title.ilike.${withWildcards(query)},type.ilike.${withWildcards(query)}`)
-      .order("updated_at", { ascending: false })
+      .order("updated_at", { ascending: false });
+
+    if (entityCode) {
+      queryBuilder = applyEntityScope(queryBuilder, entityCode);
+    }
+
+    const { data, error } = await queryBuilder
       .limit(limit)
       .returns<Array<{
         id: string;
@@ -160,8 +208,9 @@ export async function searchClients(query: string, limit = RESULT_LIMIT) {
   return safeSearch(async () => {
     const supabase = await createClient();
     if (!supabase) return [];
+    const entityCode = await getOptionalCurrentEntityCode();
 
-    const { data, error } = await supabase
+    let queryBuilder = supabase
       .from("clients")
       .select(
         `
@@ -176,7 +225,13 @@ export async function searchClients(query: string, limit = RESULT_LIMIT) {
         `,
       )
       .or(`name.ilike.${withWildcards(query)},industry.ilike.${withWildcards(query)}`)
-      .order("updated_at", { ascending: false })
+      .order("updated_at", { ascending: false });
+
+    if (entityCode) {
+      queryBuilder = applyEntityScope(queryBuilder, entityCode);
+    }
+
+    const { data, error } = await queryBuilder
       .limit(limit)
       .returns<Array<{
         id: string;
@@ -208,8 +263,9 @@ export async function searchContracts(query: string, limit = RESULT_LIMIT) {
   return safeSearch(async () => {
     const supabase = await createClient();
     if (!supabase) return [];
+    const entityCode = await getOptionalCurrentEntityCode();
 
-    const { data, error } = await supabase
+    let queryBuilder = supabase
       .from("contracts")
       .select(
         `
@@ -224,7 +280,13 @@ export async function searchContracts(query: string, limit = RESULT_LIMIT) {
         `,
       )
       .or(`title.ilike.${withWildcards(query)},contract_type.ilike.${withWildcards(query)}`)
-      .order("updated_at", { ascending: false })
+      .order("updated_at", { ascending: false });
+
+    if (entityCode) {
+      queryBuilder = applyEntityScope(queryBuilder, entityCode);
+    }
+
+    const { data, error } = await queryBuilder
       .limit(limit)
       .returns<Array<{
         id: string;
@@ -254,6 +316,7 @@ export async function searchDocuments(query: string, limit = RESULT_LIMIT, role?
   return safeSearch(async () => {
     const supabase = await createClient();
     if (!supabase) return [];
+    const entityCode = await getOptionalCurrentEntityCode();
 
     let queryBuilder = supabase
       .from("documents")
@@ -276,6 +339,10 @@ export async function searchDocuments(query: string, limit = RESULT_LIMIT, role?
 
     if (role === "employee") {
       queryBuilder = queryBuilder.neq("visibility", "restricted");
+    }
+
+    if (entityCode) {
+      queryBuilder = applyEntityScope(queryBuilder, entityCode);
     }
 
     const { data, error } = await queryBuilder
@@ -308,8 +375,9 @@ export async function searchInvoices(query: string, limit = RESULT_LIMIT) {
   return safeSearch(async () => {
     const supabase = await createClient();
     if (!supabase) return [];
+    const entityCode = await getOptionalCurrentEntityCode();
 
-    const { data, error } = await supabase
+    let queryBuilder = supabase
       .from("invoices")
       .select(
         `
@@ -325,7 +393,13 @@ export async function searchInvoices(query: string, limit = RESULT_LIMIT) {
         `,
       )
       .or(`invoice_number.ilike.${withWildcards(query)},status.ilike.${withWildcards(query)}`)
-      .order("updated_at", { ascending: false })
+      .order("updated_at", { ascending: false });
+
+    if (entityCode) {
+      queryBuilder = applyEntityScope(queryBuilder, entityCode);
+    }
+
+    const { data, error } = await queryBuilder
       .limit(limit)
       .returns<Array<{
         id: string;
@@ -360,8 +434,9 @@ export async function searchPayments(query: string, limit = RESULT_LIMIT) {
   return safeSearch(async () => {
     const supabase = await createClient();
     if (!supabase) return [];
+    const entityCode = await getOptionalCurrentEntityCode();
 
-    const { data, error } = await supabase
+    let queryBuilder = supabase
       .from("payments")
       .select(
         `
@@ -377,7 +452,13 @@ export async function searchPayments(query: string, limit = RESULT_LIMIT) {
         `,
       )
       .or(`reference.ilike.${withWildcards(query)},status.ilike.${withWildcards(query)}`)
-      .order("updated_at", { ascending: false })
+      .order("updated_at", { ascending: false });
+
+    if (entityCode) {
+      queryBuilder = applyEntityScope(queryBuilder, entityCode);
+    }
+
+    const { data, error } = await queryBuilder
       .limit(limit)
       .returns<Array<{
         id: string;
@@ -412,12 +493,19 @@ export async function searchTeamMembers(query: string, limit = RESULT_LIMIT) {
   return safeSearch(async () => {
     const supabase = await createClient();
     if (!supabase) return [];
+    const entityCode = await getOptionalCurrentEntityCode();
 
-    const { data, error } = await supabase
+    let queryBuilder = supabase
       .from("profiles")
       .select("id, full_name, email, role, job_title, department, availability_status, updated_at")
       .or(`full_name.ilike.${withWildcards(query)},email.ilike.${withWildcards(query)},job_title.ilike.${withWildcards(query)}`)
-      .order("full_name", { ascending: true })
+      .order("full_name", { ascending: true });
+
+    if (entityCode) {
+      queryBuilder = applyEntityScope(queryBuilder, entityCode);
+    }
+
+    const { data, error } = await queryBuilder
       .limit(limit)
       .returns<Array<{
         id: string;
@@ -479,13 +567,14 @@ export async function globalSearch(query: string, user: SearchViewer, options?: 
     .filter((result) => canViewSearchResult(user, result))
     .map((result) => sanitizeSearchResultForRole(result, user.role));
 
-  return Object.values(
-    visibleResults.reduce<Record<GlobalSearchEntityType, GlobalSearchResult[]>>((groups, result) => {
-      groups[result.entityType] ??= [];
-      groups[result.entityType].push(result);
-      return groups;
-    }, {} as Record<GlobalSearchEntityType, GlobalSearchResult[]>),
-  )
-    .flat()
-    .sort((left, right) => entityLabel(left.entityType).localeCompare(entityLabel(right.entityType)));
+  return visibleResults.sort((left, right) => {
+    const scoreDifference = searchScore(right, normalizedQuery) - searchScore(left, normalizedQuery);
+    if (scoreDifference !== 0) return scoreDifference;
+
+    const leftUpdatedAt = left.updatedAt ? new Date(left.updatedAt).getTime() : 0;
+    const rightUpdatedAt = right.updatedAt ? new Date(right.updatedAt).getTime() : 0;
+    if (rightUpdatedAt !== leftUpdatedAt) return rightUpdatedAt - leftUpdatedAt;
+
+    return entityLabel(left.entityType).localeCompare(entityLabel(right.entityType));
+  });
 }

@@ -1,3 +1,5 @@
+"use client";
+
 import { Trash2 } from "lucide-react";
 
 import { deleteProjectAction } from "@/app/(app)/projects/actions";
@@ -8,6 +10,7 @@ import { ProjectForm } from "@/components/projects/project-form";
 import { ProjectHealthBadge } from "@/components/projects/project-health-badge";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ConfirmActionForm } from "@/components/shared/confirm-action-form";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { ProjectFiltersData, ProjectRecord } from "@/types/project";
 import type { AppRole } from "@/types/auth";
 
@@ -24,6 +27,8 @@ export function ProjectDetailHeader({
   canManage,
   filterData,
 }: ProjectDetailHeaderProps) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   return (
     <div className="grid gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none xl:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-4">
@@ -37,7 +42,7 @@ export function ProjectDetailHeader({
         <div className="space-y-3">
           <h1 className="text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">{project.name}</h1>
           <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
-            {project.description || "No executive summary has been added to this project yet."}
+            {project.description || (isFr ? "Aucune synthèse exécutive n’a encore été ajoutée à ce projet." : "No executive summary has been added to this project yet.")}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -69,14 +74,14 @@ export function ProjectDetailHeader({
               trigger={(
                 <Button type="button" variant="ghost" className="rounded-full px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
                 <Trash2 className="size-4" />
-                Delete
+                {isFr ? "Supprimer" : "Delete"}
                 </Button>
               )}
             />
           ) : null}
           {role === "shareholder" ? (
             <Badge variant="outline" className="rounded-full px-3 py-1">
-              Read-only strategic view
+              {isFr ? "Vue stratégique en lecture seule" : "Read-only strategic view"}
             </Badge>
           ) : null}
         </div>
@@ -89,19 +94,19 @@ export function ProjectDetailHeader({
           <p className="mt-1 text-xs text-muted-foreground">{project.client?.contact_email ?? "No contact email"}</p>
         </div>
         <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Owner</p>
-          <p className="mt-2 text-sm font-medium">{project.owner?.full_name ?? "Unassigned"}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{project.owner?.email ?? "No email"}</p>
+          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Responsable" : "Owner"}</p>
+          <p className="mt-2 text-sm font-medium">{project.owner?.full_name ?? (isFr ? "Non assigné" : "Unassigned")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{project.owner?.email ?? (isFr ? "Aucun e-mail" : "No email")}</p>
         </div>
         <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Timeline</p>
+          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Calendrier" : "Timeline"}</p>
           <p className="mt-2 text-sm font-medium">{formatDate(project.start_date)}</p>
-          <p className="mt-1 text-xs text-muted-foreground">to {formatDate(project.end_date)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{isFr ? "au" : "to"} {formatDate(project.end_date)}</p>
         </div>
         <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
           <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Budget</p>
           <p className="mt-2 text-sm font-medium">{formatCurrency(project.budget_amount)}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Financial summary placeholder ready</p>
+          <p className="mt-1 text-xs text-muted-foreground">{isFr ? "La synthèse financière sera disponible ici." : "Financial summary placeholder ready"}</p>
         </div>
       </div>
     </div>

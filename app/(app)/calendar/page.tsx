@@ -129,6 +129,7 @@ export default async function CalendarPage({
         nextHref={buildHref(view, shiftPeriod(view, period, 1))}
         todayHref={buildHref(view, formatKey(new Date()))}
         baseHref={(nextView) => buildHref(nextView)}
+        isFr={isFr}
       />
 
       <CalendarFilters filters={filters} filterData={filterData} view={view} period={period} />

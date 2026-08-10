@@ -6,7 +6,6 @@ import { isManagerLikeRole } from "@/lib/auth/permissions";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { getProjects, getProjectsFilterData } from "@/lib/projects/service";
 import { PageHeader } from "@/components/layout/page-header";
-import { ExportCsvButton } from "@/components/shared/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ProjectCard } from "@/components/projects/project-card";
@@ -34,8 +33,8 @@ export default async function ProjectsPage({
       <ProjectToast />
       <PageHeader
         eyebrow={isFr ? "Module projets" : "Projects module"}
-        title={isFr ? "Un espace premium de delivery pour piloter lâ€™exÃ©cution des projets." : "A premium delivery workspace for project execution."}
-        subtitle={isFr ? "Recherchez, filtrez, crÃ©ez et gÃ©rez les programmes actifs avec une visibilitÃ© de niveau entreprise et des contrÃ´les opÃ©rationnels propres." : "Search, filter, create, and manage active programs with enterprise-grade visibility and clean operational controls."}
+        title={isFr ? "Un espace premium de delivery pour piloter l’exécution des projets." : "A premium delivery workspace for project execution."}
+        subtitle={isFr ? "Recherchez, filtrez, créez et gérez les programmes actifs avec une visibilité de niveau entreprise et des contrôles opérationnels propres." : "Search, filter, create, and manage active programs with enterprise-grade visibility and clean operational controls."}
       />
       <Suspense fallback={<ProjectsPageFallback />}> 
         <ProjectsContent searchParams={searchParams} locale={locale} />
@@ -75,15 +74,6 @@ async function ProjectsContent({
     : 0;
   const atRisk = projects.filter((project) => project.health === "at_risk" || project.health === "delayed").length;
   const dueSoon = projects.filter((project) => project.deadlineState === "due-soon").length;
-  const exportRows = projects.map((project) => ({
-    name: project.name,
-    status: project.status,
-    health: project.health,
-    progress: `${project.progress}%`,
-    client: project.client?.name ?? "",
-    owner: project.owner?.full_name ?? "",
-    deadline: project.end_date ?? "",
-  }));
 
   return (
     <>
@@ -91,9 +81,9 @@ async function ProjectsContent({
         <div className="max-w-3xl">
           <p className="text-[13px] text-muted-foreground">
             {auth.role === "shareholder"
-              ? (isFr ? "VisibilitÃ© stratÃ©gique en lecture seule sur les programmes actifs, les tendances de santÃ© et les initiatives liÃ©es aux clients." : "Read-only strategic visibility for active programs, health trends, and client-linked initiatives.")
+              ? (isFr ? "Visibilité stratégique en lecture seule sur les programmes actifs, les tendances de santé et les initiatives liées aux clients." : "Read-only strategic visibility for active programs, health trends, and client-linked initiatives.")
               : auth.role === "employee"
-                ? (isFr ? "Projets liÃ©s Ã  vos tickets actuels, Ã  vos Ã©chÃ©ances et Ã  vos responsabilitÃ©s dâ€™exÃ©cution." : "Projects tied to your current tickets, deadlines, and execution responsibilities.")
+                ? (isFr ? "Projets liés à vos tickets actuels, à vos échéances et à vos responsabilités d’exécution." : "Projects tied to your current tickets, deadlines, and execution responsibilities.")
                 : (isFr ? "Vue opérationnelle en direct des projets actifs et de leur exécution." : "Live operational visibility across active projects and delivery execution.")}
           </p>
         </div>
@@ -112,22 +102,22 @@ async function ProjectsContent({
             icon: TrendingUp,
             label: isFr ? "Progression moyenne" : "Average progress",
             value: `${avgProgress}%`,
-            detail: isFr ? "Signal de complÃ©tion du portefeuille" : "Portfolio completion signal",
+            detail: isFr ? "Signal de complétion du portefeuille" : "Portfolio completion signal",
           },
           {
             icon: ShieldCheck,
-            label: isFr ? "Ã€ risque" : "At risk",
+            label: isFr ? "À risque" : "At risk",
             value: formatNumber(atRisk),
-            detail: isFr ? "Programmes nÃ©cessitant de lâ€™attention" : "Programs needing attention",
+            detail: isFr ? "Programmes nécessitant de l’attention" : "Programs needing attention",
           },
           {
             icon: ClipboardList,
-            label: isFr ? "Ã‰chÃ©ance proche" : "Due soon",
+            label: isFr ? "Échéance proche" : "Due soon",
             value: formatNumber(dueSoon),
-            detail: isFr ? "Ã‰chÃ©ances dans les 7 jours" : "Deadlines inside 7 days",
+            detail: isFr ? "Échéances dans les 7 jours" : "Deadlines inside 7 days",
           },
         ].map(({ icon: Icon, label, value, detail }) => {
-          const critical = label === "At risk" || label === "Ã€ risque";
+          const critical = label === "At risk" || label === "À risque";
 
           return (
           <Card
@@ -161,9 +151,8 @@ async function ProjectsContent({
           <h2 className="mt-1.5 text-lg font-semibold tracking-tight">{isFr ? "Liste des projets" : "Project list"}</h2>
         </div>
         <div className="flex items-center gap-2">
-          <ExportCsvButton filename="projects-export" rows={exportRows} />
           <Badge variant="secondary" className="rounded-full px-3 py-1">
-            {formatNumber(projects.length)} {isFr ? "rÃ©sultats" : "results"}
+            {formatNumber(projects.length)} {isFr ? "résultats" : "results"}
           </Badge>
         </div>
       </div>

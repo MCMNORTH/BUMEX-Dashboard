@@ -3,7 +3,7 @@ import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
 
 import { logActivity } from "@/lib/activity/service";
-import { getAuthContext } from "@/lib/auth/server";
+import { getAuthContext, getDevPreviewAuthContext, isDevPreviewAuthEnabled } from "@/lib/auth/server";
 import { generateInvoicePdf } from "@/lib/finance/invoice-pdf";
 import { getInvoicePdfFileName } from "@/lib/finance/invoice-view";
 import { getInvoiceById } from "@/lib/finance/service";
@@ -14,9 +14,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await getAuthContext();
-  const allowLocalPreviewAccess =
-    process.env.NODE_ENV === "development" && process.env.ENABLE_LOCAL_PREVIEW_AUTH === "0";
-  const effectiveRole = auth.role ?? (allowLocalPreviewAccess ? "admin" : null);
+  const previewAuth = isDevPreviewAuthEnabled() ? getDevPreviewAuthContext() : null;
+  const effectiveAuth = auth.user && auth.profile && auth.role ? auth : previewAuth;
+  const effectiveRole = effectiveAuth?.role ?? null;
 
   if (!effectiveRole) {
     return new NextResponse("Unauthorized", { status: 401 });
@@ -34,9 +34,9 @@ export async function GET(
   const url = new URL(request.url);
   const download = url.searchParams.get("download") === "1";
 
-  if (auth.profile) {
+  if (effectiveAuth?.profile) {
     await logActivity({
-      userId: auth.profile.id,
+      userId: effectiveAuth.profile.id,
       action: download ? "Downloaded invoice PDF" : "Viewed invoice PDF",
       entityType: "invoice",
       entityId: invoice.id,

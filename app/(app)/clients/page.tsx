@@ -4,7 +4,6 @@ import { requireRouteAccess } from "@/lib/auth/server";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { getClients, getClientsFilterData } from "@/lib/clients/service";
 import { PageHeader } from "@/components/layout/page-header";
-import { ExportCsvButton } from "@/components/shared/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ClientCard } from "@/components/clients/client-card";
@@ -14,7 +13,7 @@ import { ClientForm } from "@/components/clients/client-form";
 import { ClientTable } from "@/components/clients/client-table";
 import { ClientToast } from "@/components/clients/client-toast";
 import { formatNumber } from "@/lib/formatters";
-import type { ClientFilters as ClientFiltersType } from "@/types/client";
+import type { ClientFilters as ClientFiltersType, ClientRecord } from "@/types/client";
 
 function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -32,6 +31,7 @@ export default async function ClientsPage({
   const filters: ClientFiltersType = {
     search: getString(params.search) ?? "",
     status: (getString(params.status) as ClientFiltersType["status"]) ?? "",
+    prospectStage: (getString(params.stage) as ClientFiltersType["prospectStage"]) ?? "",
     type: (getString(params.type) as ClientFiltersType["type"]) ?? "",
     accountManagerId: getString(params.manager) ?? "",
   };
@@ -46,15 +46,10 @@ export default async function ClientsPage({
   const prospects = clients.filter((client) => client.status === "prospect").length;
   const suspended = clients.filter((client) => client.status === "suspended").length;
   const totalActiveProjects = clients.reduce((sum, client) => sum + client.activeProjectsCount, 0);
-  const exportRows = clients.map((client) => ({
-    name: client.name,
-    status: client.status,
-    type: client.type,
-    industry: client.industry ?? "",
-    account_manager: client.accountManager?.full_name ?? "",
-    active_projects: client.activeProjectsCount,
-    last_activity: client.lastActivityAt ?? "",
-  }));
+  const contractedClients = clients.filter((client) => client.status === "active");
+  const pipelineClients = clients.filter((client) => client.status === "prospect");
+  const otherClients = clients.filter((client) => client.status !== "active" && client.status !== "prospect");
+  const showPortfolioSections = !filters.status && !filters.prospectStage;
 
   return (
     <div className="space-y-6">
@@ -116,7 +111,6 @@ export default async function ClientsPage({
           <h2 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Liste des clients" : "Client list"}</h2>
         </div>
         <div className="flex items-center gap-2">
-          <ExportCsvButton filename="clients-export" rows={exportRows} />
           <Badge variant="secondary" className="rounded-full px-3 py-1">
             {formatNumber(clients.length)} {isFr ? "résultats" : "results"}
           </Badge>
@@ -125,9 +119,31 @@ export default async function ClientsPage({
 
       {auth.role === "shareholder" ? <ClientTable clients={clients} /> : null}
 
-      <div className="grid gap-4">
-        {clients.length ? clients.map((client) => <ClientCard key={client.id} client={client} />) : <ClientEmptyState />}
-      </div>
+      {clients.length ? (
+        showPortfolioSections ? (
+          <div className="space-y-8">
+            <ClientGroup title={isFr ? "Clients sous contrat" : "Clients under contract"} description={isFr ? "Comptes passés au cycle de prestation avec un contrat signé ou actif." : "Accounts in the delivery cycle with a signed or active contract."} clients={contractedClients} />
+            <ClientGroup title={isFr ? "Opportunités commerciales" : "Sales opportunities"} description={isFr ? "Contacts et entreprises à suivre avant la signature d’un contrat." : "Contacts and organizations to follow before a contract is signed."} clients={pipelineClients} />
+            {otherClients.length ? <ClientGroup title={isFr ? "Autres comptes" : "Other accounts"} description={isFr ? "Comptes inactifs, suspendus ou archivés." : "Inactive, suspended, or archived accounts."} clients={otherClients} /> : null}
+          </div>
+        ) : (
+          <div className="grid gap-4">{clients.map((client) => <ClientCard key={client.id} client={client} />)}</div>
+        )
+      ) : <ClientEmptyState />}
     </div>
+  );
+}
+
+function ClientGroup({ title, description, clients }: { title: string; description: string; clients: ClientRecord[] }) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      </div>
+      {clients.length ? <div className="grid gap-4">{clients.map((client) => <ClientCard key={client.id} client={client} />)}</div> : (
+        <div className="rounded-[24px] border border-dashed border-border/70 bg-card/45 px-5 py-6 text-sm text-muted-foreground">Aucun élément dans cette section.</div>
+      )}
+    </section>
   );
 }

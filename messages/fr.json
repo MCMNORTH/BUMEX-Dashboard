@@ -9,7 +9,9 @@
       "profile": "Profil",
       "preferences": "Préférences de l’espace",
       "notifications": "Notifications",
-      "signOut": "Se déconnecter",
+    "signOut": "Se déconnecter",
+    "cancel": "Annuler",
+    "confirmSignOut": "Oui, se déconnecter",
       "create": "Créer",
       "edit": "Modifier",
       "apply": "Appliquer",
@@ -21,7 +23,7 @@
       "boardSummary": "Résumé board",
       "exportCsv": "Exporter CSV"
     },
-    "states": {
+  "states": {
       "loading": "Chargement..."
     }
   },
@@ -32,8 +34,13 @@
   "navigation": {
     "groups": {
       "workspace": "Espace de travail",
-      "business": "Business",
+      "business": "Affaires",
       "system": "Système"
+    },
+    "groupDescriptions": {
+      "workspace": "Livraison, planification, execution et operations d'equipe.",
+      "business": "Clients, contrats, documents, finances et gouvernance.",
+      "system": "Configuration, notifications et controles de la plateforme."
     },
     "items": {
       "overview": {
@@ -107,6 +114,47 @@
     },
     "liveShell": "Shell actif"
   },
+  "search": {
+    "placeholder": "Rechercher dans l’espace de travail",
+    "ariaLabel": "Recherche globale",
+    "loading": "Recherche en cours...",
+    "error": "La recherche est temporairement indisponible.",
+    "minimumCharacters": "Saisissez au moins 2 caractères pour rechercher.",
+    "empty": "Aucun résultat correspondant.",
+    "viewAll": "Voir tous les résultats",
+    "action": "Rechercher",
+    "clear": "Effacer la recherche",
+    "recent": "Recherches récentes",
+    "suggestions": "Accès suggérés",
+    "explore": "Explorer l’espace de travail",
+    "keyboardHint": "Utilisez ↑ ↓ pour naviguer et Entrée pour ouvrir",
+    "quick": {
+      "overview": "Vue générale",
+      "overviewDescription": "Activité et indicateurs de performance",
+      "projects": "Projets",
+      "projectsDescription": "Programmes, jalons et livraison",
+      "tickets": "Tickets",
+      "ticketsDescription": "Tâches, incidents et demandes",
+      "clients": "Clients",
+      "clientsDescription": "Comptes et relations commerciales",
+      "calendar": "Calendrier",
+      "calendarDescription": "Échéances et événements à venir",
+      "team": "Équipe",
+      "teamDescription": "Personnes, rôles et disponibilités",
+      "documents": "Documents",
+      "documentsDescription": "Fichiers et archives contrôlées"
+    },
+    "entityLabels": {
+      "project": "Projets",
+      "ticket": "Tickets",
+      "client": "Clients",
+      "contract": "Contrats",
+      "document": "Documents",
+      "invoice": "Factures",
+      "payment": "Paiements",
+      "teamMember": "Membres de l’équipe"
+    }
+  },
   "overviewPage": {
     "alerts": {
       "shareholderTitle": "Alertes stratégiques",
@@ -160,7 +208,7 @@
       "workloadDescription": "Répartition actuelle de l’effort par unité, avec emphase au survol pour comparer rapidement.",
       "kpis": "KPIs",
       "performancePulse": "Pulse de performance opérationnelle",
-      "insights": "Insights",
+      "insights": "Analyses",
       "focusToday": "Focus du jour",
       "strategicFocus": "Focus stratégique",
       "weeklyProgress": "Progression hebdomadaire",
@@ -190,7 +238,7 @@
       "excellent": "Excellent",
       "watch": "Surveillance",
       "atRisk": "À risque",
-      "mix": "Mix",
+      "mix": "Répartition",
       "activity": "Activité",
       "planning": "Planning",
       "risks": "Risques",
@@ -215,13 +263,40 @@
           "caption": "2 factures dépassent la fenêtre cible"
         }
       ],
-      "workload": ["Infrastructure", "Produit", "Support", "Sécurité", "Data"],
-      "taskDistribution": ["Delivery", "Opérations", "Conformité", "Finance"],
+      "workload": [
+        "Infrastructure",
+        "Produit",
+        "Support",
+        "Sécurité",
+        "Data"
+      ],
+      "taskDistribution": [
+        "Delivery",
+        "Opérations",
+        "Conformité",
+        "Finance"
+      ],
       "projectHealth": [
-        { "name": "Déploiement Atlas ERP", "status": "Fort", "owner": "Infrastructure" },
-        { "name": "Portail client Nimbus", "status": "Surveillance", "owner": "Produit" },
-        { "name": "Audit sécurité Orion", "status": "Excellent", "owner": "Sécurité" },
-        { "name": "Hub Data Vertex", "status": "À risque", "owner": "Data" }
+        {
+          "name": "Déploiement Atlas ERP",
+          "status": "Fort",
+          "owner": "Infrastructure"
+        },
+        {
+          "name": "Portail client Nimbus",
+          "status": "Surveillance",
+          "owner": "Produit"
+        },
+        {
+          "name": "Audit sécurité Orion",
+          "status": "Excellent",
+          "owner": "Sécurité"
+        },
+        {
+          "name": "Hub Data Vertex",
+          "status": "À risque",
+          "owner": "Data"
+        }
       ],
       "focusToday": [
         {
@@ -299,13 +374,41 @@
         }
       ],
       "nextSevenDays": [
-        { "day": "Lun", "title": "Sync PMO", "theme": "Alignement roadmap et blockers" },
-        { "day": "Mar", "title": "Checkpoint sécurité", "theme": "Preuves d’audit et validations" },
-        { "day": "Mer", "title": "Steering client", "theme": "Suivi de l’escalade Nimbus" },
-        { "day": "Jeu", "title": "Préparation clôture finance", "theme": "Validation des factures et approbations" },
-        { "day": "Ven", "title": "Revue leadership", "theme": "Résumé hebdo board-ready" },
-        { "day": "Sam", "title": "Opérations légères", "theme": "Couverture de monitoring réduite" },
-        { "day": "Dim", "title": "Reset planning", "theme": "Séquençage de la semaine et focus" }
+        {
+          "day": "Lun",
+          "title": "Sync PMO",
+          "theme": "Alignement roadmap et blockers"
+        },
+        {
+          "day": "Mar",
+          "title": "Checkpoint sécurité",
+          "theme": "Preuves d’audit et validations"
+        },
+        {
+          "day": "Mer",
+          "title": "Steering client",
+          "theme": "Suivi de l’escalade Nimbus"
+        },
+        {
+          "day": "Jeu",
+          "title": "Préparation clôture finance",
+          "theme": "Validation des factures et approbations"
+        },
+        {
+          "day": "Ven",
+          "title": "Revue leadership",
+          "theme": "Résumé hebdo board-ready"
+        },
+        {
+          "day": "Sam",
+          "title": "Opérations légères",
+          "theme": "Couverture de monitoring réduite"
+        },
+        {
+          "day": "Dim",
+          "title": "Reset planning",
+          "theme": "Séquençage de la semaine et focus"
+        }
       ]
     }
   },
@@ -329,10 +432,22 @@
       "ticketList": "Liste des tickets",
       "results": "résultats",
       "stats": {
-        "visibleTickets": { "label": "Tickets visibles", "detail": "Charge actuelle dans le scope" },
-        "myTickets": { "label": "Mes tickets", "detail": "Assignés à l’utilisateur courant" },
-        "urgent": { "label": "Urgent", "detail": "Pression priorité maximale" },
-        "blocked": { "label": "Bloqués", "detail": "Exécution demandant de l’attention" }
+        "visibleTickets": {
+          "label": "Tickets visibles",
+          "detail": "Charge actuelle dans le scope"
+        },
+        "myTickets": {
+          "label": "Mes tickets",
+          "detail": "Assignés à l’utilisateur courant"
+        },
+        "urgent": {
+          "label": "Urgent",
+          "detail": "Pression priorité maximale"
+        },
+        "blocked": {
+          "label": "Bloqués",
+          "detail": "Exécution demandant de l’attention"
+        }
       }
     },
     "emptyState": {
@@ -413,17 +528,17 @@
     "hub": {
       "eyebrow": "Finance",
       "title": "Un espace finance simple séparé entre argent entrant et argent sortant.",
-      "subtitleShareholder": "Ouvrez la vue entrante ou sortante selon le cote du business que vous voulez consulter.",
+      "subtitleShareholder": "Ouvrez la vue entrante ou sortante selon le côté du business que vous voulez consulter.",
       "subtitleDefault": "Utilisez un côté pour la facturation et l'encaissement client, et l'autre pour les fournisseurs, les outils et les dépenses de l'entreprise.",
-      "incomingEyebrow": "Entrees",
+      "incomingEyebrow": "Entrées",
       "incomingTitle": "Factures clients et encaissements",
       "incomingDescription": "Créez des factures, suivez le statut en attente ou payé, et gardez visible l'argent qui vient des clients vers l'entreprise.",
-      "openIncoming": "Ouvrir les entrees",
+      "openIncoming": "Ouvrir les entrées",
       "pendingInvoices": "Factures en attente",
-      "expectedCash": "Tresorerie attendue",
+      "expectedCash": "Trésorerie attendue",
       "overdue": "En retard",
       "outgoingEyebrow": "Sorties",
-      "outgoingTitle": "Depenses, fournisseurs et paiements sortants",
+      "outgoingTitle": "Dépenses, fournisseurs et paiements sortants",
       "outgoingDescription": "Suivez ce que l'entreprise paie aux autres, classez chaque sortie et gardez le justificatif rattaché.",
       "openOutgoing": "Ouvrir les sorties",
       "thisMonth": "Ce mois",
@@ -438,8 +553,8 @@
         "createInvoice": "Créer une facture",
         "addIncomingPayment": "Ajouter un paiement entrant",
         "backToFinance": "Retour à finance",
-        "fullInvoices": "Liste complete des factures",
-        "fullIncomingPayments": "Liste complete des paiements entrants"
+        "fullInvoices": "Liste complète des factures",
+        "fullIncomingPayments": "Liste complète des paiements entrants"
       },
       "cards": {
         "pendingInvoices": "Factures en attente",
@@ -469,7 +584,7 @@
       "actions": {
         "addOutgoingPayment": "Ajouter un paiement sortant",
         "backToFinance": "Retour à finance",
-        "fullOutgoingList": "Liste complete des sorties"
+        "fullOutgoingList": "Liste complète des sorties"
       },
       "cards": {
         "plannedPending": "Planifié + en attente",
@@ -481,7 +596,7 @@
       },
       "sections": {
         "outgoingPayments": "Paiements sortants",
-        "latestExpenseMovements": "Derniers mouvements de depense"
+        "latestExpenseMovements": "Derniers mouvements de dépense"
       }
     },
     "invoiceForm": {
@@ -490,7 +605,7 @@
       "description": "Construisez un dossier de facturation propre pour les revenus clients, gardez le statut visible et joignez directement un justificatif.",
       "generatedAutomatically": "Généré automatiquement",
       "noTaxHint": "Utilisez `0` si cette facture n'a pas de taxe.",
-      "supportingFileHint": "Joignez le PDF final de la facture, une copie signee par le client ou tout autre fichier utile.",
+      "supportingFileHint": "Joignez le PDF final de la facture, une copie signée par le client ou tout autre fichier utile.",
       "fields": {
         "invoiceNumber": "Numéro de facture",
         "status": "Statut",
@@ -506,7 +621,7 @@
         "notes": "Notes"
       },
       "placeholders": {
-        "selectClient": "Selectionner un client",
+        "selectClient": "Sélectionner un client",
         "noLinkedProject": "Aucun projet lié",
         "noLinkedContract": "Aucun contrat lié"
       },
@@ -540,7 +655,7 @@
         "currency": "Devise",
         "dueDate": "Date d'échéance",
         "paymentDate": "Date de paiement",
-        "method": "Methode",
+        "method": "Méthode",
         "status": "Statut",
         "reference": "Référence",
         "notes": "Notes",
@@ -566,8 +681,8 @@
       "fields": {
         "reference": "Référence du transfert",
         "beneficiary": "Bénéficiaire",
-        "bank": "Banque du beneficiaire",
-        "account": "Compte du beneficiaire",
+        "bank": "Banque du bénéficiaire",
+        "account": "Compte du bénéficiaire",
         "amount": "Montant",
         "currency": "Devise",
         "transferDate": "Date du transfert",
@@ -643,5 +758,8 @@
       "next7Days": "7 prochains jours",
       "next30Days": "30 prochains jours"
     }
+  }
+  ,"confirmations": {
+    "signOut": "Êtes-vous sûr de vouloir vous déconnecter ? Votre session actuelle prendra fin immédiatement."
   }
 }

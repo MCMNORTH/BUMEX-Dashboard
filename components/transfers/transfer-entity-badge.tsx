@@ -1,4 +1,7 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/components/layout/i18n-provider";
 import { getTransferEntityLabel } from "@/lib/finance/helpers";
 import type { TransferEntity } from "@/types/finance";
 
@@ -11,9 +14,10 @@ const entityStyles: Record<TransferEntity, string> = {
 };
 
 export function TransferEntityBadge({ entity }: { entity: TransferEntity }) {
+  const { locale } = useI18n();
   return (
     <Badge className={`rounded-full border px-3 py-1 ${entityStyles[entity]}`}>
-      {getTransferEntityLabel(entity)}
+      {getTransferEntityLabel(entity, locale)}
     </Badge>
   );
 }

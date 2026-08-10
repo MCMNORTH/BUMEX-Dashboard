@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmActionForm } from "@/components/shared/confirm-action-form";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { AppRole } from "@/types/auth";
 import { canViewComment, type CommentEntityType, type CommentRecord } from "@/types/comment";
 import type { MentionCandidate } from "@/types/notification";
@@ -74,6 +75,8 @@ export function CommentsPanel({
   currentUserId: string;
   mentionCandidates?: MentionCandidate[];
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   const [editingId, setEditingId] = useState<string | null>(null);
   const visibleComments = comments.filter((comment) => canViewComment(comment, role));
   const canCreate = canCreateComment(role, entityType);
@@ -83,10 +86,10 @@ export function CommentsPanel({
       <CardHeader>
         <div className="flex items-center gap-2">
           <MessageSquareText className="size-4 text-primary" />
-          <CardTitle>Comments</CardTitle>
+          <CardTitle>{isFr ? "Commentaires" : "Comments"}</CardTitle>
         </div>
         <p className="text-sm leading-6 text-muted-foreground">
-          Internal collaboration notes and delivery context that travel with the entity.
+          {isFr ? "Notes de collaboration internes et contexte de livraison associés à cet élément." : "Internal collaboration notes and delivery context that travel with the entity."}
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -123,12 +126,12 @@ export function CommentsPanel({
                         <p className="text-sm font-medium">{comment.author?.full_name ?? "Unknown author"}</p>
                         {comment.is_internal ? (
                           <Badge variant="secondary" className="rounded-full px-3 py-1">
-                            Internal
+                            {isFr ? "Interne" : "Internal"}
                           </Badge>
                         ) : null}
                         {comment.deleted_at ? (
                           <Badge variant="outline" className="rounded-full px-3 py-1">
-                            Deleted
+                            {isFr ? "Supprimé" : "Deleted"}
                           </Badge>
                         ) : null}
                       </div>
@@ -152,7 +155,7 @@ export function CommentsPanel({
                     ) : (
                       <div className="space-y-3">
                         <p className="text-sm leading-7 text-foreground/90">
-                          {comment.deleted_at ? "Comment removed." : comment.body}
+                          {comment.deleted_at ? (isFr ? "Commentaire supprimé." : "Comment removed.") : comment.body}
                         </p>
 
                         {comment.attachments.length ? (
@@ -169,18 +172,18 @@ export function CommentsPanel({
                           <div className="flex flex-wrap gap-2">
                             <Button type="button" variant="ghost" className="rounded-full px-4" onClick={() => setEditingId(comment.id)}>
                               <PencilLine className="size-4" />
-                              Edit
+                              {isFr ? "Modifier" : "Edit"}
                             </Button>
                             <ConfirmActionForm
                               action={deleteCommentAction}
                               fields={{ comment_id: comment.id, return_path: returnPath }}
-                              title="Delete comment?"
-                              description="This will remove the comment from the current record. This action cannot be undone."
-                              confirmLabel="Delete comment"
+                              title={isFr ? "Supprimer le commentaire ?" : "Delete comment?"}
+                              description={isFr ? "Ce commentaire sera retiré de cet élément. Cette action est irréversible." : "This will remove the comment from the current record. This action cannot be undone."}
+                              confirmLabel={isFr ? "Supprimer le commentaire" : "Delete comment"}
                               trigger={(
                                 <Button type="button" variant="ghost" className="rounded-full px-4 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
                                   <Trash2 className="size-4" />
-                                  Delete
+                                  {isFr ? "Supprimer" : "Delete"}
                                 </Button>
                               )}
                             />
@@ -195,7 +198,7 @@ export function CommentsPanel({
           })
         ) : (
           <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-            No comments have been added yet for this entity.
+            {isFr ? "Aucun commentaire n’a encore été ajouté à cet élément." : "No comments have been added yet for this entity."}
           </div>
         )}
       </CardContent>

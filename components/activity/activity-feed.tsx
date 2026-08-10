@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
@@ -25,6 +27,7 @@ import {
 import { formatDate } from "@/lib/projects/helpers";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { ActivityLogRecord } from "@/types/activity";
 
 const kindClasses = {
@@ -109,6 +112,8 @@ function ActivityRow({
   activity: ActivityLogRecord;
   onSelect?: (activity: ActivityLogRecord) => void;
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   const entityUrl = getActivityEntityUrl(activity);
   const metadataDescription = formatActivityMetadataSummary(activity);
   const kind = activity.metadata.kind;
@@ -137,7 +142,7 @@ function ActivityRow({
           </div>
 
           <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-[minmax(0,1fr)_auto]">
-            <p>By {activity.user?.full_name ?? "System"}</p>
+            <p>{isFr ? "Par" : "By"} {activity.user?.full_name ?? (isFr ? "Système" : "System")}</p>
             <p>{activity.entity_id}</p>
           </div>
 
@@ -151,7 +156,7 @@ function ActivityRow({
                 href={entityUrl}
                 className="text-xs font-medium text-primary hover:underline"
               >
-                Open related entity
+                {isFr ? "Ouvrir l’élément associé" : "Open related entity"}
               </Link>
             </div>
           ) : null}
@@ -194,19 +199,24 @@ export function ActivityFeed({
   emptyMessage?: string;
   onSelect?: (activity: ActivityLogRecord) => void;
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
+  const localizedTitle = isFr && title === "Activity feed" ? "Fil d’activité" : title;
+  const localizedDescription = isFr && description === "Recent platform activity and operational history." ? "Activité récente et historique opérationnel." : description;
+  const localizedEmptyMessage = isFr && emptyMessage === "No activity has been recorded yet." ? "Aucune activité n’a encore été enregistrée." : emptyMessage;
   const grouped = groupActivitiesByDate(activities);
 
   const content = (
     <>
       {!embedded ? (
         <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <p className="text-sm leading-6 text-muted-foreground">{description}</p>
+          <CardTitle>{localizedTitle}</CardTitle>
+          <p className="text-sm leading-6 text-muted-foreground">{localizedDescription}</p>
         </CardHeader>
       ) : (
         <div className="space-y-2 pb-4">
-          <h3 className="text-base font-semibold">{title}</h3>
-          <p className="text-sm leading-6 text-muted-foreground">{description}</p>
+          <h3 className="text-base font-semibold">{localizedTitle}</h3>
+          <p className="text-sm leading-6 text-muted-foreground">{localizedDescription}</p>
         </div>
       )}
       <CardContent className={embedded ? "space-y-5 px-0 pb-0" : "space-y-5"}>
@@ -230,7 +240,7 @@ export function ActivityFeed({
           )
         ) : (
           <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-            {emptyMessage}
+            {localizedEmptyMessage}
           </div>
         )}
       </CardContent>

@@ -37,7 +37,7 @@ export function EntitySwitcher({ className, compact = false, size = "default" }:
       <EntityLogo entity={activeEntity} size="sm" />
       <div className={cn("min-w-0 text-left", !compact && "hidden md:block")}>
         <p className="text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
-          {locale === "fr" ? "Entite active" : "Active entity"}
+          {locale === "fr" ? "Entité active" : "Active entity"}
         </p>
         <p className="truncate text-sm font-semibold">{activeEntity.name}</p>
       </div>
