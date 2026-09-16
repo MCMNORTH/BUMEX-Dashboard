@@ -12,15 +12,18 @@ import type { ClientFilters, ClientFiltersData } from "@/types/client";
 export function ClientFilters({
   filters,
   filterData,
+  activeView,
 }: {
   filters: ClientFilters;
   filterData: ClientFiltersData;
+  activeView: "relationships" | "opportunities";
 }) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
 
   return (
     <form className="grid gap-3 rounded-[28px] border border-sky-200 bg-gradient-to-r from-sky-50 via-white to-amber-50 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/48 xl:grid-cols-[1.3fr_repeat(3,minmax(0,1fr))_auto]">
+      <input type="hidden" name="view" value={activeView === "opportunities" ? "opportunities" : ""} />
       <div className="relative xl:col-span-1">
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -91,7 +94,7 @@ export function ClientFilters({
           {isFr ? "Appliquer" : "Apply"}
         </Button>
         <Button asChild variant="secondary" className="rounded-2xl px-5">
-          <Link href="/clients">{isFr ? "Réinitialiser" : "Reset"}</Link>
+          <Link href={activeView === "opportunities" ? "/clients?view=opportunities" : "/clients"}>{isFr ? "Réinitialiser" : "Reset"}</Link>
         </Button>
       </div>
     </form>

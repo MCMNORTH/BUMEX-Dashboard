@@ -1,4 +1,5 @@
 import { ArrowRight, Building2, FolderKanban, Handshake, ShieldAlert, UserRound } from "lucide-react";
+import Link from "next/link";
 
 import { requireRouteAccess } from "@/lib/auth/server";
 import { getCurrentLocale } from "@/lib/i18n/server";
@@ -28,6 +29,7 @@ export default async function ClientsPage({
   const locale = await getCurrentLocale();
   const isFr = locale === "fr";
   const params = (await searchParams) ?? {};
+  const activeView = getString(params.view) === "opportunities" ? "opportunities" : "relationships";
   const filters: ClientFiltersType = {
     search: getString(params.search) ?? "",
     status: (getString(params.status) as ClientFiltersType["status"]) ?? "",
@@ -49,7 +51,10 @@ export default async function ClientsPage({
   const contractedClients = clients.filter((client) => client.status === "active");
   const pipelineClients = clients.filter((client) => client.status === "prospect");
   const otherClients = clients.filter((client) => client.status !== "active" && client.status !== "prospect");
-  const showPortfolioSections = !filters.status && !filters.prospectStage;
+  const visibleClients = activeView === "opportunities"
+    ? pipelineClients
+    : clients.filter((client) => client.status !== "prospect");
+  const isFiltered = Boolean(filters.search || filters.status || filters.prospectStage || filters.type || filters.accountManagerId);
 
   return (
     <div className="space-y-6">
@@ -98,32 +103,45 @@ export default async function ClientsPage({
         ))}
       </div>
 
-      <ClientFilters filters={filters} filterData={filterData} />
+      <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_50px_-38px_rgba(15,23,42,.42)] dark:border-white/10 dark:bg-slate-950/48">
+        <div className="grid gap-1 border-b border-border/70 bg-slate-50/80 p-2 sm:grid-cols-2 dark:bg-white/[.03]">
+          <Link href="/clients" className={`group flex items-center justify-between rounded-2xl px-4 py-3 transition ${activeView === "relationships" ? "bg-white text-sky-800 shadow-sm ring-1 ring-sky-100 dark:bg-sky-400/10 dark:text-sky-100 dark:ring-sky-400/20" : "text-muted-foreground hover:bg-white/75 hover:text-foreground dark:hover:bg-white/[.04]"}`}>
+            <div><p className="text-sm font-semibold">{isFr ? "Clients & partenaires" : "Clients & partners"}</p><p className="mt-1 text-xs text-muted-foreground">{isFr ? "Contrats, projets et relations actives" : "Contracts, projects, and active relationships"}</p></div>
+            <Badge variant="secondary" className="rounded-full">{formatNumber(clients.length - prospects)}</Badge>
+          </Link>
+          <Link href="/clients?view=opportunities" className={`group flex items-center justify-between rounded-2xl px-4 py-3 transition ${activeView === "opportunities" ? "bg-white text-violet-800 shadow-sm ring-1 ring-violet-100 dark:bg-violet-400/10 dark:text-violet-100 dark:ring-violet-400/20" : "text-muted-foreground hover:bg-white/75 hover:text-foreground dark:hover:bg-white/[.04]"}`}>
+            <div><p className="text-sm font-semibold">{isFr ? "Opportunités commerciales" : "Sales opportunities"}</p><p className="mt-1 text-xs text-muted-foreground">{isFr ? "Discussions avant contrat" : "Conversations before contract"}</p></div>
+            <Badge variant="secondary" className="rounded-full">{formatNumber(prospects)}</Badge>
+          </Link>
+        </div>
+        <div className="px-5 py-4">
+          <p className="text-xs font-medium text-muted-foreground">{activeView === "relationships" ? (isFr ? "Chaque relation ici est déjà engagée ou suivie dans le cadre d’une prestation." : "Each relationship here is already engaged or tracked as part of delivery.") : (isFr ? "Utilisez cette vue pour faire progresser chaque discussion jusqu’à la signature." : "Use this view to move every conversation toward signature.")}</p>
+        </div>
+      </section>
+
+      <ClientFilters filters={filters} filterData={filterData} activeView={activeView} />
 
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">{isFr ? "Portefeuille externe" : "External portfolio"}</p>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Clients et partenaires" : "Clients and partners"}</h2>
+          <h2 className="mt-2 text-xl font-semibold tracking-tight">{activeView === "relationships" ? (isFr ? "Clients et partenaires" : "Clients and partners") : (isFr ? "Opportunités commerciales" : "Sales opportunities")}</h2>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="rounded-full px-3 py-1">
-            {formatNumber(clients.length)} {isFr ? "résultats" : "results"}
+            {formatNumber(visibleClients.length)} {isFr ? "résultats" : "results"}
           </Badge>
         </div>
       </div>
 
-      {auth.role === "shareholder" ? <ClientTable clients={clients} /> : null}
+      {auth.role === "shareholder" ? <ClientTable clients={visibleClients} /> : null}
 
-      {clients.length ? (
-        showPortfolioSections ? (
+      {visibleClients.length ? (
+        isFiltered ? <div className="grid gap-4">{visibleClients.map((client) => <ClientCard key={client.id} client={client} />)}</div> : activeView === "relationships" ? (
           <div className="space-y-8">
             <ClientGroup title={isFr ? "Clients et partenaires actifs" : "Active clients and partners"} description={isFr ? "Relations externes passées au cycle de prestation avec un contrat ou un engagement actif." : "External relationships in the delivery cycle with an active contract or engagement."} clients={contractedClients} />
-            <ClientGroup title={isFr ? "Opportunités commerciales" : "Sales opportunities"} description={isFr ? "Contacts et entreprises à suivre avant la signature d’un contrat." : "Contacts and organizations to follow before a contract is signed."} clients={pipelineClients} />
-            {otherClients.length ? <ClientGroup title={isFr ? "Autres comptes" : "Other accounts"} description={isFr ? "Comptes inactifs, suspendus ou archivés." : "Inactive, suspended, or archived accounts."} clients={otherClients} /> : null}
+            {otherClients.length ? <ClientGroup title={isFr ? "Relations à revoir" : "Relationships to review"} description={isFr ? "Relations inactives, suspendues ou archivées." : "Inactive, suspended, or archived relationships."} clients={otherClients} /> : null}
           </div>
-        ) : (
-          <div className="grid gap-4">{clients.map((client) => <ClientCard key={client.id} client={client} />)}</div>
-        )
+        ) : <ClientGroup title={isFr ? "Discussions en cours" : "Ongoing conversations"} description={isFr ? "Contacts et organisations à suivre jusqu’à la signature." : "Contacts and organizations to follow through signature."} clients={pipelineClients} />
       ) : <ClientEmptyState />}
     </div>
   );
