@@ -12,13 +12,13 @@ export function ClientEmptyState() {
   const isFr = locale === "fr";
   return (
     <EmptyState
-      title={isFr ? "Aucun client ne correspond aux filtres actuels" : "No clients match the current workspace filters"}
-      description={isFr ? "Modifiez les filtres ou créez un nouveau client pour alimenter cet espace." : "Adjust the portfolio filters or create a new client account to populate this module."}
-      label={isFr ? "Portefeuille clients" : "Client portfolio"}
+      title={isFr ? "Aucune relation externe ne correspond aux filtres" : "No external relationships match these filters"}
+      description={isFr ? "Modifiez les filtres ou ajoutez un client ou partenaire externe." : "Adjust the filters or add an external client or partner."}
+      label={isFr ? "Relations externes" : "External relations"}
       icon={Building2}
       actions={
         <Button asChild variant="secondary" className="rounded-full px-5">
-          <Link href="/clients">{isFr ? "Voir tous les clients" : "View all clients"}</Link>
+          <Link href="/clients">{isFr ? "Voir toutes les relations" : "View all relationships"}</Link>
         </Button>
       }
     />

@@ -32,6 +32,7 @@
     "workspace": "Workspace"
   },
   "navigation": {
+    "management": "Management",
     "groups": {
       "workspace": "Workspace",
       "business": "Business",
@@ -39,7 +40,7 @@
     },
     "groupDescriptions": {
       "workspace": "Delivery, planning, execution, and team operations.",
-      "business": "Clients, contracts, documents, finance, and governance.",
+      "business": "External relations, contracts, documents, finance, and governance.",
       "system": "Configuration, notifications, and platform controls."
     },
     "items": {
@@ -54,6 +55,10 @@
       "tickets": {
         "label": "Tickets",
         "description": "Operational issues, incidents, and requests."
+      },
+      "timesheet": {
+        "label": "Timesheet",
+        "description": "Record and review your time spent on projects."
       },
       "my-work": {
         "label": "My Work",
@@ -80,8 +85,8 @@
         "description": "Daily, weekly, project, and executive work summaries."
       },
       "clients": {
-        "label": "Clients",
-        "description": "Customer accounts and delivery relationships."
+        "label": "External relations",
+        "description": "External clients, partners, and delivery relationships."
       },
       "contracts": {
         "label": "Contracts",
@@ -398,7 +403,8 @@
         "title": "Title",
         "description": "Description",
         "project": "Project",
-        "assignee": "Assignee",
+        "assignee": "Task owner",
+        "assigneeHelp": "This person owns this task. Project membership is managed in Staffing.",
         "reporter": "Reporter",
         "status": "Status",
         "priority": "Priority",

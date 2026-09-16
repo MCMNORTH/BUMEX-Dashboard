@@ -32,6 +32,7 @@
     "workspace": "Espace"
   },
   "navigation": {
+    "management": "Pilotage",
     "groups": {
       "workspace": "Espace de travail",
       "business": "Affaires",
@@ -39,7 +40,7 @@
     },
     "groupDescriptions": {
       "workspace": "Livraison, planification, execution et operations d'equipe.",
-      "business": "Clients, contrats, documents, finances et gouvernance.",
+      "business": "Relations externes, contrats, documents, finances et gouvernance.",
       "system": "Configuration, notifications et controles de la plateforme."
     },
     "items": {
@@ -54,6 +55,10 @@
       "tickets": {
         "label": "Tickets",
         "description": "Incidents, demandes et sujets opérationnels."
+      },
+      "timesheet": {
+        "label": "Feuille de temps",
+        "description": "Saisissez et consultez le temps passé sur vos projets."
       },
       "my-work": {
         "label": "Mon travail",
@@ -80,8 +85,8 @@
         "description": "Synthèses quotidiennes, hebdo, projet et exécutif."
       },
       "clients": {
-        "label": "Clients",
-        "description": "Comptes clients et relation delivery."
+        "label": "Relations externes",
+        "description": "Clients, partenaires et relations de delivery externes."
       },
       "contracts": {
         "label": "Contrats",
@@ -465,7 +470,8 @@
         "title": "Titre",
         "description": "Description",
         "project": "Projet",
-        "assignee": "Assigné",
+        "assignee": "Responsable de la tâche",
+        "assigneeHelp": "Cette personne exécute cette tâche. L’affectation au projet se gère dans Staffing.",
         "reporter": "Reporteur",
         "status": "Statut",
         "priority": "Priorité",

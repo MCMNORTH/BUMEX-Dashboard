@@ -20,12 +20,12 @@ export function ClientFilters({
   const isFr = locale === "fr";
 
   return (
-    <form className="grid gap-3 rounded-[28px] border border-border/70 bg-card/72 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl xl:grid-cols-[1.3fr_repeat(3,minmax(0,1fr))_auto]">
+    <form className="grid gap-3 rounded-[28px] border border-sky-200 bg-gradient-to-r from-sky-50 via-white to-amber-50 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/48 xl:grid-cols-[1.3fr_repeat(3,minmax(0,1fr))_auto]">
       <div className="relative xl:col-span-1">
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           name="search"
-          placeholder={isFr ? "Rechercher des clients, secteurs ou entités juridiques" : "Search clients, industries, or legal entities"}
+          placeholder={isFr ? "Rechercher une relation, une organisation ou un secteur" : "Search a relationship, organization, or industry"}
           defaultValue={filters.search ?? ""}
           className="pl-11"
         />
@@ -48,9 +48,9 @@ export function ClientFilters({
       <ModernSelect
         name="type"
         defaultValue={filters.type ?? ""}
-        placeholder={isFr ? "Tous les types de client" : "All client types"}
+        placeholder={isFr ? "Tous les types de relation" : "All relationship types"}
         options={[
-          { value: "", label: isFr ? "Tous les types de client" : "All client types" },
+          { value: "", label: isFr ? "Tous les types de relation" : "All relationship types" },
           { value: "company", label: isFr ? "Entreprise" : "Company" },
           { value: "public_institution", label: isFr ? "Institution publique" : "Public institution" },
           { value: "ngo", label: "NGO" },
@@ -76,9 +76,9 @@ export function ClientFilters({
       <ModernSelect
         name="manager"
         defaultValue={filters.accountManagerId ?? ""}
-        placeholder={isFr ? "Tous les responsables de compte" : "All account managers"}
+        placeholder={isFr ? "Tous les responsables" : "All owners"}
         options={[
-          { value: "", label: isFr ? "Tous les responsables de compte" : "All account managers" },
+          { value: "", label: isFr ? "Tous les responsables" : "All owners" },
           ...filterData.accountManagers.map((manager) => ({
             value: manager.id,
             label: manager.full_name,

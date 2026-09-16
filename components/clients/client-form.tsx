@@ -36,14 +36,14 @@ export function ClientForm({
     <Dialog>
       <DialogTrigger asChild>
         {mode === "create" ? (
-          <Button className="rounded-full px-5"><Plus className="size-4" />{triggerLabel ?? (isFr ? "Ajouter un client" : "Add client")}</Button>
+          <Button className="rounded-full px-5"><Plus className="size-4" />{triggerLabel ?? (isFr ? "Ajouter une relation externe" : "Add external relationship")}</Button>
         ) : (
           <Button variant="secondary" className="rounded-full px-5"><SquarePen className="size-4" />{triggerLabel ?? (isFr ? "Modifier" : "Edit")}</Button>
         )}
       </DialogTrigger>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>{mode === "create" ? (isFr ? "Ajouter un client" : "Add client") : (isFr ? "Modifier le client" : "Edit client")}</DialogTitle>
+          <DialogTitle>{mode === "create" ? (isFr ? "Ajouter une relation externe" : "Add external relationship") : (isFr ? "Modifier la relation externe" : "Edit external relationship")}</DialogTitle>
           <DialogDescription>
             {isOpportunity
               ? (isFr ? "Renseignez les informations utiles au suivi commercial." : "Enter the details needed for sales follow-up.")
@@ -63,7 +63,7 @@ export function ClientForm({
           <input type="hidden" name="tax_id" value={values?.tax_id ?? ""} />
 
           <div className="space-y-2 sm:col-span-2">
-            <label className="text-sm font-medium" htmlFor={`${mode}-name`}>{isFr ? "Client ou entreprise" : "Client or organization"}</label>
+            <label className="text-sm font-medium" htmlFor={`${mode}-name`}>{isFr ? "Client, partenaire ou organisation" : "Client, partner, or organization"}</label>
             <Input id={`${mode}-name`} name="name" defaultValue={values?.name ?? ""} placeholder={isFr ? "Ex. Société ABC" : "E.g. ABC Company"} required />
           </div>
 
