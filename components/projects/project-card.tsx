@@ -13,6 +13,13 @@ import { ProjectHealthBadge } from "@/components/projects/project-health-badge";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import type { ProjectRecord } from "@/types/project";
 
+const projectKindLabels = {
+  client_mission: { fr: "Mission client", en: "Client mission" },
+  institutional_partnership: { fr: "Partenariat institutionnel", en: "Institutional partnership" },
+  internal_product: { fr: "Produit interne BUMEX", en: "Internal BUMEX product" },
+  internal_tool: { fr: "Outil interne BUMEX", en: "Internal BUMEX tool" },
+} as const;
+
 function getInitials(name: string | undefined) {
   if (!name) {
     return "NA";
@@ -38,20 +45,23 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
   const isFr = locale === "fr";
   return (
     <Link href={`/projects/${project.id}`} className="block">
-      <Card className="group relative overflow-hidden border-slate-200 bg-white shadow-[var(--shadow-soft)] transition-[border-color,box-shadow] duration-200 hover:border-primary/25 dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
+      <Card className="group relative overflow-hidden border-blue-200/80 bg-gradient-to-br from-white via-blue-50/65 to-violet-50/70 shadow-[0_18px_38px_-28px_rgba(37,99,235,.6)] transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-[0_24px_45px_-25px_rgba(79,70,229,.55)] dark:border-white/10 dark:from-slate-950 dark:via-slate-950 dark:to-indigo-950/45 dark:shadow-none">
         <CardContent className="relative space-y-3 px-4 py-3.5">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-2.5">
               <div className="flex flex-wrap items-center gap-2">
                 <ProjectStatusBadge status={project.status} />
                 <ProjectHealthBadge health={project.health} />
+                <Badge variant={project.project_kind.startsWith("internal_") ? "secondary" : "outline"} className="rounded-full px-2.5 py-1 text-[10px]">
+                  {projectKindLabels[project.project_kind][isFr ? "fr" : "en"]}
+                </Badge>
               </div>
               <div className="space-y-1">
                 <h3 className="text-base font-semibold tracking-[-0.015em] transition-colors group-hover:text-primary dark:group-hover:text-white">
                   {project.name}
                 </h3>
-                <p className="max-w-xl text-[12px] leading-5 text-muted-foreground">
-                  {project.description || (isFr ? "Programme delivery structuré avec surfaces de reporting enterprise." : "Structured delivery program with enterprise reporting surfaces.")}
+                <p className="max-w-xl rounded-xl border border-blue-100/80 bg-white/70 px-3 py-2 text-[12px] leading-5 text-slate-600 dark:border-white/10 dark:bg-white/[.04] dark:text-slate-300">
+                  {project.description || (isFr ? "Aucune description renseignée pour ce projet." : "No description provided for this project.")}
                 </p>
               </div>
             </div>
@@ -61,11 +71,11 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
           </div>
 
           <div className="grid gap-2.5 sm:grid-cols-3">
-            <div className="rounded-[16px] border border-slate-200 bg-slate-50/70 p-2.5 dark:border-white/10 dark:bg-white/[0.04]">
-              <p className="text-[10px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">Client</p>
+            <div className="rounded-[16px] border border-cyan-200 bg-cyan-50/80 p-2.5 dark:border-cyan-500/20 dark:bg-cyan-500/[0.08]">
+              <p className="text-[10px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">{isFr ? "Entité" : "Entity"}</p>
               <p className="mt-1.5 text-[12px] font-medium">{project.client?.name ?? (isFr ? "Non lié" : "Not linked")}</p>
             </div>
-            <div className="rounded-[16px] border border-slate-200 bg-slate-50/70 p-2.5 dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="rounded-[16px] border border-amber-200 bg-amber-50/80 p-2.5 dark:border-amber-500/20 dark:bg-amber-500/[0.08]">
               <p className="text-[10px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">{isFr ? "Échéance" : "Deadline"}</p>
               <p className="mt-1.5 text-[12px] font-medium">{formatDate(project.end_date)}</p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">{isFr ? ({
@@ -75,7 +85,7 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
                 none: "Aucune échéance",
               } as const)[project.deadlineState] : deadlineLabels[project.deadlineState]}</p>
             </div>
-            <div className="rounded-[16px] border border-slate-200 bg-slate-50/70 p-2.5 dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="rounded-[16px] border border-violet-200 bg-violet-50/80 p-2.5 dark:border-violet-500/20 dark:bg-violet-500/[0.08]">
               <p className="text-[10px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">{isFr ? "Progression" : "Progress"}</p>
               <p className="mt-1.5 text-[12px] font-medium">{project.progress}% {isFr ? "complété" : "complete"}</p>
               <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-secondary/70">

@@ -1,6 +1,7 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Trash2, UserRoundPlus } from "lucide-react";
 
 import { deleteProjectAction } from "@/app/(app)/projects/actions";
 import { formatCurrency, formatDate, normalizePriority } from "@/lib/projects/helpers";
@@ -14,10 +15,18 @@ import { useI18n } from "@/components/layout/i18n-provider";
 import type { ProjectFiltersData, ProjectRecord } from "@/types/project";
 import type { AppRole } from "@/types/auth";
 
+const projectKindLabels = {
+  client_mission: { fr: "Mission client", en: "Client mission" },
+  institutional_partnership: { fr: "Partenariat institutionnel", en: "Institutional partnership" },
+  internal_product: { fr: "Produit interne BUMEX", en: "Internal BUMEX product" },
+  internal_tool: { fr: "Outil interne BUMEX", en: "Internal BUMEX tool" },
+} as const;
+
 type ProjectDetailHeaderProps = {
   project: ProjectRecord;
   role: AppRole;
   canManage: boolean;
+  canStaff: boolean;
   filterData: ProjectFiltersData;
 };
 
@@ -25,16 +34,20 @@ export function ProjectDetailHeader({
   project,
   role,
   canManage,
+  canStaff,
   filterData,
 }: ProjectDetailHeaderProps) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
   return (
-    <div className="grid gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none xl:grid-cols-[1.1fr_0.9fr]">
+    <div className="grid gap-5 overflow-hidden rounded-[28px] border border-blue-200 bg-gradient-to-br from-blue-50 via-white to-violet-50 p-5 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none xl:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <ProjectStatusBadge status={project.status} />
           <ProjectHealthBadge health={project.health} />
+          <Badge variant={project.project_kind.startsWith("internal_") ? "secondary" : "outline"} className="rounded-full px-3 py-1">
+            {projectKindLabels[project.project_kind][isFr ? "fr" : "en"]}
+          </Badge>
           <Badge variant="secondary" className="rounded-full px-3 py-1">
             {normalizePriority(project.priority)}
           </Badge>
@@ -46,6 +59,11 @@ export function ProjectDetailHeader({
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
+          {canStaff ? (
+            <Button asChild className="rounded-full px-5 shadow-lg shadow-blue-500/15">
+              <Link href={`/staffing?project=${project.id}`}><UserRoundPlus className="size-4" />{isFr ? "Staffer ce projet" : "Staff this project"}</Link>
+            </Button>
+          ) : null}
           {canManage ? (
             <ProjectForm
               mode="edit"
@@ -61,6 +79,8 @@ export function ProjectDetailHeader({
                 end_date: project.end_date ?? "",
                 budget_amount: project.budget_amount?.toString() ?? "",
                 priority: project.priority ?? "medium",
+                project_kind: project.project_kind,
+                manual_progress: project.manual_progress?.toString() ?? "",
               }}
             />
           ) : null}
@@ -89,7 +109,7 @@ export function ProjectDetailHeader({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Client</p>
+          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Entité / rattachement" : "Entity / relationship"}</p>
           <p className="mt-2 text-sm font-medium">{project.client?.name ?? "Not linked"}</p>
           <p className="mt-1 text-xs text-muted-foreground">{project.client?.contact_email ?? "No contact email"}</p>
         </div>

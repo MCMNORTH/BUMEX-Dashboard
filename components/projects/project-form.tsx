@@ -95,15 +95,15 @@ export function ProjectForm({
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-client`}>
-              Client
+              {isFr ? "Entité / rattachement" : "Entity / relationship"}
             </label>
             <ModernSelect
               id={`${mode}-client`}
               name="client_id"
               defaultValue={defaults?.client_id ?? ""}
-              placeholder="Select client"
+              placeholder={isFr ? "Sélectionner une entité" : "Select entity"}
               options={[
-                { value: "", label: "Select client" },
+                { value: "", label: isFr ? "Sélectionner une entité" : "Select entity" },
                 ...filterData.clients.map((client) => ({
                   value: client.id,
                   label: client.name,
@@ -113,8 +113,28 @@ export function ProjectForm({
           </div>
 
           <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor={`${mode}-kind`}>
+              {isFr ? "Nature du projet" : "Project type"}
+            </label>
+            <ModernSelect
+              id={`${mode}-kind`}
+              name="project_kind"
+              defaultValue={defaults?.project_kind ?? "client_mission"}
+              options={[
+                { value: "client_mission", label: isFr ? "Mission client" : "Client mission" },
+                { value: "institutional_partnership", label: isFr ? "Partenariat institutionnel" : "Institutional partnership" },
+                { value: "internal_product", label: isFr ? "Produit interne BUMEX" : "Internal BUMEX product" },
+                { value: "internal_tool", label: isFr ? "Outil interne BUMEX" : "Internal BUMEX tool" },
+              ]}
+            />
+            <p className="text-xs text-muted-foreground">
+              {isFr ? "Les produits et outils internes restent rattachés à BUMEX IT, sans être présentés comme des clients." : "Internal products and tools stay attached to BUMEX IT without being treated as clients."}
+            </p>
+          </div>
+
+          <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-owner`}>
-              Owner
+              {isFr ? "Responsable du projet (pilotage)" : "Project owner (governance)"}
             </label>
             <ModernSelect
               id={`${mode}-owner`}
@@ -129,22 +149,23 @@ export function ProjectForm({
                 })),
               ]}
             />
+            <p className="text-xs text-muted-foreground">{isFr ? "L’équipe et les taux d’affectation se gèrent dans Staffing." : "Manage team members and allocation rates in Staffing."}</p>
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-status`}>
-              Status
+              {isFr ? "Situation du projet" : "Project status"}
             </label>
             <ModernSelect
               id={`${mode}-status`}
               name="status"
               defaultValue={defaults?.status ?? "draft"}
               options={[
-                { value: "draft", label: "Draft" },
-                { value: "active", label: "Active" },
-                { value: "on_hold", label: "On hold" },
-                { value: "completed", label: "Completed" },
-                { value: "cancelled", label: "Cancelled" },
+                { value: "draft", label: isFr ? "À lancer" : "Draft" },
+                { value: "active", label: isFr ? "En réalisation" : "Active" },
+                { value: "on_hold", label: isFr ? "En pause" : "On hold" },
+                { value: "completed", label: isFr ? "Déjà livré / maintenance" : "Already delivered / maintenance" },
+                { value: "cancelled", label: isFr ? "Annulé" : "Cancelled" },
               ]}
             />
           </div>
@@ -177,9 +198,28 @@ export function ProjectForm({
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-end`}>
-              End date
+              {isFr ? "Date de fin (facultative)" : "End date (optional)"}
             </label>
             <Input id={`${mode}-end`} name="end_date" type="date" defaultValue={defaults?.end_date ?? ""} />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor={`${mode}-manual-progress`}>
+              {isFr ? "Progression du projet (%)" : "Project progress (%)"}
+            </label>
+            <Input
+              id={`${mode}-manual-progress`}
+              name="manual_progress"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              defaultValue={defaults?.manual_progress ?? ""}
+              placeholder={isFr ? "Calcul automatique si vide" : "Automatic calculation when empty"}
+            />
+            <p className="text-xs text-muted-foreground">
+              {isFr ? "Renseignez cette valeur pour piloter vous-même l’avancement. Laissez vide pour calculer à partir des tickets." : "Set this value to manage progress yourself. Leave it blank to calculate it from tickets."}
+            </p>
           </div>
 
           <div className="space-y-2 sm:col-span-2">

@@ -29,11 +29,43 @@ import type {
   ProjectFilters,
   ProjectFiltersData,
   ProjectFormValues,
+  ProjectKind,
   ProjectMember,
   ProjectOwner,
   ProjectRecord,
   ProjectTaskPreview,
 } from "@/types/project";
+
+export type ProjectStaffingSummary = {
+  activePeople: number;
+  totalAllocation: number;
+  assignments: Array<{ id: string; userId: string; name: string; role: string; allocation: number; startDate: string; endDate: string; status: string }>;
+};
+
+export async function getProjectStaffingSummary(projectId: string): Promise<ProjectStaffingSummary> {
+  const supabase = await createClient();
+  if (!supabase) return { activePeople: 0, totalAllocation: 0, assignments: [] };
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from("staffing_assignments")
+    .select("id, user_id, project_role, allocation_percent, start_date, end_date, status, person:profiles!staffing_assignments_user_id_fkey(full_name)")
+    .eq("project_id", projectId)
+    .in("status", ["requested", "confirmed"])
+    .gte("end_date", today)
+    .order("start_date");
+  if (error) return { activePeople: 0, totalAllocation: 0, assignments: [] };
+  const assignments = (data ?? []).map((item) => ({
+    id: item.id,
+    userId: item.user_id,
+    name: single(item.person)?.full_name ?? "—",
+    role: item.project_role,
+    allocation: Number(item.allocation_percent),
+    startDate: item.start_date,
+    endDate: item.end_date,
+    status: item.status,
+  }));
+  return { activePeople: new Set(assignments.map((item) => item.userId)).size, totalAllocation: assignments.reduce((sum, item) => sum + item.allocation, 0), assignments };
+}
 
 type ProjectRow = {
   id: string;
@@ -47,6 +79,8 @@ type ProjectRow = {
   created_at: string;
   budget_amount?: number | null;
   priority?: ProjectRecord["priority"];
+  project_kind?: ProjectKind;
+  manual_progress?: number | null;
   client: ProjectClient | ProjectClient[] | null;
   owner: ProjectOwner | ProjectOwner[] | null;
   members:
@@ -79,7 +113,8 @@ function normalizeMembers(
 
 function mapProject(row: ProjectRow, recentActivity: ProjectActivity[] = []): ProjectRecord {
   const tasks = row.tasks ?? [];
-  const progress = calculateProjectProgress(tasks);
+  const automaticProgress = row.status === "completed" ? 100 : calculateProjectProgress(tasks);
+  const progress = row.manual_progress ?? automaticProgress;
   const statusBreakdown = getProjectStatusBreakdown(tasks);
   const overdueTasks = getProjectOverdueTasks(tasks);
   const upcomingDeadlines = getProjectUpcomingDeadlines(tasks);
@@ -102,6 +137,8 @@ function mapProject(row: ProjectRow, recentActivity: ProjectActivity[] = []): Pr
     created_at: row.created_at,
     budget_amount: row.budget_amount ?? null,
     priority: row.priority ?? "medium",
+    project_kind: row.project_kind ?? "client_mission",
+    manual_progress: row.manual_progress ?? null,
     client: single(row.client),
     owner: single(row.owner),
     members: normalizeMembers(row.members),
@@ -130,6 +167,8 @@ const FULL_PROJECT_SELECT = `
   created_at,
   budget_amount,
   priority,
+  project_kind,
+  manual_progress,
   client:clients (
     id,
     name,
@@ -205,7 +244,7 @@ const LEGACY_PROJECT_SELECT = `
   )
 `;
 
-const FULL_PROJECT_PREVIOUS_SELECT = "name, description, client_id, owner_id, status, start_date, end_date";
+const FULL_PROJECT_PREVIOUS_SELECT = "name, description, client_id, owner_id, status, start_date, end_date, project_kind, manual_progress";
 const LEGACY_PROJECT_PREVIOUS_SELECT = "name, client_id, owner_id, status, start_date, end_date";
 
 function isMissingProjectExtensionColumn(message: string) {
@@ -213,6 +252,8 @@ function isMissingProjectExtensionColumn(message: string) {
     "projects.description",
     "projects.budget_amount",
     "projects.priority",
+    "projects.project_kind",
+    "projects.manual_progress",
   ].some((column) => message.includes(`column ${column} does not exist`));
 }
 
@@ -221,6 +262,8 @@ function isMissingProjectExtensionSchemaCacheColumn(message: string) {
     "description",
     "budget_amount",
     "priority",
+    "project_kind",
+    "manual_progress",
   ].some((column) => message.includes(`'${column}' column of 'projects'`));
 }
 
@@ -247,7 +290,9 @@ function projectFiltersKey(filters: ProjectFilters = {}) {
     status: filters.status ?? "",
     clientId: filters.clientId ?? "",
     ownerId: filters.ownerId ?? "",
+    health: filters.health ?? "",
     deadline: filters.deadline ?? "",
+    kind: filters.kind ?? "",
   });
 }
 
@@ -309,6 +354,10 @@ async function getFreshProjects(filters: ProjectFilters = {}, entityCode?: strin
       query = query.eq("owner_id", filters.ownerId);
     }
 
+    if (filters.kind) {
+      query = query.eq("project_kind", filters.kind);
+    }
+
     if (filters.deadline === "overdue") {
       query = query.lt("end_date", today.toISOString().slice(0, 10));
     }
@@ -342,7 +391,14 @@ async function getFreshProjects(filters: ProjectFilters = {}, entityCode?: strin
     throw new Error(error.message);
   }
 
-  return (data ?? []).map((row) => mapProject(row));
+  const projects = (data ?? []).map((row) => mapProject(row));
+  if (filters.health === "attention") {
+    return projects.filter((project) => project.health === "at_risk" || project.health === "delayed");
+  }
+  if (filters.health) {
+    return projects.filter((project) => project.health === filters.health);
+  }
+  return projects;
 }
 
 export async function getProjectsFilterData(): Promise<ProjectFiltersData> {
@@ -462,6 +518,8 @@ function parseProjectPayload(values: ProjectFormValues) {
     end_date: values.end_date || null,
     budget_amount: values.budget_amount ? parseFormattedNumber(values.budget_amount) : null,
     priority: values.priority || "medium",
+    project_kind: values.project_kind || "client_mission",
+    manual_progress: values.manual_progress === "" ? null : Number(values.manual_progress),
   };
 }
 
@@ -532,6 +590,7 @@ export async function updateProject(id: string, values: ProjectFormValues, actor
   type PreviousProjectRow = {
     name: string;
     description?: string | null;
+    project_kind?: ProjectKind;
     client_id: string;
     owner_id: string;
     status: string;
@@ -611,6 +670,7 @@ export async function updateProject(id: string, values: ProjectFormValues, actor
       ["start_date", previousProject.start_date, payload.start_date, "Updated project start date"],
       ["end_date", previousProject.end_date, payload.end_date, "Updated project deadline"],
       ["client_id", previousProject.client_id, payload.client_id, "Changed linked client"],
+      ["project_kind", previousProject.project_kind, payload.project_kind, "Changed project type"],
     ] as const;
 
     for (const [field, from, to, action] of changes) {

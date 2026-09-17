@@ -7,7 +7,7 @@ import { requireRouteAccess } from "@/lib/auth/server";
 import { isManagerLikeRole } from "@/lib/auth/permissions";
 import { parseFormattedNumber } from "@/lib/formatters";
 import { createProject, deleteProject, updateProject } from "@/lib/projects/service";
-import type { ProjectFormValues, ProjectPriority, ProjectStatus } from "@/types/project";
+import type { ProjectFormValues, ProjectKind, ProjectPriority, ProjectStatus } from "@/types/project";
 
 export type ProjectActionState = {
   error?: string;
@@ -29,12 +29,14 @@ function parseProjectFormData(formData: FormData): ProjectFormValues {
     end_date: getString(formData, "end_date"),
     budget_amount: getString(formData, "budget_amount"),
     priority: getString(formData, "priority") as ProjectPriority | "",
+    project_kind: getString(formData, "project_kind") as ProjectKind,
+    manual_progress: getString(formData, "manual_progress"),
   };
 }
 
 function validate(values: ProjectFormValues) {
-  if (!values.name || !values.client_id || !values.owner_id || !values.status) {
-    return "Project name, client, owner, and status are required.";
+  if (!values.name || !values.client_id || !values.owner_id || !values.status || !values.project_kind) {
+    return "Project name, entity, owner, status, and project type are required.";
   }
 
   if (values.start_date && values.end_date && values.end_date < values.start_date) {
@@ -43,6 +45,13 @@ function validate(values: ProjectFormValues) {
 
   if (values.budget_amount && parseFormattedNumber(values.budget_amount) === null) {
     return "Budget amount must be a valid number.";
+  }
+
+  if (values.manual_progress) {
+    const progress = Number(values.manual_progress);
+    if (!Number.isInteger(progress) || progress < 0 || progress > 100) {
+      return "Project progress must be a whole number between 0 and 100.";
+    }
   }
 
   return null;

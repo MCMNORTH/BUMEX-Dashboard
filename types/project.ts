@@ -2,6 +2,7 @@ import type { AppRole, Profile } from "@/types/auth";
 
 export type ProjectStatus = "draft" | "active" | "on_hold" | "completed" | "cancelled";
 export type ProjectPriority = "low" | "medium" | "high" | "critical";
+export type ProjectKind = "client_mission" | "institutional_partnership" | "internal_product" | "internal_tool";
 export type ProjectHealth = "healthy" | "warning" | "at_risk" | "delayed";
 export type DeadlineState = "on-track" | "due-soon" | "overdue" | "none";
 
@@ -52,6 +53,8 @@ export type ProjectRecord = {
   created_at: string;
   budget_amount: number | null;
   priority: ProjectPriority | null;
+  project_kind: ProjectKind;
+  manual_progress: number | null;
   client: ProjectClient | null;
   owner: ProjectOwner | null;
   members: ProjectMember[];
@@ -72,6 +75,8 @@ export type ProjectFilters = {
   status?: ProjectStatus | "";
   clientId?: string;
   ownerId?: string;
+  health?: ProjectHealth | "attention" | "";
+  kind?: ProjectKind | "";
   deadline?: "all" | "overdue" | "this_week" | "this_month" | "none";
 };
 
@@ -85,6 +90,8 @@ export type ProjectFormValues = {
   end_date: string;
   budget_amount: string;
   priority: ProjectPriority | "";
+  project_kind: ProjectKind;
+  manual_progress: string;
 };
 
 export type ProjectFiltersData = {
