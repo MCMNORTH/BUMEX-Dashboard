@@ -2,7 +2,6 @@
 
 import { memo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { cva } from "class-variance-authority";
 
 import type { NavigationItemConfig } from "@/types/navigation";
@@ -46,7 +45,6 @@ function NavigationItemComponent({
   theme = "workspace",
 }: NavigationItemProps) {
   const Icon = item.icon;
-  const router = useRouter();
   const themeClasses = {
     workspace: {
       active: "border-[#0c66e4]/18 bg-[#e9f2ff] text-[#0c66e4] dark:border-[#579dff]/30 dark:bg-[#1c2b41] dark:text-[#9fc5ff]",
@@ -65,10 +63,6 @@ function NavigationItemComponent({
     },
   }[theme];
 
-  function prefetchRoute() {
-    router.prefetch(item.href);
-  }
-
   function handleNavigate() {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     onNavigate?.(item.href);
@@ -77,11 +71,8 @@ function NavigationItemComponent({
   return (
     <Link
       href={item.href}
-      prefetch
+      prefetch={false}
       onClick={handleNavigate}
-      onMouseEnter={prefetchRoute}
-      onFocus={prefetchRoute}
-      onTouchStart={prefetchRoute}
       className={cn(
         navigationItemVariants({ active: false, collapsed }),
         active && themeClasses.active,

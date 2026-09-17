@@ -103,21 +103,22 @@ export default async function ClientsPage({
         ))}
       </div>
 
-      <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_50px_-38px_rgba(15,23,42,.42)] dark:border-white/10 dark:bg-slate-950/48">
-        <div className="grid gap-1 border-b border-border/70 bg-slate-50/80 p-2 sm:grid-cols-2 dark:bg-white/[.03]">
-          <Link href="/clients" className={`group flex items-center justify-between rounded-2xl px-4 py-3 transition ${activeView === "relationships" ? "bg-white text-sky-800 shadow-sm ring-1 ring-sky-100 dark:bg-sky-400/10 dark:text-sky-100 dark:ring-sky-400/20" : "text-muted-foreground hover:bg-white/75 hover:text-foreground dark:hover:bg-white/[.04]"}`}>
-            <div><p className="text-sm font-semibold">{isFr ? "Clients & partenaires" : "Clients & partners"}</p><p className="mt-1 text-xs text-muted-foreground">{isFr ? "Contrats, projets et relations actives" : "Contracts, projects, and active relationships"}</p></div>
-            <Badge variant="secondary" className="rounded-full">{formatNumber(clients.length - prospects)}</Badge>
-          </Link>
-          <Link href="/clients?view=opportunities" className={`group flex items-center justify-between rounded-2xl px-4 py-3 transition ${activeView === "opportunities" ? "bg-white text-violet-800 shadow-sm ring-1 ring-violet-100 dark:bg-violet-400/10 dark:text-violet-100 dark:ring-violet-400/20" : "text-muted-foreground hover:bg-white/75 hover:text-foreground dark:hover:bg-white/[.04]"}`}>
-            <div><p className="text-sm font-semibold">{isFr ? "Opportunités commerciales" : "Sales opportunities"}</p><p className="mt-1 text-xs text-muted-foreground">{isFr ? "Discussions avant contrat" : "Conversations before contract"}</p></div>
-            <Badge variant="secondary" className="rounded-full">{formatNumber(prospects)}</Badge>
-          </Link>
-        </div>
-        <div className="px-5 py-4">
-          <p className="text-xs font-medium text-muted-foreground">{activeView === "relationships" ? (isFr ? "Chaque relation ici est déjà engagée ou suivie dans le cadre d’une prestation." : "Each relationship here is already engaged or tracked as part of delivery.") : (isFr ? "Utilisez cette vue pour faire progresser chaque discussion jusqu’à la signature." : "Use this view to move every conversation toward signature.")}</p>
-        </div>
-      </section>
+      <nav aria-label={isFr ? "Vues des relations externes" : "External relationship views"} className="flex flex-wrap items-center gap-2">
+        <Link
+          href="/clients"
+          className={`inline-flex h-12 items-center gap-2.5 rounded-full border px-5 text-sm font-semibold transition-all ${activeView === "relationships" ? "border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-950/15 dark:border-white dark:bg-white dark:text-slate-950" : "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white hover:shadow-sm dark:border-white/15 dark:bg-white/[.04] dark:text-slate-200 dark:hover:bg-white/[.08]"}`}
+        >
+          <Handshake className="size-4" />
+          <span>{isFr ? "Clients & partenaires" : "Clients & partners"}</span>
+        </Link>
+        <Link
+          href="/clients?view=opportunities"
+          className={`inline-flex h-12 items-center gap-2.5 rounded-full border px-5 text-sm font-semibold transition-all ${activeView === "opportunities" ? "border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-950/15 dark:border-white dark:bg-white dark:text-slate-950" : "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white hover:shadow-sm dark:border-white/15 dark:bg-white/[.04] dark:text-slate-200 dark:hover:bg-white/[.08]"}`}
+        >
+          <Building2 className="size-4" />
+          <span>{isFr ? "Opportunités commerciales" : "Sales opportunities"}</span>
+        </Link>
+      </nav>
 
       <ClientFilters filters={filters} filterData={filterData} activeView={activeView} />
 
