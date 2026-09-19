@@ -6,6 +6,7 @@ import { ArrowRight, CalendarClock, FolderGit2, UsersRound } from "lucide-react"
 import { useI18n } from "@/components/layout/i18n-provider";
 import { formatNumber } from "@/lib/formatters";
 import { formatDate } from "@/lib/projects/helpers";
+import { getBumexEntity } from "@/lib/entities/config";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,6 +44,7 @@ const deadlineLabels: Record<ProjectRecord["deadlineState"], string> = {
 export function ProjectCard({ project }: { project: ProjectRecord }) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
+  const internalEntityName = getBumexEntity(project.entity_code)?.name ?? (isFr ? "Entité BUMEX" : "BUMEX entity");
   return (
     <Link href={`/projects/${project.id}`} className="block">
       <Card className="group relative overflow-hidden border-blue-200/80 bg-gradient-to-br from-white via-blue-50/65 to-violet-50/70 shadow-[0_18px_38px_-28px_rgba(37,99,235,.6)] transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-[0_24px_45px_-25px_rgba(79,70,229,.55)] dark:border-white/10 dark:from-slate-950 dark:via-slate-950 dark:to-indigo-950/45 dark:shadow-none">
@@ -76,7 +78,7 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
           <div className="grid gap-2.5 sm:grid-cols-3">
             <div className="rounded-[16px] border border-cyan-200 bg-cyan-50/80 p-2.5 dark:border-cyan-500/20 dark:bg-cyan-500/[0.08]">
               <p className="text-[10px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">{project.project_kind.startsWith("internal_") ? (isFr ? "Périmètre" : "Scope") : (isFr ? "Entité" : "Entity")}</p>
-              <p className="mt-1.5 text-[12px] font-medium">{project.project_kind.startsWith("internal_") ? "BUMEX IT · interne" : (project.client?.name ?? (isFr ? "Non lié" : "Not linked"))}</p>
+              <p className="mt-1.5 text-[12px] font-medium">{project.project_kind.startsWith("internal_") ? `${internalEntityName} · ${isFr ? "interne" : "internal"}` : (project.client?.name ?? (isFr ? "Non lié" : "Not linked"))}</p>
             </div>
             <div className="rounded-[16px] border border-amber-200 bg-amber-50/80 p-2.5 dark:border-amber-500/20 dark:bg-amber-500/[0.08]">
               <p className="text-[10px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">{isFr ? "Échéance" : "Deadline"}</p>

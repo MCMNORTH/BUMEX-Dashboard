@@ -127,10 +127,10 @@ export function ProjectForm({
                 </span>
                 <div>
                   <p className="text-sm font-semibold text-blue-950 dark:text-blue-100">
-                    {isFr ? "Projet interne BUMEX IT" : "Internal BUMEX IT project"}
+                    {isFr ? `Projet interne ${filterData.activeEntity.name}` : `Internal ${filterData.activeEntity.name} project`}
                   </p>
                   <p className="mt-1 text-xs leading-5 text-blue-800/80 dark:text-blue-200/80">
-                    {isFr ? "Aucun client ni partenaire externe n’est rattaché à ce projet." : "No external client or partner is linked to this project."}
+                    {isFr ? `Ce projet est rattaché à ${filterData.activeEntity.name}, sans client ni partenaire externe.` : `This project belongs to ${filterData.activeEntity.name}, with no external client or partner.`}
                   </p>
                 </div>
               </div>

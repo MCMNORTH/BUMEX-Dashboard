@@ -1,4 +1,5 @@
 import type { AppRole, Profile } from "@/types/auth";
+import type { BumexEntityCode } from "@/types/entity";
 
 export type ProjectStatus = "draft" | "active" | "on_hold" | "completed" | "cancelled";
 export type ProjectPriority = "low" | "medium" | "high" | "critical";
@@ -56,6 +57,7 @@ export type ProjectRecord = {
   priority: ProjectPriority | null;
   project_kind: ProjectKind;
   manual_progress: number | null;
+  entity_code: BumexEntityCode | null;
   client: ProjectClient | null;
   owner: ProjectOwner | null;
   members: ProjectMember[];
@@ -98,4 +100,8 @@ export type ProjectFormValues = {
 export type ProjectFiltersData = {
   clients: ProjectClient[];
   owners: ProjectOwner[];
+  activeEntity: {
+    code: BumexEntityCode;
+    name: string;
+  };
 };

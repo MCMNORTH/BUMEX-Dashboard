@@ -5,6 +5,7 @@ import { Trash2, UserRoundPlus } from "lucide-react";
 
 import { deleteProjectAction } from "@/app/(app)/projects/actions";
 import { formatCurrency, formatDate, normalizePriority } from "@/lib/projects/helpers";
+import { getBumexEntity } from "@/lib/entities/config";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProjectForm } from "@/components/projects/project-form";
@@ -39,6 +40,7 @@ export function ProjectDetailHeader({
 }: ProjectDetailHeaderProps) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
+  const internalEntityName = getBumexEntity(project.entity_code)?.name ?? (isFr ? "Entité BUMEX" : "BUMEX entity");
   return (
     <div className="grid gap-5 overflow-hidden rounded-[28px] border border-blue-200 bg-gradient-to-br from-blue-50 via-white to-violet-50 p-5 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none xl:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-4">
@@ -110,8 +112,8 @@ export function ProjectDetailHeader({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
           <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{project.project_kind.startsWith("internal_") ? (isFr ? "Périmètre" : "Scope") : (isFr ? "Entité / rattachement" : "Entity / relationship")}</p>
-          <p className="mt-2 text-sm font-medium">{project.project_kind.startsWith("internal_") ? "BUMEX IT · interne" : (project.client?.name ?? (isFr ? "Non lié" : "Not linked"))}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{project.project_kind.startsWith("internal_") ? (isFr ? "Sans client ni partenaire externe" : "No external client or partner") : (project.client?.contact_email ?? (isFr ? "Aucun e-mail de contact" : "No contact email"))}</p>
+          <p className="mt-2 text-sm font-medium">{project.project_kind.startsWith("internal_") ? `${internalEntityName} · ${isFr ? "interne" : "internal"}` : (project.client?.name ?? (isFr ? "Non lié" : "Not linked"))}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{project.project_kind.startsWith("internal_") ? (isFr ? "Rattaché à l’entité active du créateur, sans client ni partenaire externe" : "Attached to the creator’s active entity, with no external client or partner") : (project.client?.contact_email ?? (isFr ? "Aucun e-mail de contact" : "No contact email"))}</p>
         </div>
         <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
           <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Responsable" : "Owner"}</p>

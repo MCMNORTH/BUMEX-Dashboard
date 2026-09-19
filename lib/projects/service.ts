@@ -15,6 +15,7 @@ import {
   getEntityScopedCacheKey,
   isEntityScopingEnabled,
 } from "@/lib/entities/scope";
+import { getBumexEntity } from "@/lib/entities/config";
 import {
   calculateProjectHealth,
   calculateProjectProgress,
@@ -35,6 +36,7 @@ import type {
   ProjectRecord,
   ProjectTaskPreview,
 } from "@/types/project";
+import type { BumexEntityCode } from "@/types/entity";
 
 export type ProjectStaffingSummary = {
   activePeople: number;
@@ -81,6 +83,7 @@ type ProjectRow = {
   priority?: ProjectRecord["priority"];
   project_kind?: ProjectKind;
   manual_progress?: number | null;
+  entity_code?: BumexEntityCode | null;
   client: ProjectClient | ProjectClient[] | null;
   owner: ProjectOwner | ProjectOwner[] | null;
   members:
@@ -139,6 +142,7 @@ function mapProject(row: ProjectRow, recentActivity: ProjectActivity[] = []): Pr
     priority: row.priority ?? "medium",
     project_kind: row.project_kind ?? "client_mission",
     manual_progress: row.manual_progress ?? null,
+    entity_code: row.entity_code ?? null,
     client: single(row.client),
     owner: single(row.owner),
     members: normalizeMembers(row.members),
@@ -169,6 +173,7 @@ const FULL_PROJECT_SELECT = `
   priority,
   project_kind,
   manual_progress,
+  entity_code,
   client:clients (
     id,
     name,
@@ -435,6 +440,10 @@ async function getFreshProjectsFilterData(entityCode?: string): Promise<ProjectF
   return {
     clients: clients ?? [],
     owners: owners ?? [],
+    activeEntity: {
+      code: entityCode as BumexEntityCode,
+      name: getBumexEntity(entityCode as BumexEntityCode)?.name ?? entityCode ?? "BUMEX",
+    },
   };
 }
 
