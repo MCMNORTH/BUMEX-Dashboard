@@ -42,8 +42,8 @@ export async function TicketWorkloadPreview({
   const isFr = locale === "fr";
 
   return (
-    <Card className="border-slate-200 bg-white shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
+    <Card className="overflow-hidden border-cyan-200 bg-gradient-to-br from-cyan-50 via-white to-violet-50 shadow-[var(--shadow-soft)] dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-violet-950/70 dark:shadow-none">
+      <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-cyan-100/80">
         <div>
           <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Charge" : "Workload"}</p>
           <CardTitle className="mt-2 text-xl">{title}</CardTitle>

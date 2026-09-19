@@ -46,7 +46,7 @@ export function TicketFilters({ filters, filterData }: TicketFiltersProps) {
   const { t } = useI18n();
 
   return (
-    <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
+    <div className="space-y-4 rounded-2xl border border-cyan-200 bg-gradient-to-r from-cyan-50 via-white to-blue-50 p-4 shadow-[var(--shadow-soft)] dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-cyan-950/70 dark:shadow-none">
       <div className="flex flex-wrap gap-2">
         {statusOrder.map((status) => {
           const active = activeStatus === status;
@@ -97,6 +97,7 @@ export function TicketFilters({ filters, filterData }: TicketFiltersProps) {
           placeholder={t("tickets.filters.allAssignees", "All assignees")}
           options={[
             { value: "", label: t("tickets.filters.allAssignees", "All assignees") },
+            { value: "unassigned", label: t("tickets.filters.unassigned", "Unassigned") },
             ...filterData.assignees.map((assignee) => ({
               value: assignee.id,
               label: assignee.full_name,
