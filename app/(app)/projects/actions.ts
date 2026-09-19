@@ -13,6 +13,13 @@ export type ProjectActionState = {
   error?: string;
 };
 
+function getSaveErrorMessage(action: "create" | "update", error: unknown) {
+  const detail = error instanceof Error ? error.message : "Unknown project persistence error.";
+  console.error(`[projects:${action}] persistence failed`, { detail });
+
+  return `La sauvegarde du projet a échoué : ${detail}`;
+}
+
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
@@ -88,7 +95,12 @@ export async function createProjectAction(
     return { error: "Only entity-level leads can create projects they own." };
   }
 
-  await createProject(values, auth.profile.id);
+  try {
+    await createProject(values, auth.profile.id);
+  } catch (error) {
+    return { error: getSaveErrorMessage("create", error) };
+  }
+
   revalidatePath("/projects");
   redirect("/projects?toast=project-created");
 }
@@ -119,7 +131,12 @@ export async function updateProjectAction(
     return { error: "Only entity-level leads can update projects they own." };
   }
 
-  await updateProject(projectId, values, auth.profile.id);
+  try {
+    await updateProject(projectId, values, auth.profile.id);
+  } catch (error) {
+    return { error: getSaveErrorMessage("update", error) };
+  }
+
   revalidatePath("/projects");
   revalidatePath(`/projects/${projectId}`);
   redirect(`/projects/${projectId}?toast=project-updated`);
