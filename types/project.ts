@@ -45,7 +45,8 @@ export type ProjectRecord = {
   id: string;
   name: string;
   description: string | null;
-  client_id: string;
+  // Internal BUMEX products and tools deliberately have no external client.
+  client_id: string | null;
   status: ProjectStatus;
   owner_id: string;
   start_date: string | null;

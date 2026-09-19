@@ -60,9 +60,12 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
                 <h3 className="text-base font-semibold tracking-[-0.015em] transition-colors group-hover:text-primary dark:group-hover:text-white">
                   {project.name}
                 </h3>
-                <p className="max-w-xl rounded-xl border border-blue-100/80 bg-white/70 px-3 py-2 text-[12px] leading-5 text-slate-600 dark:border-white/10 dark:bg-white/[.04] dark:text-slate-300">
-                  {project.description || (isFr ? "Aucune description renseignée pour ce projet." : "No description provided for this project.")}
-                </p>
+                <div className="max-w-2xl rounded-xl border border-blue-100/80 bg-white/70 px-3 py-2 dark:border-white/10 dark:bg-white/[.04]">
+                  <p className="text-[10px] font-semibold tracking-[0.14em] text-blue-700 uppercase dark:text-blue-300">{isFr ? "Objectif du projet" : "Project purpose"}</p>
+                  <p className="mt-1 text-[12px] leading-5 text-slate-600 dark:text-slate-300">
+                    {project.description || (isFr ? "Aucune description renseignée pour ce projet." : "No description provided for this project.")}
+                  </p>
+                </div>
               </div>
             </div>
             <div className="flex size-9 shrink-0 items-center justify-center rounded-[14px] border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.05]">
@@ -72,8 +75,8 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
 
           <div className="grid gap-2.5 sm:grid-cols-3">
             <div className="rounded-[16px] border border-cyan-200 bg-cyan-50/80 p-2.5 dark:border-cyan-500/20 dark:bg-cyan-500/[0.08]">
-              <p className="text-[10px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">{isFr ? "Entité" : "Entity"}</p>
-              <p className="mt-1.5 text-[12px] font-medium">{project.client?.name ?? (isFr ? "Non lié" : "Not linked")}</p>
+              <p className="text-[10px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">{project.project_kind.startsWith("internal_") ? (isFr ? "Périmètre" : "Scope") : (isFr ? "Entité" : "Entity")}</p>
+              <p className="mt-1.5 text-[12px] font-medium">{project.project_kind.startsWith("internal_") ? "BUMEX IT · interne" : (project.client?.name ?? (isFr ? "Non lié" : "Not linked"))}</p>
             </div>
             <div className="rounded-[16px] border border-amber-200 bg-amber-50/80 p-2.5 dark:border-amber-500/20 dark:bg-amber-500/[0.08]">
               <p className="text-[10px] font-semibold tracking-[0.15em] text-muted-foreground uppercase">{isFr ? "Échéance" : "Deadline"}</p>

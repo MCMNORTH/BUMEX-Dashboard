@@ -35,8 +35,18 @@ function parseProjectFormData(formData: FormData): ProjectFormValues {
 }
 
 function validate(values: ProjectFormValues) {
-  if (!values.name || !values.client_id || !values.owner_id || !values.status || !values.project_kind) {
-    return "Project name, entity, owner, status, and project type are required.";
+  const isInternalProject = values.project_kind === "internal_product" || values.project_kind === "internal_tool";
+
+  if (!values.name || !values.owner_id || !values.status || !values.project_kind) {
+    return "Project name, owner, status, and project type are required.";
+  }
+
+  if (!isInternalProject && !values.client_id) {
+    return "Select the external client or partner linked to this project.";
+  }
+
+  if (!values.description) {
+    return "Add a short description so the team can understand the project at a glance.";
   }
 
   if (values.start_date && values.end_date && values.end_date < values.start_date) {

@@ -2,6 +2,10 @@
 -- Leaving the field NULL keeps the automatic calculation from tickets.
 begin;
 
+-- Internal BUMEX products and tools are not client engagements.
+alter table public.projects
+  alter column client_id drop not null;
+
 alter table public.projects
   add column if not exists manual_progress integer;
 

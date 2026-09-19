@@ -71,7 +71,7 @@ export function ProjectDetailHeader({
               defaults={{
                 project_id: project.id,
                 name: project.name,
-                client_id: project.client_id,
+                client_id: project.client_id ?? "",
                 description: project.description ?? "",
                 owner_id: project.owner_id,
                 status: project.status,
@@ -109,9 +109,9 @@ export function ProjectDetailHeader({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Entité / rattachement" : "Entity / relationship"}</p>
-          <p className="mt-2 text-sm font-medium">{project.client?.name ?? "Not linked"}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{project.client?.contact_email ?? "No contact email"}</p>
+          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{project.project_kind.startsWith("internal_") ? (isFr ? "Périmètre" : "Scope") : (isFr ? "Entité / rattachement" : "Entity / relationship")}</p>
+          <p className="mt-2 text-sm font-medium">{project.project_kind.startsWith("internal_") ? "BUMEX IT · interne" : (project.client?.name ?? (isFr ? "Non lié" : "Not linked"))}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{project.project_kind.startsWith("internal_") ? (isFr ? "Sans client ni partenaire externe" : "No external client or partner") : (project.client?.contact_email ?? (isFr ? "Aucun e-mail de contact" : "No contact email"))}</p>
         </div>
         <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
           <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Responsable" : "Owner"}</p>

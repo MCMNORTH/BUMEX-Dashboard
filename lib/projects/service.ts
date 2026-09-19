@@ -71,7 +71,7 @@ type ProjectRow = {
   id: string;
   name: string;
   description?: string | null;
-  client_id: string;
+  client_id: string | null;
   status: ProjectRecord["status"];
   owner_id: string;
   start_date: string | null;
@@ -269,19 +269,6 @@ function isMissingProjectExtensionSchemaCacheColumn(message: string) {
 
 function isMissingOptionalProjectField(message: string) {
   return isMissingProjectExtensionColumn(message) || isMissingProjectExtensionSchemaCacheColumn(message);
-}
-
-function stripOptionalProjectFields(
-  payload: ReturnType<typeof parseProjectPayload>,
-) {
-  return {
-    name: payload.name,
-    client_id: payload.client_id,
-    owner_id: payload.owner_id,
-    status: payload.status,
-    start_date: payload.start_date,
-    end_date: payload.end_date,
-  };
 }
 
 function projectFiltersKey(filters: ProjectFilters = {}) {
@@ -508,9 +495,11 @@ async function getFreshProjectById(id: string, entityCode?: string): Promise<Pro
 }
 
 function parseProjectPayload(values: ProjectFormValues) {
+  const isInternalProject = values.project_kind === "internal_product" || values.project_kind === "internal_tool";
   return {
     name: values.name.trim(),
-    client_id: values.client_id,
+    // An internal BUMEX product/tool must not be represented as an external client relationship.
+    client_id: isInternalProject ? null : values.client_id,
     description: values.description.trim() || null,
     owner_id: values.owner_id,
     status: values.status,
@@ -538,14 +527,6 @@ export async function createProject(values: ProjectFormValues, actorUserId: stri
     .insert(payload)
     .select("id")
     .single<{ id: string }>();
-
-  if (error && isMissingOptionalProjectField(error.message)) {
-    ({ data, error } = await supabase
-      .from("projects")
-      .insert(extendWithEntityCode(stripOptionalProjectFields(payload), entityCode))
-      .select("id")
-      .single<{ id: string }>());
-  }
 
   if (error) {
     throw new Error(error.message);
@@ -591,7 +572,7 @@ export async function updateProject(id: string, values: ProjectFormValues, actor
     name: string;
     description?: string | null;
     project_kind?: ProjectKind;
-    client_id: string;
+    client_id: string | null;
     owner_id: string;
     status: string;
     start_date: string | null;
@@ -632,16 +613,6 @@ export async function updateProject(id: string, values: ProjectFormValues, actor
 
   const payload = parseProjectPayload(values);
   let { error } = await applyEntityScope(supabase.from("projects").update(payload).eq("id", id), entityCode);
-
-  if (error && isMissingOptionalProjectField(error.message)) {
-    ({ error } = await applyEntityScope(
-      supabase
-        .from("projects")
-        .update(stripOptionalProjectFields(payload))
-        .eq("id", id),
-      entityCode,
-    ));
-  }
 
   if (error) {
     throw new Error(error.message);

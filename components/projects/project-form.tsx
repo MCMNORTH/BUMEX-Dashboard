@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
-import { Plus, SquarePen } from "lucide-react";
+import { useActionState, useState } from "react";
+import { Building2, Plus, SquarePen } from "lucide-react";
 
 import {
   createProjectAction,
@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/components/layout/i18n-provider";
-import type { ProjectFiltersData, ProjectFormValues } from "@/types/project";
+import type { ProjectFiltersData, ProjectFormValues, ProjectKind } from "@/types/project";
 
 const initialState: ProjectActionState = {};
 
@@ -41,6 +41,9 @@ export function ProjectForm({
 }: ProjectFormProps) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
+  const [projectKind, setProjectKind] = useState(defaults?.project_kind ?? "client_mission");
+  const [clientId, setClientId] = useState(defaults?.client_id ?? "");
+  const isInternalProject = projectKind === "internal_product" || projectKind === "internal_tool";
   const [state, formAction] = useActionState(
     mode === "create" ? createProjectAction : updateProjectAction,
     initialState,
@@ -90,25 +93,7 @@ export function ProjectForm({
               name="description"
               defaultValue={defaults?.description ?? ""}
               placeholder="Executive summary, delivery scope, or operational context"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor={`${mode}-client`}>
-              {isFr ? "Entité / rattachement" : "Entity / relationship"}
-            </label>
-            <ModernSelect
-              id={`${mode}-client`}
-              name="client_id"
-              defaultValue={defaults?.client_id ?? ""}
-              placeholder={isFr ? "Sélectionner une entité" : "Select entity"}
-              options={[
-                { value: "", label: isFr ? "Sélectionner une entité" : "Select entity" },
-                ...filterData.clients.map((client) => ({
-                  value: client.id,
-                  label: client.name,
-                })),
-              ]}
+              required
             />
           </div>
 
@@ -119,7 +104,8 @@ export function ProjectForm({
             <ModernSelect
               id={`${mode}-kind`}
               name="project_kind"
-              defaultValue={defaults?.project_kind ?? "client_mission"}
+              value={projectKind}
+              onValueChange={(value) => setProjectKind(value as ProjectKind)}
               options={[
                 { value: "client_mission", label: isFr ? "Mission client" : "Client mission" },
                 { value: "institutional_partnership", label: isFr ? "Partenariat institutionnel" : "Institutional partnership" },
@@ -128,9 +114,51 @@ export function ProjectForm({
               ]}
             />
             <p className="text-xs text-muted-foreground">
-              {isFr ? "Les produits et outils internes restent rattachés à BUMEX IT, sans être présentés comme des clients." : "Internal products and tools stay attached to BUMEX IT without being treated as clients."}
+              {isFr ? "Choisissez le périmètre avant le rattachement : externe ou interne à BUMEX IT." : "Choose the scope first: external relationship or internal BUMEX IT work."}
             </p>
           </div>
+
+          {isInternalProject ? (
+            <div className="rounded-[18px] border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-400/20 dark:bg-blue-500/10">
+              <input type="hidden" name="client_id" value="" />
+              <div className="flex gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+                  <Building2 className="size-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-blue-950 dark:text-blue-100">
+                    {isFr ? "Projet interne BUMEX IT" : "Internal BUMEX IT project"}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-blue-800/80 dark:text-blue-200/80">
+                    {isFr ? "Aucun client ni partenaire externe n’est rattaché à ce projet." : "No external client or partner is linked to this project."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor={`${mode}-client`}>
+                {isFr ? "Client ou partenaire externe" : "External client or partner"}
+              </label>
+              <ModernSelect
+                id={`${mode}-client`}
+                name="client_id"
+                value={clientId}
+                onValueChange={setClientId}
+                placeholder={isFr ? "Sélectionner une entité" : "Select entity"}
+                options={[
+                  { value: "", label: isFr ? "Sélectionner une entité" : "Select entity" },
+                  ...filterData.clients.map((client) => ({
+                    value: client.id,
+                    label: client.name,
+                  })),
+                ]}
+              />
+              <p className="text-xs text-muted-foreground">
+                {isFr ? "Obligatoire uniquement pour une mission ou un partenariat externe." : "Required only for an external mission or partnership."}
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-owner`}>
