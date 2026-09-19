@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   CartesianGrid,
   Cell,
@@ -15,7 +16,18 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CalendarRange, Layers3, ShieldAlert } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarDays,
+  CalendarRange,
+  CheckCircle2,
+  CircleAlert,
+  ClipboardList,
+  FolderKanban,
+  Layers3,
+  Plus,
+  ShieldAlert,
+} from "lucide-react";
 
 import {
   activityFeed,
@@ -152,15 +164,90 @@ export function OverviewDashboard({ dashboardData }: { dashboardData?: OverviewD
     title: dashboardData ? item.title : t(`overview.datasets.nextSevenDays.${index}.title`, item.title),
     theme: dashboardData ? item.theme : t(`overview.datasets.nextSevenDays.${index}.theme`, item.theme),
   }));
+  const portfolioHealth = localizedProjectHealth.length
+    ? Math.round(localizedProjectHealth.reduce((total, project) => total + project.health, 0) / localizedProjectHealth.length)
+    : 100;
+  const activeRisks = localizedAtRiskProjects.filter((project) => project.severity.toLowerCase() !== "stable").length;
+  const primaryFocus = localizedFocusToday.slice(0, 3);
 
   return (
-    <div className="space-y-6">
-      <section className="space-y-3">
-        <div>
-          <div>
-            <p className="text-[10px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">{t("overview.sections.kpis", "KPIs")}</p>
-            <h2 className="mt-1 text-[15px] font-semibold tracking-[-0.01em]">{t("overview.sections.performancePulse", "Operational performance pulse")}</h2>
+    <div className="space-y-7">
+      <section className="relative isolate overflow-hidden rounded-[28px] border border-[#274f98]/40 bg-[linear-gradient(118deg,#091b43_0%,#123b78_48%,#55219b_100%)] px-5 py-6 text-white shadow-[0_24px_60px_rgba(27,61,129,0.22)] sm:px-7 sm:py-7 dark:border-blue-400/20 dark:shadow-none">
+        <div className="pointer-events-none absolute -top-32 right-[-5rem] size-80 rounded-full bg-cyan-300/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-40 left-[35%] size-72 rounded-full bg-violet-400/20 blur-3xl" />
+        <div className="relative">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div className="max-w-2xl">
+              <div className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] text-cyan-100/90 uppercase">
+                <span className="size-2 rounded-full bg-emerald-300 shadow-[0_0_0_5px_rgba(110,231,183,0.13)]" />
+                Centre de pilotage BUMEX
+              </div>
+              <h1 className="mt-3 text-3xl font-bold tracking-[-0.045em] sm:text-[2.4rem]">Vue générale</h1>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-blue-50/84">
+                Une lecture claire de l’activité, des priorités et de la capacité de l’équipe pour décider vite et agir au bon moment.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/projects" className="inline-flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5 text-[12px] font-semibold text-[#133572] shadow-sm transition-transform hover:-translate-y-0.5">
+                <FolderKanban className="size-4" /> Projets
+              </Link>
+              <Link href="/tickets" className="inline-flex items-center gap-2 rounded-xl border border-white/18 bg-white/10 px-3.5 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-white/18">
+                <ClipboardList className="size-4" /> Tickets
+              </Link>
+              <Link href="/projects" className="inline-flex items-center gap-2 rounded-xl border border-cyan-200/20 bg-cyan-300/12 px-3.5 py-2.5 text-[12px] font-semibold text-cyan-50 transition-colors hover:bg-cyan-300/18">
+                <Plus className="size-4" /> Nouveau projet
+              </Link>
+            </div>
           </div>
+          <div className="mt-6 grid gap-2 sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/12 bg-white/10 px-4 py-3 backdrop-blur-sm">
+              <p className="text-[10px] font-bold tracking-[0.15em] text-blue-100/72 uppercase">Santé du portefeuille</p>
+              <div className="mt-1.5 flex items-end justify-between gap-3"><span className="text-2xl font-bold tracking-tight">{portfolioHealth}%</span><CheckCircle2 className="mb-1 size-4 text-emerald-300" /></div>
+            </div>
+            <div className="rounded-2xl border border-white/12 bg-white/10 px-4 py-3 backdrop-blur-sm">
+              <p className="text-[10px] font-bold tracking-[0.15em] text-blue-100/72 uppercase">Points à suivre</p>
+              <div className="mt-1.5 flex items-end justify-between gap-3"><span className="text-2xl font-bold tracking-tight">{activeRisks}</span><CircleAlert className="mb-1 size-4 text-amber-200" /></div>
+            </div>
+            <div className="rounded-2xl border border-white/12 bg-white/10 px-4 py-3 backdrop-blur-sm">
+              <p className="text-[10px] font-bold tracking-[0.15em] text-blue-100/72 uppercase">Rythme à 7 jours</p>
+              <div className="mt-1.5 flex items-end justify-between gap-3"><span className="text-2xl font-bold tracking-tight">{localizedNextSevenDays.length}</span><CalendarDays className="mb-1 size-4 text-cyan-200" /></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[24px] border border-slate-200/90 bg-gradient-to-br from-white via-white to-blue-50/65 p-4 shadow-[var(--shadow-soft)] dark:border-white/10 dark:from-[#171d2b] dark:via-[#171d2b] dark:to-[#182444] dark:shadow-none sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-[10px] font-bold tracking-[0.18em] text-blue-600 uppercase dark:text-sky-300">À piloter maintenant</p>
+            <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em]">Les prochains gestes utiles</h2>
+          </div>
+          <Link href="/tickets" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-blue-700 transition-colors hover:text-blue-900 dark:text-sky-300 dark:hover:text-sky-200">Voir le travail en cours <ArrowRight className="size-3.5" /></Link>
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          {primaryFocus.map((item, index) => {
+            const Icon = focusIcons[index] ?? item.icon;
+            const routes = ["/projects", "/tickets", "/planning"];
+            const tones = ["border-blue-200 bg-blue-50/75 dark:border-blue-400/15 dark:bg-blue-500/10", "border-violet-200 bg-violet-50/75 dark:border-violet-400/15 dark:bg-violet-500/10", "border-amber-200 bg-amber-50/75 dark:border-amber-400/15 dark:bg-amber-500/10"];
+            return (
+              <Link key={item.title} href={routes[index] ?? "/tickets"} className={cn("group rounded-2xl border p-4 transition-transform hover:-translate-y-0.5", tones[index] ?? tones[0])}>
+                <div className="flex items-start justify-between gap-3"><div className="flex size-9 items-center justify-center rounded-xl bg-white/85 text-blue-700 shadow-sm dark:bg-white/10 dark:text-sky-200"><Icon className="size-4" /></div><ArrowRight className="mt-1 size-4 text-slate-400 transition-transform group-hover:translate-x-0.5 dark:text-white/45" /></div>
+                <p className="mt-4 text-[10px] font-bold tracking-[0.15em] text-slate-500 uppercase dark:text-white/55">{item.label}</p>
+                <h3 className="mt-1 text-[15px] font-semibold tracking-[-0.02em]">{item.title}</h3>
+                <p className="mt-1.5 text-[12px] leading-5 text-slate-600 dark:text-slate-300">{item.description}</p>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold tracking-[0.18em] text-blue-600 uppercase dark:text-sky-300">{t("overview.sections.kpis", "KPIs")}</p>
+            <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em]">{t("overview.sections.performancePulse", "Operational performance pulse")}</h2>
+          </div>
+          <span className="hidden rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold tracking-[0.12em] text-emerald-700 uppercase dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-200 sm:inline-flex">Données en direct</span>
         </div>
         <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
           {visibleKpis.map((item, index) => (
