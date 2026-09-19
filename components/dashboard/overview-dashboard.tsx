@@ -267,10 +267,10 @@ export function OverviewDashboard({ dashboardData }: { dashboardData?: OverviewD
           }
           description={t("overview.sections.workloadDescription", "Current effort allocation across operational units, with hover-driven emphasis for fast comparisons.")}
           badge={t("overview.misc.risks", "Risks")}
-          className="overflow-hidden"
+          className="overflow-hidden border-cyan-200/80 bg-[linear-gradient(135deg,#ecfbff_0%,#f8fcff_48%,#eef2ff_100%)] dark:border-cyan-400/15 dark:bg-[linear-gradient(135deg,#102b3a_0%,#171d2b_52%,#202346_100%)]"
         >
           <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-            <div className="h-[13.5rem] min-w-0 rounded-[16px] border border-slate-200 bg-slate-50/70 p-2.5 dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="h-[13.5rem] min-w-0 rounded-[20px] border border-cyan-200/80 bg-[radial-gradient(circle_at_50%_100%,#dbeafe_0%,#effbff_50%,#ffffff_100%)] p-2.5 shadow-inner dark:border-cyan-400/15 dark:bg-[radial-gradient(circle_at_50%_100%,#17375b_0%,#142437_48%,#182034_100%)]">
               {chartsReady ? (
                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <RadialBarChart
@@ -311,10 +311,10 @@ export function OverviewDashboard({ dashboardData }: { dashboardData?: OverviewD
                     onMouseEnter={() => setActiveWorkload(team.name)}
                     onFocus={() => setActiveWorkload(team.name)}
                     className={cn(
-                      "rounded-[16px] border px-3 py-2.5 text-left transition-colors duration-200",
+                      "rounded-[18px] border px-3 py-2.5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5",
                       active
-                        ? "border-blue-200 bg-blue-50 text-slate-900 dark:border-sky-400/20 dark:bg-sky-500/12 dark:text-sky-100"
-                        : "border-slate-200 bg-slate-50/70 hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-white/16 dark:hover:bg-white/[0.06]",
+                        ? "border-blue-300 bg-[linear-gradient(135deg,#dbeafe_0%,#eef6ff_100%)] text-slate-900 dark:border-sky-400/30 dark:bg-[linear-gradient(135deg,#153a57_0%,#1c3151_100%)] dark:text-sky-100"
+                        : "border-white bg-white/80 hover:border-blue-200 hover:bg-white dark:border-white/10 dark:bg-white/[0.05] dark:hover:border-cyan-400/20 dark:hover:bg-white/[0.08]",
                     )}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -345,6 +345,7 @@ export function OverviewDashboard({ dashboardData }: { dashboardData?: OverviewD
           description={t("overview.sections.weeklyProgressDescription", "Completed work versus active load through the week.")}
           badge="Insights"
           contentClassName="h-[18rem]"
+          className="border-blue-200/80 bg-[linear-gradient(135deg,#eef5ff_0%,#ffffff_60%,#edf2ff_100%)] dark:border-blue-400/15 dark:bg-[linear-gradient(135deg,#142847_0%,#171d2b_58%,#202342_100%)]"
         >
           <div className="h-full min-h-0 min-w-0">
             {chartsReady ? (
@@ -382,12 +383,13 @@ export function OverviewDashboard({ dashboardData }: { dashboardData?: OverviewD
           title={t("overview.sections.projectHealth", "Project health indicators")}
           description={t("overview.sections.projectHealthDescription", "Fast read on strategic delivery confidence.")}
           badge="Health"
+          className="border-emerald-200/80 bg-[linear-gradient(135deg,#edfff7_0%,#ffffff_62%,#ebfaf4_100%)] dark:border-emerald-400/15 dark:bg-[linear-gradient(135deg,#12342a_0%,#171d2b_60%,#142a27_100%)]"
         >
           <div className="space-y-3">
             {localizedProjectHealth.map((project) => (
               <div
                 key={project.name}
-                className="rounded-[16px] border border-slate-200 bg-slate-50/70 p-2.5 transition-colors duration-200 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.06]"
+                className="rounded-[18px] border border-emerald-100 bg-white/75 p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-white dark:border-emerald-400/12 dark:bg-white/[0.045] dark:hover:bg-white/[0.075]"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -439,6 +441,7 @@ export function OverviewDashboard({ dashboardData }: { dashboardData?: OverviewD
           description={t("overview.sections.taskDistributionDescription", "Share of work by delivery domain.")}
           badge={t("overview.misc.mix", "Mix")}
           contentClassName="flex min-h-[17.5rem] flex-col"
+          className="border-violet-200/80 bg-[linear-gradient(135deg,#f6f1ff_0%,#ffffff_60%,#f0ecff_100%)] dark:border-violet-400/15 dark:bg-[linear-gradient(135deg,#292044_0%,#171d2b_60%,#23203d_100%)]"
         >
           <div className="h-[13rem] min-h-0 min-w-0">
             {chartsReady ? (
@@ -483,6 +486,7 @@ export function OverviewDashboard({ dashboardData }: { dashboardData?: OverviewD
           title={t("overview.sections.activityTimeline", "Activity timeline")}
           description={t("overview.sections.activityTimelineDescription", "Recent movements across the operating system.")}
           badge={t("overview.misc.activity", "Activity")}
+          className="border-sky-200/80 bg-[linear-gradient(135deg,#effaff_0%,#ffffff_60%,#edf7ff_100%)] dark:border-sky-400/15 dark:bg-[linear-gradient(135deg,#142d3d_0%,#171d2b_62%,#162b3b_100%)]"
         >
           <ActivityFeed items={localizedActivityFeed} />
         </ChartCard>
@@ -491,6 +495,7 @@ export function OverviewDashboard({ dashboardData }: { dashboardData?: OverviewD
           title={t("overview.sections.upcomingDeadlines", "Upcoming deadlines")}
           description={t("overview.sections.upcomingDeadlinesDescription", "Events and commitments needing visibility.")}
           badge={t("overview.misc.planning", "Planning")}
+          className="border-amber-200/80 bg-[linear-gradient(135deg,#fff9e9_0%,#ffffff_60%,#fff4df_100%)] dark:border-amber-400/15 dark:bg-[linear-gradient(135deg,#352719_0%,#171d2b_62%,#302316_100%)]"
         >
           <Timeline items={localizedUpcomingDeadlines} />
         </ChartCard>
@@ -502,6 +507,7 @@ export function OverviewDashboard({ dashboardData }: { dashboardData?: OverviewD
           title={t("overview.sections.atRiskProjects", "At risk projects")}
           description={t("overview.sections.atRiskProjectsDescription", "Areas requiring executive attention before impact compounds.")}
           badge={t("overview.misc.risks", "Risks")}
+          className="border-rose-200/80 bg-[linear-gradient(135deg,#fff1f3_0%,#ffffff_60%,#fff2ed_100%)] dark:border-rose-400/15 dark:bg-[linear-gradient(135deg,#3a1d29_0%,#171d2b_62%,#362018_100%)]"
         >
           <div className="space-y-3">
             {localizedAtRiskProjects.map((project) => {
@@ -510,7 +516,7 @@ export function OverviewDashboard({ dashboardData }: { dashboardData?: OverviewD
               return (
                 <div
                   key={project.title}
-                  className="rounded-[16px] border border-red-200 bg-red-50/50 p-3 transition-colors duration-200 hover:bg-red-50"
+                  className="rounded-[18px] border border-rose-200 bg-white/70 p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-white dark:border-rose-400/15 dark:bg-white/[0.045] dark:hover:bg-white/[0.075]"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
@@ -547,12 +553,13 @@ export function OverviewDashboard({ dashboardData }: { dashboardData?: OverviewD
           title={t("overview.sections.next7Days", "Next 7 days planning")}
           description={t("overview.sections.next7DaysDescription", "A preview of the upcoming operational rhythm.")}
           badge={t("overview.misc.sevenDayView", "7-day view")}
+          className="border-indigo-200/80 bg-[linear-gradient(135deg,#eef4ff_0%,#ffffff_60%,#f1efff_100%)] dark:border-indigo-400/15 dark:bg-[linear-gradient(135deg,#162743_0%,#171d2b_62%,#262140_100%)]"
         >
           <div className="grid gap-2.5">
             {localizedNextSevenDays.map((item) => (
               <div
                 key={item.day}
-                className="group grid gap-2.5 rounded-[16px] border border-slate-200 bg-slate-50/70 p-2.5 transition-colors duration-200 hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-white/16 dark:hover:bg-white/[0.06] sm:grid-cols-[3.5rem_1fr_auto]"
+                className="group grid gap-2.5 rounded-[18px] border border-indigo-100 bg-white/75 p-2.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-white dark:border-indigo-400/12 dark:bg-white/[0.045] dark:hover:border-indigo-400/25 dark:hover:bg-white/[0.075] sm:grid-cols-[3.5rem_1fr_auto]"
               >
                 <div className="flex h-12 items-center justify-center rounded-[14px] border border-slate-200 bg-white text-[12px] font-semibold dark:border-white/10 dark:bg-white/[0.05]">
                   {item.day}
@@ -568,7 +575,7 @@ export function OverviewDashboard({ dashboardData }: { dashboardData?: OverviewD
             ))}
           </div>
           <Separator className="my-4" />
-          <div className="flex items-center justify-between rounded-[16px] border border-slate-200 bg-slate-50/70 px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="flex items-center justify-between rounded-[18px] border border-indigo-100 bg-white/75 px-3 py-2.5 shadow-sm dark:border-indigo-400/12 dark:bg-white/[0.045]">
             <div className="flex items-center gap-3">
               <div className="flex size-8 items-center justify-center rounded-[14px] border border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.05]">
                 <Layers3 className="size-3.5 text-primary" />

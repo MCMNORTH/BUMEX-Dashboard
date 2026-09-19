@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
 const toneClasses = {
-  blue: "border-t-blue-500",
-  amber: "border-t-red-500",
-  violet: "border-t-blue-500",
+  blue: "border-blue-200 bg-[linear-gradient(135deg,#eff8ff_0%,#ffffff_100%)] dark:border-blue-400/20 dark:bg-[linear-gradient(135deg,#14263a_0%,#171d2b_100%)]",
+  amber: "border-amber-200 bg-[linear-gradient(135deg,#fff7e7_0%,#ffffff_100%)] dark:border-amber-400/20 dark:bg-[linear-gradient(135deg,#352719_0%,#171d2b_100%)]",
+  violet: "border-violet-200 bg-[linear-gradient(135deg,#f5f0ff_0%,#ffffff_100%)] dark:border-violet-400/20 dark:bg-[linear-gradient(135deg,#292044_0%,#171d2b_100%)]",
 } as const;
 
 type InsightCardProps = {
@@ -27,7 +27,7 @@ export function InsightCard({
   tone,
 }: InsightCardProps) {
   return (
-    <Card className={cn("group relative overflow-hidden border-t-2 border-slate-200 bg-white shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none", toneClasses[tone])}>
+    <Card className={cn("group relative overflow-hidden border shadow-[var(--shadow-soft)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_20px_42px_rgba(15,23,42,0.14)] dark:shadow-none", toneClasses[tone])}>
       <CardContent className="relative px-4 py-3.5">
         <div className="relative space-y-3">
           <div className="flex items-center justify-between gap-3">

@@ -23,7 +23,7 @@ export function ActivityFeed({ items }: { items: readonly ActivityItem[] }) {
       {items.map((item, index) => (
         <div
           key={`${item.title}-${index}`}
-          className="group rounded-[22px] border border-border/65 bg-background/40 p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:bg-background/55 hover:shadow-[0_14px_30px_rgba(2,8,23,0.16)]"
+          className="group rounded-[18px] border border-sky-100 bg-white/75 p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-sky-200 hover:bg-white hover:shadow-[0_16px_30px_rgba(14,116,144,0.12)] dark:border-sky-400/12 dark:bg-white/[0.045] dark:hover:border-sky-400/25 dark:hover:bg-white/[0.075]"
         >
           <div className="flex items-start gap-3">
             <span className="relative mt-1 flex size-3 shrink-0 items-center justify-center">
