@@ -125,7 +125,7 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
                   {project.owner?.full_name ?? (isFr ? "Non assigné" : "Unassigned")}
                 </span>
               </div>
-              <Badge variant="secondary" className="rounded-full border-0 bg-[#173b78] px-3 py-1 text-[11px] text-white shadow-sm transition-colors group-hover:bg-[#0f2f65] dark:bg-[#78a9ff] dark:text-[#081b3a] dark:group-hover:bg-[#a5c5ff]">
+              <Badge variant="secondary" className="rounded-full border-0 !bg-[#173b78] px-3 py-1 text-[11px] !text-white shadow-sm transition-colors group-hover:!bg-[#0f2f65] dark:!bg-[#78a9ff] dark:!text-[#081b3a] dark:group-hover:!bg-[#a5c5ff]">
                 {isFr ? "Voir le détail" : "View detail"}
                 <ArrowRight className="ml-1 size-3" />
               </Badge>
