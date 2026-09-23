@@ -32,6 +32,13 @@ export type TransferCategory =
   | "other";
 export type TransferEntity = "bumex_it" | "insec" | "cnam_intec" | "ltm_yh" | "unassigned";
 
+export type TransferRenewalSettings = {
+  enabled: boolean;
+  next_due_date: string | null;
+  reminder_days: number;
+  interval_months: number;
+};
+
 export type FinanceUserPreview = Pick<Profile, "id" | "full_name" | "email" | "avatar_url" | "role">;
 export type FinanceClientPreview = Pick<ClientRecord, "id" | "name" | "status" | "contact_email">;
 export type FinanceProjectPreview = Pick<ProjectRecord, "id" | "name" | "status" | "end_date">;
@@ -123,6 +130,7 @@ export type TransferRecord = {
   related_project_id: string | null;
   related_client_id: string | null;
   notes: string | null;
+  renewal: TransferRenewalSettings;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -361,6 +369,10 @@ export type TransferFormValues = {
   related_project_id: string;
   related_client_id: string;
   notes: string;
+  renewal_enabled: boolean;
+  renewal_next_due_date: string;
+  renewal_reminder_days: string;
+  renewal_interval_months: string;
 };
 
 export type TransferFiltersData = {

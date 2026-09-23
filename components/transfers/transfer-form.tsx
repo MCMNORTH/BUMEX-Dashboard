@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
-import { Plus, SquarePen } from "lucide-react";
+import { useActionState, useState } from "react";
+import { CalendarClock, ChevronDown, Landmark, Plus, Repeat2, SquarePen } from "lucide-react";
 
 import {
   createTransferAction,
@@ -43,6 +43,8 @@ export function TransferForm({
     mode === "create" ? createTransferAction : updateTransferAction,
     initialState,
   );
+  const [renewalEnabled, setRenewalEnabled] = useState(defaults?.renewal_enabled ?? false);
+  const [showBankDetails, setShowBankDetails] = useState(Boolean(defaults?.beneficiary_bank || defaults?.beneficiary_account));
 
   return (
     <Dialog>
@@ -87,23 +89,39 @@ export function TransferForm({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor={`${mode}-reference`}>{t("finance.transferForm.fields.reference", "Transfer reference")}</label>
+            <label className="text-sm font-medium" htmlFor={`${mode}-reference`}>Référence de la facture ou du paiement</label>
             <Input id={`${mode}-reference`} name="transfer_reference" defaultValue={defaults?.transfer_reference ?? ""} required />
+            <p className="text-xs text-muted-foreground">Ex. facture Kapen, numéro de reçu ou votre propre référence.</p>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor={`${mode}-beneficiary`}>{t("finance.transferForm.fields.beneficiary", "Beneficiary")}</label>
+            <label className="text-sm font-medium" htmlFor={`${mode}-beneficiary`}>Fournisseur ou site payé</label>
             <Input id={`${mode}-beneficiary`} name="beneficiary_name" defaultValue={defaults?.beneficiary_name ?? ""} required />
+            <p className="text-xs text-muted-foreground">Ex. Kapen, OVH, Google, Microsoft ou un prestataire.</p>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor={`${mode}-bank`}>{t("finance.transferForm.fields.bank", "Beneficiary bank")}</label>
-            <Input id={`${mode}-bank`} name="beneficiary_bank" defaultValue={defaults?.beneficiary_bank ?? ""} />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor={`${mode}-account`}>{t("finance.transferForm.fields.account", "Beneficiary account")}</label>
-            <Input id={`${mode}-account`} name="beneficiary_account" defaultValue={defaults?.beneficiary_account ?? ""} />
+          <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/75 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+            <button type="button" onClick={() => setShowBankDetails((current) => !current)} className="flex w-full items-center justify-between gap-3 text-left text-sm font-medium">
+              <span className="flex items-center gap-2"><Landmark className="size-4 text-primary" /> Informations bancaires <span className="text-xs font-normal text-muted-foreground">(uniquement pour un virement)</span></span>
+              <ChevronDown className={`size-4 text-muted-foreground transition-transform ${showBankDetails ? "rotate-180" : ""}`} />
+            </button>
+            {showBankDetails ? (
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor={`${mode}-bank`}>Banque du fournisseur</label>
+                  <Input id={`${mode}-bank`} name="beneficiary_bank" defaultValue={defaults?.beneficiary_bank ?? ""} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor={`${mode}-account`}>Compte / IBAN du fournisseur</label>
+                  <Input id={`${mode}-account`} name="beneficiary_account" defaultValue={defaults?.beneficiary_account ?? ""} />
+                </div>
+              </div>
+            ) : (
+              <>
+                <input type="hidden" name="beneficiary_bank" value="" />
+                <input type="hidden" name="beneficiary_account" value="" />
+              </>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -117,23 +135,23 @@ export function TransferForm({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor={`${mode}-date`}>{t("finance.transferForm.fields.transferDate", "Transfer date")}</label>
+            <label className="text-sm font-medium" htmlFor={`${mode}-date`}>Date de paiement</label>
             <Input id={`${mode}-date`} name="transfer_date" type="date" defaultValue={defaults?.transfer_date ?? ""} required />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor={`${mode}-status`}>{t("finance.transferForm.fields.status", "Status")}</label>
+            <label className="text-sm font-medium" htmlFor={`${mode}-status`}>Statut du paiement</label>
             <ModernSelect
               id={`${mode}-status`}
               name="status"
               defaultValue={defaults?.status ?? "planned"}
               options={[
-                { value: "planned", label: t("finance.status.transfer.planned", "Planned") },
-                { value: "pending", label: t("finance.status.transfer.pending", "Pending") },
-                { value: "sent", label: t("finance.status.transfer.sent", "Sent") },
-                { value: "confirmed", label: t("finance.status.transfer.confirmed", "Confirmed") },
-                { value: "failed", label: t("finance.status.transfer.failed", "Failed") },
-                { value: "cancelled", label: t("finance.status.transfer.cancelled", "Cancelled") },
+                { value: "planned", label: "À prévoir — pas encore payé" },
+                { value: "pending", label: "En attente de paiement" },
+                { value: "sent", label: "Paiement envoyé — en attente de confirmation" },
+                { value: "confirmed", label: "Payé et confirmé" },
+                { value: "failed", label: "Échec du paiement" },
+                { value: "cancelled", label: "Annulé" },
               ]}
             />
           </div>
@@ -155,6 +173,21 @@ export function TransferForm({
                 { value: "other", label: t("finance.categories.other", "Other") },
               ]}
             />
+          </div>
+
+          <div className="sm:col-span-2 rounded-[22px] border border-indigo-200 bg-[linear-gradient(135deg,#eef5ff_0%,#f8f7ff_100%)] p-4 dark:border-indigo-400/20 dark:bg-indigo-500/10">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input name="renewal_enabled" type="checkbox" checked={renewalEnabled} onChange={(event) => setRenewalEnabled(event.target.checked)} className="mt-1 size-4 rounded border-slate-300 text-primary focus:ring-primary" />
+              <span><span className="flex items-center gap-2 text-sm font-semibold"><Repeat2 className="size-4 text-indigo-600 dark:text-indigo-300" /> Paiement récurrent ou renouvellement</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Activez cette option pour un domaine, un hébergement, un abonnement ou tout service à payer à nouveau.</span></span>
+            </label>
+            {renewalEnabled ? (
+              <div className="mt-4 grid gap-4 border-t border-indigo-200/70 pt-4 sm:grid-cols-3 dark:border-indigo-400/15">
+                <div className="space-y-2 sm:col-span-1"><label className="text-sm font-medium" htmlFor={`${mode}-next-due`}>Prochaine échéance</label><Input id={`${mode}-next-due`} name="renewal_next_due_date" type="date" defaultValue={defaults?.renewal_next_due_date ?? ""} required={renewalEnabled} /></div>
+                <div className="space-y-2"><label className="text-sm font-medium" htmlFor={`${mode}-interval`}>Fréquence (mois)</label><Input id={`${mode}-interval`} name="renewal_interval_months" type="number" min="1" defaultValue={defaults?.renewal_interval_months ?? "12"} required={renewalEnabled} /></div>
+                <div className="space-y-2"><label className="text-sm font-medium" htmlFor={`${mode}-reminder`}>Alerter avant (jours)</label><Input id={`${mode}-reminder`} name="renewal_reminder_days" type="number" min="0" defaultValue={defaults?.renewal_reminder_days ?? "30"} required={renewalEnabled} /></div>
+                <p className="sm:col-span-3 flex items-center gap-2 text-xs leading-5 text-muted-foreground"><CalendarClock className="size-3.5" /> L’alerte apparaîtra dans Finance et vos notifications à partir de la date choisie.</p>
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-2">

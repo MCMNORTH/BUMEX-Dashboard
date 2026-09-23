@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpCircle, CircleCheckBig, Wallet } from "lucide-react";
+import { ArrowUpCircle, BellRing, CircleCheckBig, Repeat2, Wallet } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { TransferEntityBadge } from "@/components/transfers/transfer-entity-badge";
@@ -23,6 +23,9 @@ export default async function FinanceOutgoingPage() {
   ]);
 
   const summary = getTransferSummary(transfers);
+  const upcomingRenewals = transfers
+    .filter((transfer) => transfer.renewal.enabled && transfer.renewal.next_due_date && transfer.status !== "cancelled")
+    .sort((left, right) => left.renewal.next_due_date!.localeCompare(right.renewal.next_due_date!));
 
   return (
     <div className="space-y-6">
@@ -49,6 +52,16 @@ export default async function FinanceOutgoingPage() {
         <SummaryCard icon={CircleCheckBig} label={getMessage(dictionary, "finance.outgoing.cards.confirmed", "Confirmed")} value={String(summary.confirmedCount)} detail={getMessage(dictionary, "finance.outgoing.cards.confirmedDetail", "Outgoing movements already confirmed")} />
         <SummaryCard icon={ArrowUpCircle} label={getMessage(dictionary, "finance.outgoing.cards.thisMonth", "This month")} value={formatFinanceCurrency(summary.totalOutgoingThisMonth, transfers[0]?.currency ?? "USD")} detail={getMessage(dictionary, "finance.outgoing.cards.thisMonthDetail", "Tracked outgoing amount for the month")} />
       </div>
+
+      <Card className="overflow-hidden border-indigo-200 bg-[linear-gradient(135deg,#eff6ff_0%,#f8f7ff_56%,#eef2ff_100%)] shadow-[var(--shadow-soft)] dark:border-indigo-400/20 dark:bg-[linear-gradient(135deg,#142843_0%,#171d2b_60%,#292044_100%)] dark:shadow-none">
+        <CardContent className="px-5 py-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div><p className="flex items-center gap-2 text-xs font-semibold tracking-[0.18em] text-indigo-700 uppercase dark:text-indigo-200"><Repeat2 className="size-4" /> Engagements et renouvellements</p><h2 className="mt-2 text-xl font-semibold tracking-tight">Vos paiements à anticiper</h2><p className="mt-1 text-sm text-muted-foreground">Les alertes apparaissent automatiquement à partir du délai choisi sur chaque paiement.</p></div>
+            <div className="rounded-2xl border border-indigo-200 bg-white/70 px-4 py-3 text-center dark:border-indigo-400/20 dark:bg-white/[0.06]"><p className="text-2xl font-semibold text-indigo-700 dark:text-indigo-200">{upcomingRenewals.length}</p><p className="text-xs text-muted-foreground">renouvellement(s) suivi(s)</p></div>
+          </div>
+          {upcomingRenewals.length ? <div className="mt-5 grid gap-3 lg:grid-cols-2">{upcomingRenewals.slice(0, 6).map((transfer) => <div key={transfer.id} className="flex items-center justify-between gap-4 rounded-2xl border border-indigo-100 bg-white/75 p-4 shadow-sm dark:border-indigo-400/15 dark:bg-white/[0.05]"><div><p className="font-semibold">{transfer.beneficiary_name}</p><p className="mt-1 text-xs text-muted-foreground">{transfer.transfer_reference} · alerte {transfer.renewal.reminder_days} jours avant</p></div><div className="text-right"><p className="text-sm font-semibold">{formatFinanceCurrency(transfer.amount, transfer.currency)}</p><p className="mt-1 flex items-center justify-end gap-1 text-xs font-medium text-indigo-700 dark:text-indigo-200"><BellRing className="size-3" /> {formatDate(transfer.renewal.next_due_date!)}</p></div></div>)}</div> : <div className="mt-5 rounded-2xl border border-dashed border-indigo-200 bg-white/50 px-4 py-5 text-sm text-muted-foreground dark:border-indigo-400/20 dark:bg-white/[0.04]">Aucun renouvellement n’est encore enregistré. Modifiez un paiement existant ou créez-en un, puis activez « Paiement récurrent ou renouvellement ».</div>}
+        </CardContent>
+      </Card>
 
       <Card className="border-slate-200 bg-white shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
         <CardContent className="space-y-4 px-5 py-5">

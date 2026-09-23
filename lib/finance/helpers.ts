@@ -77,27 +77,61 @@ export function getTransferEntityLabel(entity: string, locale: "fr" | "en" = "en
 }
 
 const TRANSFER_ENTITY_PREFIX = /^@@entity:([a-z_]+)@@\s*/i;
+const TRANSFER_RENEWAL_PREFIX = /^@@renewal:([^\n]+)@@\s*/i;
+
+type StoredTransferRenewal = {
+  enabled?: boolean;
+  next_due_date?: string | null;
+  reminder_days?: number;
+  interval_months?: number;
+};
+
+function parseTransferRenewal(value: string | undefined) {
+  try {
+    const parsed = value ? JSON.parse(value) as StoredTransferRenewal : {};
+    return {
+      enabled: Boolean(parsed.enabled),
+      next_due_date: typeof parsed.next_due_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.next_due_date) ? parsed.next_due_date : null,
+      reminder_days: Number.isInteger(parsed.reminder_days) && (parsed.reminder_days as number) >= 0 ? parsed.reminder_days as number : 30,
+      interval_months: Number.isInteger(parsed.interval_months) && (parsed.interval_months as number) > 0 ? parsed.interval_months as number : 12,
+    };
+  } catch {
+    return { enabled: false, next_due_date: null, reminder_days: 30, interval_months: 12 };
+  }
+}
 
 export function parseTransferNotesMetadata(notes: string | null) {
   if (!notes) {
     return {
       entity: "unassigned",
       notes: null,
+      renewal: { enabled: false, next_due_date: null, reminder_days: 30, interval_months: 12 },
     } as const;
   }
 
   const match = notes.match(TRANSFER_ENTITY_PREFIX);
   const entity = (match?.[1] ?? "unassigned").toLowerCase();
-  const cleanNotes = notes.replace(TRANSFER_ENTITY_PREFIX, "").trim();
+  const withoutEntity = notes.replace(TRANSFER_ENTITY_PREFIX, "");
+  const renewalMatch = withoutEntity.match(TRANSFER_RENEWAL_PREFIX);
+  const cleanNotes = withoutEntity.replace(TRANSFER_RENEWAL_PREFIX, "").trim();
 
   return {
     entity,
     notes: cleanNotes || null,
+    renewal: parseTransferRenewal(renewalMatch?.[1]),
   } as const;
 }
 
-export function buildTransferNotes(entity: string, notes: string) {
+export function buildTransferNotes(entity: string, notes: string, renewal?: StoredTransferRenewal) {
   const cleanNotes = notes.trim();
   const prefix = `@@entity:${entity || "unassigned"}@@`;
-  return cleanNotes ? `${prefix}\n${cleanNotes}` : prefix;
+  const renewalMetadata = renewal?.enabled
+    ? `@@renewal:${JSON.stringify({
+      enabled: true,
+      next_due_date: renewal.next_due_date ?? null,
+      reminder_days: renewal.reminder_days ?? 30,
+      interval_months: renewal.interval_months ?? 12,
+    })}@@`
+    : "";
+  return [prefix, renewalMetadata, cleanNotes].filter(Boolean).join("\n");
 }

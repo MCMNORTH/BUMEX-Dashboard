@@ -228,6 +228,7 @@ function mapTransferRow(
     ...row,
     entity: parsedMetadata.entity as TransferEntity,
     notes: parsedMetadata.notes,
+    renewal: parsedMetadata.renewal,
     relatedProject: single(row.relatedProject),
     relatedClient: single(row.relatedClient),
     createdBy: single(row.createdBy),
@@ -1933,7 +1934,12 @@ function parseTransferPayload(values: TransferFormValues) {
     transfer_date: values.transfer_date,
     status: values.status,
     category: values.category,
-    notes: buildTransferNotes(values.entity, values.notes),
+    notes: buildTransferNotes(values.entity, values.notes, {
+      enabled: values.renewal_enabled,
+      next_due_date: values.renewal_next_due_date || null,
+      reminder_days: Number(values.renewal_reminder_days) || 30,
+      interval_months: Number(values.renewal_interval_months) || 12,
+    }),
     related_project_id: values.related_project_id || null,
     related_client_id: values.related_client_id || null,
   };
@@ -2771,6 +2777,10 @@ export async function createBankStatement(values: BankStatementFormValues, actor
           related_project_id: bestTransfer.transfer.related_project_id ?? "",
           related_client_id: bestTransfer.transfer.related_client_id ?? "",
           notes: bestTransfer.transfer.notes ?? "",
+          renewal_enabled: bestTransfer.transfer.renewal.enabled,
+          renewal_next_due_date: bestTransfer.transfer.renewal.next_due_date ?? "",
+          renewal_reminder_days: String(bestTransfer.transfer.renewal.reminder_days),
+          renewal_interval_months: String(bestTransfer.transfer.renewal.interval_months),
         },
         actorUserId,
       );

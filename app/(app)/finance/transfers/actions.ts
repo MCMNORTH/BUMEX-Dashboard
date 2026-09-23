@@ -67,6 +67,10 @@ function parseTransferFormData(formData: FormData): TransferFormValues {
     related_project_id: getString(formData, "related_project_id"),
     related_client_id: getString(formData, "related_client_id"),
     notes: getString(formData, "notes"),
+    renewal_enabled: formData.get("renewal_enabled") === "on",
+    renewal_next_due_date: getString(formData, "renewal_next_due_date"),
+    renewal_reminder_days: getString(formData, "renewal_reminder_days") || "30",
+    renewal_interval_months: getString(formData, "renewal_interval_months") || "12",
   };
 }
 
@@ -173,6 +177,10 @@ function validate(values: TransferFormValues) {
 
   if (Number.isNaN(Number(values.amount)) || Number(values.amount) <= 0) {
     return "Amount must be a valid positive number.";
+  }
+
+  if (values.renewal_enabled && !/^\d{4}-\d{2}-\d{2}$/.test(values.renewal_next_due_date)) {
+    return "Ajoutez la prochaine date de renouvellement.";
   }
 
   return null;

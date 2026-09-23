@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Download, History, Link2, ShieldAlert, Trash2 } from "lucide-react";
+import { Download, History, Link2, Repeat2, ShieldAlert, Trash2 } from "lucide-react";
 
 import { deleteTransferAction } from "@/app/(app)/finance/transfers/actions";
 import { CommentsPanel } from "@/components/comments/comments-panel";
@@ -99,6 +99,17 @@ export function TransferDetailDrawer({
               />
             </div>
 
+            {transfer.renewal.enabled ? (
+              <div className="rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 dark:border-indigo-400/20 dark:bg-indigo-500/10">
+                <div className="flex items-center gap-2"><Repeat2 className="size-4 text-indigo-600 dark:text-indigo-200" /><p className="text-sm font-semibold text-indigo-800 dark:text-indigo-100">Renouvellement suivi</p></div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <Metric label="Prochaine échéance" value={transfer.renewal.next_due_date ? formatDate(transfer.renewal.next_due_date) : "À définir"} detail="Date du prochain paiement" />
+                  <Metric label="Alerte" value={`${transfer.renewal.reminder_days} jours avant`} detail="Notification dans le logiciel" />
+                  <Metric label="Fréquence" value={`${transfer.renewal.interval_months} mois`} detail="Période de renouvellement" />
+                </div>
+              </div>
+            ) : null}
+
             <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
               <p className="text-sm font-medium">Bank details</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -177,6 +188,10 @@ export function TransferDetailDrawer({
                     related_project_id: transfer.related_project_id ?? "",
                     related_client_id: transfer.related_client_id ?? "",
                     notes: transfer.notes ?? "",
+                    renewal_enabled: transfer.renewal.enabled,
+                    renewal_next_due_date: transfer.renewal.next_due_date ?? "",
+                    renewal_reminder_days: String(transfer.renewal.reminder_days),
+                    renewal_interval_months: String(transfer.renewal.interval_months),
                   }}
                 />
                 <ConfirmActionForm

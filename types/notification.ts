@@ -24,7 +24,9 @@ export type NotificationType =
 
 export type NotificationEntityType =
   | CommentEntityType
+  | "transfer"
   | "milestone"
+  | "timesheet"
   | "system";
 
 export type MentionCandidate = {
