@@ -25,6 +25,15 @@ import type { TransferFiltersData, TransferFormValues } from "@/types/finance";
 
 const initialState: TransferActionState = {};
 
+function suggestNextRenewalDate(value: string | undefined, intervalMonths: string | undefined) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return "";
+
+  const date = new Date(`${value}T12:00:00`);
+  const months = Number(intervalMonths ?? "12");
+  date.setMonth(date.getMonth() + (Number.isFinite(months) && months > 0 ? months : 12));
+  return date.toISOString().slice(0, 10);
+}
+
 export function TransferForm({
   mode,
   filterData,
@@ -45,6 +54,9 @@ export function TransferForm({
   );
   const [renewalEnabled, setRenewalEnabled] = useState(defaults?.renewal_enabled ?? false);
   const [showBankDetails, setShowBankDetails] = useState(Boolean(defaults?.beneficiary_bank || defaults?.beneficiary_account));
+  const suggestedRenewalDate =
+    defaults?.renewal_next_due_date ||
+    suggestNextRenewalDate(defaults?.transfer_date, defaults?.renewal_interval_months);
 
   return (
     <Dialog>
@@ -131,7 +143,7 @@ export function TransferForm({
 
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-currency`}>{t("finance.transferForm.fields.currency", "Currency")}</label>
-            <Input id={`${mode}-currency`} name="currency" defaultValue={defaults?.currency ?? "USD"} required />
+            <Input id={`${mode}-currency`} name="currency" defaultValue={defaults?.currency ?? "USD"} placeholder="Ex. MAD, MRU, EUR ou USD" required />
           </div>
 
           <div className="space-y-2">
@@ -167,7 +179,7 @@ export function TransferForm({
                 { value: "salary", label: t("finance.categories.salary", "Salary") },
                 { value: "subcontractor", label: t("finance.categories.subcontractor", "Subcontractor") },
                 { value: "software", label: t("finance.categories.software", "Software") },
-                { value: "hosting", label: t("finance.categories.hosting", "Hosting") },
+                { value: "hosting", label: "Domaine, DNS ou hébergement" },
                 { value: "taxes", label: t("finance.categories.taxes", "Taxes") },
                 { value: "rent", label: t("finance.categories.rent", "Rent") },
                 { value: "other", label: t("finance.categories.other", "Other") },
@@ -182,7 +194,7 @@ export function TransferForm({
             </label>
             {renewalEnabled ? (
               <div className="mt-4 grid gap-4 border-t border-indigo-200/70 pt-4 sm:grid-cols-3 dark:border-indigo-400/15">
-                <div className="space-y-2 sm:col-span-1"><label className="text-sm font-medium" htmlFor={`${mode}-next-due`}>Prochaine échéance</label><Input id={`${mode}-next-due`} name="renewal_next_due_date" type="date" defaultValue={defaults?.renewal_next_due_date ?? ""} required={renewalEnabled} /></div>
+                <div className="space-y-2 sm:col-span-1"><label className="text-sm font-medium" htmlFor={`${mode}-next-due`}>Prochaine échéance</label><Input id={`${mode}-next-due`} name="renewal_next_due_date" type="date" defaultValue={suggestedRenewalDate} required={renewalEnabled} /></div>
                 <div className="space-y-2"><label className="text-sm font-medium" htmlFor={`${mode}-interval`}>Fréquence (mois)</label><Input id={`${mode}-interval`} name="renewal_interval_months" type="number" min="1" defaultValue={defaults?.renewal_interval_months ?? "12"} required={renewalEnabled} /></div>
                 <div className="space-y-2"><label className="text-sm font-medium" htmlFor={`${mode}-reminder`}>Alerter avant (jours)</label><Input id={`${mode}-reminder`} name="renewal_reminder_days" type="number" min="0" defaultValue={defaults?.renewal_reminder_days ?? "30"} required={renewalEnabled} /></div>
                 <p className="sm:col-span-3 flex items-center gap-2 text-xs leading-5 text-muted-foreground"><CalendarClock className="size-3.5" /> L’alerte apparaîtra dans Finance et vos notifications à partir de la date choisie.</p>
