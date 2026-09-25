@@ -60,7 +60,7 @@ export async function GET() {
     });
 
     if (auth.role === "admin") {
-      const pendingInvoices = await getInvoices("admin", { approvalStatus: "pending" }).catch(() => []);
+      const pendingInvoices = await getInvoices("admin").catch(() => []);
       for (const invoice of pendingInvoices) {
         if (hasActiveRevisionRequest(invoice)) continue;
         const waitingDays = Math.max(0, Math.floor((Date.now() - new Date(invoice.updated_at).getTime()) / 86_400_000));
