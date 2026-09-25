@@ -3,6 +3,7 @@ import {
   BellDot,
   CalendarDays,
   ChartColumnIncreasing,
+  Clock3,
   Files,
   FolderOpenDot,
   Grid2X2,
@@ -55,6 +56,13 @@ export const navigationGroups: NavigationGroup[] = [
         icon: ListTodo,
         description: "Assigned execution, deadlines, and recent delivery updates.",
         allowedRoles: ["admin", "manager", "supervisor", "employee"],
+      },
+      {
+        href: "/timesheet",
+        label: "Timesheet",
+        icon: Clock3,
+        description: "Record and review your time spent on projects.",
+        allowedRoles: ["admin", "manager", "supervisor", "employee", "shareholder"],
       },
       {
         href: "/staffing",
@@ -162,6 +170,14 @@ export const navigationGroups: NavigationGroup[] = [
 ] as const;
 
 export const placeholderPages: Record<AppRouteKey, PlaceholderPageContent> = {
+  timesheet: {
+    title: "Timesheet",
+    subtitle: "Your time spent on projects.",
+    eyebrow: "My time",
+    emptyTitle: "No time recorded yet",
+    emptyDescription: "Choose a project, a date, and a duration to get started.",
+    placeholderLabel: "Timesheet",
+  },
   staffing: {
     title: "Staffing",
     subtitle: "Project assignments, capacity and talent matching.",
