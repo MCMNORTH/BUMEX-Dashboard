@@ -3,7 +3,6 @@
 import { redirect } from "next/navigation";
 
 import { getAppBaseUrl } from "@/lib/app-url";
-import { getAuthContext } from "@/lib/auth/server";
 import { createClient } from "@/lib/supabase/server";
 
 export type AuthActionState = {
@@ -95,9 +94,11 @@ export async function signInAction(
     };
   }
 
-  const auth = await getAuthContext();
+  const { data: ownProfile } = await supabase
+    .rpc("get_own_profile")
+    .maybeSingle<{ entity_code: string | null }>();
 
-  redirect(auth.profile?.entity_code ? "/overview" : "/select-entity");
+  redirect(ownProfile?.entity_code ? "/overview" : "/select-entity");
 }
 
 export async function signUpAction(

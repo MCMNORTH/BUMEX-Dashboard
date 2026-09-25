@@ -53,6 +53,7 @@ export type TeamFilters = {
   teamId?: string;
   availability?: AvailabilityStatus | "";
   workload?: TeamWorkloadLevel | "";
+  assignment?: AssignmentState | "engaged" | "";
 };
 
 export type TeamFiltersData = {
@@ -84,6 +85,7 @@ export type TeamWorkloadRecord = {
   id: string;
   full_name: string;
   role: AppRole;
+  entity_code: Profile["entity_code"];
   job_title: string | null;
   department: string | null;
   availability_status: AvailabilityStatus;

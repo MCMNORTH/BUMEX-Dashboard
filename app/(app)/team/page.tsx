@@ -1,4 +1,5 @@
-import { CircleAlert, FolderKanban, Sparkles, UsersRound } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, CircleAlert, FolderKanban, Sparkles, UsersRound } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { TeamFilters } from "@/components/team/team-filters";
@@ -61,6 +62,7 @@ export default async function TeamPage({
     teamId: getString(params.team) ?? "",
     availability: (getString(params.availability) as TeamFiltersType["availability"]) ?? "",
     workload: (getString(params.workload) as TeamFiltersType["workload"]) ?? "",
+    assignment: (getString(params.assignment) as TeamFiltersType["assignment"]) ?? "",
   };
 
   const isShareholder = auth.role === "shareholder";
@@ -75,6 +77,10 @@ export default async function TeamPage({
   const summary = summaryResult.status === "fulfilled" ? summaryResult.value : null;
 
   const assignmentSummary = buildAssignmentSummary(members);
+  const attentionMembers = members
+    .filter((member) => member.assignment_state === "attention" || member.workload_level === "high" || member.workload_level === "critical" || member.overdue_tasks_count > 0 || member.blocked_tasks_count > 0)
+    .sort((left, right) => (right.blocked_tasks_count + right.overdue_tasks_count) - (left.blocked_tasks_count + left.overdue_tasks_count) || right.workload_score - left.workload_score)
+    .slice(0, 4);
   return (
     <div className="space-y-6">
       <TeamToast />
@@ -119,13 +125,15 @@ export default async function TeamPage({
       ) : (
         <>
           <div className="grid gap-4 xl:grid-cols-4">
-            <SignalCard icon={UsersRound} label={isFr ? "Personnes visibles" : "Visible people"} value={formatNumber(assignmentSummary.visiblePeople)} detail={isFr ? "Personnes que vous pouvez revoir maintenant" : "People you can review now"} />
-            <SignalCard icon={Sparkles} label={isFr ? "Prêtes maintenant" : "Ready now"} value={formatNumber(assignmentSummary.readyNow)} detail={isFr ? "Meilleurs candidats pour un nouveau travail" : "Best candidates for new work"} />
-            <SignalCard icon={FolderKanban} label={isFr ? "En livraison" : "In delivery"} value={formatNumber(assignmentSummary.inDelivery)} detail={isFr ? "Personnes déjà actives sur des missions" : "People already active on missions"} />
-            <SignalCard icon={CircleAlert} label={isFr ? "À surveiller" : "Needs attention"} value={formatNumber(assignmentSummary.attention)} detail={isFr ? "Blocages ou retards à traiter" : "Blocked or overdue pressure"} />
+            <SignalCard href="/team" icon={UsersRound} label={isFr ? "Personnes visibles" : "Visible people"} value={formatNumber(assignmentSummary.visiblePeople)} detail={isFr ? "Personnes que vous pouvez revoir maintenant" : "People you can review now"} />
+            <SignalCard href="/team?assignment=available" icon={Sparkles} label={isFr ? "Prêtes maintenant" : "Ready now"} value={formatNumber(assignmentSummary.readyNow)} detail={isFr ? "Meilleurs candidats pour un nouveau travail" : "Best candidates for new work"} />
+            <SignalCard href="/team?assignment=engaged" icon={FolderKanban} label={isFr ? "En livraison" : "In delivery"} value={formatNumber(assignmentSummary.inDelivery)} detail={isFr ? "Personnes déjà actives sur des missions" : "People already active on missions"} />
+            <SignalCard href="/team?assignment=attention" icon={CircleAlert} label={isFr ? "À surveiller" : "Needs attention"} value={formatNumber(assignmentSummary.attention)} detail={isFr ? "Blocages ou retards à traiter" : "Blocked or overdue pressure"} />
           </div>
 
           <TeamFilters filters={filters} filterData={filterData} />
+
+          {attentionMembers.length ? <section className="overflow-hidden rounded-[26px] border border-rose-200 bg-gradient-to-r from-rose-50 via-orange-50/55 to-card shadow-[0_24px_70px_-52px_rgba(225,29,72,.5)] dark:border-rose-500/20 dark:from-rose-950/20 dark:via-orange-950/10 dark:to-card" aria-labelledby="team-pressure-title"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-200/70 px-5 py-4 dark:border-rose-500/15"><div><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-rose-700 dark:text-rose-300">{isFr ? "Capacité sous pression" : "Capacity pressure"}</p><h2 id="team-pressure-title" className="mt-1 text-lg font-semibold">{isFr ? "Profils à examiner" : "People to review"}</h2><p className="mt-1 text-xs text-muted-foreground">{isFr ? "Blocages et retards d’abord, puis niveaux de charge élevés." : "Blockers and overdue work first, followed by high workload."}</p></div><Badge variant="secondary" className="rounded-full px-3 py-1">{attentionMembers.length} {isFr ? "profil(s)" : "people"}</Badge></div><div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">{attentionMembers.map((member) => { const incidents = member.blocked_tasks_count + member.overdue_tasks_count; return <Link key={member.id} href={`/team/${member.id}`} className="group rounded-2xl border border-rose-200/80 bg-white/75 p-4 transition hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-rose-500/20 dark:bg-background/45"><div className="flex items-start justify-between gap-3"><span className="rounded-full bg-rose-500/10 px-2.5 py-1 text-[10px] font-semibold text-rose-700 dark:text-rose-300">{incidents ? `${incidents} ${isFr ? "incident(s)" : "issue(s)"}` : `${member.workload_score}%`}</span><ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></div><p className="mt-3 truncate text-sm font-semibold">{member.full_name}</p><p className="mt-1 truncate text-xs text-muted-foreground">{member.job_title ?? (isFr ? "Membre de l’équipe" : "Team member")}</p><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-rose-100 dark:bg-rose-950/50"><div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-rose-600" style={{ width: `${Math.min(100, member.workload_score)}%` }} /></div><p className="mt-2 text-[10px] text-muted-foreground">{isFr ? "Charge calculée" : "Calculated workload"} · {member.workload_score}%</p></Link>; })}</div></section> : null}
 
           {members.length ? (
             <div className="grid gap-3">
@@ -151,14 +159,15 @@ function SignalCard({
   label,
   value,
   detail,
+  href,
 }: {
   icon: typeof UsersRound;
   label: string;
   value: string;
   detail: string;
+  href?: string;
 }) {
-  return (
-    <Card className="rounded-[28px] border border-border/70 bg-white/94 shadow-[0_24px_60px_-42px_rgba(37,99,235,0.24)] dark:border-white/10 dark:bg-[#161b26] dark:shadow-none">
+  const card = <Card className="h-full rounded-[28px] border border-border/70 bg-white/94 shadow-[0_24px_60px_-42px_rgba(37,99,235,0.24)] transition group-hover:-translate-y-0.5 group-hover:border-sky-300 group-hover:shadow-lg dark:border-white/10 dark:bg-[#161b26] dark:shadow-none dark:group-hover:border-sky-500/30">
       <CardContent className="px-5 py-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -171,6 +180,6 @@ function SignalCard({
           </div>
         </div>
       </CardContent>
-    </Card>
-  );
+    </Card>;
+  return href ? <Link href={href} aria-label={`${label}: ${value}`} className="group block rounded-[28px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{card}</Link> : card;
 }

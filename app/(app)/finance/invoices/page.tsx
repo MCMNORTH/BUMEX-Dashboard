@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarClock, FilePenLine, FileText, Landmark, Wallet } from "lucide-react";
+import { ArrowRight, CalendarClock, Download, FilePenLine, FileText, Landmark, ShieldCheck, Wallet } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { InvoiceCard } from "@/components/invoices/invoice-card";
@@ -38,18 +38,36 @@ export default async function FinanceInvoicesPage({
     projectId: getString(params.project) ?? "",
     contractId: getString(params.contract) ?? "",
     status: (getString(params.status) as InvoiceFiltersType["status"]) ?? "",
+    approvalStatus: (getString(params.approval) as InvoiceFiltersType["approvalStatus"]) ?? "",
     dueWindow: (getString(params.due) as InvoiceFiltersType["dueWindow"]) ?? "all",
   };
 
-  const [invoices, filterData, mentionCandidates] = await Promise.all([
+  const [loadedInvoices, filterData, mentionCandidates] = await Promise.all([
     getInvoices(auth.role, filters),
     getInvoiceFiltersData(),
     getMentionCandidates(),
   ]);
+  const invoices = filters.approvalStatus === "changes_requested"
+    ? loadedInvoices.filter(hasActiveRevisionRequest)
+    : filters.approvalStatus === "pending"
+      ? loadedInvoices.filter((invoice) => !hasActiveRevisionRequest(invoice))
+      : loadedInvoices;
   const commentsByInvoiceId = (await getCommentsForEntities("invoice", invoices.map((invoice) => invoice.id))) as Record<string, CommentRecord[]>;
 
   const summary = getInvoiceSummary(invoices);
   const canManage = auth.role === "admin" || auth.role === "manager" || auth.role === "employee";
+  const pendingInvoices = invoices.filter((invoice) => invoice.approval_status === "pending" && !hasActiveRevisionRequest(invoice));
+  const pendingApprovalCount = pendingInvoices.length;
+  const changesRequestedCount = invoices.filter(hasActiveRevisionRequest).length;
+  const urgentApprovalCount = pendingInvoices.filter((invoice) => getWaitingDays(invoice.updated_at) >= 3).length;
+  const viewingCorrections = filters.approvalStatus === "changes_requested";
+  const displayedInvoices = auth.role === "admin"
+    ? [...invoices].sort((left, right) => {
+        if (left.approval_status !== right.approval_status) return left.approval_status === "pending" ? -1 : 1;
+        if (left.approval_status === "pending") return new Date(left.updated_at).getTime() - new Date(right.updated_at).getTime();
+        return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+      })
+    : invoices;
   return (
     <div className="space-y-6">
       <InvoiceToast />
@@ -77,6 +95,57 @@ export default async function FinanceInvoicesPage({
           </Button>
         </div>
       </div>
+
+      {auth.role === "admin" ? (
+        <div className="relative overflow-hidden rounded-[28px] border border-amber-200/80 bg-gradient-to-r from-amber-50 via-orange-50 to-white p-5 shadow-[var(--shadow-soft)] dark:border-amber-400/20 dark:from-amber-950/40 dark:via-orange-950/25 dark:to-card">
+          <div className="absolute -right-10 -top-16 size-48 rounded-full bg-amber-300/20 blur-3xl" />
+          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-500/20">
+                <ShieldCheck className="size-6" />
+              </div>
+              <div>
+                <p className="font-semibold text-slate-950 dark:text-white">{isFr ? "File de validation administrative" : "Administrative approval queue"}</p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                  {viewingCorrections
+                    ? (isFr ? `${changesRequestedCount} facture${changesRequestedCount > 1 ? "s" : ""} attend${changesRequestedCount > 1 ? "ent" : ""} les corrections de leur créateur.` : `${changesRequestedCount} invoice${changesRequestedCount > 1 ? "s" : ""} waiting for creator changes.`)
+                    : pendingApprovalCount
+                    ? (isFr ? `${pendingApprovalCount} facture${pendingApprovalCount > 1 ? "s" : ""} attend${pendingApprovalCount > 1 ? "ent" : ""} votre validation.` : `${pendingApprovalCount} invoice${pendingApprovalCount > 1 ? "s" : ""} awaiting your approval.`)
+                    : (isFr ? "Toutes les factures visibles ont été traitées." : "All visible invoices have been reviewed.")}
+                </p>
+                {urgentApprovalCount ? (
+                  <p className="mt-2 text-xs font-semibold text-rose-700 dark:text-rose-300">
+                    {isFr ? `${urgentApprovalCount} validation${urgentApprovalCount > 1 ? "s" : ""} attend${urgentApprovalCount > 1 ? "ent" : ""} depuis au moins 3 jours.` : `${urgentApprovalCount} approval${urgentApprovalCount > 1 ? "s" : ""} waiting for at least 3 days.`}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            <Button asChild variant={pendingApprovalCount || viewingCorrections ? "primary" : "secondary"} className="rounded-full px-5">
+              <Link href={viewingCorrections ? "/finance/invoices?approval=pending" : pendingApprovalCount ? "/finance/invoices?approval=pending" : "/finance/invoices?approval=approved"}>
+                {viewingCorrections ? (isFr ? "Voir les factures à valider" : "View invoices to approve") : pendingApprovalCount ? (isFr ? "Examiner maintenant" : "Review now") : (isFr ? "Voir les validations" : "View approvals")}
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+          </div>
+          <div className="relative mt-4 flex flex-wrap gap-2 border-t border-amber-200/70 pt-4 dark:border-amber-400/15">
+            <Button asChild variant={filters.approvalStatus === "pending" ? "primary" : "secondary"} size="sm" className="rounded-full">
+              <Link href="/finance/invoices?approval=pending">{isFr ? "À valider" : "To approve"}</Link>
+            </Button>
+            <Button asChild variant={filters.approvalStatus === "changes_requested" ? "primary" : "secondary"} size="sm" className="rounded-full">
+              <Link href="/finance/invoices?approval=changes_requested">{isFr ? "À corriger" : "Changes requested"}{changesRequestedCount ? ` · ${changesRequestedCount}` : ""}</Link>
+            </Button>
+            <Button asChild variant={filters.approvalStatus === "approved" ? "primary" : "secondary"} size="sm" className="rounded-full">
+              <Link href="/finance/invoices?approval=approved">{isFr ? "Validées" : "Approved"}</Link>
+            </Button>
+            <Button asChild variant={!filters.approvalStatus ? "primary" : "secondary"} size="sm" className="rounded-full">
+              <Link href="/finance/invoices">{isFr ? "Toutes" : "All"}</Link>
+            </Button>
+            <Button asChild variant="secondary" size="sm" className="ml-auto rounded-full">
+              <a href="/api/invoices/approval-report"><Download className="size-4" />{isFr ? "Exporter" : "Export"}</a>
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-5">
         {[
@@ -120,7 +189,7 @@ export default async function FinanceInvoicesPage({
           <>
             <div className="hidden xl:block">
               <InvoiceTable
-                invoices={invoices}
+                invoices={displayedInvoices}
                 canManage={canManage}
                 filterData={filterData}
                 commentsByInvoiceId={commentsByInvoiceId}
@@ -131,7 +200,7 @@ export default async function FinanceInvoicesPage({
               />
             </div>
             <div className="grid gap-4 xl:hidden">
-              {invoices.map((invoice) => (
+              {displayedInvoices.map((invoice) => (
                 <InvoiceCard
                   key={invoice.id}
                   invoice={invoice}
@@ -154,4 +223,13 @@ export default async function FinanceInvoicesPage({
       </div>
     </div>
   );
+}
+
+function getWaitingDays(value: string) {
+  return Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000));
+}
+
+function hasActiveRevisionRequest(invoice: { updated_at: string; recentActivity: Array<{ action: string; created_at: string }> }) {
+  const request = invoice.recentActivity.find((activity) => activity.action === "Invoice changes requested");
+  return Boolean(request && new Date(request.created_at).getTime() > new Date(invoice.updated_at).getTime());
 }

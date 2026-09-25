@@ -17,10 +17,11 @@ const styles: Record<AvailabilityStatus, string> = {
   inactive: "border-slate-500/25 bg-slate-100 text-slate-700 dark:border-slate-400/30 dark:bg-slate-500/12 dark:text-slate-200",
 };
 
-export function AvailabilityBadge({ status }: { status: AvailabilityStatus }) {
+export function AvailabilityBadge({ status, isFr = false }: { status: AvailabilityStatus; isFr?: boolean }) {
+  const label = isFr ? ({ available: "Disponible", busy: "Occupé", overloaded: "Surchargé", away: "Absent", inactive: "Inactif" } as const)[status] : labels[status];
   return (
     <Badge variant="outline" className={`rounded-full px-3 py-1 ${styles[status]}`}>
-      {labels[status]}
+      {label}
     </Badge>
   );
 }

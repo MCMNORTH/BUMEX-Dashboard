@@ -21,6 +21,8 @@ type ConfirmActionFormProps = {
   title: string;
   description: string;
   confirmLabel?: string;
+  cancelLabel?: string;
+  tone?: "danger" | "success";
 };
 
 export function ConfirmActionForm({
@@ -30,6 +32,8 @@ export function ConfirmActionForm({
   title,
   description,
   confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  tone = "danger",
 }: ConfirmActionFormProps) {
   return (
     <Dialog>
@@ -46,10 +50,10 @@ export function ConfirmActionForm({
           <DialogFooter className="mt-5">
             <DialogClose asChild>
               <Button type="button" variant="ghost" className="rounded-full px-5">
-                Cancel
+                {cancelLabel}
               </Button>
             </DialogClose>
-            <Button type="submit" className="rounded-full bg-rose-600 px-5 text-white hover:bg-rose-700">
+            <Button type="submit" className={`rounded-full px-5 text-white ${tone === "success" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"}`}>
               {confirmLabel}
             </Button>
           </DialogFooter>

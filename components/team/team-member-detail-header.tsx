@@ -14,7 +14,7 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-export function TeamMemberDetailHeader({ member }: { member: TeamMemberRecord }) {
+export function TeamMemberDetailHeader({ member, isFr = false }: { member: TeamMemberRecord; isFr?: boolean }) {
   return (
     <Card className="surface-highlight overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
       <CardContent className="space-y-6 px-6 py-6">
@@ -26,10 +26,10 @@ export function TeamMemberDetailHeader({ member }: { member: TeamMemberRecord })
             <div className="space-y-3">
               <div>
                 <h1 className="text-3xl font-semibold tracking-[-0.05em]">{member.full_name}</h1>
-                <p className="mt-2 text-base text-muted-foreground">{member.job_title ?? "Team member"} / {member.department ?? "Operations"}</p>
+                <p className="mt-2 text-base text-muted-foreground">{member.job_title ?? (isFr ? "Membre de l’équipe" : "Team member")} / {member.department ?? (isFr ? "Opérations" : "Operations")}</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <AvailabilityBadge status={member.availability_status} />
+                <AvailabilityBadge status={member.availability_status} isFr={isFr} />
                 <div className="rounded-full border border-border/65 bg-background/38 px-3 py-1 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
                   {member.role}
                 </div>
@@ -39,9 +39,9 @@ export function TeamMemberDetailHeader({ member }: { member: TeamMemberRecord })
 
           <div className="grid gap-3 sm:grid-cols-2">
             <ContactLine icon={Mail} label={member.email} />
-            <ContactLine icon={Phone} label={member.phone ?? "No phone"} />
-            <ContactLine icon={BriefcaseBusiness} label={`${member.active_projects_count} active projects`} />
-            <ContactLine icon={PanelsTopLeft} label={`${member.active_tasks_count} active tasks`} />
+            <ContactLine icon={Phone} label={member.phone ?? (isFr ? "Aucun téléphone" : "No phone")} />
+            <ContactLine icon={BriefcaseBusiness} label={`${member.active_projects_count} ${isFr ? "projet(s) actif(s)" : "active projects"}`} />
+            <ContactLine icon={PanelsTopLeft} label={`${member.active_tasks_count} ${isFr ? "ticket(s) actif(s)" : "active tasks"}`} />
           </div>
         </div>
       </CardContent>

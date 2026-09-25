@@ -1,5 +1,9 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+import { after } from "next/server";
+
+import { dispatchNotificationEmails } from "@/lib/notifications/email-delivery";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthenticatedUser } from "@/lib/auth/server";
 import type { CommentEntityType, CommentRecord } from "@/types/comment";
@@ -107,16 +111,35 @@ async function createNotifications(
     throw new Error("Supabase is not configured.");
   }
 
-  const { error } = await supabase.from("notifications").insert(
-    notifications.map((notification) => ({
-      ...notification,
-      is_read: false,
-      archived_at: null,
-    })),
-  );
+  const rows = notifications.map((notification) => ({
+    id: randomUUID(),
+    ...notification,
+    is_read: false,
+    archived_at: null,
+  }));
+
+  const { error } = await supabase.from("notifications").insert(rows);
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  try {
+    after(async () => {
+      try {
+        await dispatchNotificationEmails(rows.map(({ id }) => id));
+      } catch (dispatchError) {
+        console.error(
+          "[notification-email:dispatch]",
+          dispatchError instanceof Error ? dispatchError.message : "unknown",
+        );
+      }
+    });
+  } catch (dispatchError) {
+    console.error(
+      "[notification-email:schedule]",
+      dispatchError instanceof Error ? dispatchError.message : "unknown",
+    );
   }
 }
 

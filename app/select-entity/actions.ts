@@ -35,16 +35,17 @@ export async function assignEntityAction(formData: FormData) {
     redirect("/select-entity?error=Supabase is not configured.");
   }
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      entity_code: entityCode,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", auth.profile.id)
-    .is("entity_code", null);
+  const { data, error } = await supabase
+    .rpc("assign_own_entity", { requested_entity_code: entityCode })
+    .maybeSingle<{ id: string; entity_code: string | null }>();
 
-  if (error) {
+  if (error || !data || data.id !== auth.profile.id || data.entity_code !== entityCode) {
+    console.error("[select-entity:assign]", {
+      code: error?.code,
+      message: error?.message,
+      userId: auth.profile.id,
+      requestedEntityCode: entityCode,
+    });
     redirect(`/select-entity?error=${encodeURIComponent(normalizeEntityMutationError(error, entityCode, "The entity could not be assigned."))}`);
   }
 

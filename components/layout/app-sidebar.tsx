@@ -45,7 +45,7 @@ const sectionConfig: Record<
     title: "Business",
     shortLabel: "Biz",
     icon: BriefcaseBusiness,
-    description: "Clients, contracts, documents, finance, and governance.",
+    description: "External relations, contracts, documents, finance, and governance.",
     tabClassName:
       "border-[#c25100]/18 bg-[linear-gradient(135deg,rgba(194,81,0,0.13),rgba(255,183,77,0.05))] text-[#a54800] shadow-[0_10px_24px_rgba(194,81,0,0.14)] dark:border-[#ffb689]/24 dark:bg-[linear-gradient(135deg,rgba(255,182,137,0.16),rgba(255,182,137,0.06))] dark:text-[#ffb689]",
     panelClassName:
@@ -97,6 +97,12 @@ function SidebarContent({
     () => (role ? filterNavigationGroupsByRole(navigationGroups, role) : navigationGroups),
     [role],
   );
+  const hasManagementShortcuts = role === "admin" || role === "manager";
+  const managementItems = hasManagementShortcuts
+    ? ["/staffing", "/planning", "/timesheet"].flatMap((href) =>
+        visibleGroups.flatMap((group) => group.items.filter((item) => item.href === href)),
+      )
+    : [];
   const sectionEntries = useMemo(
     () =>
       visibleGroups
@@ -231,7 +237,34 @@ function SidebarContent({
         </div>
       ) : null}
 
-      <div ref={scrollRef} className="sidebar-scrollbar flex-1 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain px-2.5 py-3">
+      {managementItems.length > 0 ? (
+        <nav
+          aria-label={t("navigation.management", "Management")}
+          className="shrink-0 border-b border-border px-2.5 py-3"
+        >
+          <div className={cn("rounded-[15px] border border-primary/15 bg-accent/50 p-2", collapsed && "border-0 bg-transparent p-0")}>
+            {!collapsed ? (
+              <p className="px-2.5 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+                {t("navigation.management", "Management")}
+              </p>
+            ) : null}
+            <div className="space-y-1">
+              {managementItems.map((item) => (
+                <NavigationItem
+                  key={item.href}
+                  item={{ ...item, label: t(`navigation.items.${item.href.slice(1)}.label`, item.label) }}
+                  active={matchesNavigationPath(pathname, item.href)
+                    || (pendingNavigation?.href === item.href && pendingNavigation.from === pathname)}
+                  collapsed={collapsed}
+                  onNavigate={handleNavigate}
+                />
+              ))}
+            </div>
+          </div>
+        </nav>
+      ) : null}
+
+      <div ref={scrollRef} className="sidebar-scrollbar min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain px-2.5 py-3">
         <div
           className={cn(
             "grid gap-1.5 rounded-[15px] border border-border/80 bg-card/90 p-1.5 shadow-[var(--shadow-soft)]",
@@ -291,7 +324,7 @@ function SidebarContent({
             </div>
 
             <div className={cn("space-y-1", collapsed && "space-y-2")}>
-              {currentGroup.items.map((item) => {
+              {currentGroup.items.filter((item) => !managementItems.some((shortcut) => shortcut.href === item.href)).map((item) => {
                 const itemKey = item.href.replace("/", "");
                 return (
                   <NavigationItem

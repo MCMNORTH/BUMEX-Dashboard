@@ -58,7 +58,7 @@ export type RoadmapProjectRecord = {
 
 export type RoadmapFilters = {
   search?: string;
-  status?: MilestoneStatus | "";
+  status?: MilestoneStatus | "open" | "";
   projectId?: string;
   clientId?: string;
   ownerId?: string;

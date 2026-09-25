@@ -4,11 +4,15 @@ export const missingEntityColumnMessage =
   "The live database is missing the `entity_code` field. Apply `supabase/entities-foundation.sql` before editing entities.";
 
 function getErrorMessage(error: unknown) {
-  if (!(error instanceof Error)) {
-    return "";
+  if (error instanceof Error) {
+    return error.message.trim();
   }
 
-  return error.message.trim();
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
+    return error.message.trim();
+  }
+
+  return "";
 }
 
 export function normalizeEntityMutationError(

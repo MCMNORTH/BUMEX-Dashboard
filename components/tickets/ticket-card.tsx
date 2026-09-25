@@ -42,6 +42,10 @@ export function TicketCard({ ticket }: { ticket: TicketRecord }) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
   const dueState = getTicketDueState(ticket.due_date);
+  const estimatedHours = Number(ticket.estimated_hours ?? 0);
+  const actualHours = Number(ticket.actual_hours ?? 0);
+  const timeUsage = estimatedHours > 0 ? Math.round(actualHours / estimatedHours * 100) : 0;
+  const timeOverrun = estimatedHours > 0 && actualHours > estimatedHours;
 
   return (
     <Link href={`/tickets/${ticket.id}`} className="block">
@@ -110,6 +114,7 @@ export function TicketCard({ ticket }: { ticket: TicketRecord }) {
                   </span>
                   <span className="font-medium">{formatHours(ticket.actual_hours)}</span>
                 </div>
+                <div className="pt-1"><div className="flex items-center justify-between gap-2 text-[10px]"><span className={timeOverrun ? "font-semibold text-rose-600 dark:text-rose-300" : "text-muted-foreground"}>{estimatedHours > 0 ? (timeOverrun ? (isFr ? "Dépassement" : "Overrun") : (isFr ? "Temps consommé" : "Time used")) : (isFr ? "Sans estimation" : "No estimate")}</span>{estimatedHours > 0 ? <strong className={timeOverrun ? "text-rose-600 dark:text-rose-300" : "text-foreground"}>{timeUsage}%</strong> : null}</div><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full transition-all ${timeOverrun ? "bg-gradient-to-r from-orange-500 to-rose-600" : timeUsage >= 80 ? "bg-amber-500" : "bg-gradient-to-r from-cyan-500 to-blue-600"}`} style={{ width: `${Math.min(100, timeUsage)}%` }} /></div></div>
               </div>
             </div>
           </div>

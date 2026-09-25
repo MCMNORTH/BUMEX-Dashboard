@@ -25,7 +25,8 @@ function TimelineIcon({ type }: { type: ClientTimelineItem["type"] }) {
   return <Building2 className="size-4 text-primary" />;
 }
 
-export function ClientTimelineItemView({ item }: { item: ClientTimelineItem }) {
+export function ClientTimelineItemView({ item, isFr = false }: { item: ClientTimelineItem; isFr?: boolean }) {
+  const typeLabel = { all: isFr ? "Activité" : "Activity", projects: isFr ? "Projet" : "Project", tickets: "Ticket", contracts: isFr ? "Contrat" : "Contract", documents: "Document", client: "Client" }[item.type];
   return (
     <details className="group rounded-[24px] border border-border/65 bg-background/38 p-4">
       <summary className="flex cursor-pointer list-none items-start gap-3">
@@ -36,7 +37,7 @@ export function ClientTimelineItemView({ item }: { item: ClientTimelineItem }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-medium">{item.title}</p>
             <Badge variant="secondary" className="rounded-full px-3 py-1">
-              {item.type}
+              {typeLabel}
             </Badge>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -55,7 +56,7 @@ export function ClientTimelineItemView({ item }: { item: ClientTimelineItem }) {
 
       <div className="mt-4 space-y-3 border-t border-border/55 pt-4 pl-[3.25rem]">
         <p className="text-sm leading-6 text-muted-foreground">
-          {item.expandableDetails ?? item.description ?? "Relationship activity recorded for this client."}
+          {item.expandableDetails ?? item.description ?? (isFr ? "Une activité a été enregistrée pour ce client." : "Relationship activity recorded for this client.")}
         </p>
         <div className="flex flex-wrap items-center gap-3">
           {item.href ? (
@@ -64,7 +65,7 @@ export function ClientTimelineItemView({ item }: { item: ClientTimelineItem }) {
               className="inline-flex items-center gap-2 rounded-full border border-border/65 bg-background/50 px-3 py-1.5 text-xs font-medium text-foreground/90 transition-colors hover:bg-accent"
             >
               <Sparkles className="size-3.5 text-primary" />
-              Open related record
+              {isFr ? "Ouvrir l’élément associé" : "Open related record"}
             </Link>
           ) : null}
         </div>

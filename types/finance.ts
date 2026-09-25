@@ -69,10 +69,14 @@ export type InvoiceRecord = {
   created_by: string;
   created_at: string;
   updated_at: string;
+  approval_status: "pending" | "approved";
+  approved_by: string | null;
+  approved_at: string | null;
   client: FinanceClientPreview | null;
   project: FinanceProjectPreview | null;
   contract: FinanceContractPreview | null;
   createdBy: FinanceUserPreview | null;
+  approvedBy: FinanceUserPreview | null;
   linkedPayments: PaymentRecord[];
   receipts: ReceiptRecord[];
   supportingDocuments: FinanceSupportingDocument[];
@@ -211,6 +215,7 @@ export type InvoiceFilters = {
   projectId?: string;
   contractId?: string;
   status?: InvoiceStatus | "";
+  approvalStatus?: "pending" | "changes_requested" | "approved" | "";
   dueWindow?: "all" | "overdue" | "next_7_days" | "next_30_days";
   search?: string;
 };

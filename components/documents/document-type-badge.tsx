@@ -1,4 +1,7 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { DocumentType } from "@/types/document";
 
 const labels: Record<DocumentType, string> = {
@@ -15,9 +18,11 @@ const labels: Record<DocumentType, string> = {
 };
 
 export function DocumentTypeBadge({ type }: { type: DocumentType }) {
+  const { locale } = useI18n();
+  const frenchLabels: Record<DocumentType, string> = { contract: "Contrat", invoice: "Facture", receipt: "Reçu", bank_transfer: "Virement bancaire", proposal: "Proposition", report: "Rapport", meeting_note: "Compte rendu", technical_document: "Technique", legal_document: "Juridique", other: "Autre" };
   return (
     <Badge variant="secondary" className="rounded-full px-3 py-1">
-      {labels[type]}
+      {locale === "fr" ? frenchLabels[type] : labels[type]}
     </Badge>
   );
 }

@@ -7,8 +7,12 @@ import {
   ArrowUpCircle,
   Building2,
   CheckCircle2,
+  ChevronRight,
+  Download,
   Landmark,
   ReceiptText,
+  RotateCcw,
+  ShieldCheck,
   WalletCards,
 } from "lucide-react";
 
@@ -40,6 +44,7 @@ type WorkspaceTab = "client" | "supplier" | "bank";
 type Locale = "fr" | "en";
 
 export function FinanceWorkspace({
+  isAdmin,
   canManageIncomingFinance,
   canManageOutgoingFinance,
   canManageBankFinance,
@@ -56,6 +61,7 @@ export function FinanceWorkspace({
   bankStatements,
   bankSummary,
 }: {
+  isAdmin: boolean;
   canManageIncomingFinance: boolean;
   canManageOutgoingFinance: boolean;
   canManageBankFinance: boolean;
@@ -75,6 +81,20 @@ export function FinanceWorkspace({
   const { locale } = useI18n();
   const isFr = locale === "fr";
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("client");
+  const approvalCounts = useMemo(() => {
+    const changesRequested = invoices.filter(hasActiveRevisionRequest).length;
+    const pending = invoices.filter((invoice) => invoice.approval_status === "pending" && !hasActiveRevisionRequest(invoice)).length;
+    const approved = invoices.filter((invoice) => invoice.approval_status === "approved" && invoice.approved_at);
+    const now = new Date();
+    const approvedThisMonth = approved.filter((invoice) => {
+      const date = new Date(invoice.approved_at as string);
+      return date.getUTCFullYear() === now.getUTCFullYear() && date.getUTCMonth() === now.getUTCMonth();
+    }).length;
+    const averageApprovalHours = approved.length
+      ? approved.reduce((total, invoice) => total + Math.max(0, new Date(invoice.approved_at as string).getTime() - new Date(invoice.created_at).getTime()), 0) / approved.length / 3_600_000
+      : 0;
+    return { pending, changesRequested, approvedThisMonth, averageApprovalHours };
+  }, [invoices]);
 
   const workspaceActions = useMemo(() => {
     if (activeTab === "client" && canManageIncomingFinance && invoiceFilterData) {
@@ -127,6 +147,46 @@ export function FinanceWorkspace({
         </div>
       ) : null}
 
+      {isAdmin ? (
+        <section className="relative overflow-hidden rounded-[32px] border border-indigo-200/80 bg-[linear-gradient(120deg,#172554,#312e81_52%,#6d28d9)] p-6 text-white shadow-[0_22px_60px_rgba(49,46,129,0.22)] dark:border-indigo-300/15">
+          <div className="absolute -right-16 -top-20 size-64 rounded-full bg-fuchsia-400/20 blur-3xl" />
+          <div className="absolute -bottom-24 left-1/3 size-56 rounded-full bg-cyan-300/15 blur-3xl" />
+          <div className="relative flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-white/12 ring-1 ring-white/20"><ShieldCheck className="size-6 text-cyan-200" /></div>
+              <div>
+                <p className="text-xs font-semibold tracking-[0.18em] text-cyan-200 uppercase">{isFr ? "Contrôle administratif" : "Administrative control"}</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em]">{isFr ? "Validations de factures" : "Invoice approvals"}</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-indigo-100">{isFr ? "Traitez les factures avant leur téléchargement ou leur envoi au client." : "Review invoices before they can be downloaded or sent to clients."}</p>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Link href="/finance/invoices?approval=pending" className="group flex min-w-52 items-center justify-between gap-5 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur transition hover:bg-white/16">
+                <div><p className="text-xs text-indigo-100">{isFr ? "À valider" : "To approve"}</p><p className="mt-1 text-2xl font-semibold">{approvalCounts.pending}</p></div>
+                <ShieldCheck className="size-5 text-cyan-200 transition group-hover:scale-110" />
+              </Link>
+              <Link href="/finance/invoices?approval=changes_requested" className="group flex min-w-52 items-center justify-between gap-5 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur transition hover:bg-white/16">
+                <div><p className="text-xs text-indigo-100">{isFr ? "À corriger" : "Changes requested"}</p><p className="mt-1 text-2xl font-semibold">{approvalCounts.changesRequested}</p></div>
+                <RotateCcw className="size-5 text-rose-200 transition group-hover:rotate-[-20deg]" />
+              </Link>
+              <Link href="/finance/invoices?approval=approved" className="group flex min-w-52 items-center justify-between gap-5 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur transition hover:bg-white/16">
+                <div><p className="text-xs text-indigo-100">{isFr ? "Validées ce mois" : "Approved this month"}</p><p className="mt-1 text-2xl font-semibold">{approvalCounts.approvedThisMonth}</p></div>
+                <CheckCircle2 className="size-5 text-emerald-200 transition group-hover:scale-110" />
+              </Link>
+              <Link href="/finance/invoices?approval=approved" className="group flex min-w-52 items-center justify-between gap-5 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur transition hover:bg-white/16">
+                <div><p className="text-xs text-indigo-100">{isFr ? "Délai moyen" : "Average approval time"}</p><p className="mt-1 text-2xl font-semibold">{formatApprovalDuration(approvalCounts.averageApprovalHours, isFr)}</p></div>
+                <Landmark className="size-5 text-violet-200 transition group-hover:scale-110" />
+              </Link>
+            </div>
+          </div>
+          <div className="relative mt-4 flex justify-end border-t border-white/10 pt-4">
+            <Button asChild variant="secondary" className="rounded-full border-white/15 bg-white/10 text-white hover:bg-white/20 hover:text-white">
+              <a href="/api/invoices/approval-report"><Download className="size-4" />{isFr ? "Exporter le rapport de validation" : "Export approval report"}</a>
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
       <section className="rounded-[34px] border border-slate-200 bg-white p-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap gap-2">
@@ -146,6 +206,9 @@ export function FinanceWorkspace({
                   : `${invoiceSummary.sentCount} active invoice(s), ${payments.filter((payment) => payment.status === "reconciled").length} validated collection(s)`
               }
               tone="sky"
+              active={activeTab === "client"}
+              onClick={() => setActiveTab("client")}
+              openLabel={isFr ? "Ouvrir l’espace clients" : "Open client area"}
             />
             <OverviewCard
               icon={ArrowUpCircle}
@@ -157,6 +220,9 @@ export function FinanceWorkspace({
                   : `${transferSummary.confirmedCount} confirmed outflow(s), ${transferSummary.plannedCount + transferSummary.pendingCount} still to pay`
               }
               tone="amber"
+              active={activeTab === "supplier"}
+              onClick={() => setActiveTab("supplier")}
+              openLabel={isFr ? "Ouvrir l’espace fournisseurs" : "Open supplier area"}
             />
             <OverviewCard
               icon={Landmark}
@@ -168,6 +234,9 @@ export function FinanceWorkspace({
                   : `${bankSummary?.statementsCount ?? 0} statement(s), ${bankSummary?.reviewLines ?? 0} line(s) to review`
               }
               tone="emerald"
+              active={activeTab === "bank"}
+              onClick={() => setActiveTab("bank")}
+              openLabel={isFr ? "Ouvrir l’espace banques" : "Open bank area"}
             />
           </div>
         </div>
@@ -206,6 +275,18 @@ export function FinanceWorkspace({
       ) : null}
     </div>
   );
+}
+
+function hasActiveRevisionRequest(invoice: Pick<InvoiceRecord, "updated_at" | "recentActivity">) {
+  const request = invoice.recentActivity.find((activity) => activity.action === "Invoice changes requested");
+  return Boolean(request && new Date(request.created_at).getTime() > new Date(invoice.updated_at).getTime());
+}
+
+function formatApprovalDuration(hours: number, isFr: boolean) {
+  if (!hours) return "—";
+  if (hours < 24) return `${Math.max(1, Math.round(hours))} h`;
+  const days = Math.round((hours / 24) * 10) / 10;
+  return `${days.toLocaleString(isFr ? "fr-FR" : "en-GB")} j`;
 }
 
 function ClientPanel({
@@ -307,8 +388,9 @@ function ClientPanel({
 
           <div className="grid gap-3">
             {invoices.slice(0, 6).map((invoice, index) => (
-              <div
+              <Link
                 key={invoice.id}
+                href={`/finance/invoices/${invoice.id}/preview`}
                 className="animate-fade-up rounded-[28px] border border-white/70 bg-white/88 p-4 shadow-[0_12px_30px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-slate-900/70 dark:shadow-none"
                 style={{ animationDelay: `${index * 60}ms` }}
               >
@@ -332,7 +414,7 @@ function ClientPanel({
                     </p>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </CardContent>
@@ -369,8 +451,9 @@ function ClientPanel({
 
           <div className="space-y-3">
             {payments.slice(0, 6).map((payment, index) => (
-              <div
+              <Link
                 key={payment.id}
+                href="/finance/payments"
                 className="animate-fade-up rounded-[24px] border border-slate-200 bg-slate-50/85 p-4 dark:border-white/10 dark:bg-white/[0.04]"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
@@ -392,7 +475,7 @@ function ClientPanel({
                     <p className="mt-3 text-sm font-semibold text-slate-950">{formatFinanceCurrency(payment.amount, payment.currency)}</p>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </CardContent>
@@ -457,8 +540,9 @@ function SupplierPanel({
 
           <div className="space-y-3">
             {transfers.slice(0, 7).map((transfer, index) => (
-              <div
+              <Link
                 key={transfer.id}
+                href="/finance/transfers"
                 className="animate-fade-up rounded-[28px] border border-white/70 bg-white/88 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-slate-900/70 dark:shadow-none"
                 style={{ animationDelay: `${index * 55}ms` }}
               >
@@ -477,7 +561,7 @@ function SupplierPanel({
                     <p className="mt-3 text-lg font-semibold tracking-[-0.03em] text-slate-950 dark:text-slate-50">{formatFinanceCurrency(transfer.amount, transfer.currency)}</p>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </CardContent>
@@ -720,12 +804,18 @@ function OverviewCard({
   value,
   detail,
   tone,
+  active,
+  onClick,
+  openLabel,
 }: {
   icon: typeof Landmark;
   title: string;
   value: string;
   detail: string;
   tone: "sky" | "amber" | "emerald";
+  active: boolean;
+  onClick: () => void;
+  openLabel: string;
 }) {
   const toneClass = {
     sky: "border-sky-200 bg-sky-50/80 text-sky-800 dark:border-sky-400/20 dark:bg-sky-500/12 dark:text-sky-100",
@@ -734,18 +824,27 @@ function OverviewCard({
   }[tone];
 
   return (
-    <div className={`rounded-[28px] border p-5 ${toneClass}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`group w-full rounded-[28px] border p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${toneClass} ${active ? "ring-2 ring-slate-950/15 ring-offset-2 dark:ring-white/25 dark:ring-offset-slate-950" : ""}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold tracking-[0.14em] uppercase">{title}</p>
           <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</p>
           <p className="mt-2 text-sm opacity-80">{detail}</p>
+          <p className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold">
+            {openLabel}
+            <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-1" />
+          </p>
         </div>
         <div className="flex size-11 items-center justify-center rounded-2xl border border-current/10 bg-white/60 dark:bg-white/[0.08]">
           <Icon className="size-4" />
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 

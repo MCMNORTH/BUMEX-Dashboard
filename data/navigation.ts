@@ -2,10 +2,12 @@ import {
   Activity,
   BellDot,
   CalendarDays,
+  Clock3,
   ChartColumnIncreasing,
   Files,
   FolderOpenDot,
   Grid2X2,
+  UserRoundPlus,
   Handshake,
   KanbanSquare,
   LayoutGrid,
@@ -13,7 +15,6 @@ import {
   Route,
   ScrollText,
   Settings,
-  UserRoundPlus,
   Users2,
   WalletMinimal,
 } from "lucide-react";
@@ -57,11 +58,11 @@ export const navigationGroups: NavigationGroup[] = [
         allowedRoles: ["admin", "manager", "supervisor", "employee"],
       },
       {
-        href: "/staffing",
-        label: "Staffing",
-        icon: UserRoundPlus,
-        description: "Match people to projects, periods, and capacity needs.",
-        allowedRoles: ["admin", "manager"],
+        href: "/timesheet",
+        label: "Timesheet",
+        icon: Clock3,
+        description: "Record and review your time spent on projects.",
+        allowedRoles: ["admin", "manager", "supervisor", "employee", "shareholder"],
       },
       {
         href: "/planning",
@@ -69,6 +70,13 @@ export const navigationGroups: NavigationGroup[] = [
         icon: Grid2X2,
         description: "Roadmaps, capacity, and upcoming execution.",
         allowedRoles: ["admin", "manager", "supervisor", "employee", "shareholder"],
+      },
+      {
+        href: "/staffing",
+        label: "Staffing",
+        icon: UserRoundPlus,
+        description: "Match people to projects, periods, and capacity needs.",
+        allowedRoles: ["admin", "manager"],
       },
       {
         href: "/roadmap",
@@ -105,9 +113,9 @@ export const navigationGroups: NavigationGroup[] = [
     items: [
       {
         href: "/clients",
-        label: "Clients",
+        label: "External relations",
         icon: Handshake,
-        description: "Customer accounts and delivery relationships.",
+        description: "External clients and institutional delivery relationships.",
         allowedRoles: ["admin", "manager", "shareholder"],
       },
       {
@@ -169,6 +177,14 @@ export const placeholderPages: Record<AppRouteKey, PlaceholderPageContent> = {
     emptyTitle: "No staffing assignment yet",
     emptyDescription: "Create an assignment to connect a person, a project and a capacity period.",
     placeholderLabel: "Staffing workspace",
+  },
+  timesheet: {
+    title: "Timesheet",
+    subtitle: "Your time spent on projects.",
+    eyebrow: "My time",
+    emptyTitle: "No time recorded yet",
+    emptyDescription: "Choose a project, a date, and a duration to get started.",
+    placeholderLabel: "Timesheet",
   },
   overview: {
     title: "Overview",

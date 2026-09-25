@@ -1,6 +1,9 @@
+"use client";
+
 import { ShieldCheck, ShieldEllipsis, ShieldUser, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/components/layout/i18n-provider";
 import type { DocumentVisibility } from "@/types/document";
 
 const config: Record<
@@ -30,13 +33,15 @@ const config: Record<
 };
 
 export function DocumentVisibilityBadge({ visibility }: { visibility: DocumentVisibility }) {
+  const { locale } = useI18n();
   const item = config[visibility];
   const Icon = item.Icon;
+  const frenchLabels: Record<DocumentVisibility, string> = { internal: "Interne", management: "Direction", shareholders: "Actionnaires", restricted: "Accès restreint" };
 
   return (
     <Badge variant="outline" className={`rounded-full px-3 py-1 ${item.className}`}>
       <Icon className="mr-1.5 size-3.5" />
-      {item.label}
+      {locale === "fr" ? frenchLabels[visibility] : item.label}
     </Badge>
   );
 }

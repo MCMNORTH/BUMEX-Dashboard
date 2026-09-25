@@ -52,6 +52,7 @@ export function RoadmapFilters({
         placeholder={isFr ? "Tous les statuts de jalon" : "All milestone statuses"}
         options={[
           { value: "", label: isFr ? "Tous les statuts de jalon" : "All milestone statuses" },
+          { value: "open", label: isFr ? "Tous les jalons ouverts" : "All open milestones" },
           { value: "planned", label: isFr ? "Planifié" : "Planned" },
           { value: "in_progress", label: isFr ? "En cours" : "In progress" },
           { value: "completed", label: isFr ? "Terminé" : "Completed" },

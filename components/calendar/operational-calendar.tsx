@@ -69,13 +69,16 @@ function MonthGrid({
           const key = formatKey(day);
           const inMonth = day.getMonth() === date.getMonth();
           const dayEvents = grouped[key] ?? [];
+          const isToday = key === formatKey(new Date());
+          const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+          const isBusy = dayEvents.length >= 4;
 
           return (
-            <div key={key} className={`min-h-36 rounded-[24px] border p-3 ${inMonth ? "border-border/65 bg-background/40" : "border-border/45 bg-background/20 text-muted-foreground"}`}>
+            <div key={key} className={`relative min-h-36 rounded-[24px] border p-3 transition ${isToday ? "border-blue-400 bg-gradient-to-br from-blue-50 via-cyan-50/70 to-violet-50 ring-4 ring-blue-500/10 dark:border-blue-400/45 dark:from-blue-950/30 dark:via-cyan-950/15 dark:to-violet-950/20" : inMonth ? isWeekend ? "border-border/55 bg-muted/30" : "border-border/65 bg-background/40" : "border-border/45 bg-background/20 text-muted-foreground"} ${isBusy ? "shadow-[inset_0_-3px_0_rgba(139,92,246,.45)]" : ""}`}>
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-medium">{day.getDate()}</p>
+                <div className="flex items-center gap-2"><p className={`grid size-7 place-items-center rounded-full text-sm font-semibold ${isToday ? "bg-blue-600 text-white shadow-md shadow-blue-500/25" : ""}`}>{day.getDate()}</p>{isToday ? <span className="text-[9px] font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300">{isFr ? "Aujourd’hui" : "Today"}</span> : null}</div>
                 {dayEvents.length ? (
-                  <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${isBusy ? "border-violet-300 bg-violet-500/10 text-violet-700 dark:border-violet-500/30 dark:text-violet-300" : "border-primary/20 bg-primary/10 text-primary"}`}>
                     {dayEvents.length}
                   </span>
                 ) : null}
@@ -119,14 +122,17 @@ function WeekGrid({
         {days.map((day) => {
           const key = formatKey(day);
           const dayEvents = grouped[key] ?? [];
+          const isToday = key === formatKey(new Date());
+          const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+          const isBusy = dayEvents.length >= 4;
 
           return (
-            <div key={key} className="rounded-[24px] border border-border/65 bg-background/40 p-4">
+            <div key={key} className={`rounded-[24px] border p-4 transition ${isToday ? "border-blue-400 bg-gradient-to-b from-blue-50 to-cyan-50/60 ring-4 ring-blue-500/10 dark:border-blue-400/45 dark:from-blue-950/30 dark:to-cyan-950/15" : isWeekend ? "border-border/55 bg-muted/30" : "border-border/65 bg-background/40"} ${isBusy ? "shadow-[inset_0_-3px_0_rgba(139,92,246,.45)]" : ""}`}>
               <div className="mb-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                <div className="flex items-center justify-between gap-2"><p className={`text-xs font-semibold tracking-[0.16em] uppercase ${isToday ? "text-blue-700 dark:text-blue-300" : "text-muted-foreground"}`}>
                   {new Intl.DateTimeFormat(isFr ? "fr-FR" : "en-US", { weekday: "short" }).format(day)}
-                </p>
-                <p className="mt-1 text-lg font-semibold">{day.getDate()}</p>
+                </p>{isToday ? <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">{isFr ? "Aujourd’hui" : "Today"}</span> : null}</div>
+                <p className={`mt-1 text-lg font-semibold ${isToday ? "text-blue-700 dark:text-blue-200" : ""}`}>{day.getDate()}</p>
               </div>
               <div className="space-y-2">
                 {dayEvents.length ? (

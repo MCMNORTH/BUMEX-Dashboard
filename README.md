@@ -9,7 +9,8 @@ Internal workspace dashboard for BUMEX teams. The application combines authentic
 - TypeScript
 - Tailwind CSS 4
 - Supabase
-- Nodemailer
+- Nodemailer (existing SMTP mail)
+- Microsoft Graph (notification mail with OAuth)
 
 ## Local setup
 
@@ -61,11 +62,22 @@ Feature flags:
 Admin and email:
 
 - `BUMEX_SUPER_ADMIN_EMAIL`
+- `SUPABASE_SERVICE_ROLE_KEY` (server-only; required for scheduled notification delivery)
+- `CRON_SECRET` (protects scheduled notification processing)
+- `MICROSOFT_TENANT_ID`
+- `MICROSOFT_CLIENT_ID`
+- `MICROSOFT_CLIENT_SECRET`
+- `NOTIFICATION_EMAIL_SENDER_EMAIL` (defaults to `bumex@bumex.mr` for Microsoft Graph)
 - `SMTP_HOST`
 - `SMTP_PORT`
 - `SMTP_USER`
 - `SMTP_PASS`
 - `SMTP_FROM`
+- `NOTIFICATION_EMAIL_FROM` (SMTP sender; defaults to `BUMEX <bumex@bumex.mr>`)
+
+Microsoft Graph notification delivery requires an Entra application and an Exchange Online Application RBAC assignment for `Application Mail.Send`, scoped to the `bumex@bumex.mr` mailbox. Use the scoped Exchange assignment instead of granting tenant-wide `Mail.Send` in Microsoft Entra: permissions from the two systems are additive. An Exchange Administrator must configure the assignment. Graph credentials take precedence over SMTP for notification emails. Do not use an app password: Exchange Online has disabled Basic authentication.
+
+Apply `supabase/notification-email-delivery.sql` after `schema.sql`, `rls.sql`, `entities-foundation.sql`, `timesheet.sql`, and `timesheet-week-status.sql`. It adds a durable email outbox for every in-app notification and an idempotent weekly timesheet reminder. The Vercel cron at 09:00 UTC processes pending email and reminds eligible staff about the previous week; Mauritania uses UTC.
 
 Billing and invoice metadata:
 

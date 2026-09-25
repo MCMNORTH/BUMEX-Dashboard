@@ -2,6 +2,7 @@ import { CalendarClock, ReceiptText, Wallet } from "lucide-react";
 
 import { InvoiceDetailDrawer } from "@/components/invoices/invoice-detail-drawer";
 import { InvoiceStatusBadge } from "@/components/invoices/invoice-status-badge";
+import { InvoiceApprovalBadge } from "@/components/invoices/invoice-approval-badge";
 import { ReceiptBadge } from "@/components/invoices/receipt-badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatFinanceCurrency } from "@/lib/finance/helpers";
@@ -56,6 +57,12 @@ export function InvoiceCard({
               </div>
               <div className="flex flex-wrap gap-2">
                 <InvoiceStatusBadge status={invoice.paymentStatus} />
+                <InvoiceApprovalBadge status={invoice.approval_status} changesRequested={hasActiveRevisionRequest(invoice)} />
+                {invoice.approval_status === "pending" ? (
+                  <span className={`self-center text-xs ${getWaitingDays(invoice.updated_at) >= 3 ? "font-semibold text-rose-600" : "text-muted-foreground"}`}>
+                    {getWaitingDays(invoice.updated_at)} j
+                  </span>
+                ) : null}
                 <ReceiptBadge count={invoice.receipts.length} />
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
@@ -69,6 +76,15 @@ export function InvoiceCard({
       }
     />
   );
+}
+
+function getWaitingDays(value: string) {
+  return Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000));
+}
+
+function hasActiveRevisionRequest(invoice: Pick<InvoiceRecord, "updated_at" | "recentActivity">) {
+  const request = invoice.recentActivity.find((activity) => activity.action === "Invoice changes requested");
+  return Boolean(request && new Date(request.created_at).getTime() > new Date(invoice.updated_at).getTime());
 }
 
 function Info({ icon: Icon, label, value }: { icon: typeof CalendarClock; label: string; value: string }) {

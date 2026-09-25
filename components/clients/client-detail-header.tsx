@@ -33,7 +33,7 @@ export function ClientDetailHeader({
           <ClientStatusBadge status={client.status} />
           {client.status === "prospect" && client.prospect_stage ? <ProspectStageBadge stage={client.prospect_stage} /> : null}
           <Badge variant="secondary" className="rounded-full px-3 py-1">
-            {client.type.replaceAll("_", " ")}
+            {client.type === "company" ? (isFr ? "Entreprise" : "Company") : client.type === "individual" ? (isFr ? "Particulier" : "Individual") : client.type.replaceAll("_", " ")}
           </Badge>
         </div>
         <div className="space-y-3">
@@ -117,7 +117,7 @@ export function ClientDetailHeader({
           <p className="mt-1 text-xs text-muted-foreground">{client.country ?? (isFr ? "Pays non renseigné" : "Unknown country")}</p>
         </div>
         <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Website</p>
+          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Site web" : "Website"}</p>
           <p className="mt-2 text-sm font-medium">{client.website ?? (isFr ? "Non renseigné" : "Not set")}</p>
           <p className="mt-1 text-xs text-muted-foreground">{client.contact_email ?? (isFr ? "Aucun e-mail de contact" : "No contact email")}</p>
         </div>

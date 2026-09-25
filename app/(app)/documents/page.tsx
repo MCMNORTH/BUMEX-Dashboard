@@ -184,11 +184,11 @@ export default async function DocumentsPage({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">Library</p>
-            <h2 className="mt-2 text-xl font-semibold tracking-tight">Controlled document records</h2>
+            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">{isFr ? "Bibliothèque" : "Library"}</p>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Documents contrôlés" : "Controlled document records"}</h2>
           </div>
           <Badge variant="secondary" className="rounded-full px-3 py-1">
-            {documents.length} results
+            {documents.length} {isFr ? "résultats" : "results"}
           </Badge>
         </div>
 
@@ -220,7 +220,7 @@ export default async function DocumentsPage({
             ))
           ) : (
             <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
-              No documents match the current filters.
+              {isFr ? "Aucun document ne correspond aux filtres actuels." : "No documents match the current filters."}
             </div>
           )}
         </div>
@@ -229,8 +229,8 @@ export default async function DocumentsPage({
       <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
         <CardContent className="space-y-4 px-5 py-5">
           <div>
-            <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Archived documents</p>
-            <h3 className="mt-2 text-lg font-semibold tracking-tight">Archive and long-term records</h3>
+            <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Documents archivés" : "Archived documents"}</p>
+            <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Archives et conservation longue durée" : "Archive and long-term records"}</h3>
           </div>
           {archivedDocuments.length ? (
             <div className="grid gap-4">
@@ -249,7 +249,7 @@ export default async function DocumentsPage({
             </div>
           ) : (
             <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-              No archived documents are visible in the current scope.
+              {isFr ? "Aucun document archivé n’est visible dans le périmètre actuel." : "No archived documents are visible in the current scope."}
             </div>
           )}
         </CardContent>

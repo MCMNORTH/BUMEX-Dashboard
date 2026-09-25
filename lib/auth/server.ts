@@ -163,6 +163,17 @@ const getProfile = cache(async (userId: string) => {
     .eq("id", userId)
     .maybeSingle<Profile>();
 
+  if (error) {
+    const ownProfileResponse = await supabase
+      .rpc("get_own_profile")
+      .maybeSingle<Profile>();
+
+    if (!ownProfileResponse.error && ownProfileResponse.data) {
+      data = ownProfileResponse.data;
+      error = null;
+    }
+  }
+
   if (error && isMissingEntityFoundationColumn(error.message)) {
     const legacyResponse = await supabase
       .from("profiles")

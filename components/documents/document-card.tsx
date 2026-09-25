@@ -1,3 +1,5 @@
+"use client";
+
 import { FileStack, FolderInput, UserRound } from "lucide-react";
 
 import { ArchiveStatusBadge } from "@/components/documents/archive-status-badge";
@@ -5,6 +7,7 @@ import { DocumentDetailDrawer } from "@/components/documents/document-detail-dra
 import { DocumentTypeBadge } from "@/components/documents/document-type-badge";
 import { DocumentVisibilityBadge } from "@/components/documents/document-visibility-badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { useI18n } from "@/components/layout/i18n-provider";
 import { formatFileSize } from "@/lib/documents/helpers";
 import { formatDate } from "@/lib/projects/helpers";
 import type { AppRole } from "@/types/auth";
@@ -29,6 +32,8 @@ export function DocumentCard({
   currentUserId: string;
   mentionCandidates?: MentionCandidate[];
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   return (
     <DocumentDetailDrawer
       document={document}
@@ -54,7 +59,7 @@ export function DocumentCard({
                       {document.title}
                     </h3>
                     <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-                      {document.description ?? "Controlled document record with secure access and archive visibility."}
+                      {document.description ?? (isFr ? "Document contrôlé avec accès sécurisé et gestion de l’archivage." : "Controlled document record with secure access and archive visibility.")}
                     </p>
                   </div>
                 </div>
@@ -65,15 +70,15 @@ export function DocumentCard({
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Related</p>
+                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Rattaché à" : "Related"}</p>
                   <p className="mt-2 text-sm font-medium">{document.relatedLabel}</p>
                 </div>
                 <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">File size</p>
+                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Taille" : "File size"}</p>
                   <p className="mt-2 text-sm font-medium">{formatFileSize(document.file_size)}</p>
                 </div>
                 <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Updated</p>
+                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Mis à jour" : "Updated"}</p>
                   <p className="mt-2 text-sm font-medium">{formatDate(document.updated_at)}</p>
                 </div>
               </div>
@@ -85,7 +90,7 @@ export function DocumentCard({
                 </span>
                 <span className="flex items-center gap-2">
                   <UserRound className="size-4" />
-                  {document.uploadedBy?.full_name ?? "Unknown uploader"}
+                  {document.uploadedBy?.full_name ?? (isFr ? "Auteur inconnu" : "Unknown uploader")}
                 </span>
               </div>
             </CardContent>

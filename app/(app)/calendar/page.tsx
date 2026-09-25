@@ -1,4 +1,5 @@
-import { CalendarClock, Flag, FolderKanban, Layers3 } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, ArrowRight, CalendarClock, Flag, FolderKanban, Layers3 } from "lucide-react";
 
 import { CalendarFilters } from "@/components/calendar/calendar-filters";
 import { CalendarToolbar } from "@/components/calendar/calendar-toolbar";
@@ -87,6 +88,20 @@ export default async function CalendarPage({
   const summaryMode = auth.role === "shareholder";
   const date = getViewDate(view, period);
   const label = getViewLabel(view, date, locale);
+  const todayKey = formatKey(new Date());
+  const sevenDaysKey = formatKey(addDays(new Date(), 7));
+  const terminalStatuses = new Set(["done", "archived", "completed", "cancelled"]);
+  const attentionEvents = events
+    .filter((event) => event.href && event.date <= sevenDaysKey && !terminalStatuses.has(event.status ?? ""))
+    .sort((left, right) => {
+      const leftOverdue = left.date < todayKey ? 0 : 1;
+      const rightOverdue = right.date < todayKey ? 0 : 1;
+      if (leftOverdue !== rightOverdue) return leftOverdue - rightOverdue;
+      const leftUrgent = left.priority === "urgent" || left.priority === "critical" ? 0 : 1;
+      const rightUrgent = right.priority === "urgent" || right.priority === "critical" ? 0 : 1;
+      return leftUrgent - rightUrgent || left.date.localeCompare(right.date);
+    })
+    .slice(0, 5);
 
   const buildHref = (nextView: CalendarView, nextPeriod = period) => {
     const search = new URLSearchParams();
@@ -133,6 +148,11 @@ export default async function CalendarPage({
       />
 
       <CalendarFilters filters={filters} filterData={filterData} view={view} period={period} />
+
+      {attentionEvents.length ? <section className="overflow-hidden rounded-[26px] border border-border/70 bg-card/85 shadow-[0_24px_70px_-52px_rgba(15,23,42,.7)]" aria-labelledby="calendar-attention-title">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/65 bg-gradient-to-r from-rose-500/[.08] via-amber-400/[.05] to-transparent px-5 py-4"><div><p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-rose-700 dark:text-rose-300"><AlertTriangle className="size-3.5" />{isFr ? "À surveiller" : "Watch list"}</p><h2 id="calendar-attention-title" className="mt-1 text-lg font-semibold">{isFr ? "Dates qui demandent une action" : "Dates that need action"}</h2><p className="mt-1 text-xs text-muted-foreground">{isFr ? "Retards d’abord, puis urgences et échéances des sept prochains jours." : "Overdue items first, followed by urgent and seven-day deadlines."}</p></div><Badge variant="secondary" className="rounded-full px-3 py-1">{attentionEvents.length} {isFr ? "priorité(s)" : "priority item(s)"}</Badge></div>
+        <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5">{attentionEvents.map((event) => { const overdue = event.date < todayKey; const today = event.date === todayKey; return <Link key={`${event.type}-${event.id}`} href={event.href!} className={`group rounded-2xl border p-4 transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${overdue ? "border-rose-200 bg-gradient-to-br from-rose-50 to-orange-50 dark:border-rose-500/20 dark:from-rose-950/20 dark:to-orange-950/10" : today ? "border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 dark:border-amber-500/20 dark:from-amber-950/20 dark:to-yellow-950/10" : "border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50 dark:border-blue-500/20 dark:from-blue-950/20 dark:to-cyan-950/10"}`}><div className="flex items-start justify-between gap-2"><span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${overdue ? "bg-rose-500/10 text-rose-700 dark:text-rose-300" : today ? "bg-amber-500/10 text-amber-700 dark:text-amber-300" : "bg-blue-500/10 text-blue-700 dark:text-blue-300"}`}>{overdue ? (isFr ? "En retard" : "Overdue") : today ? (isFr ? "Aujourd’hui" : "Today") : new Intl.DateTimeFormat(isFr ? "fr-FR" : "en-US", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${event.date}T00:00:00Z`))}</span><ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></div><p className="mt-3 line-clamp-2 text-sm font-semibold">{event.title}</p><p className="mt-2 truncate text-xs text-muted-foreground">{event.projectName ?? event.clientName ?? (isFr ? "Événement opérationnel" : "Operational event")}</p></Link>; })}</div>
+      </section> : null}
 
       <div className="grid gap-4 xl:grid-cols-4">
         {[

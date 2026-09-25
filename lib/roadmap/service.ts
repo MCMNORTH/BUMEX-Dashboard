@@ -201,9 +201,8 @@ export async function getRoadmapProjects(filters: RoadmapFilters = {}) {
     .map((project) => ({
       ...project,
       milestones: project.milestones.filter((milestone) => {
-        if (filters.status && milestone.status !== filters.status) {
-          return false;
-        }
+        if (filters.status === "open" && (milestone.status === "completed" || milestone.status === "cancelled")) return false;
+        if (filters.status && filters.status !== "open" && milestone.status !== filters.status) return false;
 
         if (filters.ownerId && milestone.owner_id !== filters.ownerId) {
           return false;

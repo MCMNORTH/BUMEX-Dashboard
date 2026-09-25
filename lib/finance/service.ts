@@ -89,6 +89,7 @@ type InvoiceRow = Omit<
   | "project"
   | "contract"
   | "createdBy"
+  | "approvedBy"
   | "linkedPayments"
   | "receipts"
   | "supportingDocuments"
@@ -102,6 +103,7 @@ type InvoiceRow = Omit<
   project: FinanceProjectPreview | FinanceProjectPreview[] | null;
   contract: FinanceContractPreview | FinanceContractPreview[] | null;
   createdBy: FinanceUserPreview | FinanceUserPreview[] | null;
+  approvedBy: FinanceUserPreview | FinanceUserPreview[] | null;
 };
 
 type PaymentRow = Omit<PaymentRecord, "client" | "project" | "contract" | "invoice" | "createdBy" | "recentActivity" | "supportingDocuments" | "viewMode"> & {
@@ -783,6 +785,9 @@ export async function getInvoices(role: AppRole, filters: InvoiceFilters = {}) {
         amount_ttc,
         currency,
         status,
+        approval_status,
+        approved_by,
+        approved_at,
         notes,
         created_by,
         created_at,
@@ -807,6 +812,13 @@ export async function getInvoices(role: AppRole, filters: InvoiceFilters = {}) {
           end_date
         ),
         createdBy:profiles!invoices_created_by_fkey (
+          id,
+          full_name,
+          email,
+          avatar_url,
+          role
+        ),
+        approvedBy:profiles!invoices_approved_by_fkey (
           id,
           full_name,
           email,
@@ -837,6 +849,10 @@ export async function getInvoices(role: AppRole, filters: InvoiceFilters = {}) {
 
   if (filters.status) {
     query = query.eq("status", filters.status);
+  }
+
+  if (filters.approvalStatus) {
+    query = query.eq("approval_status", filters.approvalStatus === "changes_requested" ? "pending" : filters.approvalStatus);
   }
 
   const { today, next7, next30 } = getDueWindowDates(filters.dueWindow);
@@ -885,6 +901,7 @@ export async function getInvoices(role: AppRole, filters: InvoiceFilters = {}) {
       project: single(row.project),
       contract: single(row.contract),
       createdBy: single(row.createdBy),
+      approvedBy: single(row.approvedBy),
       linkedPayments,
       receipts,
       supportingDocuments: supportingDocumentsMap.get(row.id) ?? [],
@@ -925,6 +942,9 @@ export async function getInvoiceById(id: string, role: AppRole) {
         created_by,
         created_at,
         updated_at,
+        approval_status,
+        approved_by,
+        approved_at,
         client:clients (
           id,
           name,
@@ -945,6 +965,13 @@ export async function getInvoiceById(id: string, role: AppRole) {
           end_date
         ),
         createdBy:profiles!invoices_created_by_fkey (
+          id,
+          full_name,
+          email,
+          avatar_url,
+          role
+        ),
+        approvedBy:profiles!invoices_approved_by_fkey (
           id,
           full_name,
           email,
@@ -989,6 +1016,7 @@ export async function getInvoiceById(id: string, role: AppRole) {
     project: single(data.project),
     contract: single(data.contract),
     createdBy: single(data.createdBy),
+    approvedBy: single(data.approvedBy),
     linkedPayments,
     receipts,
     supportingDocuments: supportingDocumentsMap.get(id) ?? [],
@@ -1363,6 +1391,9 @@ export async function createInvoice(values: InvoiceFormValues, actorUserId: stri
         ...payload,
         invoice_number: invoiceNumber,
         status: suggestedStatus,
+        approval_status: "pending",
+        approved_by: null,
+        approved_at: null,
         created_by: actorUserId,
       })
       .select("id, invoice_number")
@@ -1435,6 +1466,9 @@ export async function updateInvoice(id: string, values: InvoiceFormValues, actor
     .update({
       ...payload,
       status: suggestedStatus,
+      approval_status: "pending",
+      approved_by: null,
+      approved_at: null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
@@ -1493,6 +1527,72 @@ export async function updateInvoice(id: string, values: InvoiceFormValues, actor
 
   await Promise.all(activityTasks);
   return id;
+}
+
+export async function approveInvoice(id: string, actorUserId: string) {
+  const supabase = await createClient();
+
+  if (!supabase) {
+    throw new Error("Supabase is not configured.");
+  }
+
+  const entityCode = await getCurrentEntityCode();
+  let query = supabase
+    .from("invoices")
+    .update({
+      approval_status: "approved",
+      approved_by: actorUserId,
+      approved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  if (isEntityScopingEnabled()) {
+    query = query.eq("entity_code", entityCode);
+  }
+
+  const { error } = await query;
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  await logActivity({
+    userId: actorUserId,
+    action: "Invoice approved",
+    entityType: "invoice",
+    entityId: id,
+    metadata: { kind: "status_change", summary: "Invoice approved by an administrator" },
+  });
+}
+
+export async function revokeInvoiceApproval(id: string, actorUserId: string, reason: string) {
+  const supabase = await createClient();
+  if (!supabase) throw new Error("Supabase is not configured.");
+
+  const entityCode = await getCurrentEntityCode();
+  let query = supabase
+    .from("invoices")
+    .update({
+      approval_status: "pending",
+      approved_by: null,
+      approved_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("approval_status", "approved");
+
+  if (isEntityScopingEnabled()) query = query.eq("entity_code", entityCode);
+  const { error } = await query;
+  if (error) throw new Error(error.message);
+
+  await logActivity({
+    userId: actorUserId,
+    action: "Invoice approval revoked",
+    entityType: "invoice",
+    entityId: id,
+    metadata: { kind: "status_change", summary: reason },
+  });
 }
 
 export async function deleteInvoice(id: string) {

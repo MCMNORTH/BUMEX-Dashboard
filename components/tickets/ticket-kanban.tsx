@@ -23,6 +23,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { CalendarClock, FolderKanban, GripVertical, LoaderCircle } from "lucide-react";
 
 import { updateTicketStatusAction } from "@/app/(app)/tickets/actions";
+import { useI18n } from "@/components/layout/i18n-provider";
 import {
   formatTicketDate,
   getTicketDueLabel,
@@ -101,6 +102,8 @@ function TicketKanbanCard({
   ticket: TicketRecord;
   dragging?: boolean;
 }) {
+  const { locale } = useI18n();
+  const fr = locale === "fr";
   return (
     <Link
       href={`/tickets/${ticket.id}`}
@@ -121,13 +124,13 @@ function TicketKanbanCard({
       </div>
 
       <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground">
-        {ticket.description || "No operational summary attached."}
+        {ticket.description || (fr ? "Aucun résumé opérationnel n’a été ajouté." : "No operational summary attached.")}
       </p>
 
       <div className="mt-4 grid gap-2 rounded-2xl border border-border/60 bg-background/38 p-3">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <FolderKanban className="size-3.5" />
-          <span className="truncate">{ticket.project?.name ?? "No project linked"}</span>
+          <span className="truncate">{ticket.project?.name ?? (fr ? "Aucun projet lié" : "No project linked")}</span>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <CalendarClock className="size-3.5" />
@@ -141,8 +144,8 @@ function TicketKanbanCard({
             <AvatarFallback>{getInitials(ticket.assignee?.full_name)}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="text-xs font-medium">{ticket.assignee?.full_name ?? "Unassigned"}</p>
-            <p className="text-[11px] text-muted-foreground">{ticket.assignee?.role ?? "No role"}</p>
+            <p className="text-xs font-medium">{ticket.assignee?.full_name ?? (fr ? "Non assigné" : "Unassigned")}</p>
+            <p className="text-[11px] text-muted-foreground">{ticket.assignee?.role ?? (fr ? "Aucun rôle" : "No role")}</p>
           </div>
         </div>
         <TicketStatusBadge status={ticket.status} />
@@ -191,6 +194,9 @@ function KanbanColumn({
   tickets: TicketRecord[];
   activeTicketId?: string | null;
 }) {
+  const { locale } = useI18n();
+  const fr = locale === "fr";
+  const statusLabels: Record<TicketStatus, string> = { backlog: fr ? "En attente" : "Backlog", todo: fr ? "À faire" : "To do", in_progress: fr ? "En cours" : "In progress", review: fr ? "En révision" : "Review", blocked: fr ? "Bloqué" : "Blocked", done: fr ? "Terminé" : "Done", archived: fr ? "Archivé" : "Archived" };
   const { setNodeRef, isOver } = useDroppable({
     id: status,
     data: {
@@ -210,12 +216,12 @@ function KanbanColumn({
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
-            {status.replace("_", " ")}
+            {statusLabels[status]}
           </p>
           <h3 className="mt-2 text-lg font-semibold tracking-tight">{tickets.length}</h3>
         </div>
         <Badge variant="secondary" className="rounded-full px-3 py-1">
-          {tickets.length} items
+          {tickets.length} {fr ? "élément(s)" : "item(s)"}
         </Badge>
       </div>
 
@@ -225,7 +231,7 @@ function KanbanColumn({
             tickets.map((ticket) => <SortableTicketCard key={ticket.id} ticket={ticket} />)
           ) : (
             <div className="flex min-h-32 items-center justify-center rounded-[22px] border border-dashed border-border/70 bg-background/30 px-4 text-center text-sm text-muted-foreground">
-              {activeTicketId ? "Drop ticket here" : "No tickets in this column"}
+              {activeTicketId ? (fr ? "Déposez le ticket ici" : "Drop ticket here") : (fr ? "Aucun ticket dans cette colonne" : "No tickets in this column")}
             </div>
           )}
         </SortableContext>
@@ -235,6 +241,8 @@ function KanbanColumn({
 }
 
 export function TicketKanban({ tickets, canDrag }: TicketKanbanProps) {
+  const { locale } = useI18n();
+  const fr = locale === "fr";
   const [board, setBoard] = useState<TicketBoardState>(() => buildBoard(tickets));
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -320,7 +328,7 @@ export function TicketKanban({ tickets, canDrag }: TicketKanbanProps) {
 
       {!canDrag ? (
         <div className="rounded-[22px] border border-border/70 bg-card/72 px-4 py-3 text-sm text-muted-foreground">
-          Kanban is read-only for your current role.
+          {fr ? "Le Kanban est en lecture seule pour votre rôle actuel." : "Kanban is read-only for your current role."}
         </div>
       ) : null}
 
@@ -351,7 +359,7 @@ export function TicketKanban({ tickets, canDrag }: TicketKanbanProps) {
       {pending ? (
         <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/72 px-4 py-2 text-sm text-muted-foreground">
           <LoaderCircle className="size-4 animate-spin" />
-          Syncing board changes
+          {fr ? "Synchronisation du tableau" : "Syncing board changes"}
         </div>
       ) : null}
     </div>
