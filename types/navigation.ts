@@ -6,6 +6,7 @@ export type AppRouteKey =
   | "projects"
   | "tickets"
   | "my-work"
+  | "staffing"
   | "planning"
   | "roadmap"
   | "calendar"

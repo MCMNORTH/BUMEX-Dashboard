@@ -45,6 +45,7 @@ export const routeAccess: Record<AppRouteKey, AppRole[]> = {
   tickets: ["admin", "manager", "supervisor", "employee", "shareholder"],
   "my-work": ["admin", "manager", "supervisor", "employee"],
   planning: ["admin", "manager", "supervisor", "employee", "shareholder"],
+  staffing: ["admin", "manager"],
   roadmap: ["admin", "manager", "supervisor", "employee", "shareholder"],
   calendar: ["admin", "manager", "supervisor", "employee", "shareholder"],
   team: ["admin", "manager", "supervisor", "employee", "shareholder"],

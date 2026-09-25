@@ -36,7 +36,7 @@ export type TicketTableColumnKey =
 
 export type TicketAssignee = Pick<Profile, "id" | "full_name" | "email" | "avatar_url" | "role">;
 export type TicketReporter = Pick<Profile, "id" | "full_name" | "email" | "avatar_url" | "role">;
-export type TicketProject = Pick<ProjectRecord, "id" | "name" | "status" | "client" | "end_date">;
+export type TicketProject = Pick<ProjectRecord, "id" | "name" | "status" | "client" | "end_date" | "entity_code">;
 
 export type TicketActivity = {
   id: string;

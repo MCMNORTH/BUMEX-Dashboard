@@ -1,0 +1,1 @@
+export default function StaffingLoading() { return <div className="space-y-5 animate-pulse"><div className="h-56 rounded-[32px] bg-muted" /><div className="grid grid-cols-4 gap-3">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-28 rounded-2xl bg-muted" />)}</div><div className="h-96 rounded-[28px] bg-muted" /></div>; }

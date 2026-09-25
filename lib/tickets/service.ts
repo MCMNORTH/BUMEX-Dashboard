@@ -103,6 +103,7 @@ function getBaseTicketQuery(supabase: AppSupabaseClient) {
           name,
           status,
           end_date,
+          entity_code,
           client:clients (
             id,
             name,
@@ -144,7 +145,7 @@ function applyFilters(query: TicketQuery, filters: TicketFilters) {
   }
 
   if (filters.assigneeId) {
-    query = query.eq("assignee_id", filters.assigneeId);
+    query = filters.assigneeId === "unassigned" ? query.is("assignee_id", null) : query.eq("assignee_id", filters.assigneeId);
   }
 
   if (filters.projectId) {
@@ -190,6 +191,14 @@ export async function getTickets(role: AppRole, filters: TicketFilters = {}) {
     getEntityScopedCacheKey(`tickets:list:${role}:${ticketFiltersKey(filters)}`, entityCode),
     12_000,
     () => getFreshTickets(role, filters, entityCode),
+  );
+}
+
+export async function getTicketsAcrossEntities(role: AppRole, filters: TicketFilters = {}) {
+  return getCached(
+    `tickets:all-entities:${role}:${ticketFiltersKey(filters)}`,
+    12_000,
+    () => getFreshTickets(role, filters),
   );
 }
 
