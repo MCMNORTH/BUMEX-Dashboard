@@ -36,6 +36,7 @@ type TicketFormProps = {
   defaults?: Partial<TicketFormValues> & { ticket_id?: string };
   triggerLabel?: string;
   triggerIcon?: "plus" | "edit";
+  openOnLoad?: boolean;
   assigneeWorkloads?: TeamWorkloadRecord[];
   suggestedAssignees?: TeamWorkloadRecord[];
 };
@@ -62,6 +63,7 @@ export function TicketForm({
   defaults,
   triggerLabel,
   triggerIcon,
+  openOnLoad = false,
   assigneeWorkloads = [],
   suggestedAssignees = [],
 }: TicketFormProps) {
@@ -85,7 +87,7 @@ export function TicketForm({
   const TriggerIcon = triggerIconName === "edit" ? SquarePen : Plus;
 
   return (
-    <Dialog>
+    <Dialog defaultOpen={openOnLoad}>
       <DialogTrigger asChild>
         {mode === "create" ? (
           <Button className="rounded-full px-5">
