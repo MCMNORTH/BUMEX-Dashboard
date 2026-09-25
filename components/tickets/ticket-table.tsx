@@ -25,11 +25,20 @@ function TicketRow({ ticket }: { ticket: TicketRecord }) {
     : dueState === "overdue"
       ? (fr ? "En retard" : "Overdue")
       : formatTicketDate(ticket.due_date);
+  const accent = dueState === "overdue"
+    ? "before:bg-rose-500"
+    : ticket.status === "done"
+      ? "before:bg-emerald-500"
+      : ticket.status === "in_progress"
+        ? "before:bg-violet-500"
+        : ticket.status === "blocked"
+          ? "before:bg-amber-500"
+          : "before:bg-sky-500";
 
   return (
     <Link
       href={`/tickets/${ticket.id}`}
-      className="group block min-w-0 rounded-2xl border border-border/75 bg-card p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md sm:p-5"
+      className={`group relative block min-w-0 overflow-hidden rounded-2xl border border-border/75 bg-gradient-to-br from-card via-card to-primary/[0.035] p-4 shadow-sm transition duration-200 before:absolute before:inset-y-0 before:left-0 before:w-1 before:content-[''] ${accent} motion-safe:hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-lg motion-reduce:transition-none sm:p-5`}
     >
       <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
@@ -38,7 +47,7 @@ function TicketRow({ ticket }: { ticket: TicketRecord }) {
             <TicketPriorityBadge priority={ticket.priority} />
             <TicketStatusBadge status={ticket.status} />
           </div>
-          <h3 className="mt-3 break-words text-base font-semibold tracking-tight text-foreground sm:text-lg">{ticket.title}</h3>
+          <h3 className="mt-3 break-words text-base font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary sm:text-lg">{ticket.title}</h3>
           {ticket.description ? <p className="mt-1.5 line-clamp-2 max-w-4xl break-words text-sm leading-6 text-muted-foreground">{ticket.description}</p> : null}
         </div>
         <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-muted/65 px-3 py-2 text-xs font-semibold text-muted-foreground transition group-hover:bg-primary/10 group-hover:text-primary lg:inline-flex">
@@ -46,9 +55,9 @@ function TicketRow({ ticket }: { ticket: TicketRecord }) {
         </span>
       </div>
 
-      <div className="mt-4 grid min-w-0 gap-3 border-t border-border/65 pt-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="flex min-w-0 items-start gap-2.5">
-          <FolderKanban className="mt-0.5 size-4 shrink-0 text-primary/75" />
+      <div className="mt-4 grid min-w-0 gap-2 border-t border-border/65 pt-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="flex min-w-0 items-start gap-2.5 rounded-xl bg-sky-500/[0.045] p-2.5 transition-colors group-hover:bg-sky-500/[0.075]">
+          <FolderKanban className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400" />
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-muted-foreground">{fr ? "Projet / entité" : "Project / entity"}</p>
             <p className="mt-1 break-words text-sm font-medium">{ticket.project?.name ?? (fr ? "Sans projet" : "No project")}</p>
@@ -56,8 +65,8 @@ function TicketRow({ ticket }: { ticket: TicketRecord }) {
           </div>
         </div>
 
-        <div className="flex min-w-0 items-start gap-2.5">
-          <UserRound className="mt-0.5 size-4 shrink-0 text-primary/75" />
+        <div className="flex min-w-0 items-start gap-2.5 rounded-xl bg-violet-500/[0.045] p-2.5 transition-colors group-hover:bg-violet-500/[0.075]">
+          <UserRound className="mt-0.5 size-4 shrink-0 text-violet-600 dark:text-violet-400" />
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-muted-foreground">{fr ? "Responsable" : "Assignee"}</p>
             <div className="mt-1 flex min-w-0 items-center gap-2">
@@ -67,16 +76,16 @@ function TicketRow({ ticket }: { ticket: TicketRecord }) {
           </div>
         </div>
 
-        <div className="flex min-w-0 items-start gap-2.5">
-          <CircleUserRound className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <div className="flex min-w-0 items-start gap-2.5 rounded-xl bg-amber-500/[0.045] p-2.5 transition-colors group-hover:bg-amber-500/[0.075]">
+          <CircleUserRound className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-muted-foreground">{fr ? "Créé par" : "Created by"}</p>
             <p className="mt-1 truncate text-sm font-medium">{ticket.reporter?.full_name ?? (fr ? "Profil indisponible" : "Profile unavailable")}</p>
           </div>
         </div>
 
-        <div className="flex min-w-0 items-start gap-2.5">
-          <CalendarClock className={`mt-0.5 size-4 shrink-0 ${dueState === "overdue" ? "text-rose-600" : "text-muted-foreground"}`} />
+        <div className={`flex min-w-0 items-start gap-2.5 rounded-xl p-2.5 transition-colors ${dueState === "overdue" ? "bg-rose-500/[0.08]" : "bg-emerald-500/[0.045] group-hover:bg-emerald-500/[0.075]"}`}>
+          <CalendarClock className={`mt-0.5 size-4 shrink-0 ${dueState === "overdue" ? "text-rose-600" : "text-emerald-600 dark:text-emerald-400"}`} />
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[.12em] text-muted-foreground">{fr ? "Échéance" : "Due date"}</p>
             <p className={`mt-1 truncate text-sm font-medium ${dueState === "overdue" ? "text-rose-600 dark:text-rose-300" : ""}`}>{dueLabel}</p>

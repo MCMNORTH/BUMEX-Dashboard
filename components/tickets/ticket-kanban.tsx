@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   closestCorners,
@@ -20,7 +20,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CalendarClock, FolderKanban, GripVertical, LoaderCircle } from "lucide-react";
+import { CalendarClock, CheckCircle2, CircleDashed, Eye, FolderKanban, GripVertical, LoaderCircle, ShieldAlert, Sparkles, Timer } from "lucide-react";
 
 import { updateTicketStatusAction } from "@/app/(app)/tickets/actions";
 import {
@@ -94,6 +94,15 @@ function moveTicket(board: TicketBoardState, ticketId: string, nextStatus: Ticke
   return nextBoard;
 }
 
+const statusStyle: Record<string, { icon: typeof CircleDashed; accent: string; tint: string }> = {
+  backlog: { icon: CircleDashed, accent: "border-t-slate-400", tint: "bg-slate-50/80 dark:bg-slate-900/30" },
+  todo: { icon: Timer, accent: "border-t-blue-500", tint: "bg-blue-50/45 dark:bg-blue-950/15" },
+  in_progress: { icon: Sparkles, accent: "border-t-violet-500", tint: "bg-violet-50/45 dark:bg-violet-950/15" },
+  review: { icon: Eye, accent: "border-t-amber-500", tint: "bg-amber-50/45 dark:bg-amber-950/15" },
+  blocked: { icon: ShieldAlert, accent: "border-t-rose-500", tint: "bg-rose-50/45 dark:bg-rose-950/15" },
+  done: { icon: CheckCircle2, accent: "border-t-emerald-500", tint: "bg-emerald-50/45 dark:bg-emerald-950/15" },
+};
+
 function TicketKanbanCard({
   ticket,
   dragging = false,
@@ -105,7 +114,7 @@ function TicketKanbanCard({
     <Link
       href={`/tickets/${ticket.id}`}
       className={cn(
-        "group block rounded-xl border border-slate-200 bg-white p-3 shadow-[var(--shadow-soft)] transition-colors hover:border-slate-300 dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none dark:hover:border-white/16",
+        "group relative block min-w-0 overflow-hidden rounded-xl border border-slate-200/90 bg-white/95 p-3 shadow-sm transition duration-200 motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-lg hover:border-primary/30 motion-reduce:transition-none dark:border-white/10 dark:bg-slate-950/70 dark:shadow-none dark:hover:border-white/20",
         dragging && "rotate-1 shadow-[var(--shadow-glow)]",
       )}
     >
@@ -117,7 +126,7 @@ function TicketKanbanCard({
           </div>
           <h4 className="text-sm font-semibold tracking-[-0.02em] text-foreground">{ticket.title}</h4>
         </div>
-        <GripVertical className="mt-0.5 size-4 text-muted-foreground" />
+        <GripVertical className="mt-0.5 size-4 shrink-0 text-muted-foreground/55 transition-colors group-hover:text-primary" />
       </div>
 
       <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground">
@@ -151,7 +160,7 @@ function TicketKanbanCard({
   );
 }
 
-function SortableTicketCard({ ticket }: { ticket: TicketRecord }) {
+function SortableTicketCard({ ticket, canDrag }: { ticket: TicketRecord; canDrag: boolean }) {
   const {
     attributes,
     listeners,
@@ -161,6 +170,7 @@ function SortableTicketCard({ ticket }: { ticket: TicketRecord }) {
     isDragging,
   } = useSortable({
     id: ticket.id,
+    disabled: !canDrag,
     data: {
       type: "ticket",
       status: ticket.status,
@@ -174,8 +184,8 @@ function SortableTicketCard({ ticket }: { ticket: TicketRecord }) {
         transform: CSS.Transform.toString(transform),
         transition,
       }}
-      {...attributes}
-      {...listeners}
+      {...(canDrag ? attributes : {})}
+      {...(canDrag ? listeners : {})}
     >
       <TicketKanbanCard ticket={ticket} dragging={isDragging} />
     </div>
@@ -186,10 +196,12 @@ function KanbanColumn({
   status,
   tickets,
   activeTicketId,
+  canDrag,
 }: {
   status: TicketStatus;
   tickets: TicketRecord[];
   activeTicketId?: string | null;
+  canDrag: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
@@ -203,26 +215,29 @@ function KanbanColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex min-h-[24rem] min-w-[18rem] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-[var(--shadow-soft)] transition-colors dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none",
-        isOver && "border-sky-300/16 bg-sky-500/[0.05] dark:border-sky-400/20 dark:bg-sky-500/[0.08]",
+        "flex min-h-[19rem] min-w-0 flex-col overflow-hidden rounded-2xl border border-t-[3px] border-slate-200 bg-white/80 p-3 shadow-sm transition duration-200 dark:border-white/10 dark:bg-slate-950/40 sm:p-4",
+        statusStyle[status]?.accent,
+        statusStyle[status]?.tint,
+        isOver && "scale-[1.01] border-primary/40 bg-primary/[0.06] shadow-md",
       )}
     >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+          <p className="flex items-center gap-2 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+            {(() => { const Icon = statusStyle[status]?.icon ?? CircleDashed; return <Icon className="size-3.5 text-primary" />; })()}
             {status.replace("_", " ")}
           </p>
           <h3 className="mt-2 text-lg font-semibold tracking-tight">{tickets.length}</h3>
         </div>
         <Badge variant="secondary" className="rounded-full px-3 py-1">
-          {tickets.length} items
+          {tickets.length} {tickets.length === 1 ? "ticket" : "tickets"}
         </Badge>
       </div>
 
       <div className="mt-4 flex-1 space-y-3">
         <SortableContext items={tickets.map((ticket) => ticket.id)} strategy={verticalListSortingStrategy}>
           {tickets.length ? (
-            tickets.map((ticket) => <SortableTicketCard key={ticket.id} ticket={ticket} />)
+            tickets.map((ticket) => <SortableTicketCard key={ticket.id} ticket={ticket} canDrag={canDrag} />)
           ) : (
             <div className="flex min-h-32 items-center justify-center rounded-[22px] border border-dashed border-border/70 bg-background/30 px-4 text-center text-sm text-muted-foreground">
               {activeTicketId ? "Drop ticket here" : "No tickets in this column"}
@@ -239,6 +254,10 @@ export function TicketKanban({ tickets, canDrag }: TicketKanbanProps) {
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setBoard(buildBoard(tickets));
+  }, [tickets]);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -330,14 +349,15 @@ export function TicketKanban({ tickets, canDrag }: TicketKanbanProps) {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="-mx-1 overflow-x-auto pb-2">
-          <div className="flex min-w-max gap-4 px-1 xl:grid xl:min-w-0 xl:grid-cols-3 2xl:grid-cols-6">
+        <div className="min-w-0 pb-2">
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:gap-4">
             {ticketKanbanStatuses.map((status) => (
               <KanbanColumn
                 key={status}
                 status={status}
                 tickets={board[status]}
                 activeTicketId={activeTicketId}
+                canDrag={canDrag}
               />
             ))}
           </div>
