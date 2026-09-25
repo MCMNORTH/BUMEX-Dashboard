@@ -119,7 +119,7 @@ async function TicketsContent({
     <>
       <section className="relative overflow-hidden rounded-[32px] border border-cyan-300/20 bg-[linear-gradient(125deg,#071a37_0%,#075f79_48%,#41308e_100%)] px-7 py-7 text-white shadow-[0_32px_90px_-42px_rgba(6,182,212,.75)]">
         <div className="pointer-events-none absolute -right-16 -top-24 size-72 rounded-full bg-violet-400/25 blur-3xl" />
-        <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between"><div className="max-w-3xl"><h1 className="text-3xl font-semibold tracking-[-.045em] sm:text-4xl">{locale === "fr" ? "Chaque demande devient une action claire." : "Turn every request into a clear action."}</h1><p className="mt-3 text-sm leading-6 text-cyan-50/80">{locale === "fr" ? "Décrivez le besoin, confiez la tâche à un membre impliqué, puis suivez son avancée sans perdre le contexte." : "Describe the need, assign the task, and follow progress without losing context."}</p></div>{canCreate ? <TicketForm mode="create" role={auth.role} filterData={filterData} defaults={initialProjectId ? { project_id: initialProjectId } : undefined} openOnLoad={openCreateForm} assigneeWorkloads={assigneeWorkloads} suggestedAssignees={suggestedAssignees} /> : null}</div>
+        <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between"><div className="max-w-3xl"><h1 className="motion-safe:animate-fade-up text-3xl font-semibold tracking-[-.045em] sm:text-4xl">{locale === "fr" ? "Chaque demande devient une action claire." : "Turn every request into a clear action."}</h1><p className="mt-3 text-sm leading-6 text-cyan-50/80">{locale === "fr" ? "Décrivez le besoin, confiez la tâche à un membre impliqué, puis suivez son avancée sans perdre le contexte." : "Describe the need, assign the task, and follow progress without losing context."}</p></div>{canCreate ? <TicketForm mode="create" role={auth.role} filterData={filterData} defaults={initialProjectId ? { project_id: initialProjectId } : undefined} openOnLoad={openCreateForm} assigneeWorkloads={assigneeWorkloads} suggestedAssignees={suggestedAssignees} /> : null}</div>
         <div className="relative mt-6 grid gap-2 sm:grid-cols-3">{[(locale === "fr" ? "1 · Décrire" : "1 · Describe"),(locale === "fr" ? "2 · Assigner" : "2 · Assign"),(locale === "fr" ? "3 · Résoudre" : "3 · Resolve")].map((step,index)=><div key={step} className="flex items-center justify-between rounded-2xl border border-white/15 bg-white/[.08] px-4 py-3 text-xs font-semibold backdrop-blur"><span>{step}</span>{index < 2 ? <ArrowRight className="size-4 text-cyan-200" /> : <CheckCircle2 className="size-4 text-emerald-300" />}</div>)}</div>
       </section>
       <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
@@ -215,31 +215,44 @@ async function TicketsContent({
       <TicketFilters filters={filters} filterData={filterData} />
       <TicketWorkloadPreview workload={workload} />
 
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">{getMessage(dictionary, "tickets.page.queue", "Queue")}</p>
-          <h2 className="mt-1.5 text-lg font-semibold tracking-tight">
-            {activeView === "kanban"
-              ? getMessage(dictionary, "tickets.page.kanbanBoard", "Kanban board")
-              : getMessage(dictionary, "tickets.page.ticketList", "Ticket list")}
-          </h2>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="rounded-full px-3 py-1">
+      <section
+        aria-labelledby="ticket-queue-heading"
+        className="relative mt-3 overflow-hidden rounded-[28px] border border-slate-200/80 bg-gradient-to-br from-white via-white to-blue-50/70 p-4 shadow-[0_22px_70px_-48px_rgba(37,99,235,.5)] dark:border-white/10 dark:from-slate-950/70 dark:via-slate-950/55 dark:to-blue-950/25 sm:mt-5 sm:rounded-[32px] sm:p-6"
+      >
+        <div className="pointer-events-none absolute -right-24 -top-28 size-72 rounded-full bg-sky-400/[0.08] blur-3xl" />
+        <div className="relative mb-6 h-px bg-gradient-to-r from-transparent via-primary/45 to-transparent" />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="motion-safe:animate-fade-up inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/[0.055] px-3 py-1 text-[10px] font-bold tracking-[0.16em] text-primary uppercase">
+              <span className="size-1.5 rounded-full bg-primary shadow-[0_0_10px_rgba(37,99,235,.55)]" />
+              {getMessage(dictionary, "tickets.page.queue", "Queue")}
+            </p>
+            <h2 id="ticket-queue-heading" className="motion-safe:animate-fade-up mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
+              {activeView === "kanban"
+                ? getMessage(dictionary, "tickets.page.kanbanBoard", "Kanban board")
+                : getMessage(dictionary, "tickets.page.ticketList", "Ticket list")}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {locale === "fr" ? "Les tickets, leurs responsables et leur avancement." : "Tickets, owners, and progress at a glance."}
+            </p>
+          </div>
+          <Badge variant="secondary" className="rounded-full border border-primary/10 bg-background/80 px-3.5 py-1.5 text-xs shadow-sm">
             {tickets.length} {getMessage(dictionary, "tickets.page.results", "results")}
           </Badge>
         </div>
-      </div>
 
-      {tickets.length ? (
-        activeView === "kanban" ? (
-          <TicketKanban tickets={tickets.filter((ticket) => ticket.status !== "archived")} canDrag={canUseKanban} />
-        ) : (
-          <TicketTable tickets={tickets} />
-        )
-      ) : (
-        <TicketEmptyState role={auth.role} filterData={filterData} />
-      )}
+        <div className="relative mt-6 border-t border-border/70 pt-5">
+          {tickets.length ? (
+            activeView === "kanban" ? (
+              <TicketKanban tickets={tickets.filter((ticket) => ticket.status !== "archived")} canDrag={canUseKanban} />
+            ) : (
+              <TicketTable tickets={tickets} />
+            )
+          ) : (
+            <TicketEmptyState role={auth.role} filterData={filterData} />
+          )}
+        </div>
+      </section>
     </>
   );
 }
