@@ -13,6 +13,7 @@ import {
   Route,
   ScrollText,
   Settings,
+  UserRoundPlus,
   Users2,
   WalletMinimal,
 } from "lucide-react";
@@ -54,6 +55,13 @@ export const navigationGroups: NavigationGroup[] = [
         icon: ListTodo,
         description: "Assigned execution, deadlines, and recent delivery updates.",
         allowedRoles: ["admin", "manager", "supervisor", "employee"],
+      },
+      {
+        href: "/staffing",
+        label: "Staffing",
+        icon: UserRoundPlus,
+        description: "Match people to projects, periods, and capacity needs.",
+        allowedRoles: ["admin", "manager"],
       },
       {
         href: "/planning",
@@ -154,6 +162,14 @@ export const navigationGroups: NavigationGroup[] = [
 ] as const;
 
 export const placeholderPages: Record<AppRouteKey, PlaceholderPageContent> = {
+  staffing: {
+    title: "Staffing",
+    subtitle: "Project assignments, capacity and talent matching.",
+    eyebrow: "Resource management",
+    emptyTitle: "No staffing assignment yet",
+    emptyDescription: "Create an assignment to connect a person, a project and a capacity period.",
+    placeholderLabel: "Staffing workspace",
+  },
   overview: {
     title: "Overview",
     subtitle: "High-level visibility across operations, delivery, and business health.",
