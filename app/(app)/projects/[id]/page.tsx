@@ -46,6 +46,7 @@ export default async function ProjectDetailPage({
 
   const canManage =
     auth.role === "admin" || (isManagerLikeRole(auth.role) && project.owner_id === auth.profile.id);
+  const canStaff = auth.role === "admin" || isManagerLikeRole(auth.role);
 
   return (
     <div className="space-y-6">
@@ -54,6 +55,7 @@ export default async function ProjectDetailPage({
         project={project}
         role={auth.role}
         canManage={canManage}
+        canStaff={canStaff}
         filterData={filterData}
       />
 
