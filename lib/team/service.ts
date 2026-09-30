@@ -5,7 +5,7 @@ import { getCurrentEntityCode, getEntityScopedCacheKey, isEntityScopingEnabled }
 import { getProjects } from "@/lib/projects/service";
 import { getCached } from "@/lib/server-cache";
 import { createClient } from "@/lib/supabase/server";
-import { getTickets } from "@/lib/tickets/service";
+import { getTickets, getTicketsAcrossEntities } from "@/lib/tickets/service";
 import type { ActivityLogRecord } from "@/types/activity";
 import type { AppRole, Profile } from "@/types/auth";
 import type {
@@ -360,6 +360,8 @@ async function getFreshTeamProfiles(entityCode?: string) {
             email,
             full_name,
             role,
+            is_super_admin,
+            entity_code,
             avatar_url,
             job_title,
             department,
@@ -386,15 +388,7 @@ async function getFreshTeamProfiles(entityCode?: string) {
     throw new Error(error.message);
   }
 
-  return (data ?? []).map((profile) =>
-    shouldScopeByEntity
-      ? profile
-      : {
-          ...profile,
-          is_super_admin: false,
-          entity_code: (entityCode ?? null) as Profile["entity_code"],
-        },
-  );
+  return data ?? [];
 }
 
 async function getProfileActivitySummary(profileIds: string[]) {
@@ -522,6 +516,14 @@ function applyMemberFilters(member: TeamMemberRecord, filters: TeamFilters) {
   }
 
   if (filters.workload && member.workload_level !== filters.workload) {
+    return false;
+  }
+
+  if (filters.assignment === "engaged" && member.active_projects_count === 0 && member.active_tasks_count === 0) {
+    return false;
+  }
+
+  if (filters.assignment && filters.assignment !== "engaged" && member.assignment_state !== filters.assignment) {
     return false;
   }
 
@@ -661,12 +663,15 @@ export async function getTeamMembers(role: AppRole, filters: TeamFilters = {}): 
     });
 }
 
-export async function getTeamWorkload(role: AppRole, currentUserId?: string): Promise<TeamWorkloadRecord[]> {
+export async function getTeamWorkload(role: AppRole, currentUserId?: string, acrossEntities = false): Promise<TeamWorkloadRecord[]> {
   if (role === "shareholder") {
     return [];
   }
 
-  const [profiles, tickets] = await Promise.all([getTeamProfiles(), getTickets(role)]);
+  const [profiles, tickets] = await Promise.all([
+    acrossEntities ? getFreshTeamProfiles() : getTeamProfiles(),
+    acrossEntities ? getTicketsAcrossEntities(role) : getTickets(role),
+  ]);
   const workloadMap = new Map<string, TeamWorkloadRecord>();
 
   for (const profile of profiles) {
@@ -674,6 +679,7 @@ export async function getTeamWorkload(role: AppRole, currentUserId?: string): Pr
       id: profile.id,
       full_name: profile.full_name,
       role: profile.role,
+      entity_code: profile.entity_code,
       job_title: profile.job_title,
       department: profile.department,
       availability_status: profile.availability_status,

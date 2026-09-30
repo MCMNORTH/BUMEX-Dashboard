@@ -1,3 +1,5 @@
+"use client";
+
 import { DocumentDetailDrawer } from "@/components/documents/document-detail-drawer";
 import { ArchiveStatusBadge } from "@/components/documents/archive-status-badge";
 import { DocumentTypeBadge } from "@/components/documents/document-type-badge";
@@ -8,6 +10,7 @@ import type { AppRole } from "@/types/auth";
 import type { CommentRecord } from "@/types/comment";
 import type { MentionCandidate } from "@/types/notification";
 import type { DocumentFiltersData, DocumentRecord } from "@/types/document";
+import { useI18n } from "@/components/layout/i18n-provider";
 
 export function DocumentTable({
   documents,
@@ -26,6 +29,8 @@ export function DocumentTable({
   currentUserId: string;
   mentionCandidates: MentionCandidate[];
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
   return (
     <div className="overflow-hidden rounded-[28px] border border-border/70 bg-card/72 shadow-[var(--shadow-soft)] backdrop-blur-xl">
       <div className="overflow-x-auto">
@@ -34,11 +39,11 @@ export function DocumentTable({
             <tr>
               <th className="px-5 py-4 font-medium">Document</th>
               <th className="px-5 py-4 font-medium">Type</th>
-              <th className="px-5 py-4 font-medium">Visibility</th>
-              <th className="px-5 py-4 font-medium">Related</th>
-              <th className="px-5 py-4 font-medium">Size</th>
-              <th className="px-5 py-4 font-medium">Updated</th>
-              <th className="px-5 py-4 font-medium">Archive</th>
+              <th className="px-5 py-4 font-medium">{isFr ? "Visibilité" : "Visibility"}</th>
+              <th className="px-5 py-4 font-medium">{isFr ? "Rattaché à" : "Related"}</th>
+              <th className="px-5 py-4 font-medium">{isFr ? "Taille" : "Size"}</th>
+              <th className="px-5 py-4 font-medium">{isFr ? "Mis à jour" : "Updated"}</th>
+              <th className="px-5 py-4 font-medium">{isFr ? "Archivage" : "Archive"}</th>
             </tr>
           </thead>
           <tbody>

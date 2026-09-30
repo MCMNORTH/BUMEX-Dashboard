@@ -79,6 +79,7 @@ export default async function FinancePage() {
 
   return (
     <FinanceWorkspace
+      isAdmin={auth.role === "admin"}
       canManageIncomingFinance={canManageIncomingFinance}
       canManageOutgoingFinance={canManageOutgoingFinance}
       canManageBankFinance={canManageBankFinance}

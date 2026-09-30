@@ -137,7 +137,7 @@ export default async function ClientDetailPage({
 
             <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-medium">Linked projects</p>
+                <p className="text-sm font-medium">{isFr ? "Projets liés" : "Linked projects"}</p>
                 <Badge variant="secondary" className="rounded-full px-3 py-1">
                   {client.linkedProjects.length}
                 </Badge>
@@ -149,18 +149,18 @@ export default async function ClientDetailPage({
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-sm font-medium">{project.name}</p>
                         <Badge variant="outline" className="rounded-full px-3 py-1">
-                          {project.health}
+                          {project.health === "healthy" ? (isFr ? "Sain" : "Healthy") : project.health === "at_risk" ? (isFr ? "À risque" : "At risk") : project.health === "delayed" ? (isFr ? "En retard" : "Delayed") : project.health}
                         </Badge>
                       </div>
                       <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>{project.progress}% progress</span>
-                        <span>Due {formatDate(project.end_date)}</span>
+                        <span>{project.progress}% {isFr ? "réalisé" : "complete"}</span>
+                        <span>{isFr ? "Échéance" : "Due"} {formatDate(project.end_date)}</span>
                       </div>
                     </a>
                   ))
                 ) : (
                   <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                    No linked projects are visible yet for this client.
+                    {isFr ? "Aucun projet lié n’est encore visible pour ce client." : "No linked projects are visible yet for this client."}
                   </div>
                 )}
               </div>
@@ -171,13 +171,13 @@ export default async function ClientDetailPage({
         <div className="grid gap-4">
           <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
             <CardHeader>
-              <CardTitle>Account manager</CardTitle>
-              <CardDescription>Primary ownership and relationship coordination.</CardDescription>
+              <CardTitle>{isFr ? "Responsable du compte" : "Account manager"}</CardTitle>
+              <CardDescription>{isFr ? "Référent principal chargé de la relation et de sa coordination." : "Primary ownership and relationship coordination."}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-sm font-medium">{client.accountManager?.full_name ?? "Unassigned"}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{client.accountManager?.email ?? "No email"}</p>
+                <p className="text-sm font-medium">{client.accountManager?.full_name ?? (isFr ? "Non attribué" : "Unassigned")}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{client.accountManager?.email ?? (isFr ? "Aucun e-mail" : "No email")}</p>
               </div>
             </CardContent>
           </Card>
@@ -186,9 +186,9 @@ export default async function ClientDetailPage({
             <CardHeader>
               <div className="flex items-center gap-2">
                 <ReceiptText className="size-4 text-primary" />
-                <CardTitle>Linked contracts</CardTitle>
+                <CardTitle>{isFr ? "Contrats liés" : "Linked contracts"}</CardTitle>
               </div>
-              <CardDescription>Commercial agreements and renewal exposure for this account.</CardDescription>
+              <CardDescription>{isFr ? "Accords commerciaux et prochaines échéances de renouvellement." : "Commercial agreements and renewal exposure for this account."}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {linkedContracts.length ? (
@@ -197,17 +197,17 @@ export default async function ClientDetailPage({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-medium">{contract.title}</p>
                       <Badge variant="outline" className="rounded-full px-3 py-1">
-                        {contract.status}
+                        {contract.status === "active" ? (isFr ? "Actif" : "Active") : contract.status === "expired" ? (isFr ? "Expiré" : "Expired") : contract.status === "draft" ? (isFr ? "Brouillon" : "Draft") : contract.status}
                       </Badge>
                     </div>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      {contract.contract_type.replaceAll("_", " ")} / Renewal {formatDate(contract.renewal_date ?? contract.end_date)}
+                      {contract.contract_type.replaceAll("_", " ")} · {isFr ? "Renouvellement" : "Renewal"} {formatDate(contract.renewal_date ?? contract.end_date)}
                     </p>
                   </a>
                 ))
               ) : (
                 <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                  No linked contracts are visible for this client.
+                  {isFr ? "Aucun contrat lié n’est visible pour ce client." : "No linked contracts are visible for this client."}
                 </div>
               )}
             </CardContent>
@@ -217,9 +217,9 @@ export default async function ClientDetailPage({
             <CardHeader>
               <div className="flex items-center gap-2">
                 <FileStack className="size-4 text-primary" />
-                <CardTitle>Linked documents</CardTitle>
+                <CardTitle>{isFr ? "Documents liés" : "Linked documents"}</CardTitle>
               </div>
-              <CardDescription>Archived and active records connected to this relationship.</CardDescription>
+              <CardDescription>{isFr ? "Documents actifs et archivés rattachés à cette relation." : "Archived and active records connected to this relationship."}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {linkedDocuments.length ? (
@@ -228,17 +228,17 @@ export default async function ClientDetailPage({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-medium">{document.title}</p>
                       <Badge variant="outline" className="rounded-full px-3 py-1">
-                        {document.is_archived ? "archived" : document.visibility}
+                        {document.is_archived ? (isFr ? "Archivé" : "Archived") : document.visibility === "internal" ? (isFr ? "Interne" : "Internal") : document.visibility === "management" ? (isFr ? "Direction" : "Management") : document.visibility === "shareholders" ? (isFr ? "Actionnaires" : "Shareholders") : (isFr ? "Accès restreint" : "Restricted")}
                       </Badge>
                     </div>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      {document.document_type.replaceAll("_", " ")} / Updated {formatDate(document.updated_at)}
+                      {document.document_type.replaceAll("_", " ")} · {isFr ? "Mis à jour le" : "Updated"} {formatDate(document.updated_at)}
                     </p>
                   </a>
                 ))
               ) : (
                 <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                  No linked documents are visible for this client.
+                  {isFr ? "Aucun document lié n’est visible pour ce client." : "No linked documents are visible for this client."}
                 </div>
               )}
             </CardContent>
@@ -248,9 +248,9 @@ export default async function ClientDetailPage({
             <CardHeader>
               <div className="flex items-center gap-2">
                 <CircleDollarSign className="size-4 text-primary" />
-                <CardTitle>Linked tickets</CardTitle>
+                <CardTitle>{isFr ? "Tickets liés" : "Linked tickets"}</CardTitle>
               </div>
-              <CardDescription>Operational work already handled for this client.</CardDescription>
+              <CardDescription>{isFr ? "Demandes et interventions opérationnelles réalisées pour ce client." : "Operational work already handled for this client."}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {linkedTickets.length ? (
@@ -259,17 +259,17 @@ export default async function ClientDetailPage({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-medium">{ticket.title}</p>
                       <Badge variant="outline" className="rounded-full px-3 py-1">
-                        {ticket.status}
+                        {ticket.status === "done" ? (isFr ? "Terminé" : "Done") : ticket.status === "in_progress" ? (isFr ? "En cours" : "In progress") : ticket.status === "blocked" ? (isFr ? "Bloqué" : "Blocked") : ticket.status === "todo" ? (isFr ? "À faire" : "To do") : ticket.status}
                       </Badge>
                     </div>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      {ticket.project?.name ?? "No project"} / Due {formatDate(ticket.due_date)}
+                      {ticket.project?.name ?? (isFr ? "Sans projet" : "No project")} · {isFr ? "Échéance" : "Due"} {formatDate(ticket.due_date)}
                     </p>
                   </a>
                 ))
               ) : (
                 <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                  No linked tickets are visible for this client.
+                  {isFr ? "Aucun ticket lié n’est visible pour ce client." : "No linked tickets are visible for this client."}
                 </div>
               )}
             </CardContent>
@@ -283,12 +283,13 @@ export default async function ClientDetailPage({
         <ClientHistoryFilters selected={historyFilter} total={timeline.length} />
         <ClientTimeline
           items={timeline}
+          isFr={isFr}
           description={
             auth.role === "shareholder"
-              ? "Summarized relationship history across approved project, contract, and client-level changes."
+              ? (isFr ? "Historique synthétique des projets, contrats et évolutions de la relation approuvés." : "Summarized relationship history across approved project, contract, and client-level changes.")
               : auth.role === "employee"
-                ? "Project and ticket activity visible inside your allowed delivery scope."
-                : "Full relationship history across projects, tickets, contracts, documents, and client-level changes."
+                ? (isFr ? "Activité des projets et tickets visible dans votre périmètre autorisé." : "Project and ticket activity visible inside your allowed delivery scope.")
+                : (isFr ? "Historique complet des projets, tickets, contrats, documents et évolutions de la relation." : "Full relationship history across projects, tickets, contracts, documents, and client-level changes.")
           }
         />
       </div>
@@ -300,8 +301,8 @@ export default async function ClientDetailPage({
         returnPath={`/clients/${client.id}`}
         role={auth.role}
         currentUserId={auth.profile.id}
-        title="Client notes"
-        description="Relationship notes, account context, and management follow-up for this client."
+        title={isFr ? "Notes client" : "Client notes"}
+        description={isFr ? "Contexte de la relation, informations du compte et actions de suivi." : "Relationship notes, account context, and management follow-up for this client."}
       />
 
       <CommentsPanel

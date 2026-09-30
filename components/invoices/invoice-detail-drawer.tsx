@@ -2,12 +2,14 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Download, Eye, History, Link2, Trash2 } from "lucide-react";
+import { BellRing, Download, Eye, History, Link2, LockKeyhole, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 
-import { deleteInvoiceAction } from "@/app/(app)/finance/invoices/actions";
+import { approveInvoiceAction, deleteInvoiceAction, remindInvoiceApproversAction, requestInvoiceChangesAction, revokeInvoiceApprovalAction } from "@/app/(app)/finance/invoices/actions";
+import { useI18n } from "@/components/layout/i18n-provider";
 import { CommentsPanel } from "@/components/comments/comments-panel";
 import { SendInvoiceEmailForm } from "@/components/invoices/send-invoice-email-form";
 import { InvoicePaymentSummary } from "@/components/invoices/invoice-payment-summary";
+import { InvoiceApprovalTimeline } from "@/components/invoices/invoice-approval-timeline";
 import { InvoiceStatusBadge } from "@/components/invoices/invoice-status-badge";
 import { ReceiptBadge } from "@/components/invoices/receipt-badge";
 import { ReceiptForm } from "@/components/invoices/receipt-form";
@@ -17,6 +19,7 @@ import { ConfirmActionForm } from "@/components/shared/confirm-action-form";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { formatFinanceCurrency } from "@/lib/finance/helpers";
 import { formatDate } from "@/lib/projects/helpers";
 import type { AppRole } from "@/types/auth";
@@ -45,6 +48,10 @@ export function InvoiceDetailDrawer({
   mentionCandidates?: MentionCandidate[];
   returnPath?: string;
 }) {
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
+  const isApproved = invoice.approval_status === "approved";
+  const revisionRequest = getActiveRevisionRequest(invoice);
   const summary = {
     totalPaid: invoice.totalPaid,
     remainingBalance: invoice.remainingBalance,
@@ -67,7 +74,46 @@ export function InvoiceDetailDrawer({
             <div className="flex flex-wrap gap-2">
               <InvoiceStatusBadge status={invoice.paymentStatus} />
               <ReceiptBadge count={invoice.receipts.length} />
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${isApproved ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100" : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100"}`}>
+                {isApproved ? <ShieldCheck className="size-3.5" /> : <LockKeyhole className="size-3.5" />}
+                {isApproved ? (isFr ? "Validée" : "Approved") : (isFr ? "En attente de validation" : "Awaiting approval")}
+              </span>
             </div>
+
+            {isApproved && role === "admin" ? <form action={revokeInvoiceApprovalAction} className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100">
+              <p className="text-sm font-semibold">{isFr ? "Retirer une validation accordée" : "Revoke an approval"}</p>
+              <input type="hidden" name="invoice_id" value={invoice.id} />
+              <input type="hidden" name="return_path" value={returnPath} />
+              <Textarea name="reason" required minLength={5} placeholder={isFr ? "Motif du retrait…" : "Reason for revocation…"} className="min-h-20 bg-white/80 dark:bg-black/15" />
+              <Button type="submit" variant="secondary" className="rounded-full"><RotateCcw className="size-4" />{isFr ? "Retirer la validation" : "Revoke approval"}</Button>
+            </form> : null}
+
+            {!isApproved ? <div className={`rounded-2xl border p-4 text-sm ${revisionRequest ? "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-100" : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100"}`}>
+              <p className="font-semibold">{revisionRequest ? (isFr ? "Corrections demandées" : "Changes requested") : (isFr ? "Diffusion verrouillée" : "Delivery locked")}</p>
+              <p className="mt-1 opacity-80">{revisionRequest ?? (isFr ? "Le PDF ne peut être ni ouvert, ni téléchargé, ni envoyé avant la validation d’un administrateur." : "The PDF cannot be opened, downloaded, or sent until an administrator approves it.")}</p>
+              {role === "admin" ? <div className="mt-3 space-y-3">
+                <ConfirmActionForm
+                  action={approveInvoiceAction}
+                  fields={{ invoice_id: invoice.id, return_path: returnPath }}
+                  title={isFr ? "Confirmer la validation" : "Confirm approval"}
+                  description={isFr ? `${invoice.invoice_number} · ${invoice.client?.name ?? "Client non renseigné"} · ${formatFinanceCurrency(invoice.amount_ttc, invoice.currency)}. Après confirmation, la facture pourra être téléchargée et envoyée.` : `${invoice.invoice_number} · ${invoice.client?.name ?? "No client"} · ${formatFinanceCurrency(invoice.amount_ttc, invoice.currency)}. After confirmation, the invoice can be downloaded and sent.`}
+                  confirmLabel={isFr ? "Confirmer la validation" : "Confirm approval"}
+                  cancelLabel={isFr ? "Annuler" : "Cancel"}
+                  tone="success"
+                  trigger={<Button type="button" className="rounded-full px-4"><ShieldCheck className="size-4" />{isFr ? "Valider la facture" : "Approve invoice"}</Button>}
+                />
+                <form action={requestInvoiceChangesAction} className="space-y-2 rounded-xl border border-current/15 bg-white/60 p-3 dark:bg-black/10">
+                  <input type="hidden" name="invoice_id" value={invoice.id} />
+                  <input type="hidden" name="return_path" value={returnPath} />
+                  <Textarea name="reason" required minLength={5} placeholder={isFr ? "Corrections à effectuer…" : "Changes to make…"} className="min-h-20 bg-white/80 dark:bg-black/15" />
+                  <Button type="submit" variant="secondary" className="rounded-full"><RotateCcw className="size-4" />{isFr ? "Demander des corrections" : "Request changes"}</Button>
+                </form>
+              </div> : canManage && !revisionRequest ? <form action={remindInvoiceApproversAction} className="mt-3">
+                <input type="hidden" name="invoice_id" value={invoice.id} />
+                <input type="hidden" name="return_path" value={returnPath} />
+                <Button type="submit" variant="secondary" className="rounded-full"><BellRing className="size-4" />{isFr ? "Relancer les administrateurs" : "Remind administrators"}</Button>
+              </form> : null}
+            </div> : null}
 
             <div className="flex flex-wrap gap-2">
               <Button asChild variant="secondary" className="rounded-full px-4">
@@ -76,19 +122,19 @@ export function InvoiceDetailDrawer({
                   Preview invoice
                 </Link>
               </Button>
-              <Button asChild variant="secondary" className="rounded-full px-4">
+              {isApproved ? <Button asChild variant="secondary" className="rounded-full px-4">
                 <a href={`/api/invoices/${invoice.id}/pdf`} target="_blank" rel="noreferrer">
                   <Eye className="size-4" />
                   Open PDF
                 </a>
-              </Button>
-              <Button asChild variant="secondary" className="rounded-full px-4">
+              </Button> : null}
+              {isApproved ? <Button asChild variant="secondary" className="rounded-full px-4">
                 <a href={`/api/invoices/${invoice.id}/pdf?download=1`} target="_blank" rel="noreferrer">
                   <Download className="size-4" />
                   Download PDF
                 </a>
-              </Button>
-              {canManage ? (
+              </Button> : null}
+              {canManage && isApproved ? (
                 <SendInvoiceEmailForm
                   invoiceId={invoice.id}
                   invoiceNumber={invoice.invoice_number}
@@ -99,6 +145,7 @@ export function InvoiceDetailDrawer({
             </div>
 
             <InvoicePaymentSummary summary={summary} currency={invoice.currency} />
+            <InvoiceApprovalTimeline invoice={invoice} locale={locale} />
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Metric label="Client" value={invoice.client?.name ?? "Not linked"} detail={invoice.client?.contact_email ?? "No client contact"} />
@@ -203,6 +250,7 @@ export function InvoiceDetailDrawer({
                   mode="edit"
                   filterData={filterData}
                   returnPath={returnPath}
+                  resetsApproval={invoice.approval_status === "approved"}
                   defaults={{
                     invoice_id: invoice.id,
                     invoice_number: invoice.invoice_number,
@@ -219,7 +267,7 @@ export function InvoiceDetailDrawer({
                     notes: invoice.notes ?? "",
                   }}
                 />
-                <ConfirmActionForm
+                {invoice.approval_status !== "approved" || role === "admin" ? <ConfirmActionForm
                   action={deleteInvoiceAction}
                   fields={{ invoice_id: invoice.id, return_path: returnPath }}
                   title="Delete invoice?"
@@ -231,7 +279,7 @@ export function InvoiceDetailDrawer({
                       Delete invoice
                     </Button>
                   )}
-                />
+                /> : null}
               </div>
             ) : null}
 
@@ -276,6 +324,12 @@ export function InvoiceDetailDrawer({
       </DialogContent>
     </Dialog>
   );
+}
+
+function getActiveRevisionRequest(invoice: Pick<InvoiceRecord, "updated_at" | "recentActivity">) {
+  const request = invoice.recentActivity.find((activity) => activity.action === "Invoice changes requested");
+  if (!request || new Date(request.created_at).getTime() <= new Date(invoice.updated_at).getTime()) return null;
+  return request.metadata.summary || "Des corrections sont nécessaires avant la validation.";
 }
 
 function Metric({ label, value, detail }: { label: string; value: string; detail: string }) {

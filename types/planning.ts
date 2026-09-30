@@ -25,3 +25,9 @@ export type PlanningSummary = {
   overdueCount: number;
   unscheduledCount: number;
 };
+
+export type PlanningActualTime = {
+  user_id: string;
+  work_date: string;
+  duration_minutes: number;
+};

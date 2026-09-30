@@ -73,12 +73,14 @@ export function InvoiceForm({
   defaults,
   triggerLabel,
   returnPath,
+  resetsApproval = false,
 }: {
   mode: "create" | "edit";
   filterData: InvoiceFiltersData;
   defaults?: Partial<InvoiceFormValues> & { invoice_id?: string };
   triggerLabel?: string;
   returnPath?: string;
+  resetsApproval?: boolean;
 }) {
   const { locale, t } = useI18n();
   const isFr = locale === "fr";
@@ -169,6 +171,13 @@ export function InvoiceForm({
                 {t("finance.invoiceForm.description", "Build a clean billing record for incoming client revenue, keep the status visible, and attach any proof file directly.")}
               </DialogDescription>
             </DialogHeader>
+
+            {mode === "edit" && resetsApproval ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100">
+                <p className="font-semibold">{isFr ? "Cette facture est actuellement validée" : "This invoice is currently approved"}</p>
+                <p className="mt-1 opacity-80">{isFr ? "L’enregistrement d’une modification retirera automatiquement la validation et rebloquera le téléchargement ainsi que l’envoi." : "Saving any change will automatically remove approval and lock download and delivery again."}</p>
+              </div>
+            ) : null}
 
             <form
               action={formAction}

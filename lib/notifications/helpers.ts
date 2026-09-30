@@ -13,13 +13,15 @@ export function getNotificationLink(entityType: NotificationEntityType, entityId
     case "document":
       return `/documents`;
     case "invoice":
-      return `/finance/invoices`;
+      return `/finance/invoices/${entityId}/preview`;
     case "payment":
       return `/finance/payments`;
     case "transfer":
       return `/finance/transfers`;
     case "milestone":
       return "/roadmap";
+    case "timesheet":
+      return "/timesheet";
     default:
       return "/overview";
   }

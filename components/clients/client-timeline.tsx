@@ -21,9 +21,11 @@ function groupByDate(items: ClientTimelineItem[]) {
 export function ClientTimeline({
   items,
   description,
+  isFr = false,
 }: {
   items: ClientTimelineItem[];
   description: string;
+  isFr?: boolean;
 }) {
   const groups = groupByDate(items);
 
@@ -32,7 +34,7 @@ export function ClientTimeline({
       <CardHeader>
         <div className="flex items-center gap-2">
           <CalendarClock className="size-4 text-primary" />
-          <CardTitle>Client timeline</CardTitle>
+          <CardTitle>{isFr ? "Historique du client" : "Client timeline"}</CardTitle>
         </div>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
@@ -45,14 +47,14 @@ export function ClientTimeline({
               </div>
               <div className="space-y-3">
                 {group.map((item) => (
-                  <ClientTimelineItemView key={item.id} item={item} />
+                  <ClientTimelineItemView key={item.id} item={item} isFr={isFr} />
                 ))}
               </div>
             </div>
           ))
         ) : (
           <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-            No client timeline events match the current filter.
+            {isFr ? "Aucun événement ne correspond au filtre sélectionné." : "No client timeline events match the current filter."}
           </div>
         )}
       </CardContent>

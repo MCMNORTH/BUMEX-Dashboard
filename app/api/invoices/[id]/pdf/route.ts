@@ -30,6 +30,13 @@ export async function GET(
     return new NextResponse("Not found", { status: 404 });
   }
 
+  if (invoice.approval_status !== "approved") {
+    return new NextResponse(
+      locale === "fr" ? "Cette facture attend la validation d’un administrateur." : "This invoice is awaiting administrator approval.",
+      { status: 403 },
+    );
+  }
+
   const pdfBytes = await generateInvoicePdf(invoice, locale);
   const url = new URL(request.url);
   const download = url.searchParams.get("download") === "1";

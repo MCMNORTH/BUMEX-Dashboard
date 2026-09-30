@@ -20,7 +20,7 @@ export function TeamFilters({
   const isFr = locale === "fr";
 
   return (
-    <form className="grid gap-3 rounded-[30px] border border-border/70 bg-card/72 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl xl:grid-cols-[1.7fr_repeat(2,minmax(0,1fr))_auto] dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
+    <form className="grid gap-3 rounded-[30px] border border-border/70 bg-card/72 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl xl:grid-cols-[1.4fr_repeat(5,minmax(0,1fr))_auto] dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
       <div className="relative">
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -52,6 +52,47 @@ export function TeamFilters({
         options={[
           { value: "", label: isFr ? "Toutes les équipes" : "All teams" },
           ...filterData.teams.map((team) => ({ value: team.id, label: team.name })),
+        ]}
+      />
+
+      <ModernSelect
+        name="availability"
+        defaultValue={filters.availability ?? ""}
+        placeholder={isFr ? "Toute disponibilité" : "Any availability"}
+        options={[
+          { value: "", label: isFr ? "Toute disponibilité" : "Any availability" },
+          { value: "available", label: isFr ? "Disponible" : "Available" },
+          { value: "busy", label: isFr ? "Occupé" : "Busy" },
+          { value: "overloaded", label: isFr ? "Surchargé" : "Overloaded" },
+          { value: "away", label: isFr ? "Absent" : "Away" },
+          { value: "inactive", label: isFr ? "Inactif" : "Inactive" },
+        ]}
+      />
+
+      <ModernSelect
+        name="workload"
+        defaultValue={filters.workload ?? ""}
+        placeholder={isFr ? "Toute charge" : "Any workload"}
+        options={[
+          { value: "", label: isFr ? "Toute charge" : "Any workload" },
+          { value: "light", label: isFr ? "Charge légère" : "Light workload" },
+          { value: "balanced", label: isFr ? "Charge équilibrée" : "Balanced workload" },
+          { value: "high", label: isFr ? "Charge élevée" : "High workload" },
+          { value: "critical", label: isFr ? "Charge critique" : "Critical workload" },
+        ]}
+      />
+
+      <ModernSelect
+        name="assignment"
+        defaultValue={filters.assignment ?? ""}
+        placeholder={isFr ? "Tout état" : "Any state"}
+        options={[
+          { value: "", label: isFr ? "Tout état d’affectation" : "Any assignment state" },
+          { value: "available", label: isFr ? "Prêt pour une mission" : "Ready for work" },
+          { value: "engaged", label: isFr ? "En livraison" : "In delivery" },
+          { value: "steady", label: isFr ? "En rythme" : "In flow" },
+          { value: "loaded", label: isFr ? "Chargé" : "Loaded" },
+          { value: "attention", label: isFr ? "À surveiller" : "Needs attention" },
         ]}
       />
 

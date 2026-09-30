@@ -3,7 +3,7 @@ import { AlertTriangle, CalendarDays, Clock3, FolderKanban } from "lucide-react"
 import { PlanningRiskPanel } from "@/components/alerts/planning-risk-panel";
 import { requireRouteAccess } from "@/lib/auth/server";
 import { getPlanningAlerts } from "@/lib/alerts/service";
-import { getPlanningSummary, getUpcomingDeadlines, getWeeklyTasks, getOverdueTasks, getTeamWorkloadPreview } from "@/lib/planning/service";
+import { getPlanningActualTime, getPlanningSummary, getUpcomingDeadlines, getWeeklyTasks, getOverdueTasks, getTeamWorkloadPreview } from "@/lib/planning/service";
 import { formatDateKey, getWeekStart } from "@/lib/planning/helpers";
 import { formatNumber } from "@/lib/formatters";
 import { getCurrentLocale } from "@/lib/i18n/server";
@@ -18,6 +18,7 @@ import { PlanningFilters } from "@/components/planning/planning-filters";
 import { WeeklyPlanningBoard } from "@/components/planning/weekly-planning-board";
 import { OverdueTasksPanel } from "@/components/planning/overdue-tasks-panel";
 import { PlanningTaskCard } from "@/components/planning/planning-task-card";
+import { TeamCapacityPlanner } from "@/components/planning/team-capacity-planner";
 import { TicketWorkloadPreview } from "@/components/tickets/ticket-workload-preview";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +38,7 @@ export default async function PlanningPage({
   const auth = await requireRouteAccess("planning");
   const params = (await searchParams) ?? {};
   const week = getString(params.week) ?? formatDateKey(getWeekStart());
+  const planningView = (["day", "week", "month"] as const).includes(getString(params.view) as "day" | "week" | "month") ? getString(params.view) as "day" | "week" | "month" : "day";
   const filters: PlanningFiltersType = {
     assigneeId: getString(params.assignee) ?? "",
     projectId: getString(params.project) ?? "",
@@ -44,22 +46,56 @@ export default async function PlanningPage({
     status: (getString(params.status) as PlanningFiltersType["status"]) ?? "",
     type: (getString(params.type) as PlanningFiltersType["type"]) ?? "",
   };
+  const acrossEntities = auth.role === "admin";
 
-  const [weeklyTasks, overdueTasks, filterData, alerts, workloadDetail, availableMembers, overloadedMembers] = await Promise.all([
-    getWeeklyTasks(auth.role, week, filters),
+  const [weeklyTasks, overdueTasks, filterData, alerts, workloadDetail, availableMembers, overloadedMembers, actualTime] = await Promise.all([
+    getWeeklyTasks(auth.role, week, filters, acrossEntities),
     getOverdueTasks(auth.role, filters),
     getTicketsFilterData(),
     getPlanningAlerts(auth.role, auth.profile.id),
-    auth.role === "shareholder" ? Promise.resolve([]) : getTeamWorkload(auth.role, auth.profile.id),
+    auth.role === "shareholder" ? Promise.resolve([]) : getTeamWorkload(auth.role, auth.profile.id, acrossEntities),
     auth.role === "shareholder" ? Promise.resolve([]) : getAvailableTeamMembers(auth.role, auth.profile.id),
     auth.role === "shareholder" ? Promise.resolve([]) : getOverloadedTeamMembers(auth.role, auth.profile.id),
+    auth.role === "shareholder" ? Promise.resolve([]) : getPlanningActualTime(week),
   ]);
 
   const summary = getPlanningSummary(weeklyTasks);
   const upcomingDeadlines = getUpcomingDeadlines(weeklyTasks.visibleTickets);
   const workload = getTeamWorkloadPreview(weeklyTasks.visibleTickets);
   const summaryMode = auth.role === "shareholder";
+  const employeeMode = auth.role === "employee";
   const canDrag = auth.role !== "shareholder";
+
+  if (auth.role !== "shareholder") {
+    const canSeeTeam = auth.role === "admin" || auth.role === "manager";
+    const visibleMembers = canSeeTeam
+      ? workloadDetail
+      : workloadDetail.filter((member) => member.id === auth.profile.id);
+    const visiblePlanningTickets = canSeeTeam
+      ? weeklyTasks.visibleTickets
+      : weeklyTasks.visibleTickets.filter((ticket) => ticket.assignee_id === auth.profile.id);
+    const planningProjects = Array.from(
+      new Map(
+        visiblePlanningTickets
+          .filter((ticket) => ticket.project)
+          .map((ticket) => [ticket.project_id, { id: ticket.project_id, name: ticket.project!.name }]),
+      ).values(),
+    ).sort((left, right) => left.name.localeCompare(right.name));
+
+    return (
+      <TeamCapacityPlanner
+        members={visibleMembers}
+        tickets={visiblePlanningTickets}
+        projects={canSeeTeam ? planningProjects : filterData.projects.map((project) => ({ id: project.id, name: project.name }))}
+        anchor={week}
+        locale={locale}
+        companyWide={auth.role === "admin"}
+        initialZoom={planningView}
+        actualTime={actualTime}
+        teamMode={canSeeTeam}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -71,7 +107,7 @@ export default async function PlanningPage({
               ? isFr
                 ? "Une visibilité hebdomadaire de haut niveau sur l'espace de travail opérationnel."
                 : "High-level weekly planning visibility across the operational workspace."
-              : auth.role === "employee"
+              : employeeMode
                 ? isFr
                   ? "Un plan hebdomadaire structuré pour votre travail opérationnel assigné."
                   : "A structured weekly plan for your assigned operational work."
@@ -84,7 +120,7 @@ export default async function PlanningPage({
               ? isFr
                 ? "Résumé hebdomadaire uniquement. Le détail interne des tâches est volontairement masqué en mode actionnaire."
                 : "Weekly summary only. Internal task detail is intentionally hidden in shareholder mode."
-              : auth.role === "employee"
+              : employeeMode
                 ? isFr
                   ? "Organisez le travail à échéance par jour, identifiez la pression des délais et replanifiez vos tickets directement depuis le tableau."
                   : "Organize due work by day, identify deadline pressure, and reschedule your assigned tickets directly from the planning board."

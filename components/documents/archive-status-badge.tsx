@@ -1,8 +1,12 @@
+"use client";
+
 import { Archive, LibraryBig } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/components/layout/i18n-provider";
 
 export function ArchiveStatusBadge({ isArchived }: { isArchived: boolean }) {
+  const { locale } = useI18n();
   return (
     <Badge
       variant="outline"
@@ -13,7 +17,7 @@ export function ArchiveStatusBadge({ isArchived }: { isArchived: boolean }) {
       }`}
     >
       {isArchived ? <Archive className="mr-1.5 size-3.5" /> : <LibraryBig className="mr-1.5 size-3.5" />}
-      {isArchived ? "Archived" : "Active"}
+      {isArchived ? (locale === "fr" ? "Archivé" : "Archived") : (locale === "fr" ? "Actif" : "Active")}
     </Badge>
   );
 }

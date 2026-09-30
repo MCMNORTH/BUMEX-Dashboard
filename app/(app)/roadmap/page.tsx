@@ -49,9 +49,17 @@ export default async function RoadmapPage({
   const summaryMode = auth.role === "shareholder";
   const canManage = auth.role === "admin" || isManagerLikeRole(auth.role);
   const summary = getRoadmapSummary(projects);
-  const visibleMilestones = projects
-    .flatMap((project) => project.milestones)
+  const today = new Date().toISOString().slice(0, 10);
+  const visibleMilestones = projects.flatMap((project) => project.milestones);
+  const upcomingMilestones = projects
+    .flatMap((project) => project.milestones.map((milestone) => ({ ...milestone, projectId: project.id, projectName: project.name })))
+    .filter((milestone) => milestone.due_date >= today && milestone.status !== "completed" && milestone.status !== "cancelled" && milestone.status !== "delayed")
     .sort((left, right) => new Date(left.due_date).getTime() - new Date(right.due_date).getTime());
+  const delayedMilestones = projects
+    .flatMap((project) => project.milestones.map((milestone) => ({ ...milestone, projectId: project.id, projectName: project.name })))
+    .filter((milestone) => milestone.status === "delayed" || (milestone.due_date < today && milestone.status !== "completed" && milestone.status !== "cancelled"))
+    .sort((left, right) => left.due_date.localeCompare(right.due_date))
+    .slice(0, 4);
   const milestoneActivity = summaryMode
     ? []
     : await getMilestoneActivity(visibleMilestones.map((milestone) => milestone.id), 12);
@@ -68,6 +76,13 @@ export default async function RoadmapPage({
   const nextHref = `/roadmap?${new URLSearchParams({ ...Object.fromEntries(baseSearch.entries()), period: shiftRoadmapStart(view, period, 1) }).toString()}`;
   const todayHref = `/roadmap?${new URLSearchParams({ ...Object.fromEntries(baseSearch.entries()), period: new Date().toISOString().slice(0, 10) }).toString()}`;
   const returnTo = `/roadmap?${new URLSearchParams({ ...Object.fromEntries(baseSearch.entries()), period }).toString()}`;
+  const summaryFilterHref = (status?: RoadmapFiltersType["status"]) => {
+    const search = new URLSearchParams(baseSearch);
+    search.set("period", period);
+    if (status) search.set("status", status);
+    else search.delete("status");
+    return `/roadmap?${search.toString()}`;
+  };
 
   return (
     <div className="space-y-6">
@@ -122,27 +137,32 @@ export default async function RoadmapPage({
             label: isFr ? "Projets visibles" : "Visible projects",
             value: formatNumber(summary.visibleProjects),
             detail: isFr ? "Projets inclus dans le périmètre de la roadmap" : "Projects inside the current roadmap scope",
+            href: summaryFilterHref(),
           },
           {
             icon: Flag,
             label: isFr ? "Jalons ouverts" : "Open milestones",
             value: formatNumber(summary.openMilestones),
             detail: isFr ? "Points de contrôle planifiés ou en cours" : "Planned and in-flight checkpoints",
+            href: summaryFilterHref("open"),
           },
           {
             icon: AlertTriangle,
             label: isFr ? "Jalons en retard" : "Delayed milestones",
             value: formatNumber(summary.delayedMilestones),
             detail: isFr ? "Jalons déjà signalés en retard" : "Delivery points already marked as delayed",
+            href: summaryFilterHref("delayed"),
           },
           {
             icon: CalendarRange,
             label: isFr ? "Terminés" : "Completed",
             value: formatNumber(summary.completedMilestones),
             detail: isFr ? "Jalons déjà livrés dans le périmètre" : "Milestones already delivered in scope",
+            href: summaryFilterHref("completed"),
           },
-        ].map(({ icon: Icon, label, value, detail }) => (
-          <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
+        ].map(({ icon: Icon, label, value, detail, href }) => (
+          <Link key={label} href={href} aria-label={`${label}: ${value}`} className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Card className="surface-highlight relative h-full overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl transition group-hover:-translate-y-0.5 group-hover:border-blue-300 group-hover:shadow-lg dark:group-hover:border-blue-500/30">
             <CardContent className="px-5 py-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -156,8 +176,14 @@ export default async function RoadmapPage({
               </div>
             </CardContent>
           </Card>
+          </Link>
         ))}
       </div>
+
+      {!summaryMode && delayedMilestones.length ? <section className="overflow-hidden rounded-[26px] border border-rose-200 bg-gradient-to-r from-rose-50 via-orange-50/60 to-card shadow-[0_24px_70px_-52px_rgba(225,29,72,.55)] dark:border-rose-500/20 dark:from-rose-950/20 dark:via-orange-950/10 dark:to-card" aria-labelledby="roadmap-delay-title">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-200/70 px-5 py-4 dark:border-rose-500/15"><div><p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-rose-700 dark:text-rose-300"><AlertTriangle className="size-3.5" />{isFr ? "Action requise" : "Action required"}</p><h2 id="roadmap-delay-title" className="mt-1 text-lg font-semibold">{isFr ? "Jalons à rattraper" : "Milestones to recover"}</h2><p className="mt-1 text-xs text-muted-foreground">{isFr ? "Jalons déclarés en retard ou dépassés sans clôture." : "Milestones marked delayed or past due without completion."}</p></div><Badge variant="secondary" className="rounded-full px-3 py-1">{delayedMilestones.length} {isFr ? "priorité(s)" : "priority item(s)"}</Badge></div>
+        <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">{delayedMilestones.map((milestone) => <Link key={milestone.id} href={`/projects/${milestone.projectId}`} className="group rounded-2xl border border-rose-200/80 bg-white/75 p-4 transition hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-rose-500/20 dark:bg-background/45"><div className="flex items-start justify-between gap-3"><span className="rounded-full bg-rose-500/10 px-2.5 py-1 text-[10px] font-semibold text-rose-700 dark:text-rose-300">{formatRoadmapDate(milestone.due_date)}</span><ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></div><p className="mt-3 line-clamp-2 text-sm font-semibold">{milestone.title}</p><p className="mt-2 truncate text-xs text-muted-foreground">{milestone.projectName}{milestone.owner ? ` · ${milestone.owner.full_name}` : ` · ${isFr ? "Sans responsable" : "Unassigned"}`}</p></Link>)}</div>
+      </section> : null}
 
       <RoadmapTimeline
         projects={projects}
@@ -177,12 +203,13 @@ export default async function RoadmapPage({
               <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Jalons à venir" : "Upcoming milestones"}</p>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Points de contrôle proches" : "Near-term checkpoints"}</h3>
             </div>
-            {visibleMilestones.length ? (
-              visibleMilestones.slice(0, 6).map((milestone) => (
-                <div key={milestone.id} className="rounded-[22px] border border-border/65 bg-background/38 p-4">
+            {upcomingMilestones.length ? (
+              upcomingMilestones.slice(0, 6).map((milestone) => (
+                <Link key={milestone.id} href={`/projects/${milestone.projectId}`} className="group block rounded-[22px] border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-blue-500/30 dark:hover:bg-blue-500/5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-medium">{milestone.title}</p>
+                      <p className="flex items-center gap-2 text-sm font-medium">{milestone.title}<ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
+                      <p className="mt-1 text-xs text-muted-foreground">{milestone.projectName}</p>
                       {!summaryMode && milestone.owner ? (
                         <p className="mt-1 text-xs text-muted-foreground">{milestone.owner.full_name}</p>
                       ) : null}
@@ -190,7 +217,7 @@ export default async function RoadmapPage({
                     <MilestoneStatusBadge status={milestone.status} />
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">{formatRoadmapDate(milestone.due_date)}</p>
-                </div>
+                </Link>
               ))
             ) : (
               <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
@@ -212,17 +239,17 @@ export default async function RoadmapPage({
                 .sort((left, right) => right.delayedMilestones - left.delayedMilestones || right.openMilestones - left.openMilestones)
                 .slice(0, 5)
                 .map((project) => (
-                  <div key={project.id} className="rounded-[22px] border border-border/65 bg-background/38 p-4">
+                  <Link key={project.id} href={`/projects/${project.id}`} className="group block rounded-[22px] border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-violet-300 hover:bg-violet-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-violet-500/30 dark:hover:bg-violet-500/5">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm font-medium">{project.name}</p>
+                        <p className="flex items-center gap-2 text-sm font-medium">{project.name}<ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
                         <p className="mt-1 text-xs text-muted-foreground">
                           {project.client?.name ?? (isFr ? "Interne" : "Internal")} / {project.nextMilestone ? `${isFr ? "Suivant :" : "Next:"} ${project.nextMilestone.title}` : (isFr ? "Aucun jalon en attente" : "No pending milestone")}
                         </p>
                       </div>
                       <ProjectHealthBadge health={project.health} />
                     </div>
-                  </div>
+                  </Link>
                 ))
             ) : (
               <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">

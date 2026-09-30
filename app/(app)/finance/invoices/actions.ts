@@ -9,10 +9,11 @@ import { getClientById } from "@/lib/clients/service";
 import { createDocument } from "@/lib/documents/service";
 import { sendInvoiceToRecipient, ensureInvoicePdfDocument } from "@/lib/finance/invoice-delivery";
 import { buildInvoiceNotes } from "@/lib/finance/invoice-metadata";
-import { createInvoice, createReceipt, deleteInvoice, getInvoiceById, updateInvoice } from "@/lib/finance/service";
+import { approveInvoice, createInvoice, createReceipt, deleteInvoice, getInvoiceById, revokeInvoiceApproval, updateInvoice } from "@/lib/finance/service";
 import { isSmtpConfigured } from "@/lib/email/server";
 import { parseFormattedNumber } from "@/lib/formatters";
 import { getProjectById } from "@/lib/projects/service";
+import { createScopedNotifications, getMentionCandidates } from "@/lib/notifications/service";
 import type { AppRole } from "@/types/auth";
 import type {
   InvoiceFormValues,
@@ -148,20 +149,9 @@ async function runInvoiceSideEffects(options: {
   invoiceId: string;
   invoiceValues: InvoiceFormValues;
   actorUserId: string;
-  actorRole: AppRole;
   supportingFile: File | null;
 }) {
   const warnings: string[] = [];
-
-  try {
-    const invoice = await getInvoiceById(options.invoiceId, options.actorRole);
-    if (invoice) {
-      await ensureInvoicePdfDocument(invoice, options.actorUserId);
-    }
-  } catch (error) {
-    warnings.push("invoice-pdf");
-    console.error("Invoice PDF generation failed after save.", error);
-  }
 
   try {
     await attachInvoiceSupportingDocument(
@@ -190,6 +180,33 @@ async function runInvoiceSideEffects(options: {
     } catch (loggingError) {
       console.error("Invoice warning activity log failed.", loggingError);
     }
+  }
+}
+
+async function notifyAdminsForInvoiceApproval(options: {
+  invoiceId: string;
+  invoiceNumber?: string;
+  creatorName: string;
+  actorUserId: string;
+  isRevision?: boolean;
+}) {
+  try {
+    const admins = (await getMentionCandidates()).filter((candidate) => candidate.role === "admin");
+    const invoiceLabel = options.invoiceNumber?.trim() || "Nouvelle facture";
+
+    await createScopedNotifications({
+      userIds: admins.map((admin) => admin.id),
+      type: "status_change",
+      title: options.isRevision ? "Facture modifiée à revalider" : "Facture à valider",
+      body: options.isRevision
+        ? `${invoiceLabel} a été modifiée par ${options.creatorName}. Une nouvelle validation est requise avant son envoi.`
+        : `${invoiceLabel} a été créée par ${options.creatorName} et attend votre validation avant son envoi.`,
+      entityType: "invoice",
+      entityId: options.invoiceId,
+      skipUserId: options.actorUserId,
+    });
+  } catch (error) {
+    console.error("[invoice:approval-notification] failed", error);
   }
 }
 
@@ -330,8 +347,13 @@ export async function createInvoiceAction(
       invoiceId,
       invoiceValues: values,
       actorUserId: auth.profile.id,
-      actorRole: auth.role,
       supportingFile,
+    });
+    await notifyAdminsForInvoiceApproval({
+      invoiceId,
+      invoiceNumber: values.invoice_number,
+      creatorName: auth.profile.full_name,
+      actorUserId: auth.profile.id,
     });
     revalidatePath("/documents");
     revalidatePath("/finance");
@@ -387,8 +409,14 @@ export async function updateInvoiceAction(
     invoiceId,
     invoiceValues: values,
     actorUserId: auth.profile.id,
-    actorRole: auth.role,
     supportingFile,
+  });
+  await notifyAdminsForInvoiceApproval({
+    invoiceId,
+    invoiceNumber: values.invoice_number,
+    creatorName: auth.profile.full_name,
+    actorUserId: auth.profile.id,
+    isRevision: true,
   });
   revalidatePath("/documents");
   revalidatePath("/finance");
@@ -414,6 +442,10 @@ export async function deleteInvoiceAction(formData: FormData) {
 
   if (!invoice) {
     redirect(`${returnPath}?toast=invoice-delete-error`);
+  }
+
+  if (invoice.approval_status === "approved" && auth.role !== "admin") {
+    redirect(`${returnPath}?toast=invoice-delete-approved-error`);
   }
 
   if (!(await canManageScope(auth.role, auth.profile.id, invoice.client_id, invoice.project_id))) {
@@ -480,6 +512,10 @@ export async function sendInvoiceEmailAction(
     return { error: "Invoice not found." };
   }
 
+  if (invoice.approval_status !== "approved") {
+    return { error: "Cette facture doit être validée par un administrateur avant son envoi." };
+  }
+
   if (!(await canManageScope(auth.role, auth.profile.id, invoice.client_id, invoice.project_id))) {
     return { error: "You do not have permission to send this invoice." };
   }
@@ -489,4 +525,155 @@ export async function sendInvoiceEmailAction(
   revalidatePath("/finance");
   revalidatePath("/finance/invoices");
   redirect(`${getFinanceReturnPath(formData)}?toast=invoice-sent`);
+}
+
+export async function approveInvoiceAction(formData: FormData) {
+  const auth = await requireIncomingFinanceOperationsAccess();
+  const invoiceId = getString(formData, "invoice_id");
+  const returnPath = getFinanceReturnPath(formData);
+
+  if (!invoiceId || auth.role !== "admin") {
+    redirect(`${returnPath}?toast=invoice-approval-error`);
+  }
+
+  const invoice = await getInvoiceById(invoiceId, auth.role);
+  if (!invoice) {
+    redirect(`${returnPath}?toast=invoice-approval-error`);
+  }
+
+  await approveInvoice(invoiceId, auth.profile.id);
+  const approvedInvoice = await getInvoiceById(invoiceId, auth.role);
+  if (approvedInvoice) {
+    await ensureInvoicePdfDocument(approvedInvoice, auth.profile.id);
+    await createScopedNotifications({
+      userIds: [approvedInvoice.created_by],
+      type: "status_change",
+      title: "Facture validée",
+      body: `${approvedInvoice.invoice_number} a été validée par ${auth.profile.full_name}. Elle peut maintenant être téléchargée et envoyée.`,
+      entityType: "invoice",
+      entityId: invoiceId,
+      skipUserId: auth.profile.id,
+    }).catch((error) => console.error("[invoice:approved-notification] failed", error));
+  }
+
+  revalidatePath("/documents");
+  revalidatePath("/finance");
+  revalidatePath("/finance/invoices");
+  revalidatePath(`/finance/invoices/${invoiceId}/preview`);
+  redirect(`${returnPath}?toast=invoice-approved`);
+}
+
+export async function requestInvoiceChangesAction(formData: FormData) {
+  const auth = await requireIncomingFinanceOperationsAccess();
+  const invoiceId = getString(formData, "invoice_id");
+  const reason = getString(formData, "reason");
+  const returnPath = getFinanceReturnPath(formData);
+
+  if (!invoiceId || auth.role !== "admin" || reason.length < 5) {
+    redirect(`${returnPath}?toast=invoice-changes-error`);
+  }
+
+  const invoice = await getInvoiceById(invoiceId, auth.role);
+  if (!invoice || invoice.approval_status === "approved") {
+    redirect(`${returnPath}?toast=invoice-changes-error`);
+  }
+
+  await logActivity({
+    userId: auth.profile.id,
+    action: "Invoice changes requested",
+    entityType: "invoice",
+    entityId: invoiceId,
+    metadata: {
+      kind: "status_change",
+      summary: reason,
+    },
+  });
+
+  await createScopedNotifications({
+    userIds: [invoice.created_by],
+    type: "status_change",
+    title: "Corrections demandées sur une facture",
+    body: `${invoice.invoice_number} doit être corrigée avant validation : ${reason}`,
+    entityType: "invoice",
+    entityId: invoiceId,
+    skipUserId: auth.profile.id,
+  }).catch((error) => console.error("[invoice:changes-notification] failed", error));
+
+  revalidatePath("/finance/invoices");
+  revalidatePath(`/finance/invoices/${invoiceId}/preview`);
+  redirect(`${returnPath}?toast=invoice-changes-requested`);
+}
+
+export async function remindInvoiceApproversAction(formData: FormData) {
+  const auth = await requireIncomingFinanceOperationsAccess();
+  const invoiceId = getString(formData, "invoice_id");
+  const returnPath = getFinanceReturnPath(formData);
+
+  if (!invoiceId) redirect(`${returnPath}?toast=invoice-reminder-error`);
+
+  const invoice = await getInvoiceById(invoiceId, auth.role);
+  if (!invoice || invoice.approval_status === "approved") redirect(`${returnPath}?toast=invoice-reminder-error`);
+  if (!(await canManageScope(auth.role, auth.profile.id, invoice.client_id, invoice.project_id))) {
+    redirect(`${returnPath}?toast=invoice-reminder-error`);
+  }
+
+  const lastReminder = invoice.recentActivity.find((activity) => activity.action === "Invoice approval reminder sent");
+  if (lastReminder && Date.now() - new Date(lastReminder.created_at).getTime() < 86_400_000) {
+    redirect(`${returnPath}?toast=invoice-reminder-limited`);
+  }
+
+  const admins = (await getMentionCandidates()).filter((candidate) => candidate.role === "admin");
+  await createScopedNotifications({
+    userIds: admins.map((admin) => admin.id),
+    type: "deadline",
+    title: "Rappel de validation de facture",
+    body: `${invoice.invoice_number} attend toujours une validation. Relance envoyée par ${auth.profile.full_name}.`,
+    entityType: "invoice",
+    entityId: invoiceId,
+    skipUserId: auth.profile.id,
+  });
+  await logActivity({
+    userId: auth.profile.id,
+    action: "Invoice approval reminder sent",
+    entityType: "invoice",
+    entityId: invoiceId,
+    metadata: { kind: "status_change", summary: "Les administrateurs ont été relancés pour la validation." },
+  });
+
+  revalidatePath("/finance/invoices");
+  revalidatePath(`/finance/invoices/${invoiceId}/preview`);
+  redirect(`${returnPath}?toast=invoice-reminder-sent`);
+}
+
+export async function revokeInvoiceApprovalAction(formData: FormData) {
+  const auth = await requireIncomingFinanceOperationsAccess();
+  const invoiceId = getString(formData, "invoice_id");
+  const reason = getString(formData, "reason");
+  const returnPath = getFinanceReturnPath(formData);
+
+  if (!invoiceId || auth.role !== "admin" || reason.length < 5) {
+    redirect(`${returnPath}?toast=invoice-revoke-error`);
+  }
+
+  const invoice = await getInvoiceById(invoiceId, auth.role);
+  if (!invoice || invoice.approval_status !== "approved") {
+    redirect(`${returnPath}?toast=invoice-revoke-error`);
+  }
+
+  await revokeInvoiceApproval(invoiceId, auth.profile.id, reason);
+  await createScopedNotifications({
+    userIds: [invoice.created_by],
+    type: "status_change",
+    title: "Validation de facture retirée",
+    body: `La validation de ${invoice.invoice_number} a été retirée par ${auth.profile.full_name} : ${reason}`,
+    entityType: "invoice",
+    entityId: invoiceId,
+    skipUserId: auth.profile.id,
+  }).catch((error) => console.error("[invoice:revoke-notification] failed", error));
+
+  revalidatePath("/documents");
+  revalidatePath("/finance");
+  revalidatePath("/finance/invoices");
+  revalidatePath(`/finance/invoices/${invoiceId}/preview`);
+  redirect(`${returnPath}?toast=invoice-revoked`);
 }

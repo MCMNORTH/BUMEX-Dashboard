@@ -8,6 +8,7 @@ import { ConfirmActionForm } from "@/components/shared/confirm-action-form";
 import { InvoiceDetailDrawer } from "@/components/invoices/invoice-detail-drawer";
 import { InvoiceForm } from "@/components/invoices/invoice-form";
 import { InvoiceStatusBadge } from "@/components/invoices/invoice-status-badge";
+import { InvoiceApprovalBadge } from "@/components/invoices/invoice-approval-badge";
 import { ReceiptBadge } from "@/components/invoices/receipt-badge";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/components/layout/i18n-provider";
@@ -47,6 +48,7 @@ function InvoiceTableComponent({
             <tr>
               <th className="px-5 py-4 font-medium">{isFr ? "Facture" : "Invoice"}</th>
               <th className="px-5 py-4 font-medium">{isFr ? "Statut" : "Status"}</th>
+              <th className="px-5 py-4 font-medium">{isFr ? "Validation" : "Approval"}</th>
               <th className="px-5 py-4 font-medium">Client</th>
               <th className="px-5 py-4 font-medium">{isFr ? "Échéance" : "Due date"}</th>
               <th className="px-5 py-4 font-medium">{isFr ? "Montant TTC" : "Gross amount"}</th>
@@ -63,6 +65,14 @@ function InvoiceTableComponent({
                   <p className="mt-1 text-xs text-muted-foreground">{invoice.project?.name ?? (isFr ? "Aucun projet lié" : "No linked project")}</p>
                 </td>
                 <td className="px-5 py-4"><InvoiceStatusBadge status={invoice.paymentStatus} /></td>
+                <td className="px-5 py-4">
+                  <InvoiceApprovalBadge status={invoice.approval_status} changesRequested={hasActiveRevisionRequest(invoice)} />
+                  {invoice.approval_status === "pending" ? (
+                    <p className={`mt-1.5 text-xs ${getWaitingDays(invoice.updated_at) >= 3 ? "font-semibold text-rose-600" : "text-muted-foreground"}`}>
+                      {isFr ? `En attente depuis ${getWaitingDays(invoice.updated_at)} j` : `Waiting for ${getWaitingDays(invoice.updated_at)}d`}
+                    </p>
+                  ) : null}
+                </td>
                 <td className="px-5 py-4">{invoice.client?.name ?? (isFr ? "Non lié" : "Not linked")}</td>
                 <td className="px-5 py-4">{formatDate(invoice.due_date)}</td>
                 <td className="px-5 py-4">{formatFinanceCurrency(invoice.amount_ttc, invoice.currency)}</td>
@@ -106,8 +116,9 @@ function InvoiceTableComponent({
                           }}
                           triggerLabel={isFr ? "Modifier" : "Edit"}
                           returnPath={returnPath}
+                          resetsApproval={invoice.approval_status === "approved"}
                         />
-                        <ConfirmActionForm
+                        {invoice.approval_status !== "approved" || role === "admin" ? <ConfirmActionForm
                           action={deleteInvoiceAction}
                           fields={{ invoice_id: invoice.id, return_path: returnPath }}
                           title={isFr ? "Supprimer la facture ?" : "Delete invoice?"}
@@ -118,7 +129,7 @@ function InvoiceTableComponent({
                               <Trash2 className="size-4" />
                             </Button>
                           )}
-                        />
+                        /> : null}
                       </>
                     ) : null}
                   </div>
@@ -133,3 +144,12 @@ function InvoiceTableComponent({
 }
 
 export const InvoiceTable = memo(InvoiceTableComponent);
+
+function getWaitingDays(value: string) {
+  return Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000));
+}
+
+function hasActiveRevisionRequest(invoice: Pick<InvoiceRecord, "updated_at" | "recentActivity">) {
+  const request = invoice.recentActivity.find((activity) => activity.action === "Invoice changes requested");
+  return Boolean(request && new Date(request.created_at).getTime() > new Date(invoice.updated_at).getTime());
+}

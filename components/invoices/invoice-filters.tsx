@@ -18,7 +18,7 @@ export function InvoiceFilters({
 }) {
   const { t } = useI18n();
   return (
-    <form className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none xl:grid-cols-[1.2fr_repeat(5,minmax(0,1fr))_auto]">
+    <form className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none xl:grid-cols-[1.2fr_repeat(6,minmax(0,1fr))_auto]">
       <div className="relative">
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input name="search" placeholder={t("finance.invoiceFilters.searchPlaceholder", "Search invoice number or notes")} defaultValue={filters.search ?? ""} className="pl-11" />
@@ -67,6 +67,18 @@ export function InvoiceFilters({
           { value: "overdue", label: t("finance.status.invoice.overdue", "Overdue") },
           { value: "cancelled", label: t("finance.status.invoice.cancelled", "Cancelled") },
           { value: "archived", label: t("finance.status.invoice.archived", "Archived") },
+        ]}
+      />
+
+      <ModernSelect
+        name="approval"
+        defaultValue={filters.approvalStatus ?? ""}
+        placeholder={t("finance.invoiceFilters.allApprovals", "All approvals")}
+        options={[
+          { value: "", label: t("finance.invoiceFilters.allApprovals", "All approvals") },
+          { value: "pending", label: t("finance.approval.pending", "Pending approval") },
+          { value: "changes_requested", label: t("finance.approval.changesRequested", "Changes requested") },
+          { value: "approved", label: t("finance.approval.approved", "Approved") },
         ]}
       />
 
