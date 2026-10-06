@@ -140,7 +140,7 @@ export function FinanceWorkspace({
       {workspaceActions ? <div className="flex justify-end">{workspaceActions}</div> : null}
 
       {loadWarnings.length ? (
-        <div className="rounded-xl border border-warning/25 bg-warning/90 px-5 py-4 text-sm text-warning shadow-[var(--shadow-soft)] dark:border-warning/20 dark:bg-warning/12 dark:shadow-none">
+        <div className="rounded-xl border border-warning/25 bg-warning/10 px-5 py-4 text-sm text-warning shadow-[var(--shadow-soft)] dark:border-warning/20 dark:bg-warning/12 dark:shadow-none">
           {isFr
             ? "Certaines données finance n'ont pas pu être chargées. La page reste accessible et vous pouvez continuer, mais quelques blocs peuvent incomplets."
             : "Some finance data could not be loaded. The page remains accessible and you can continue, but a few sections may incomplete."}
@@ -818,9 +818,9 @@ function OverviewCard({
   openLabel: string;
 }) {
   const toneClass = {
-    sky: "border-primary/25 bg-primary/80 text-primary dark:border-primary/20 dark:bg-primary/12",
-    amber: "border-warning/25 bg-warning/80 text-warning dark:border-warning/20 dark:bg-warning/12",
-    emerald: "border-success/25 bg-success/80 text-success dark:border-success/20 dark:bg-success/12",
+    sky: "border-primary/25 bg-primary/10 text-primary dark:border-primary/20 dark:bg-primary/12",
+    amber: "border-warning/25 bg-warning/10 text-warning dark:border-warning/20 dark:bg-warning/12",
+    emerald: "border-success/25 bg-success/10 text-success dark:border-success/20 dark:bg-success/12",
   }[tone];
 
   return (

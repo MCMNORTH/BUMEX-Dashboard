@@ -192,7 +192,7 @@ export default async function TicketDetailPage({
         </div>
       </div>
 
-      <Card className="bg-card overflow-hidden border-primary/80 dark:border-primary/20">
+      <Card className="bg-card overflow-hidden border-primary/25 dark:border-primary/20">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Clock3 className="size-4 text-primary" /><CardTitle>{tr("Aperçu du projet lié", "Linked project snapshot")}</CardTitle></div>{ticket.project ? <Button asChild size="sm"><Link href={`/projects/${ticket.project.id}`}>{tr("Ouvrir le projet", "Open project")}<ArrowRight className="size-4" /></Link></Button> : null}</div>
           <CardDescription>{tr("Contexte rapide du projet pour garder les décisions liées à la santé de livraison.", "Quick project context so ticket decisions stay connected to delivery health.")}</CardDescription>

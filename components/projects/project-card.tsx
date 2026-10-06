@@ -47,9 +47,7 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
   const internalEntityName = getBumexEntity(project.entity_code)?.name ?? (isFr ? "Entité BUMEX" : "BUMEX entity");
   return (
     <Link href={`/projects/${project.id}`} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-      <Card className="bg-card group relative overflow-hidden border border-border shadow-[var(--shadow-soft)] transition-[border-color,box-shadow,transform] duration-300 hover:border-primary/40">
-        <div aria-hidden="true" className="bg-primary pointer-events-none absolute top-0 left-0 h-1 w-full opacity-90" />
-        <div aria-hidden="true" className="bg-muted/40 pointer-events-none absolute top-0 right-0 h-32 w-64" />
+      <Card className="group relative overflow-hidden transition-colors duration-200 hover:border-primary/40">
         <CardContent className="relative space-y-4 px-4 py-4 sm:px-5">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-2.5">
@@ -61,29 +59,29 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
                 </Badge>
               </div>
               <div className="space-y-1">
-                <h3 className="text-[17px] font-semibold tracking-[-0.02em] text-slate-950 transition-colors group-hover:text-primary dark:text-white">
+                <h3 className="text-base font-semibold text-foreground transition-colors group-hover:text-primary">
                   {project.name}
                 </h3>
-                <div className="max-w-2xl rounded-xl border border-primary/90 bg-white/45 px-3.5 py-2.5 dark:border-slate-600/80 dark:bg-slate-950/20">
-                  <p className="text-xs font-semibold tracking-wider text-primary uppercase">{isFr ? "Objectif du projet" : "Project purpose"}</p>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                <div className="max-w-2xl">
+                  <p className="sr-only">{isFr ? "Objectif du projet" : "Project purpose"}</p>
+                  <p className="line-clamp-2 text-sm text-muted-foreground">
                     {project.description || (isFr ? "Aucune description renseignée pour ce projet." : "No description provided for this project.")}
                   </p>
                 </div>
               </div>
             </div>
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-primary/80 bg-card shadow-sm">
-              <FolderGit2 className="size-[18px] text-primary" />
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <FolderGit2 className="size-[18px]" />
             </div>
           </div>
 
           <div className="grid gap-2.5 sm:grid-cols-3">
-            <div className="rounded-xl border border-primary/80 bg-primary/72 p-3 dark:border-primary/20 dark:bg-primary/10">
-              <p className="text-xs font-semibold tracking-wider text-primary uppercase">{project.project_kind.startsWith("internal_") ? (isFr ? "Périmètre" : "Scope") : (isFr ? "Entité" : "Entity")}</p>
+            <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5">
+              <p className="text-xs font-medium text-muted-foreground">{project.project_kind.startsWith("internal_") ? (isFr ? "Périmètre" : "Scope") : (isFr ? "Entité" : "Entity")}</p>
               <p className="mt-1.5 text-xs font-medium text-foreground">{project.project_kind.startsWith("internal_") ? `${internalEntityName} · ${isFr ? "interne" : "internal"}` : (project.client?.name ?? (isFr ? "Non lié" : "Not linked"))}</p>
             </div>
-            <div className="rounded-xl border border-warning/90 bg-warning/82 p-3 dark:border-warning/20 dark:bg-warning/10">
-              <p className="text-xs font-semibold tracking-wider text-warning uppercase">{isFr ? "Échéance" : "Deadline"}</p>
+            <div className={`rounded-lg border px-3 py-2.5 ${project.deadlineState === "overdue" && project.status !== "completed" ? "border-danger/25 bg-danger/10" : project.deadlineState === "due-soon" ? "border-warning/30 bg-warning/10" : "border-border bg-muted/40"}`}>
+              <p className="text-xs font-medium text-muted-foreground">{isFr ? "Échéance" : "Deadline"}</p>
               <p className="mt-1.5 text-xs font-medium text-foreground">{formatDate(project.end_date)}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">{isFr ? ({
                 "on-track": "Dans les temps",
@@ -92,12 +90,12 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
                 none: "Aucune échéance",
               } as const)[project.deadlineState] : deadlineLabels[project.deadlineState]}</p>
             </div>
-            <div className="rounded-xl border border-primary/90 bg-primary/72 p-3 dark:border-primary/20 dark:bg-primary/10">
-              <p className="text-xs font-semibold tracking-wider text-primary uppercase">{isFr ? "Progression" : "Progress"}</p>
+            <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5">
+              <p className="text-xs font-medium text-muted-foreground">{isFr ? "Progression" : "Progress"}</p>
               <p className="mt-1.5 text-xs font-medium text-foreground">{project.progress}% {isFr ? "complété" : "complete"}</p>
-              <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-primary/70 ring-1 ring-primary/50 dark:bg-slate-950/40 dark:ring-white/10">
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted-foreground/15">
                 <div
-                  className="bg-primary h-full rounded-full shadow-[var(--shadow-soft)]"
+                  className={`h-full rounded-full ${project.progress >= 100 ? "bg-success" : "bg-primary"}`}
                   style={{ width: `${project.progress}%` }}
                 />
               </div>

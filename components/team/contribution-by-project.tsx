@@ -11,7 +11,7 @@ export function ContributionByProject({ items, isFr = false }: { items: Contribu
       <CardContent className="space-y-3">
         {items.length ? (
           items.map((item) => (
-            <Link href={`/projects/${item.projectId}`} key={item.projectId} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:border-primary/35 hover:bg-primary/45 dark:hover:border-primary/30 dark:hover:bg-primary/5">
+            <Link href={`/projects/${item.projectId}`} key={item.projectId} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:border-primary/35 hover:bg-primary/10 dark:hover:border-primary/30 dark:hover:bg-primary/5">
               <div className="flex items-center justify-between gap-3">
                 <p className="flex items-center gap-2 text-sm font-medium">{item.projectName}<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
                 <p className="text-sm font-semibold">{item.completed}</p>

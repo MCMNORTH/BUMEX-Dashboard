@@ -150,6 +150,8 @@ export function getLaneWindow(project: RoadmapProjectRecord, rangeStart: Date, r
   return {
     start: computedStart < rangeStart ? rangeStart : computedStart,
     end: computedEnd > rangeEnd ? rangeEnd : computedEnd,
+    // Set when the whole project falls outside the visible range, so no bar should be drawn.
+    outside: computedEnd < rangeStart ? ("before" as const) : computedStart > rangeEnd ? ("after" as const) : null,
   };
 }
 

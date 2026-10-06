@@ -105,7 +105,7 @@ export function TransferDetailDrawer({
             </div>
 
             {transfer.renewal.enabled ? (
-              <div className="rounded-xl border border-primary/25 bg-primary/70 p-4 dark:border-primary/20 dark:bg-primary/10">
+              <div className="rounded-xl border border-primary/25 bg-primary/10 p-4 dark:border-primary/20 dark:bg-primary/10">
                 <div className="flex items-center gap-2"><Repeat2 className="size-4 text-primary" /><p className="text-sm font-semibold text-primary">{tr("Renouvellement suivi", "Tracked renewal")}</p></div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
                   <Metric label={tr("Prochaine échéance", "Next due date")} value={transfer.renewal.next_due_date ? formatDate(transfer.renewal.next_due_date) : tr("À définir", "Not set")} detail={tr("Date du prochain paiement", "Next payment date")} />

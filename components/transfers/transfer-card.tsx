@@ -72,7 +72,7 @@ export function TransferCard({
                 <Info icon={Building2} label="Client" value={transfer.relatedClient?.name ?? "Not linked"} />
                 <Info icon={FolderKanban} label="Project" value={transfer.relatedProject?.name ?? "Not linked"} />
               </div>
-              {transfer.renewal.enabled && transfer.renewal.next_due_date ? <div className="rounded-xl border border-primary/25 bg-primary/70 p-3 text-sm dark:border-primary/20 dark:bg-primary/10"><span className="font-semibold text-primary">Prochain renouvellement</span><span className="ml-2 text-muted-foreground">{formatDate(transfer.renewal.next_due_date)} · alerte {transfer.renewal.reminder_days} jours avant</span></div> : null}
+              {transfer.renewal.enabled && transfer.renewal.next_due_date ? <div className="rounded-xl border border-primary/25 bg-primary/10 p-3 text-sm dark:border-primary/20 dark:bg-primary/10"><span className="font-semibold text-primary">Prochain renouvellement</span><span className="ml-2 text-muted-foreground">{formatDate(transfer.renewal.next_due_date)} · alerte {transfer.renewal.reminder_days} jours avant</span></div> : null}
             </CardContent>
           </Card>
         </button>

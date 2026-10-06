@@ -80,7 +80,7 @@ export function InvoiceDetailDrawer({
               </span>
             </div>
 
-            {isApproved && role === "admin" ? <form action={revokeInvoiceApprovalAction} className="space-y-2 rounded-xl border border-success/25 bg-success/70 p-4 text-success dark:border-success/20 dark:bg-success/10">
+            {isApproved && role === "admin" ? <form action={revokeInvoiceApprovalAction} className="space-y-2 rounded-xl border border-success/25 bg-success/10 p-4 text-success dark:border-success/20 dark:bg-success/10">
               <p className="text-sm font-semibold">{isFr ? "Retirer une validation accordée" : "Revoke an approval"}</p>
               <input type="hidden" name="invoice_id" value={invoice.id} />
               <input type="hidden" name="return_path" value={returnPath} />

@@ -96,7 +96,7 @@ export default async function TeamMemberDetailPage({
             {detail.assignedProjects.length ? (
               <div className="space-y-3">
                 {detail.assignedProjects.map((project) => (
-                  <Link key={project.id} href={`/projects/${project.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary/30 dark:hover:bg-primary/5">
+                  <Link key={project.id} href={`/projects/${project.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary/30 dark:hover:bg-primary/5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="flex items-center gap-2 text-sm font-medium">{project.name}<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
@@ -123,7 +123,7 @@ export default async function TeamMemberDetailPage({
             {(performance?.upcomingDeadlines ?? detail.weeklyPlanning).length ? (
               <div className="space-y-3">
                 {(performance?.upcomingDeadlines ?? detail.weeklyPlanning).map((ticket) => (
-                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-warning/35 hover:bg-warning/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-warning/30 dark:hover:bg-warning/5">
+                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-warning/35 hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-warning/30 dark:hover:bg-warning/5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="flex items-center gap-2 text-sm font-medium">{ticket.title}<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
@@ -152,7 +152,7 @@ export default async function TeamMemberDetailPage({
             {(performance?.currentFocus ?? detail.assignedTickets).length ? (
               <div className="space-y-3">
                 {(performance?.currentFocus ?? detail.assignedTickets).slice(0, 8).map((ticket) => (
-                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary/30 dark:hover:bg-primary/5">
+                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary/30 dark:hover:bg-primary/5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="flex items-center gap-2 text-sm font-medium">{ticket.title}<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>

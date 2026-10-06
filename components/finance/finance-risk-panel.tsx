@@ -25,7 +25,7 @@ export function FinanceRiskPanel({ items }: { items: FinanceRiskItem[] }) {
               const meta = severityMeta[item.severity];
               const Icon = meta.icon;
               const content = (
-                <div className="rounded-xl border border-danger/25 bg-danger/50 p-3 transition-colors hover:bg-danger/10 dark:border-danger/20 dark:bg-danger/10 dark:hover:bg-danger/12">
+                <div className="rounded-xl border border-danger/25 bg-danger/10 p-3 transition-colors hover:bg-danger/10 dark:border-danger/20 dark:bg-danger/10 dark:hover:bg-danger/12">
                   <div className="flex items-start gap-3">
                     <div className={`mt-0.5 flex size-10 items-center justify-center rounded-xl border ${meta.tone}`}>
                       <Icon className="size-4.5" />

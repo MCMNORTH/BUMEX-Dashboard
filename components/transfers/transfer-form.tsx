@@ -193,7 +193,7 @@ export function TransferForm({
               <span><span className="flex items-center gap-2 text-sm font-semibold"><Repeat2 className="size-4 text-primary" /> Paiement récurrent ou renouvellement</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Activez cette option pour un domaine, un hébergement, un abonnement ou tout service à payer à nouveau.</span></span>
             </label>
             {renewalEnabled ? (
-              <div className="mt-4 grid gap-4 border-t border-primary/70 pt-4 sm:grid-cols-3 dark:border-primary/15">
+              <div className="mt-4 grid gap-4 border-t border-primary/25 pt-4 sm:grid-cols-3 dark:border-primary/15">
                 <div className="space-y-2 sm:col-span-1"><label className="text-sm font-medium" htmlFor={`${mode}-next-due`}>Prochaine échéance</label><Input id={`${mode}-next-due`} name="renewal_next_due_date" type="date" defaultValue={suggestedRenewalDate} required={renewalEnabled} /></div>
                 <div className="space-y-2"><label className="text-sm font-medium" htmlFor={`${mode}-interval`}>Fréquence (mois)</label><Input id={`${mode}-interval`} name="renewal_interval_months" type="number" min="1" defaultValue={defaults?.renewal_interval_months ?? "12"} required={renewalEnabled} /></div>
                 <div className="space-y-2"><label className="text-sm font-medium" htmlFor={`${mode}-reminder`}>Alerter avant (jours)</label><Input id={`${mode}-reminder`} name="renewal_reminder_days" type="number" min="0" defaultValue={defaults?.renewal_reminder_days ?? "30"} required={renewalEnabled} /></div>

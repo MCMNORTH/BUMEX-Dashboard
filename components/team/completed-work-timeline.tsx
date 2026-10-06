@@ -14,7 +14,7 @@ export function CompletedWorkTimeline({ items, isFr = false }: { items: Complete
       <CardContent className="space-y-3">
         {items.length ? (
           items.map((item) => (
-            <Link href={`/tickets/${item.id}`} key={item.id} className="block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:border-success/35 hover:bg-success/45 dark:hover:border-success/30 dark:hover:bg-success/5">
+            <Link href={`/tickets/${item.id}`} key={item.id} className="block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:border-success/35 hover:bg-success/10 dark:hover:border-success/30 dark:hover:bg-success/5">
               <div className="flex items-start gap-3">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/65 bg-background/45">
                   {item.completedOnTime ? <CheckCircle2 className="size-4 text-success" /> : <Clock3 className="size-4 text-warning" />}

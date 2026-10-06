@@ -18,7 +18,7 @@ export function ClientCard({ client }: { client: ClientRecord }) {
 
   return (
     <Link href={`/clients/${client.id}`} className="block">
-      <Card className="surface-highlight group overflow-hidden rounded-xl border-border/70 bg-card shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/80 dark:shadow-none dark:hover:border-primary/20">
+      <Card className="surface-highlight group overflow-hidden rounded-xl border-border/70 bg-card shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/25 dark:shadow-none dark:hover:border-primary/20">
         <CardContent className="space-y-5 px-5 py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 space-y-4">
@@ -68,7 +68,7 @@ export function ClientCard({ client }: { client: ClientRecord }) {
 }
 
 function OwnerCard({ client, isFr }: { client: ClientRecord; isFr: boolean }) {
-  return <div className="rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]"><p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Responsable" : "Owner"}</p><p className="mt-3 text-base font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">{client.accountManager?.full_name ?? (isFr ? "À attribuer" : "To assign")}</p><p className="mt-1 text-sm text-muted-foreground">{isFr ? "Personne chargée du suivi." : "Person in charge of follow-up."}</p></div>;
+  return <div className="rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]"><p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Responsable" : "Owner"}</p><p className="mt-3 text-base font-semibold tracking-[-0.03em] text-foreground">{client.accountManager?.full_name ?? (isFr ? "À attribuer" : "To assign")}</p><p className="mt-1 text-sm text-muted-foreground">{isFr ? "Personne chargée du suivi." : "Person in charge of follow-up."}</p></div>;
 }
 
 function stageLabel(stage: ClientRecord["prospect_stage"], isFr: boolean) {
@@ -77,6 +77,6 @@ function stageLabel(stage: ClientRecord["prospect_stage"], isFr: boolean) {
 }
 
 function InsightPill({ label, value, tone }: { label: string; value: string; tone: "sky" | "violet" | "slate" }) {
-  const toneClass = tone === "sky" ? "border-primary/80 bg-primary/70 dark:border-primary/15 dark:bg-primary/8" : tone === "violet" ? "border-primary/80 bg-primary/70 dark:border-primary/15 dark:bg-primary/8" : "border-border bg-muted/76";
-  return <div className={`rounded-xl border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:shadow-none ${toneClass}`}><p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p><p className="mt-3 text-base font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">{value}</p></div>;
+  const toneClass = tone === "sky" ? "border-primary/20 bg-primary/10 dark:border-primary/15 dark:bg-primary/8" : tone === "violet" ? "border-primary/20 bg-primary/10 dark:border-primary/15 dark:bg-primary/8" : "border-border bg-muted/76";
+  return <div className={`rounded-xl border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:shadow-none ${toneClass}`}><p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p><p className="mt-3 text-base font-semibold tracking-[-0.03em] text-foreground">{value}</p></div>;
 }

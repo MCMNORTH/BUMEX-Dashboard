@@ -39,7 +39,7 @@ export function RoadmapLane({
   const visibleMilestones = getVisibleMilestones(project, rangeStart, rangeEnd);
 
   return (
-    <div className="rounded-xl border border-border/65 bg-background/36 p-5 shadow-[var(--shadow-soft)]">
+    <div className="rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-soft)]">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -80,21 +80,38 @@ export function RoadmapLane({
         </div>
       </div>
 
-      <div className="mt-5 rounded-xl border border-border/65 bg-card p-4">
-        <div className="bg-muted/40 relative h-20 overflow-hidden rounded-xl border border-border/60">
+      <div className="mt-5">
+        <div className="relative h-16 overflow-hidden rounded-lg border border-border bg-muted/30">
           <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${periods.length}, minmax(0, 1fr))` }}>
             {periods.map((period) => (
               <div key={period.key} className="border-r border-border/40 last:border-r-0" />
             ))}
           </div>
 
-          <div
-            className="bg-muted/40 absolute top-1/2 h-4 -translate-y-1/2 rounded-full shadow-[var(--shadow-soft)]"
-            style={{
-              left: `${barStart}%`,
-              width: `${Math.max(barEnd - barStart, 8)}%`,
-            }}
-          />
+          {laneWindow.outside ? (
+            <p className="absolute inset-0 flex items-center justify-center px-4 text-center text-xs text-muted-foreground">
+              {laneWindow.outside === "before"
+                ? (isFr ? "Ce projet s’est terminé avant la période affichée." : "This project ended before the period shown.")
+                : (isFr ? "Ce projet commence après la période affichée." : "This project starts after the period shown.")}
+            </p>
+          ) : (
+            /* Project duration, filled to its progress. */
+            <div
+              className="absolute top-1/2 h-3 -translate-y-1/2 overflow-hidden rounded-full border border-primary/30 bg-primary/10"
+              style={{
+                left: `${barStart}%`,
+                width: `${Math.max(barEnd - barStart, 2)}%`,
+              }}
+              title={`${project.progress}%`}
+            >
+              <div
+                className={`h-full rounded-full ${
+                  project.health === "delayed" ? "bg-danger" : project.progress >= 100 ? "bg-success" : "bg-primary"
+                }`}
+                style={{ width: `${Math.min(100, Math.max(0, project.progress))}%` }}
+              />
+            </div>
+          )}
 
           {visibleMilestones.map((milestone) => (
             <div

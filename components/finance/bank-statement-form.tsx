@@ -326,7 +326,7 @@ export function BankStatementForm() {
               ) : null}
 
               {state.success ? (
-                <div className="rounded-xl border border-success/50 bg-success/10 px-4 py-3 text-sm text-success">
+                <div className="rounded-xl border border-success/35 bg-success/10 px-4 py-3 text-sm text-success">
                   {state.success}
                 </div>
               ) : null}

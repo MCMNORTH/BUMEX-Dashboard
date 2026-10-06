@@ -121,7 +121,7 @@ export function ProjectForm({
           </div>
 
           {isInternalProject ? (
-            <div className="rounded-xl border border-primary/25 bg-primary/80 p-4 dark:border-primary/20 dark:bg-primary/10">
+            <div className="rounded-xl border border-primary/25 bg-primary/10 p-4 dark:border-primary/20 dark:bg-primary/10">
               <input type="hidden" name="client_id" value="" />
               <div className="flex gap-3">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm">

@@ -51,7 +51,7 @@ export function TeamMemberCard({ member }: { member: TeamMemberRecord }) {
   return (
     <Link
       href={`/team/${member.id}`}
-      className="group block overflow-hidden rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/90 dark:border-white/10 dark:shadow-none dark:hover:border-primary/20"
+      className="group block overflow-hidden rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/25 dark:border-white/10 dark:shadow-none dark:hover:border-primary/20"
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -62,7 +62,7 @@ export function TeamMemberCard({ member }: { member: TeamMemberRecord }) {
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 space-y-1">
-              <p className="truncate text-[1.1rem] font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">
+              <p className="truncate text-[1.1rem] font-semibold tracking-[-0.04em] text-foreground">
                 {member.full_name}
               </p>
               <p className="truncate text-sm text-muted-foreground">{member.job_title ?? (isFr ? "Membre de l'équipe" : "Team member")}</p>
@@ -95,15 +95,12 @@ export function TeamMemberCard({ member }: { member: TeamMemberRecord }) {
                 <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                   {isFr ? "Focus actuel" : "Current focus"}
                 </p>
-                <p className="mt-2 truncate text-sm font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">
+                <p className="mt-2 truncate text-sm font-semibold tracking-[-0.03em] text-foreground">
                   {currentFocus?.title ?? (isFr ? "Aucune tâche active" : "No active task")}
                 </p>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
                   {currentFocus?.project_name ?? (isFr ? "Aucun projet assigné" : "No project assigned")}
                 </p>
-              </div>
-              <div className="rounded-full border border-primary/20 bg-primary/80 px-2 py-0.5 text-xs font-semibold tracking-wider text-primary uppercase dark:border-primary/15 dark:bg-primary/10">
-                Focus
               </div>
             </div>
           </div>
@@ -137,22 +134,15 @@ function Metric({
   value: string;
   accent: "sky" | "indigo" | "rose" | "slate";
 }) {
-  const accentTone =
-    accent === "sky"
-      ? "border-primary/80 bg-primary/80 text-primary dark:border-primary/15 dark:bg-primary/10"
-      : accent === "indigo"
-        ? "border-primary/80 bg-primary/80 text-primary dark:border-primary/15 dark:bg-primary/10"
-        : accent === "rose"
-          ? "border-danger/80 bg-danger/80 text-danger dark:border-danger/15 dark:bg-danger/10"
-          : "border-border bg-muted/80 text-foreground";
+  const alert = accent === "rose";
 
   return (
-    <div className="rounded-xl border border-border bg-card px-3 py-3 shadow-[var(--shadow-soft)]">
-      <div className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold tracking-wider uppercase ${accentTone}`}>
-        <Icon className="size-3" />
+    <div className={`rounded-lg border px-3 py-2.5 ${alert ? "border-danger/25 bg-danger/10" : "border-border bg-muted/40"}`}>
+      <p className={`flex items-center gap-1.5 text-xs font-medium ${alert ? "text-danger" : "text-muted-foreground"}`}>
+        <Icon className="size-3.5" />
         {label}
-      </div>
-      <p className="mt-2 text-xl font-semibold tracking-[-0.05em] text-slate-950 dark:text-white">{value}</p>
+      </p>
+      <p className={`mt-1 text-xl font-semibold tabular-nums ${alert ? "text-danger" : "text-foreground"}`}>{value}</p>
     </div>
   );
 }
