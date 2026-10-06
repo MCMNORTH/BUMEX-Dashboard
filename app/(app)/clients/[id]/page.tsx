@@ -102,11 +102,11 @@ export default async function ClientDetailPage({
 
             {client.status === "prospect" ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
                   <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Phase commerciale</p>
                   <p className="mt-2 text-sm font-medium">{client.prospect_stage === "proposal_sent" ? (isFr ? "Proposition envoyée" : "Proposal sent") : client.prospect_stage === "negotiation" ? (isFr ? "En négociation" : "Negotiation") : client.prospect_stage === "pending_signature" ? (isFr ? "À signer" : "Pending signature") : client.prospect_stage === "qualification" ? (isFr ? "À qualifier" : "Qualification") : (isFr ? "Premier contact" : "Initial contact")}</p>
                 </div>
-                <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
                   <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Prochain suivi</p>
                   <p className="mt-2 text-sm font-medium">{formatDate(client.next_follow_up_at)}</p>
                 </div>
@@ -172,7 +172,7 @@ export default async function ClientDetailPage({
           <Card className="border-border/70 bg-card">
             <CardHeader>
               <CardTitle>{isFr ? "Responsable du compte" : "Account manager"}</CardTitle>
-              <CardDescription>{isFr ? "Référent principal chargé de la relation et de sa coordination." : "Primary ownership and relationship coordination."}</CardDescription>
+              <CardDescription>{isFr ? "Référent principal chargé de la relation et sa coordination." : "Primary ownership and relationship coordination."}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="rounded-xl border border-border/65 bg-background/38 p-4">
@@ -302,7 +302,7 @@ export default async function ClientDetailPage({
         role={auth.role}
         currentUserId={auth.profile.id}
         title={isFr ? "Notes client" : "Client notes"}
-        description={isFr ? "Contexte de la relation, informations du compte et actions de suivi." : "Relationship notes, account context, and management follow-up for this client."}
+        description={isFr ? "Contexte de la relation, informations du compte et actions suivi." : "Relationship notes, account context, and management follow-up for this client."}
       />
 
       <CommentsPanel
@@ -329,13 +329,13 @@ function OpportunityWorkspace({ client, isFr }: { client: ClientRecord; isFr: bo
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-      <Card className="border-violet-500/20 bg-card">
+      <Card className="border-primary/20 bg-card">
         <CardHeader>
           <CardTitle>{isFr ? "Suivi commercial" : "Sales follow-up"}</CardTitle>
           <CardDescription>
             {isFr
-              ? "Cette opportunité n’a pas encore de contrat signé : aucun projet, ticket ou élément de prestation ne lui est associé."
-              : "This opportunity has no signed contract yet, so it has no projects, tickets, or delivery records."}
+              ? "Cette opportunité n’a pas encore de contrat signé : aucun projet, ticket ou élément prestation ne lui est associé."
+              : "This opportunity has no signed contract yet, so it projects, tickets, or delivery records."}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -371,7 +371,7 @@ function OpportunityWorkspace({ client, isFr }: { client: ClientRecord; isFr: bo
 
 function OpportunityField({ label, value, detail, accent = false }: { label: string; value: string; detail?: string; accent?: boolean }) {
   return (
-    <div className={`rounded-xl border p-4 ${accent ? "border-violet-500/20 bg-violet-500/5" : "border-border/65 bg-background/38"}`}>
+    <div className={`rounded-xl border p-4 ${accent ? "border-primary/20 bg-primary/5" : "border-border/65 bg-background/38"}`}>
       <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
       <p className="mt-2 text-sm font-medium">{value}</p>
       {detail ? <p className="mt-1 text-xs text-muted-foreground">{detail}</p> : null}

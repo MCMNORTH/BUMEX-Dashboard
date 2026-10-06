@@ -6,12 +6,12 @@ export function ContributionByProject({ items, isFr = false }: { items: Contribu
     <Card className="border-border/70 bg-card">
       <CardHeader>
         <CardTitle>{isFr ? "Contribution par projet" : "Contribution by project"}</CardTitle>
-        <p className="text-sm leading-6 text-muted-foreground">{isFr ? "Travail livré regroupé par projet pour visualiser la répartition de la contribution." : "Delivered work grouped by project to show contribution spread."}</p>
+        <p className="text-sm leading-6 text-muted-foreground">{isFr ? "Travail livré regroupé par projet pour visualiser la répartition de contribution." : "Delivered work grouped by project to show contribution spread."}</p>
       </CardHeader>
       <CardContent className="space-y-3">
         {items.length ? (
           items.map((item) => (
-            <Link href={`/projects/${item.projectId}`} key={item.projectId} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:border-blue-300 hover:bg-blue-50/45 dark:hover:border-blue-500/30 dark:hover:bg-blue-500/5">
+            <Link href={`/projects/${item.projectId}`} key={item.projectId} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:border-primary/35 hover:bg-primary/45 dark:hover:border-primary/30 dark:hover:bg-primary/5">
               <div className="flex items-center justify-between gap-3">
                 <p className="flex items-center gap-2 text-sm font-medium">{item.projectName}<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
                 <p className="text-sm font-semibold">{item.completed}</p>

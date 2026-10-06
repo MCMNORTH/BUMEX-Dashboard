@@ -89,7 +89,7 @@ export function CommentsPanel({
           <CardTitle>{isFr ? "Commentaires" : "Comments"}</CardTitle>
         </div>
         <p className="text-sm leading-6 text-muted-foreground">
-          {isFr ? "Notes de collaboration internes et contexte de livraison associés à cet élément." : "Internal collaboration notes and delivery context that travel with the entity."}
+          {isFr ? "Notes de collaboration internes et contexte livraison associés à cet élément." : "Internal collaboration notes and delivery context that travel with the entity."}
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -178,10 +178,10 @@ export function CommentsPanel({
                               action={deleteCommentAction}
                               fields={{ comment_id: comment.id, return_path: returnPath }}
                               title={isFr ? "Supprimer le commentaire ?" : "Delete comment?"}
-                              description={isFr ? "Ce commentaire sera retiré de cet élément. Cette action est irréversible." : "This will remove the comment from the current record. This action cannot be undone."}
+                              description={isFr ? "Ce commentaire sera retiré de cet élément. Cette action est irréversible." : "This will remove the comment from current record. action cannot be undone."}
                               confirmLabel={isFr ? "Supprimer le commentaire" : "Delete comment"}
                               trigger={(
-                                <Button type="button" variant="ghost" className="rounded-full px-4 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
+                                <Button type="button" variant="ghost" className="rounded-full px-4 text-danger hover:bg-danger/10 hover:text-danger">
                                   <Trash2 className="size-4" />
                                   {isFr ? "Supprimer" : "Delete"}
                                 </Button>

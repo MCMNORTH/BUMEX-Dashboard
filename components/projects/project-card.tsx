@@ -61,29 +61,29 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
                 </Badge>
               </div>
               <div className="space-y-1">
-                <h3 className="text-[17px] font-semibold tracking-[-0.02em] text-slate-950 transition-colors group-hover:text-primary dark:text-white dark:group-hover:text-blue-200">
+                <h3 className="text-[17px] font-semibold tracking-[-0.02em] text-slate-950 transition-colors group-hover:text-primary dark:text-white">
                   {project.name}
                 </h3>
-                <div className="max-w-2xl rounded-xl border border-blue-100/90 bg-white/45 px-3.5 py-2.5 dark:border-slate-600/80 dark:bg-slate-950/20">
-                  <p className="text-xs font-semibold tracking-wider text-blue-700 uppercase dark:text-blue-300">{isFr ? "Objectif du projet" : "Project purpose"}</p>
+                <div className="max-w-2xl rounded-xl border border-primary/90 bg-white/45 px-3.5 py-2.5 dark:border-slate-600/80 dark:bg-slate-950/20">
+                  <p className="text-xs font-semibold tracking-wider text-primary uppercase">{isFr ? "Objectif du projet" : "Project purpose"}</p>
                   <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
                     {project.description || (isFr ? "Aucune description renseignée pour ce projet." : "No description provided for this project.")}
                   </p>
                 </div>
               </div>
             </div>
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-blue-200/80 bg-white/60 shadow-sm dark:border-slate-600 dark:bg-slate-950/30">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-primary/80 bg-white/60 shadow-sm dark:border-slate-600 dark:bg-slate-950/30">
               <FolderGit2 className="size-[18px] text-primary" />
             </div>
           </div>
 
           <div className="grid gap-2.5 sm:grid-cols-3">
-            <div className="rounded-xl border border-sky-200/80 bg-sky-100/72 p-3 dark:border-sky-400/20 dark:bg-sky-400/10">
-              <p className="text-xs font-semibold tracking-wider text-sky-700 uppercase dark:text-sky-200">{project.project_kind.startsWith("internal_") ? (isFr ? "Périmètre" : "Scope") : (isFr ? "Entité" : "Entity")}</p>
+            <div className="rounded-xl border border-primary/80 bg-primary/72 p-3 dark:border-primary/20 dark:bg-primary/10">
+              <p className="text-xs font-semibold tracking-wider text-primary uppercase">{project.project_kind.startsWith("internal_") ? (isFr ? "Périmètre" : "Scope") : (isFr ? "Entité" : "Entity")}</p>
               <p className="mt-1.5 text-xs font-medium text-slate-800 dark:text-slate-100">{project.project_kind.startsWith("internal_") ? `${internalEntityName} · ${isFr ? "interne" : "internal"}` : (project.client?.name ?? (isFr ? "Non lié" : "Not linked"))}</p>
             </div>
-            <div className="rounded-xl border border-amber-200/90 bg-amber-50/82 p-3 dark:border-amber-400/20 dark:bg-amber-400/10">
-              <p className="text-xs font-semibold tracking-wider text-amber-700 uppercase dark:text-amber-200">{isFr ? "Échéance" : "Deadline"}</p>
+            <div className="rounded-xl border border-warning/90 bg-warning/82 p-3 dark:border-warning/20 dark:bg-warning/10">
+              <p className="text-xs font-semibold tracking-wider text-warning uppercase">{isFr ? "Échéance" : "Deadline"}</p>
               <p className="mt-1.5 text-xs font-medium text-slate-800 dark:text-slate-100">{formatDate(project.end_date)}</p>
               <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-300">{isFr ? ({
                 "on-track": "Dans les temps",
@@ -92,10 +92,10 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
                 none: "Aucune échéance",
               } as const)[project.deadlineState] : deadlineLabels[project.deadlineState]}</p>
             </div>
-            <div className="rounded-xl border border-violet-200/90 bg-violet-100/72 p-3 dark:border-violet-400/20 dark:bg-violet-400/10">
-              <p className="text-xs font-semibold tracking-wider text-violet-700 uppercase dark:text-violet-200">{isFr ? "Progression" : "Progress"}</p>
+            <div className="rounded-xl border border-primary/90 bg-primary/72 p-3 dark:border-primary/20 dark:bg-primary/10">
+              <p className="text-xs font-semibold tracking-wider text-primary uppercase">{isFr ? "Progression" : "Progress"}</p>
               <p className="mt-1.5 text-xs font-medium text-slate-800 dark:text-slate-100">{project.progress}% {isFr ? "complété" : "complete"}</p>
-              <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-violet-200/70 ring-1 ring-violet-300/50 dark:bg-slate-950/40 dark:ring-white/10">
+              <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-primary/70 ring-1 ring-primary/50 dark:bg-slate-950/40 dark:ring-white/10">
                 <div
                   className="bg-primary h-full rounded-full shadow-[var(--shadow-soft)]"
                   style={{ width: `${project.progress}%` }}

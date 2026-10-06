@@ -78,9 +78,9 @@ export function NotificationItem({
         <div
           className={`mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border ${
             severity === "critical"
-              ? "border-rose-400/30 bg-rose-400/12 text-rose-700 dark:text-rose-100"
+              ? "border-danger/30 bg-danger/12 text-danger"
               : severity === "warning"
-                ? "border-amber-400/30 bg-amber-400/12 text-amber-700 dark:text-amber-100"
+                ? "border-warning/30 bg-warning/12 text-warning"
                 : "border-primary/30 bg-primary/12 text-primary"
           }`}
         >
@@ -111,8 +111,8 @@ export function NotificationItem({
                 <Badge
                   className={
                     severity === "critical"
-                      ? "bg-rose-500/15 text-rose-700 dark:text-rose-100"
-                      : "bg-amber-500/15 text-amber-700 dark:text-amber-100"
+                      ? "bg-danger/15 text-danger"
+                      : "bg-warning/15 text-warning"
                   }
                 >
                   {isFr ? (severity === "critical" ? "critique" : "alerte") : severity}

@@ -187,7 +187,7 @@ async function TicketsContent({
             activeView={activeView}
             canUseKanban={canUseKanban}
             queryString={queryString}
-            labels={{ table: isFr ? "Liste" : "Table", kanban: "Kanban" }}
+            labels={{ table: isFr ? "Liste" : "List", kanban: "Kanban" }}
           />
         </div>
 

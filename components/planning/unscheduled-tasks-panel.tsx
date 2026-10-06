@@ -28,7 +28,7 @@ export function UnscheduledTasksPanel({
       ref={setNodeRef}
       className={cn(
         "border-border/70 bg-card transition-all",
-        isOver && "border-sky-300/16 bg-sky-500/[0.05]",
+        isOver && "border-primary/16 bg-primary/[0.05]",
       )}
     >
       <CardHeader>

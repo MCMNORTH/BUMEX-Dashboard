@@ -59,7 +59,7 @@ export function InvoiceCard({
                 <InvoiceStatusBadge status={invoice.paymentStatus} />
                 <InvoiceApprovalBadge status={invoice.approval_status} changesRequested={hasActiveRevisionRequest(invoice)} />
                 {invoice.approval_status === "pending" ? (
-                  <span className={`self-center text-xs ${getWaitingDays(invoice.updated_at) >= 3 ? "font-semibold text-rose-600" : "text-muted-foreground"}`}>
+                  <span className={`self-center text-xs ${getWaitingDays(invoice.updated_at) >= 3 ? "font-semibold text-danger" : "text-muted-foreground"}`}>
                     {getWaitingDays(invoice.updated_at)} j
                   </span>
                 ) : null}

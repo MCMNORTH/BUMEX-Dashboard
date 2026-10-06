@@ -64,7 +64,7 @@ export function TransferCard({
                 <TransferStatusBadge status={transfer.status} />
                 <TransferEntityBadge entity={transfer.entity} />
                 <TransferCategoryBadge category={transfer.category} />
-                {transfer.renewal.enabled ? <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-semibold tracking-wider text-indigo-700 uppercase dark:border-indigo-400/20 dark:bg-indigo-500/10 dark:text-indigo-200"><Repeat2 className="size-3" /> Renouvellement</span> : null}
+                {transfer.renewal.enabled ? <span className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-semibold tracking-wider text-primary uppercase dark:border-primary/20"><Repeat2 className="size-3" /> Renouvellement</span> : null}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-3">
@@ -72,7 +72,7 @@ export function TransferCard({
                 <Info icon={Building2} label="Client" value={transfer.relatedClient?.name ?? "Not linked"} />
                 <Info icon={FolderKanban} label="Project" value={transfer.relatedProject?.name ?? "Not linked"} />
               </div>
-              {transfer.renewal.enabled && transfer.renewal.next_due_date ? <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-3 text-sm dark:border-indigo-400/20 dark:bg-indigo-500/10"><span className="font-semibold text-indigo-700 dark:text-indigo-200">Prochain renouvellement</span><span className="ml-2 text-muted-foreground">{formatDate(transfer.renewal.next_due_date)} · alerte {transfer.renewal.reminder_days} jours avant</span></div> : null}
+              {transfer.renewal.enabled && transfer.renewal.next_due_date ? <div className="rounded-xl border border-primary/25 bg-primary/70 p-3 text-sm dark:border-primary/20 dark:bg-primary/10"><span className="font-semibold text-primary">Prochain renouvellement</span><span className="ml-2 text-muted-foreground">{formatDate(transfer.renewal.next_due_date)} · alerte {transfer.renewal.reminder_days} jours avant</span></div> : null}
             </CardContent>
           </Card>
         </button>

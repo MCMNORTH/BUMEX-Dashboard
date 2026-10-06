@@ -75,7 +75,7 @@ export function AuthForm() {
           </CardTitle>
           <CardDescription>
             {mode === "signin"
-              ? tr("Utilisez votre e-mail BUMEX et votre mot de passe.", "Use your BUMEX email and password.")
+              ? tr("Utilisez votre e-mail BUMEX et mot de passe.", "Use your BUMEX email and password.")
               : tr("Utilisez votre e-mail professionnel pour demander l’accès.", "Use your company email to request access.")}
           </CardDescription>
         </div>
@@ -141,7 +141,7 @@ export function AuthForm() {
           ) : null}
 
           {activeState.success ? (
-            <div role="status" className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
+            <div role="status" className="rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
               {activeState.success}
             </div>
           ) : null}

@@ -143,7 +143,7 @@ export function DocumentDetailDrawer({
                   description={isFr ? `Le document « ${document.title} » et son fichier seront supprimés définitivement. Cette action est irréversible.` : `This will permanently delete "${document.title}" and remove its stored file. This action cannot be undone.`}
                   confirmLabel={isFr ? "Supprimer le document" : "Delete document"}
                   trigger={(
-                    <Button type="button" variant="ghost" className="rounded-xl px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
+                    <Button type="button" variant="ghost" className="rounded-xl px-5 text-danger hover:bg-danger/10 hover:text-danger">
                       <Trash2 className="size-4" />
                       {isFr ? "Supprimer" : "Delete"}
                     </Button>

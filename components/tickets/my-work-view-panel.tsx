@@ -3,9 +3,8 @@
 import { Activity, useState } from "react";
 import { LayoutList, Rows3 } from "lucide-react";
 
-import { TicketCard } from "@/components/tickets/ticket-card";
+import { TicketTable } from "@/components/tickets/ticket-table";
 import { TicketKanban } from "@/components/tickets/ticket-kanban";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { TicketRecord, TicketWorkspaceView } from "@/types/ticket";
 
@@ -45,11 +44,7 @@ export function MyWorkViewPanel({
       {tickets.length ? (
         <>
           <Activity mode={activeView === "table" ? "visible" : "hidden"}>
-            <div className="grid gap-4">
-              {tickets.map((ticket) => (
-                <TicketCard key={ticket.id} ticket={ticket} />
-              ))}
-            </div>
+            <TicketTable tickets={tickets} />
           </Activity>
           <Activity mode={activeView === "kanban" ? "visible" : "hidden"}>
             <TicketKanban tickets={visibleTickets} canDrag />
@@ -84,55 +79,40 @@ function CardShell({
     label: string;
     icon: typeof LayoutList;
   }> = [
-    { key: "table", label: "Table", icon: LayoutList },
+    { key: "table", label: isFr ? "Liste" : "List", icon: LayoutList },
     { key: "kanban", label: "Kanban", icon: Rows3 },
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-            {isFr ? "File prioritaire" : "Focus queue"}
-          </p>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight">
-            {activeView === "kanban"
-              ? isFr
-                ? "Mon tableau Kanban"
-                : "My Kanban board"
-              : isFr
-                ? "Liste de mes tickets assignés"
-                : "Assigned ticket list"}
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-lg font-semibold tracking-tight">
+            {isFr ? "Mes tickets" : "My tickets"}
           </h2>
+          <span className="text-sm text-muted-foreground">{ticketCount}</span>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="rounded-full px-3 py-1">
-            {ticketCount} {isFr ? "tickets" : "tickets"}
-          </Badge>
-          <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
-            {views.map((view) => {
-              const Icon = view.icon;
-              const isActive = activeView === view.key;
+        <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
+          {views.map((view) => {
+            const Icon = view.icon;
+            const isActive = activeView === view.key;
 
-              return (
-                <button
-                  key={view.key}
-                  type="button"
-                  onClick={() => onViewChange(view.key)}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all",
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-[0_10px_24px_rgba(15,23,42,0.18)]"
-                      : "text-muted-foreground hover:bg-slate-50 hover:text-foreground dark:hover:bg-white/[0.06]",
-                  )}
-                  aria-pressed={isActive}
-                >
-                  <Icon className="size-4" />
-                  {view.label}
-                </button>
-              );
-            })}
-          </div>
+            return (
+              <button
+                key={view.key}
+                type="button"
+                onClick={() => onViewChange(view.key)}
+                className={cn(
+                  "inline-flex h-8 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors",
+                  isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+                aria-pressed={isActive}
+              >
+                <Icon className="size-4" />
+                {view.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

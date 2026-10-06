@@ -35,7 +35,7 @@ export async function ContractDetailHeader({
           <Badge variant="secondary" className="rounded-full px-3 py-1">{contract.currency}</Badge>
         </div>
         <div className="space-y-3">
-          <h1 className="text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">{contract.title}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{contract.title}</h1>
           <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
             {contract.notes || contract.payment_terms || tr("Aucun résumé commercial pour ce contrat.", "No commercial summary has been added to this contract yet.")}
           </p>

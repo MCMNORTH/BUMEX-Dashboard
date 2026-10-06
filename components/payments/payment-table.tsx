@@ -117,7 +117,7 @@ export function PaymentTable({
                             <Button
                               type="button"
                               variant="ghost"
-                              className="rounded-full px-4 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100"
+                              className="rounded-full px-4 text-danger hover:bg-danger/10 hover:text-danger"
                             >
                               <Trash2 className="size-4" />
                               {isFr ? "Supprimer" : "Delete"}

@@ -91,11 +91,11 @@ export default async function TeamPage({
           title={
             isShareholder
               ? (isFr
-                  ? "Une vue exécutive légère de l'activité de l'équipe et de la pression opérationnelle."
+                  ? "Une vue exécutive légère de l'activité l'équipe et la pression opérationnelle."
                   : "A light executive view of team activity and operational pressure.")
               : (isFr
-                  ? "Voyez instantanément qui travaille sur quoi, qui est chargé et qui peut prendre la prochaine mission."
-                  : "See instantly who is working on what, how loaded they are, and who can take the next mission.")
+                  ? "Voyez instantanément qui travaille sur quoi, est chargé et peut prendre la prochaine mission."
+                  : "See instantly who is working on what, how loaded they are, and can take the next mission.")
           }
           subtitle={
             isShareholder
@@ -103,13 +103,13 @@ export default async function TeamPage({
                   ? "L'accès reste limité à des signaux synthétiques sur les effectifs et l'exécution."
                   : "Access stays limited to summary-level staffing and execution signals.")
               : (isFr
-                  ? "Cet espace se concentre sur les affectations actives, le focus actuel et les progrès visibles pour simplifier l'allocation des missions."
+                  ? "Cet espace se concentre sur les affectations actives, le focus actuel et progrès visibles pour simplifier l'allocation des missions."
                   : "This workspace is centered on active assignments, current focus, and visible progress so mission allocation stays simple.")
           }
         />
         <Badge
           variant="secondary"
-          className="w-fit rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-sky-700 dark:border-sky-500/25 dark:bg-sky-500/12 dark:text-sky-200"
+          className="w-fit rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-primary dark:border-primary/25 dark:bg-primary/12"
         >
           {isShareholder ? (isFr ? "Mode synthèse" : "Summary mode") : (isFr ? "Vue orientée affectations" : "Assignment-first view")}
         </Badge>
@@ -133,7 +133,7 @@ export default async function TeamPage({
 
           <TeamFilters filters={filters} filterData={filterData} />
 
-          {attentionMembers.length ? <section className="bg-rose-50 dark:bg-rose-500/10 overflow-hidden rounded-xl border border-rose-200 shadow-[var(--shadow-soft)] dark:border-rose-500/20" aria-labelledby="team-pressure-title"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-200/70 px-5 py-4 dark:border-rose-500/15"><div><p className="text-xs font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-300">{isFr ? "Capacité sous pression" : "Capacity pressure"}</p><h2 id="team-pressure-title" className="mt-1 text-lg font-semibold">{isFr ? "Profils à examiner" : "People to review"}</h2><p className="mt-1 text-xs text-muted-foreground">{isFr ? "Blocages et retards d’abord, puis niveaux de charge élevés." : "Blockers and overdue work first, followed by high workload."}</p></div><Badge variant="secondary" className="rounded-full px-3 py-1">{attentionMembers.length} {isFr ? "profil(s)" : "people"}</Badge></div><div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">{attentionMembers.map((member) => { const incidents = member.blocked_tasks_count + member.overdue_tasks_count; return <Link key={member.id} href={`/team/${member.id}`} className="group rounded-xl border border-rose-200/80 bg-white/75 p-4 transition hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-rose-500/20 dark:bg-background/45"><div className="flex items-start justify-between gap-3"><span className="rounded-full bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-700 dark:text-rose-300">{incidents ? `${incidents} ${isFr ? "incident(s)" : "issue(s)"}` : `${member.workload_score}%`}</span><ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></div><p className="mt-3 truncate text-sm font-semibold">{member.full_name}</p><p className="mt-1 truncate text-xs text-muted-foreground">{member.job_title ?? (isFr ? "Membre de l’équipe" : "Team member")}</p><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-rose-100 dark:bg-rose-950/50"><div className="bg-amber-500 h-full rounded-full" style={{ width: `${Math.min(100, member.workload_score)}%` }} /></div><p className="mt-2 text-xs text-muted-foreground">{isFr ? "Charge calculée" : "Calculated workload"} · {member.workload_score}%</p></Link>; })}</div></section> : null}
+          {attentionMembers.length ? <section className="bg-danger/10 overflow-hidden rounded-xl border border-danger/25 shadow-[var(--shadow-soft)] dark:border-danger/20" aria-labelledby="team-pressure-title"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-danger/70 px-5 py-4 dark:border-danger/15"><div><p className="text-xs font-semibold uppercase tracking-wider text-danger">{isFr ? "Capacité sous pression" : "Capacity pressure"}</p><h2 id="team-pressure-title" className="mt-1 text-lg font-semibold">{isFr ? "Profils à examiner" : "People to review"}</h2><p className="mt-1 text-xs text-muted-foreground">{isFr ? "Blocages et retards d’abord, puis niveaux de charge élevés." : "Blockers and overdue work first, followed by high workload."}</p></div><Badge variant="secondary" className="rounded-full px-3 py-1">{attentionMembers.length} {isFr ? "profil(s)" : "people"}</Badge></div><div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">{attentionMembers.map((member) => { const incidents = member.blocked_tasks_count + member.overdue_tasks_count; return <Link key={member.id} href={`/team/${member.id}`} className="group rounded-xl border border-danger/80 bg-white/75 p-4 transition hover:-translate-y-0.5 hover:border-danger/35 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-danger/20 dark:bg-background/45"><div className="flex items-start justify-between gap-3"><span className="rounded-full bg-danger/10 px-2.5 py-1 text-xs font-semibold text-danger">{incidents ? `${incidents} ${isFr ? "incident(s)" : "issue(s)"}` : `${member.workload_score}%`}</span><ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></div><p className="mt-3 truncate text-sm font-semibold">{member.full_name}</p><p className="mt-1 truncate text-xs text-muted-foreground">{member.job_title ?? (isFr ? "Membre de l’équipe" : "Team member")}</p><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-danger/15 dark:bg-danger/50"><div className="bg-warning h-full rounded-full" style={{ width: `${Math.min(100, member.workload_score)}%` }} /></div><p className="mt-2 text-xs text-muted-foreground">{isFr ? "Charge calculée" : "Calculated workload"} · {member.workload_score}%</p></Link>; })}</div></section> : null}
 
           {members.length ? (
             <div className="grid gap-3">
@@ -167,7 +167,7 @@ function SignalCard({
   detail: string;
   href?: string;
 }) {
-  const card = <Card className="h-full rounded-xl border border-border/70 bg-card shadow-[var(--shadow-soft)] transition group-hover:-translate-y-0.5 group-hover:border-sky-300 group-hover:shadow-lg dark:border-white/10 dark:shadow-none dark:group-hover:border-sky-500/30">
+  const card = <Card className="h-full rounded-xl border border-border/70 bg-card shadow-[var(--shadow-soft)] transition group-hover:-translate-y-0.5 group-hover:border-primary/35 group-hover:shadow-lg dark:border-white/10 dark:shadow-none dark:group-hover:border-primary/30">
       <CardContent className="px-5 py-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -175,7 +175,7 @@ function SignalCard({
             <p className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-900 dark:text-slate-50">{value}</p>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{detail}</p>
           </div>
-          <div className="flex size-11 items-center justify-center rounded-xl border border-white/80 bg-card text-primary shadow-sm dark:border-white/10 dark:bg-slate-900/80 dark:text-sky-300 dark:shadow-none">
+          <div className="flex size-11 items-center justify-center rounded-xl border border-white/80 bg-card text-primary shadow-sm dark:border-white/10 dark:bg-slate-900/80 dark:shadow-none">
             <Icon className="size-5" />
           </div>
         </div>

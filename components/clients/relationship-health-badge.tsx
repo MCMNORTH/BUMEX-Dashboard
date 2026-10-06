@@ -3,11 +3,12 @@
 import { useI18n } from "@/components/layout/i18n-provider";
 import { Badge } from "@/components/ui/badge";
 import type { RelationshipHealth } from "@/types/client";
+import { toneBadge } from "@/components/ui/tone";
 
 const classes: Record<RelationshipHealth, string> = {
-  healthy: "border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:border-emerald-300/20 dark:text-emerald-100",
-  attention_needed: "border-amber-500/30 bg-amber-500/12 text-amber-700 dark:border-amber-300/20 dark:text-amber-100",
-  at_risk: "border-rose-500/30 bg-rose-500/12 text-rose-700 dark:border-rose-300/20 dark:text-rose-100",
+  healthy: toneBadge.success,
+  attention_needed: toneBadge.warning,
+  at_risk: toneBadge.danger,
 };
 
 export function RelationshipHealthBadge({ health }: { health: RelationshipHealth }) {

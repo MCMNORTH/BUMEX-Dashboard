@@ -3,13 +3,14 @@
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/components/layout/i18n-provider";
 import type { PaymentStatus } from "@/types/finance";
+import { toneBadge } from "@/components/ui/tone";
 
 const statusStyles: Record<PaymentStatus, string> = {
-  expected: "border-sky-500/20 bg-sky-500/12 text-sky-700 dark:text-sky-100",
-  received: "border-emerald-500/20 bg-emerald-500/12 text-emerald-700 dark:text-emerald-100",
-  late: "border-rose-500/20 bg-rose-500/12 text-rose-700 dark:text-rose-100",
-  cancelled: "border-slate-400/20 bg-slate-400/12 text-slate-700 dark:text-slate-200",
-  reconciled: "border-violet-500/20 bg-violet-500/12 text-violet-700 dark:text-violet-100",
+  expected: toneBadge.brand,
+  received: toneBadge.success,
+  late: toneBadge.danger,
+  cancelled: toneBadge.neutral,
+  reconciled: toneBadge.success,
 };
 
 export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {

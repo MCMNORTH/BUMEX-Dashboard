@@ -100,7 +100,7 @@ async function MyWorkContent({
     : nextTicket && getTicketDueState(nextTicket.due_date) === "overdue"
       ? { label: isFr ? "Traiter le retard" : "Address the delay", description: isFr ? "L’échéance est dépassée : vérifiez le périmètre et la nouvelle date." : "The deadline has passed: review scope and the new date.", tone: "rose" }
       : nextTicket?.priority === "urgent"
-        ? { label: isFr ? "Priorité urgente" : "Urgent priority", description: isFr ? "Ce ticket porte le niveau de priorité le plus élevé." : "This ticket carries the highest priority level.", tone: "amber" }
+        ? { label: isFr ? "Priorité urgente" : "Urgent priority", description: isFr ? "Ce ticket porte le niveau de priorité plus élevé." : "This ticket carries the highest priority level.", tone: "amber" }
         : nextTicket && getTicketDueState(nextTicket.due_date) === "soon"
           ? { label: isFr ? "Préparer l’échéance" : "Prepare the deadline", description: isFr ? "Ce travail arrive prochainement à échéance." : "This work is approaching its deadline.", tone: "blue" }
           : { label: isFr ? "Poursuivre le travail" : "Continue the work", description: isFr ? "C’est le prochain élément actif de votre file personnelle." : "This is the next active item in your personal queue.", tone: "emerald" };
@@ -110,20 +110,20 @@ async function MyWorkContent({
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <p className="max-w-3xl text-sm text-muted-foreground">
           {isFr
-            ? "File personnelle connectée à vos affectations actuelles et à la pression de livraison."
+            ? "File personnelle connectée à vos affectations actuelles et la pression de livraison."
             : "Personal queue connected to your current assignments and delivery pressure."}
         </p>
       </div>
 
-      {auth.role !== "shareholder" ? <Card className="hero-fill relative overflow-hidden border-cyan-300/25 text-white">
+      {auth.role !== "shareholder" ? <Card className="hero-fill relative overflow-hidden border-primary/25 text-white">
         <CardContent className="relative flex flex-col gap-6 px-6 py-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4"><div className="relative grid size-20 shrink-0 place-items-center rounded-full bg-[conic-gradient(rgba(255,255,255,.9)_var(--progress),rgba(255,255,255,.14)_0)] p-[6px]" style={{ "--progress": `${timesheetCompletion}%` } as React.CSSProperties}><div className="grid size-full place-items-center rounded-full hero-fill text-center"><span><strong className="block text-lg">{timesheetCompletion}%</strong><small className="text-xs uppercase tracking-wider text-white/75">{isFr ? "rempli" : "complete"}</small></span></div></div><div><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/75"><CalendarDays className="size-4" />{isFr ? "Ma semaine" : "My week"}</p><h2 className="mt-2 text-2xl font-semibold">{formatDuration(loggedMinutes)} <span className="text-sm font-normal text-white/75">/ {auth.profile.weekly_capacity_hours} h</span></h2><p className="mt-1 text-sm text-white/75">{timesheetStatus === "approved" ? (isFr ? "Feuille validée" : "Timesheet approved") : timesheetStatus === "submitted" ? (isFr ? "Feuille envoyée pour validation" : "Timesheet submitted for review") : timesheetStatus === "returned" ? (isFr ? "Corrections demandées" : "Changes requested") : loggedMinutes ? (isFr ? "Saisie en cours" : "Entry in progress") : (isFr ? "Aucun temps déclaré cette semaine" : "No time logged this week")}</p></div></div>
-          <div className="flex flex-wrap items-center gap-3"><div className="rounded-xl border border-white/15 bg-white/[.08] px-4 py-3 text-sm"><span className="block text-xs text-white/75">{isFr ? "Reste à déclarer" : "Remaining"}</span><strong className="mt-1 block">{formatDuration(Math.max(0, capacityMinutes - loggedMinutes))}</strong></div><Button asChild className="bg-white text-blue-800 hover:bg-cyan-50"><Link href="/timesheet?mode=mine">{isFr ? "Ouvrir ma feuille" : "Open my timesheet"}<ArrowRight className="size-4" /></Link></Button></div>
+          <div className="flex flex-wrap items-center gap-3"><div className="rounded-xl border border-white/15 bg-white/[.08] px-4 py-3 text-sm"><span className="block text-xs text-white/75">{isFr ? "Reste à déclarer" : "Remaining"}</span><strong className="mt-1 block">{formatDuration(Math.max(0, capacityMinutes - loggedMinutes))}</strong></div><Button asChild className="bg-white text-primary hover:bg-primary/10"><Link href="/timesheet?mode=mine">{isFr ? "Ouvrir ma feuille" : "Open my timesheet"}<ArrowRight className="size-4" /></Link></Button></div>
         </CardContent>
       </Card> : null}
 
-      {nextTicket ? <Card className={`overflow-hidden ${nextTicketSignal.tone === "rose" ? "bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20" : nextTicketSignal.tone === "amber" ? "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20" : nextTicketSignal.tone === "blue" ? "bg-card border-blue-200 dark:border-blue-500/20" : "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20"}`}>
-        <CardContent className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex min-w-0 items-start gap-4"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-background/80 shadow-sm">{nextTicketSignal.tone === "rose" ? <AlertTriangle className="size-5 text-rose-600" /> : <Sparkles className="size-5 text-violet-600" />}</span><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{isFr ? "Prochaine action recommandée" : "Recommended next action"}</p><h2 className="mt-1 truncate text-lg font-semibold">{nextTicketSignal.label} · {nextTicket.title}</h2><p className="mt-1 text-sm text-muted-foreground">{nextTicketSignal.description}{nextTicket.project?.name ? ` · ${nextTicket.project.name}` : ""}</p></div></div><Button asChild><Link href={`/tickets/${nextTicket.id}`}>{isFr ? "Ouvrir le ticket" : "Open ticket"}<ArrowRight className="size-4" /></Link></Button></CardContent>
+      {nextTicket ? <Card className={`overflow-hidden ${nextTicketSignal.tone === "rose" ? "bg-danger/10 dark:bg-danger/10 border-danger/25 dark:border-danger/20" : nextTicketSignal.tone === "amber" ? "bg-warning/10 dark:bg-warning/10 border-warning/25 dark:border-warning/20" : nextTicketSignal.tone === "blue" ? "bg-card border-primary/25 dark:border-primary/20" : "bg-success/10 dark:bg-success/10 border-success/25 dark:border-success/20"}`}>
+        <CardContent className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex min-w-0 items-start gap-4"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-background/80 shadow-sm">{nextTicketSignal.tone === "rose" ? <AlertTriangle className="size-5 text-danger" /> : <Sparkles className="size-5 text-primary" />}</span><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{isFr ? "Prochaine action recommandée" : "Recommended next action"}</p><h2 className="mt-1 truncate text-lg font-semibold">{nextTicketSignal.label} · {nextTicket.title}</h2><p className="mt-1 text-sm text-muted-foreground">{nextTicketSignal.description}{nextTicket.project?.name ? ` · ${nextTicket.project.name}` : ""}</p></div></div><Button asChild><Link href={`/tickets/${nextTicket.id}`}>{isFr ? "Ouvrir le ticket" : "Open ticket"}<ArrowRight className="size-4" /></Link></Button></CardContent>
       </Card> : null}
 
       <div className="grid gap-4 xl:grid-cols-4">
@@ -186,11 +186,11 @@ async function MyWorkContent({
               </div>
               {overdueTickets.length ? (
                 overdueTickets.slice(0, 5).map((ticket) => (
-                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-rose-500/30 dark:hover:bg-rose-500/5">
+                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-danger/35 hover:bg-danger/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-danger/30 dark:hover:bg-danger/5">
                     <p className="flex items-center justify-between gap-3 text-sm font-medium"><span>{ticket.title}</span><ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
                     <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
                     <div className="mt-3 flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="rounded-full border-rose-200 bg-rose-50 px-3 py-1 text-rose-700 dark:border-rose-300/10 dark:bg-rose-500/12 dark:text-rose-100">
+                      <Badge variant="outline" className="rounded-full border-danger/25 bg-danger/10 px-3 py-1 text-danger dark:border-danger/10 dark:bg-danger/12">
                         {isFr ? "En retard" : "Overdue"}
                       </Badge>
                       <span className="text-xs text-muted-foreground">{ticket.due_date ?? (isFr ? "Aucune date" : "No date")}</span>
@@ -213,11 +213,11 @@ async function MyWorkContent({
               </div>
               {dueThisWeek.length ? (
                 dueThisWeek.slice(0, 5).map((ticket) => (
-                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-amber-500/30 dark:hover:bg-amber-500/5">
+                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-warning/35 hover:bg-warning/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-warning/30 dark:hover:bg-warning/5">
                     <p className="flex items-center justify-between gap-3 text-sm font-medium"><span>{ticket.title}</span><ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
                     <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
                     <div className="mt-3 flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="rounded-full border-amber-200 bg-amber-50 px-3 py-1 text-amber-700 dark:border-amber-300/10 dark:bg-amber-500/12 dark:text-amber-100">
+                      <Badge variant="outline" className="rounded-full border-warning/25 bg-warning/10 px-3 py-1 text-warning dark:border-warning/10 dark:bg-warning/12">
                         {isFr ? "Bientôt dû" : "Due soon"}
                       </Badge>
                       <span className="text-xs text-muted-foreground">{ticket.due_date ?? (isFr ? "Aucune date" : "No date")}</span>
@@ -242,7 +242,7 @@ async function MyWorkContent({
               </div>
               {recentlyUpdated.length ? (
                 recentlyUpdated.map((ticket) => (
-                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-blue-500/30 dark:hover:bg-blue-500/5">
+                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary/30 dark:hover:bg-primary/5">
                     <p className="flex items-center justify-between gap-3 text-sm font-medium"><span>{ticket.title}</span><ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
                     <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
                     <div className="mt-3 flex items-center justify-between gap-2">
@@ -269,7 +269,7 @@ async function MyWorkContent({
               </div>
               {completedWork.slice(0, 5).length ? (
                 completedWork.slice(0, 5).map((ticket) => (
-                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-emerald-500/30 dark:hover:bg-emerald-500/5">
+                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-success/35 hover:bg-success/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-success/30 dark:hover:bg-success/5">
                     <p className="flex items-center justify-between gap-3 text-sm font-medium"><span>{ticket.title}</span><ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
                     <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
                   </Link>
@@ -292,7 +292,7 @@ async function MyWorkContent({
           title={isFr ? "Aperçu de la charge équipe" : "Team workload preview"}
           subtitle={
             isFr
-              ? "Lecture rapide de la capacité sur les personnes visibles, de la charge en retard et de la pression d'exécution active."
+              ? "Lecture rapide de la capacité sur les personnes visibles, charge en retard et pression d'exécution active."
               : "Quick capacity scan across visible assignees, overdue load, and active execution pressure."
           }
         />

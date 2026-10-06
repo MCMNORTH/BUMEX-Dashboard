@@ -3,14 +3,15 @@
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/components/layout/i18n-provider";
 import type { TransferStatus } from "@/types/finance";
+import { toneBadge } from "@/components/ui/tone";
 
 const statusStyles: Record<TransferStatus, string> = {
-  planned: "border-slate-400/20 bg-slate-400/12 text-slate-700 dark:text-slate-200",
-  pending: "border-amber-500/20 bg-amber-500/12 text-amber-700 dark:text-amber-100",
-  sent: "border-sky-500/20 bg-sky-500/12 text-sky-700 dark:text-sky-100",
-  confirmed: "border-emerald-500/20 bg-emerald-500/12 text-emerald-700 dark:text-emerald-100",
-  failed: "border-rose-500/20 bg-rose-500/12 text-rose-700 dark:text-rose-100",
-  cancelled: "border-zinc-500/20 bg-zinc-500/12 text-zinc-700 dark:text-zinc-200",
+  planned: toneBadge.neutral,
+  pending: toneBadge.warning,
+  sent: toneBadge.brand,
+  confirmed: toneBadge.success,
+  failed: toneBadge.danger,
+  cancelled: toneBadge.neutral,
 };
 
 export function TransferStatusBadge({ status }: { status: TransferStatus }) {

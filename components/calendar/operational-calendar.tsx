@@ -74,11 +74,11 @@ function MonthGrid({
           const isBusy = dayEvents.length >= 4;
 
           return (
-            <div key={key} className={`relative min-h-36 rounded-xl border p-3 transition ${isToday ? "bg-card border-blue-400 ring-4 ring-blue-500/10 dark:border-blue-400/45" : inMonth ? isWeekend ? "border-border/55 bg-muted/30" : "border-border/65 bg-background/40" : "border-border/45 bg-background/20 text-muted-foreground"} ${isBusy ? "shadow-[var(--shadow-soft)]" : ""}`}>
+            <div key={key} className={`relative min-h-36 rounded-xl border p-3 transition ${isToday ? "bg-card border-primary ring-4 ring-primary/10 dark:border-primary/45" : inMonth ? isWeekend ? "border-border/55 bg-muted/30" : "border-border/65 bg-background/40" : "border-border/45 bg-background/20 text-muted-foreground"} ${isBusy ? "shadow-[var(--shadow-soft)]" : ""}`}>
               <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2"><p className={`grid size-7 place-items-center rounded-full text-sm font-semibold ${isToday ? "bg-blue-600 text-white shadow-md shadow-blue-500/25" : ""}`}>{day.getDate()}</p>{isToday ? <span className="text-xs font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300">{isFr ? "Aujourd’hui" : "Today"}</span> : null}</div>
+                <div className="flex items-center gap-2"><p className={`grid size-7 place-items-center rounded-full text-sm font-semibold ${isToday ? "bg-primary text-white shadow-md " : ""}`}>{day.getDate()}</p>{isToday ? <span className="text-xs font-semibold uppercase tracking-wider text-primary">{isFr ? "Aujourd’hui" : "Today"}</span> : null}</div>
                 {dayEvents.length ? (
-                  <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${isBusy ? "border-violet-300 bg-violet-500/10 text-violet-700 dark:border-violet-500/30 dark:text-violet-300" : "border-primary/20 bg-primary/10 text-primary"}`}>
+                  <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${isBusy ? "border-primary/35 bg-primary/10 text-primary dark:border-primary/30 dark:text-primary" : "border-primary/20 bg-primary/10 text-primary"}`}>
                     {dayEvents.length}
                   </span>
                 ) : null}
@@ -127,12 +127,12 @@ function WeekGrid({
           const isBusy = dayEvents.length >= 4;
 
           return (
-            <div key={key} className={`rounded-xl border p-4 transition ${isToday ? "bg-card border-blue-400 ring-4 ring-blue-500/10 dark:border-blue-400/45" : isWeekend ? "border-border/55 bg-muted/30" : "border-border/65 bg-background/40"} ${isBusy ? "shadow-[var(--shadow-soft)]" : ""}`}>
+            <div key={key} className={`rounded-xl border p-4 transition ${isToday ? "bg-card border-primary ring-4 ring-primary/10 dark:border-primary/45" : isWeekend ? "border-border/55 bg-muted/30" : "border-border/65 bg-background/40"} ${isBusy ? "shadow-[var(--shadow-soft)]" : ""}`}>
               <div className="mb-4">
-                <div className="flex items-center justify-between gap-2"><p className={`text-xs font-semibold tracking-wider uppercase ${isToday ? "text-blue-700 dark:text-blue-300" : "text-muted-foreground"}`}>
+                <div className="flex items-center justify-between gap-2"><p className={`text-xs font-semibold tracking-wider uppercase ${isToday ? "text-primary dark:text-primary" : "text-muted-foreground"}`}>
                   {new Intl.DateTimeFormat(isFr ? "fr-FR" : "en-US", { weekday: "short" }).format(day)}
-                </p>{isToday ? <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-white">{isFr ? "Aujourd’hui" : "Today"}</span> : null}</div>
-                <p className={`mt-1 text-lg font-semibold ${isToday ? "text-blue-700 dark:text-blue-200" : ""}`}>{day.getDate()}</p>
+                </p>{isToday ? <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-white">{isFr ? "Aujourd’hui" : "Today"}</span> : null}</div>
+                <p className={`mt-1 text-lg font-semibold ${isToday ? "text-primary dark:text-primary" : ""}`}>{day.getDate()}</p>
               </div>
               <div className="space-y-2">
                 {dayEvents.length ? (

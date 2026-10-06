@@ -20,10 +20,10 @@ export function VelocityChart({ data }: { data: VelocityPoint[] }) {
             <XAxis dataKey="label" stroke="rgba(148,163,184,0.55)" tickLine={false} axisLine={false} />
             <YAxis stroke="rgba(148,163,184,0.55)" tickLine={false} axisLine={false} allowDecimals={false} />
             <Tooltip
-              contentStyle={{ borderRadius: 20, border: "1px solid rgba(148,163,184,0.18)", background: "rgba(15,23,42,0.92)", backdropFilter: "blur(12px)" }}
+              contentStyle={{ borderRadius: 10, border: "1px solid var(--border)", background: "var(--popover)", color: "var(--popover-foreground)" }}
               formatter={(value) => [Number(value ?? 0), "Completed"]}
             />
-            <Bar dataKey="completed" fill="rgba(56,189,248,0.78)" radius={[10, 10, 0, 0]} />
+            <Bar dataKey="completed" fill="var(--chart-1)" radius={[10, 10, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       ) : (

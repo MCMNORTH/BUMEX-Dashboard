@@ -150,16 +150,16 @@ export function EntitySwitchProvider({ children }: { children: React.ReactNode }
             <DialogDescription>
               {locale === "fr"
                 ? "Cette action met à jour votre profil super admin et l'entité affichée dans toute l'application."
-                : "This updates your super admin profile and the entity shown across the application."}
+                : "This updates your super admin profile and the entity shown across application."}
             </DialogDescription>
           </DialogHeader>
 
           {displayEntityError ? (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-400/20 dark:bg-red-500/12 dark:text-red-100">
+            <div className="rounded-lg border border-danger/25 bg-danger/10 px-4 py-3 text-sm text-danger dark:border-danger/20 dark:bg-danger/12">
               {displayEntityError}
             </div>
           ) : displayEntityWarning ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-400/20 dark:bg-amber-500/12 dark:text-amber-100">
+            <div className="rounded-lg border border-warning/25 bg-warning/10 px-4 py-3 text-sm text-warning dark:border-warning/20 dark:bg-warning/12">
               {displayEntityWarning}
             </div>
           ) : null}

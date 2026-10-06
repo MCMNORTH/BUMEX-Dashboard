@@ -50,7 +50,7 @@ export default async function InvoicePreviewPage({
           <p className="mt-2 text-sm text-muted-foreground">
             {locale === "fr"
               ? "Vérifiez la mise en page finale, ouvrez le PDF généré ou envoyez-le directement au client."
-              : "Review the final client-facing layout, open the generated PDF, or send it directly to the client."}
+              : "Review the final client-facing layout, open generated PDF, or send it directly to client."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -81,7 +81,7 @@ export default async function InvoicePreviewPage({
         </div>
       </div>
 
-      <div className={`flex flex-col gap-4 rounded-xl border p-5 sm:flex-row sm:items-start sm:justify-between ${isApproved ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100" : revisionRequest ? "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-100" : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100"}`}>
+      <div className={`flex flex-col gap-4 rounded-xl border p-5 sm:flex-row sm:items-start sm:justify-between ${isApproved ? "border-success/35 bg-success/10 text-success dark:border-success/20 dark:bg-success/10 dark:text-success" : revisionRequest ? "border-danger/35 bg-danger/10 text-danger dark:border-danger/20 dark:bg-danger/10 dark:text-danger" : "border-warning/35 bg-warning/10 text-warning dark:border-warning/20 dark:bg-warning/10 dark:text-warning"}`}>
         <div className="flex items-start gap-3">
           {isApproved ? <ShieldCheck className="mt-0.5 size-5 shrink-0" /> : revisionRequest ? <RotateCcw className="mt-0.5 size-5 shrink-0" /> : <LockKeyhole className="mt-0.5 size-5 shrink-0" />}
           <div>
@@ -120,7 +120,7 @@ export default async function InvoicePreviewPage({
           <input type="hidden" name="return_path" value={`/finance/invoices/${invoice.id}/preview`} />
           <Button type="submit" variant="secondary" className="rounded-full px-5"><BellRing className="size-4" />{locale === "fr" ? "Relancer les administrateurs" : "Remind administrators"}</Button>
         </form> : null}
-        {isApproved && isAdmin ? <form action={revokeInvoiceApprovalAction} className="w-full max-w-md space-y-2 rounded-xl border border-emerald-700/15 bg-white/55 p-3 dark:bg-black/10">
+        {isApproved && isAdmin ? <form action={revokeInvoiceApprovalAction} className="w-full max-w-md space-y-2 rounded-xl border border-success/15 bg-white/55 p-3 dark:bg-black/10">
           <input type="hidden" name="invoice_id" value={invoice.id} />
           <input type="hidden" name="return_path" value={`/finance/invoices/${invoice.id}/preview`} />
           <Textarea name="reason" required minLength={5} placeholder={locale === "fr" ? "Motif du retrait de validation…" : "Reason for revoking approval…"} className="min-h-20 bg-white/80 dark:bg-black/15" />

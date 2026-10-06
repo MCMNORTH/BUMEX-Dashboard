@@ -7,7 +7,7 @@ export function CompletionTrendChart({
 }: {
   data: Array<{ label: string; value: number }>;
 }) {
-  const palette = ["#38bdf8", "#10b981", "#f59e0b", "#f43f5e"];
+  const palette = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)"];
 
   return (
     <div className="rounded-xl border border-border/70 bg-card p-5">
@@ -25,7 +25,7 @@ export function CompletionTrendChart({
                 ))}
               </Pie>
               <Tooltip
-                contentStyle={{ borderRadius: 20, border: "1px solid rgba(148,163,184,0.18)", background: "rgba(15,23,42,0.92)", backdropFilter: "blur(12px)" }}
+                contentStyle={{ borderRadius: 10, border: "1px solid var(--border)", background: "var(--popover)", color: "var(--popover-foreground)" }}
                 formatter={(value) => [Number(value ?? 0), "Count"]}
               />
             </PieChart>

@@ -1,28 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarClock, FolderKanban } from "lucide-react";
 
 import { useI18n } from "@/components/layout/i18n-provider";
-import { formatTicketDate } from "@/lib/tickets/helpers";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { TicketAssignee, TicketDue, ticketStatusTone } from "@/components/tickets/ticket-meta";
 import { TicketPriorityBadge } from "@/components/tickets/ticket-priority-badge";
-import { TicketStatusBadge } from "@/components/tickets/ticket-status-badge";
-import { TicketTypeBadge } from "@/components/tickets/ticket-type-badge";
+import { TicketTypeIcon } from "@/components/tickets/ticket-type-badge";
+import { toneDot } from "@/components/ui/tone";
+import { cn } from "@/lib/utils";
 import type { TicketRecord } from "@/types/ticket";
-
-function getInitials(name: string | undefined) {
-  if (!name) {
-    return "NA";
-  }
-
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
 
 export function PlanningTaskCard({
   ticket,
@@ -31,14 +17,14 @@ export function PlanningTaskCard({
   ticket: TicketRecord;
   summaryMode?: boolean;
 }) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const isFr = locale === "fr";
 
   if (summaryMode) {
     return (
-      <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+      <div className="rounded-lg border border-border bg-card p-2.5">
         <p className="text-sm font-medium">{isFr ? "Élément de travail planifié" : "Scheduled work item"}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{formatTicketDate(ticket.due_date)}</p>
+        <TicketDue ticket={ticket} locale={locale} className="text-xs" />
       </div>
     );
   }
@@ -46,34 +32,23 @@ export function PlanningTaskCard({
   return (
     <Link
       href={`/tickets/${ticket.id}`}
-      className="block rounded-xl border border-border/65 bg-card p-4 shadow-[var(--shadow-soft)] transition-all hover:-translate-y-0.5 hover:border-sky-300/10 hover:bg-card"
+      className="block min-w-0 rounded-lg border border-border bg-card p-2.5 shadow-[var(--shadow-soft)] transition-colors hover:border-primary/40"
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <TicketTypeBadge type={ticket.type} />
-        <TicketPriorityBadge priority={ticket.priority} />
-      </div>
-      <h4 className="mt-3 text-sm font-semibold tracking-[-0.02em]">{ticket.title}</h4>
-      <div className="mt-3 grid gap-2 rounded-xl border border-border/60 bg-background/38 p-3">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <FolderKanban className="size-3.5" />
-          <span className="truncate">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</span>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <CalendarClock className="size-3.5" />
-          <span>{formatTicketDate(ticket.due_date)}</span>
-        </div>
-      </div>
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Avatar className="size-8">
-            <AvatarFallback>{getInitials(ticket.assignee?.full_name)}</AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="text-xs font-medium">{ticket.assignee?.full_name ?? (isFr ? "Non assigné" : "Unassigned")}</p>
-            <p className="text-xs text-muted-foreground">{ticket.assignee?.role ?? (isFr ? "Aucun rôle" : "No role")}</p>
-          </div>
-        </div>
-        <TicketStatusBadge status={ticket.status} />
+      <p className="line-clamp-2 break-words text-sm font-medium text-foreground">{ticket.title}</p>
+      <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+        <TicketTypeIcon type={ticket.type} className="shrink-0 [&_svg]:size-3.5" />
+        <span className="truncate">{ticket.project?.name ?? (isFr ? "Sans projet" : "No project")}</span>
+      </p>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <span className={cn("size-2 rounded-full", toneDot[ticketStatusTone[ticket.status]])} aria-hidden="true" />
+            {t(`tickets.form.select.statuses.${ticket.status}`, ticket.status)}
+          </span>
+          {ticket.priority === "high" || ticket.priority === "urgent" ? <TicketPriorityBadge priority={ticket.priority} /> : null}
+          <TicketDue ticket={ticket} locale={locale} />
+        </span>
+        <TicketAssignee name={ticket.assignee?.full_name} locale={locale} showName={false} />
       </div>
     </Link>
   );

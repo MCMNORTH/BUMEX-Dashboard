@@ -6,31 +6,32 @@ import { useI18n } from "@/components/layout/i18n-provider";
 import { Badge } from "@/components/ui/badge";
 import { getTicketTypeLabel } from "@/lib/tickets/helpers";
 import type { TicketType } from "@/types/ticket";
+import { toneBadge } from "@/components/ui/tone";
 
 const config = {
   task: {
     icon: SquareCheck,
-    className: "border-sky-500/25 bg-sky-50 text-sky-700 dark:border-sky-300/10 dark:bg-sky-500/12 dark:text-sky-100",
+    className: toneBadge.neutral,
   },
   bug: {
     icon: Bug,
-    className: "border-rose-500/25 bg-rose-50 text-rose-700 dark:border-rose-300/10 dark:bg-rose-500/12 dark:text-rose-100",
+    className: toneBadge.neutral,
   },
   feature: {
     icon: Sparkles,
-    className: "border-violet-500/25 bg-violet-50 text-violet-700 dark:border-violet-300/10 dark:bg-violet-500/12 dark:text-violet-100",
+    className: toneBadge.neutral,
   },
   support: {
     icon: LifeBuoy,
-    className: "border-amber-500/25 bg-amber-50 text-amber-700 dark:border-amber-300/10 dark:bg-amber-500/12 dark:text-amber-100",
+    className: toneBadge.neutral,
   },
   client_request: {
     icon: Building2,
-    className: "border-cyan-500/25 bg-cyan-50 text-cyan-700 dark:border-cyan-300/10 dark:bg-cyan-500/12 dark:text-cyan-100",
+    className: toneBadge.neutral,
   },
   internal: {
     icon: Cpu,
-    className: "border-slate-500/25 bg-slate-100 text-slate-700 dark:border-slate-300/10 dark:bg-slate-500/12 dark:text-slate-100",
+    className: toneBadge.neutral,
   },
 } satisfies Record<TicketType, { icon: typeof SquareCheck; className: string }>;
 
@@ -46,5 +47,19 @@ export function TicketTypeBadge({ type }: { type: TicketType }) {
       <Icon className="mr-1 size-3.5" />
       {t(`tickets.form.select.types.${type}`, getTicketTypeLabel(type))}
     </Badge>
+  );
+}
+
+/** The type as a bare icon with a tooltip, for compact rows and cards. */
+export function TicketTypeIcon({ type, className }: { type: TicketType; className?: string }) {
+  const Icon = config[type].icon;
+  const { t } = useI18n();
+  const label = t(`tickets.form.select.types.${type}`, getTicketTypeLabel(type));
+
+  return (
+    <span title={label} className={className}>
+      <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
+      <span className="sr-only">{label}</span>
+    </span>
   );
 }

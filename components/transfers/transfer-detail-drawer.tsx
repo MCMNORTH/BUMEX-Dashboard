@@ -82,7 +82,7 @@ export function TransferDetailDrawer({
             </div>
 
             {isSummary ? (
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-100">
+              <div className="rounded-xl border border-warning/20 bg-warning/10 p-4 text-sm text-warning">
                 <div className="flex items-center gap-2 font-medium">
                   <ShieldAlert className="size-4" />
                   {tr("Les informations sensibles sont masquées en mode synthèse.", "Sensitive fields are hidden in summary mode.")}
@@ -105,8 +105,8 @@ export function TransferDetailDrawer({
             </div>
 
             {transfer.renewal.enabled ? (
-              <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-4 dark:border-indigo-400/20 dark:bg-indigo-500/10">
-                <div className="flex items-center gap-2"><Repeat2 className="size-4 text-indigo-600 dark:text-indigo-200" /><p className="text-sm font-semibold text-indigo-800 dark:text-indigo-100">{tr("Renouvellement suivi", "Tracked renewal")}</p></div>
+              <div className="rounded-xl border border-primary/25 bg-primary/70 p-4 dark:border-primary/20 dark:bg-primary/10">
+                <div className="flex items-center gap-2"><Repeat2 className="size-4 text-primary" /><p className="text-sm font-semibold text-primary">{tr("Renouvellement suivi", "Tracked renewal")}</p></div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
                   <Metric label={tr("Prochaine échéance", "Next due date")} value={transfer.renewal.next_due_date ? formatDate(transfer.renewal.next_due_date) : tr("À définir", "Not set")} detail={tr("Date du prochain paiement", "Next payment date")} />
                   <Metric label={tr("Alerte", "Reminder")} value={tr(`${transfer.renewal.reminder_days} jours avant`, `${transfer.renewal.reminder_days} days before`)} detail={tr("Notification dans le logiciel", "In-app notification")} />
@@ -209,7 +209,7 @@ export function TransferDetailDrawer({
                   )}
                   confirmLabel={tr("Supprimer le virement", "Delete transfer")}
                   trigger={(
-                    <Button type="button" variant="ghost" className="rounded-xl px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
+                    <Button type="button" variant="ghost" className="rounded-xl px-5 text-danger hover:bg-danger/10 hover:text-danger">
                       <Trash2 className="size-4" />
                       {tr("Supprimer le virement", "Delete transfer")}
                     </Button>

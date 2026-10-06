@@ -25,7 +25,7 @@ export function TeamMemberDetailHeader({ member, isFr = false }: { member: TeamM
             </Avatar>
             <div className="space-y-3">
               <div>
-                <h1 className="text-3xl font-semibold tracking-[-0.05em]">{member.full_name}</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">{member.full_name}</h1>
                 <p className="mt-2 text-base text-muted-foreground">{member.job_title ?? (isFr ? "Membre de l’équipe" : "Team member")} / {member.department ?? (isFr ? "Opérations" : "Operations")}</p>
               </div>
               <div className="flex flex-wrap gap-2">

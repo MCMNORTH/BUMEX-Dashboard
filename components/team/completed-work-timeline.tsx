@@ -9,15 +9,15 @@ export function CompletedWorkTimeline({ items, isFr = false }: { items: Complete
     <Card className="border-border/70 bg-card">
       <CardHeader>
         <CardTitle>{isFr ? "Chronologie du travail terminé" : "Completed work timeline"}</CardTitle>
-        <p className="text-sm leading-6 text-muted-foreground">{isFr ? "Travail récemment livré avec son contexte de date et son projet." : "Recently delivered work with timing context and project linkage."}</p>
+        <p className="text-sm leading-6 text-muted-foreground">{isFr ? "Travail récemment livré avec son contexte de date et projet." : "Recently delivered work with timing context and project linkage."}</p>
       </CardHeader>
       <CardContent className="space-y-3">
         {items.length ? (
           items.map((item) => (
-            <Link href={`/tickets/${item.id}`} key={item.id} className="block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:border-emerald-300 hover:bg-emerald-50/45 dark:hover:border-emerald-500/30 dark:hover:bg-emerald-500/5">
+            <Link href={`/tickets/${item.id}`} key={item.id} className="block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:border-success/35 hover:bg-success/45 dark:hover:border-success/30 dark:hover:bg-success/5">
               <div className="flex items-start gap-3">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/65 bg-background/45">
-                  {item.completedOnTime ? <CheckCircle2 className="size-4 text-emerald-300" /> : <Clock3 className="size-4 text-amber-300" />}
+                  {item.completedOnTime ? <CheckCircle2 className="size-4 text-success" /> : <Clock3 className="size-4 text-warning" />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">{item.title}</p>

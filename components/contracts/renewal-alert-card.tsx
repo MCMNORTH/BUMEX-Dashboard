@@ -13,7 +13,7 @@ export function RenewalAlertCard({ contract }: { contract: ContractRecord }) {
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <div className="flex size-10 items-center justify-center rounded-xl border border-border/65 bg-background/45">
-                <TriangleAlert className="size-4 text-amber-300" />
+                <TriangleAlert className="size-4 text-warning" />
               </div>
               <div>
                 <p className="text-sm font-medium">{contract.title}</p>

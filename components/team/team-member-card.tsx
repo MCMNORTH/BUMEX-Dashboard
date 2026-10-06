@@ -21,22 +21,22 @@ function getInitials(name: string) {
 const assignmentCopy: Record<AssignmentState, { label: string; tone: string; note: string }> = {
   available: {
     label: "Ready",
-    tone: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/12 dark:text-emerald-200",
+    tone: "border-success/25 bg-success/10 text-success dark:bg-success/12",
     note: "Available for new work",
   },
   steady: {
     label: "In flow",
-    tone: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/25 dark:bg-sky-500/12 dark:text-sky-200",
+    tone: "border-primary/25 bg-primary/10 text-primary dark:bg-primary/12",
     note: "Progress is stable",
   },
   loaded: {
     label: "Loaded",
-    tone: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/12 dark:text-amber-200",
+    tone: "border-warning/25 bg-warning/10 text-warning dark:bg-warning/12",
     note: "Capacity is elevated",
   },
   attention: {
     label: "Attention",
-    tone: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/12 dark:text-rose-200",
+    tone: "border-danger/25 bg-danger/10 text-danger dark:bg-danger/12",
     note: "Needs intervention",
   },
 };
@@ -51,7 +51,7 @@ export function TeamMemberCard({ member }: { member: TeamMemberRecord }) {
   return (
     <Link
       href={`/team/${member.id}`}
-      className="group block overflow-hidden rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-200/90 dark:border-white/10 dark:shadow-none dark:hover:border-sky-400/20"
+      className="group block overflow-hidden rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/90 dark:border-white/10 dark:shadow-none dark:hover:border-primary/20"
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -81,7 +81,7 @@ export function TeamMemberCard({ member }: { member: TeamMemberRecord }) {
                 : state.label}
             </Badge>
             {pressureCount ? (
-              <Badge variant="outline" className="rounded-full border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/12 dark:text-rose-200">
+              <Badge variant="outline" className="rounded-full border-danger/25 bg-danger/10 px-2.5 py-0.5 text-xs text-danger dark:bg-danger/12">
                 {isFr ? `${pressureCount} incident${pressureCount > 1 ? "s" : ""}` : `${pressureCount} issue${pressureCount > 1 ? "s" : ""}`}
               </Badge>
             ) : null}
@@ -102,7 +102,7 @@ export function TeamMemberCard({ member }: { member: TeamMemberRecord }) {
                   {currentFocus?.project_name ?? (isFr ? "Aucun projet assigné" : "No project assigned")}
                 </p>
               </div>
-              <div className="rounded-full border border-sky-100 bg-sky-50/80 px-2 py-0.5 text-xs font-semibold tracking-wider text-sky-700 uppercase dark:border-sky-400/15 dark:bg-sky-400/10 dark:text-sky-200">
+              <div className="rounded-full border border-primary/20 bg-primary/80 px-2 py-0.5 text-xs font-semibold tracking-wider text-primary uppercase dark:border-primary/15 dark:bg-primary/10">
                 Focus
               </div>
             </div>
@@ -114,7 +114,7 @@ export function TeamMemberCard({ member }: { member: TeamMemberRecord }) {
             <Metric icon={CircleAlert} label={isFr ? "Risque" : "Risk"} value={formatNumber(pressureCount)} accent={pressureCount ? "rose" : "slate"} />
           </div>
 
-          <div className="inline-flex items-center justify-end gap-2 text-sm font-medium text-slate-700 transition-colors group-hover:text-primary dark:text-slate-200 dark:group-hover:text-sky-300">
+          <div className="inline-flex items-center justify-end gap-2 text-sm font-medium text-slate-700 transition-colors group-hover:text-primary dark:text-slate-200">
             {isFr ? "Voir le profil" : "View profile"}
             <span className="flex size-8 items-center justify-center rounded-full border border-border/70 bg-white/75 dark:border-white/10 dark:bg-white/5">
               <ArrowRight className="size-4" />
@@ -139,11 +139,11 @@ function Metric({
 }) {
   const accentTone =
     accent === "sky"
-      ? "border-sky-100/80 bg-sky-50/80 text-sky-700 dark:border-sky-400/15 dark:bg-sky-400/10 dark:text-sky-200"
+      ? "border-primary/80 bg-primary/80 text-primary dark:border-primary/15 dark:bg-primary/10"
       : accent === "indigo"
-        ? "border-indigo-100/80 bg-indigo-50/80 text-indigo-700 dark:border-indigo-400/15 dark:bg-indigo-400/10 dark:text-indigo-200"
+        ? "border-primary/80 bg-primary/80 text-primary dark:border-primary/15 dark:bg-primary/10"
         : accent === "rose"
-          ? "border-rose-100/80 bg-rose-50/80 text-rose-700 dark:border-rose-400/15 dark:bg-rose-400/10 dark:text-rose-200"
+          ? "border-danger/80 bg-danger/80 text-danger dark:border-danger/15 dark:bg-danger/10"
           : "border-slate-200/80 bg-slate-100/80 text-slate-700 dark:border-slate-700/70 dark:bg-slate-800/60 dark:text-slate-200";
 
   return (

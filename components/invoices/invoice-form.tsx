@@ -181,9 +181,9 @@ export function InvoiceForm({
             </DialogHeader>
 
             {mode === "edit" && resetsApproval ? (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+              <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
                 <p className="font-semibold">{isFr ? "Cette facture est actuellement validée" : "This invoice is currently approved"}</p>
-                <p className="mt-1">{isFr ? "L’enregistrement d’une modification retirera automatiquement la validation et rebloquera le téléchargement ainsi que l’envoi." : "Saving any change will automatically remove approval and lock download and delivery again."}</p>
+                <p className="mt-1">{isFr ? "L’enregistrement d’une modification retirera automatiquement la validation et rebloquera le téléchargement ainsi que l’envoi." : "Saving any change will automatically remove approval and lock download delivery again."}</p>
               </div>
             ) : null}
 
@@ -368,8 +368,8 @@ export function InvoiceForm({
                   />
                   <p className="text-xs text-muted-foreground">
                     {isFr
-                      ? "Avec GTA, la TVA passe à 0 et la facture utilise le modèle GTA avec retenue à la source."
-                      : "With GTA, VAT is set to 0 and the invoice uses the GTA layout with withholding tax."}
+                      ? "Avec GTA, la TVA passe à 0 et facture utilise le modèle GTA avec retenue source."
+                      : "With GTA, VAT is set to 0 and the invoice uses GTA layout with withholding tax."}
                   </p>
                 </div>
 

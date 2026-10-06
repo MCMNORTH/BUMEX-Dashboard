@@ -37,7 +37,7 @@ export function ClientDetailHeader({
           </Badge>
         </div>
         <div className="space-y-3">
-          <h1 className="text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">{client.name}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{client.name}</h1>
           <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
             {client.notes || client.legal_name || (isFr ? "Aucune note n’a encore été ajoutée." : "No account summary has been added yet.")}
           </p>
@@ -71,7 +71,7 @@ export function ClientDetailHeader({
           {canManage ? (
             <form action={archiveClientAction}>
               <input type="hidden" name="client_id" value={client.id} />
-              <Button variant="ghost" className="rounded-full px-5 text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-200 dark:hover:text-rose-100">
+              <Button variant="ghost" className="rounded-full px-5 text-danger hover:bg-danger/10 hover:text-danger">
                 <Archive className="size-4" />
                 {isFr ? "Archiver" : "Archive"}
               </Button>
@@ -88,12 +88,12 @@ export function ClientDetailHeader({
       <div className="grid gap-3 sm:grid-cols-2">
         {isOpportunity ? (
           <>
-            <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
               <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Responsable du suivi" : "Follow-up owner"}</p>
               <p className="mt-2 text-sm font-medium">{client.accountManager?.full_name ?? (isFr ? "À attribuer" : "Unassigned")}</p>
               <p className="mt-1 text-xs text-muted-foreground">{client.accountManager?.email ?? (isFr ? "Choisissez un responsable avec Modifier" : "Choose an owner with Edit")}</p>
             </div>
-            <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
               <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Prochaine relance" : "Next follow-up"}</p>
               <p className="mt-2 text-sm font-medium">{formatDate(client.next_follow_up_at)}</p>
               <p className="mt-1 text-xs text-muted-foreground">{client.contact_email ?? (isFr ? "Aucun e-mail de contact" : "No contact email")}</p>

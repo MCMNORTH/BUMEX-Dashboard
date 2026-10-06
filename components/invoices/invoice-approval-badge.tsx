@@ -10,7 +10,7 @@ export function InvoiceApprovalBadge({ status, changesRequested = false }: { sta
   const approved = status === "approved";
 
   return (
-    <Badge variant="outline" className={`rounded-full px-3 py-1 ${approved ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100" : changesRequested ? "border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-100" : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100"}`}>
+    <Badge variant="outline" className={`rounded-full px-3 py-1 ${approved ? "border-success/35 bg-success/10 text-success dark:border-success/20 dark:bg-success/10 dark:text-success" : changesRequested ? "border-danger/35 bg-danger/10 text-danger dark:border-danger/20 dark:bg-danger/10 dark:text-danger" : "border-warning/35 bg-warning/10 text-warning dark:border-warning/20 dark:bg-warning/10 dark:text-warning"}`}>
       {approved ? <ShieldCheck className="mr-1.5 size-3.5" /> : changesRequested ? <RotateCcw className="mr-1.5 size-3.5" /> : <LockKeyhole className="mr-1.5 size-3.5" />}
       {approved ? (locale === "fr" ? "Validée" : "Approved") : changesRequested ? (locale === "fr" ? "À corriger" : "Changes requested") : (locale === "fr" ? "À valider" : "Awaiting approval")}
     </Badge>

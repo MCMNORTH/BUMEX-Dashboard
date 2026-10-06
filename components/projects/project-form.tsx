@@ -72,7 +72,7 @@ export function ProjectForm({
           <DialogDescription>
             {mode === "create"
               ? (isFr ? "Créez une nouvelle initiative avec les bons responsables, périmètre et échéances." : "Create a new delivery initiative with the right ownership, scope, and timing.")
-              : (isFr ? "Mettez à jour la définition, les responsables et les informations du projet." : "Update the project definition, ownership, and delivery metadata.")}
+              : (isFr ? "Mettez à jour la définition, les responsables et informations du projet." : "Update the project definition, ownership, and delivery metadata.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -116,22 +116,22 @@ export function ProjectForm({
               ]}
             />
             <p className="text-xs text-muted-foreground">
-              {isFr ? "Choisissez le périmètre avant le rattachement : externe ou interne à BUMEX IT." : "Choose the scope first: external relationship or internal BUMEX IT work."}
+              {isFr ? "Choisissez le périmètre avant rattachement : externe ou interne à BUMEX IT." : "Choose the scope first: external relationship or internal BUMEX IT work."}
             </p>
           </div>
 
           {isInternalProject ? (
-            <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-400/20 dark:bg-blue-500/10">
+            <div className="rounded-xl border border-primary/25 bg-primary/80 p-4 dark:border-primary/20 dark:bg-primary/10">
               <input type="hidden" name="client_id" value="" />
               <div className="flex gap-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm">
                   <Building2 className="size-4" />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold text-blue-950 dark:text-blue-100">
+                  <p className="text-sm font-semibold text-primary">
                     {isFr ? `Projet interne ${filterData.activeEntity.name}` : `Internal ${filterData.activeEntity.name} project`}
                   </p>
-                  <p className="mt-1 text-xs leading-5 text-blue-800/80 dark:text-blue-200/80">
+                  <p className="mt-1 text-xs leading-5 text-primary/80">
                     {isFr ? `Ce projet est rattaché à ${filterData.activeEntity.name}, sans client ni partenaire externe.` : `This project belongs to ${filterData.activeEntity.name}, with no external client or partner.`}
                   </p>
                 </div>
@@ -248,7 +248,7 @@ export function ProjectForm({
               placeholder={isFr ? "Calcul automatique si vide" : "Automatic calculation when empty"}
             />
             <p className="text-xs text-muted-foreground">
-              {isFr ? "Renseignez cette valeur pour piloter vous-même l’avancement. Laissez vide pour calculer à partir des tickets." : "Set this value to manage progress yourself. Leave it blank to calculate it from tickets."}
+              {isFr ? "Renseignez cette valeur pour piloter vous-même l’avancement. Laissez vide calculer à partir des tickets." : "Set this value to manage progress yourself. Leave it blank calculate from tickets."}
             </p>
           </div>
 

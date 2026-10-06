@@ -22,13 +22,13 @@ export function ClientFilters({
   const isFr = locale === "fr";
 
   return (
-    <form className="bg-card grid gap-3 rounded-xl border border-sky-200 p-4 shadow-[var(--shadow-soft)] dark:border-slate-700 xl:grid-cols-[1.3fr_repeat(3,minmax(0,1fr))_auto]">
+    <form className="bg-card grid gap-3 rounded-xl border border-primary/25 p-4 shadow-[var(--shadow-soft)] dark:border-slate-700 xl:grid-cols-[1.3fr_repeat(3,minmax(0,1fr))_auto]">
       <input type="hidden" name="view" value={activeView === "opportunities" ? "opportunities" : ""} />
       <div className="relative xl:col-span-1">
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           name="search"
-          placeholder={isFr ? "Rechercher une relation, une organisation ou un secteur" : "Search a relationship, organization, or industry"}
+          placeholder={isFr ? "Rechercher une relation, organisation ou un secteur" : "Search a relationship, organization, or industry"}
           defaultValue={filters.search ?? ""}
           className="pl-11"
         />

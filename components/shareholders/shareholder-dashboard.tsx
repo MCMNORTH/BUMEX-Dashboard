@@ -346,7 +346,7 @@ export function ShareholderDashboard({
                   <div className="space-y-2">
                     <p className="text-sm font-medium">{client.name}</p>
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline" className="border-sky-400/20 bg-sky-400/8">
+                      <Badge variant="outline" className="border-primary/20 bg-primary/8">
                         {client.status}
                       </Badge>
                       {client.activeProjectsCount >= 2 ? (
@@ -494,10 +494,10 @@ function SummaryMetric({
   tone: "sky" | "emerald" | "amber" | "rose";
 }) {
   const tones = {
-    sky: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100",
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100",
-    amber: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100",
-    rose: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100",
+    sky: "border-primary/25 bg-primary/10 text-primary dark:border-primary/20",
+    emerald: "border-success/25 bg-success/10 text-success dark:border-success/20",
+    amber: "border-warning/25 bg-warning/10 text-warning dark:border-warning/20",
+    rose: "border-danger/25 bg-danger/10 text-danger dark:border-danger/20",
   } as const;
 
   return (

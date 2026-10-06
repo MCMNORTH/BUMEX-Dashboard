@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import type { MilestoneStatus } from "@/types/milestone";
+import { toneBadge } from "@/components/ui/tone";
 
 const labels: Record<MilestoneStatus, string> = {
   planned: "Planned",
@@ -10,11 +11,11 @@ const labels: Record<MilestoneStatus, string> = {
 };
 
 const classes: Record<MilestoneStatus, string> = {
-  planned: "border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-100",
-  in_progress: "border-cyan-400/20 bg-cyan-400/10 text-cyan-700 dark:text-cyan-100",
-  completed: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-100",
-  delayed: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-100",
-  cancelled: "border-slate-500/20 bg-slate-500/10 text-slate-300",
+  planned: toneBadge.neutral,
+  in_progress: toneBadge.brand,
+  completed: toneBadge.success,
+  delayed: toneBadge.danger,
+  cancelled: toneBadge.neutral,
 };
 
 export function MilestoneStatusBadge({ status }: { status: MilestoneStatus }) {

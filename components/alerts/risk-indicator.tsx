@@ -7,9 +7,9 @@ const widths: Record<AlertSeverity, string> = {
 };
 
 const tones: Record<AlertSeverity, string> = {
-  info: "bg-sky-500",
-  warning: "bg-amber-500",
-  critical: "bg-rose-500",
+  info: "bg-primary",
+  warning: "bg-warning",
+  critical: "bg-danger",
 };
 
 export function RiskIndicator({ severity }: { severity: AlertSeverity }) {

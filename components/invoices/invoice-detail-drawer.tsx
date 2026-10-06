@@ -74,13 +74,13 @@ export function InvoiceDetailDrawer({
             <div className="flex flex-wrap gap-2">
               <InvoiceStatusBadge status={invoice.paymentStatus} />
               <ReceiptBadge count={invoice.receipts.length} />
-              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${isApproved ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100" : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100"}`}>
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${isApproved ? "border-success/35 bg-success/10 text-success dark:border-success/20 dark:bg-success/10 dark:text-success" : "border-warning/35 bg-warning/10 text-warning dark:border-warning/20 dark:bg-warning/10 dark:text-warning"}`}>
                 {isApproved ? <ShieldCheck className="size-3.5" /> : <LockKeyhole className="size-3.5" />}
                 {isApproved ? (isFr ? "Validée" : "Approved") : (isFr ? "En attente de validation" : "Awaiting approval")}
               </span>
             </div>
 
-            {isApproved && role === "admin" ? <form action={revokeInvoiceApprovalAction} className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100">
+            {isApproved && role === "admin" ? <form action={revokeInvoiceApprovalAction} className="space-y-2 rounded-xl border border-success/25 bg-success/70 p-4 text-success dark:border-success/20 dark:bg-success/10">
               <p className="text-sm font-semibold">{isFr ? "Retirer une validation accordée" : "Revoke an approval"}</p>
               <input type="hidden" name="invoice_id" value={invoice.id} />
               <input type="hidden" name="return_path" value={returnPath} />
@@ -88,9 +88,9 @@ export function InvoiceDetailDrawer({
               <Button type="submit" variant="secondary" className="rounded-full"><RotateCcw className="size-4" />{isFr ? "Retirer la validation" : "Revoke approval"}</Button>
             </form> : null}
 
-            {!isApproved ? <div className={`rounded-xl border p-4 text-sm ${revisionRequest ? "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-100" : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100"}`}>
+            {!isApproved ? <div className={`rounded-xl border p-4 text-sm ${revisionRequest ? "border-danger/35 bg-danger/10 text-danger dark:border-danger/20 dark:bg-danger/10 dark:text-danger" : "border-warning/35 bg-warning/10 text-warning dark:border-warning/20 dark:bg-warning/10 dark:text-warning"}`}>
               <p className="font-semibold">{revisionRequest ? (isFr ? "Corrections demandées" : "Changes requested") : (isFr ? "Diffusion verrouillée" : "Delivery locked")}</p>
-              <p className="mt-1 opacity-80">{revisionRequest ?? (isFr ? "Le PDF ne peut être ni ouvert, ni téléchargé, ni envoyé avant la validation d’un administrateur." : "The PDF cannot be opened, downloaded, or sent until an administrator approves it.")}</p>
+              <p className="mt-1 opacity-80">{revisionRequest ?? (isFr ? "Le PDF ne peut être ni ouvert, téléchargé, envoyé avant la validation d’un administrateur." : "The PDF cannot be opened, downloaded, or sent until an administrator approves it.")}</p>
               {role === "admin" ? <div className="mt-3 space-y-3">
                 <ConfirmActionForm
                   action={approveInvoiceAction}
@@ -274,7 +274,7 @@ export function InvoiceDetailDrawer({
                   description={`This will permanently delete invoice ${invoice.invoice_number}. This action cannot be undone.`}
                   confirmLabel="Delete invoice"
                   trigger={(
-                    <Button type="button" variant="ghost" className="rounded-xl px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
+                    <Button type="button" variant="ghost" className="rounded-xl px-5 text-danger hover:bg-danger/10 hover:text-danger">
                       <Trash2 className="size-4" />
                       Delete invoice
                     </Button>

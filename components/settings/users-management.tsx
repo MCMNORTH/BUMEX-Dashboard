@@ -19,14 +19,6 @@ const frenchRoleLabels: Record<AppRole, string> = {
   shareholder: "Actionnaire",
 };
 
-const roleBadgeStyles: Record<AppRole, string> = {
-  admin: "border-rose-400/30 bg-rose-500/12 text-rose-700 dark:text-rose-100",
-  manager: "border-sky-400/30 bg-sky-500/12 text-sky-700 dark:text-sky-100",
-  supervisor: "border-violet-400/30 bg-violet-500/12 text-violet-700 dark:text-violet-100",
-  employee: "border-emerald-400/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-100",
-  shareholder: "border-amber-400/30 bg-amber-500/12 text-amber-700 dark:text-amber-100",
-};
-
 export async function UsersManagement({
   users,
   isSuperAdmin,
@@ -54,7 +46,7 @@ export async function UsersManagement({
         <p className="text-sm text-muted-foreground">
           {isSuperAdmin
             ? tr("Modifiez le rôle ou l’entité d’une personne, puis enregistrez la ligne.", "Change a person’s role or entity, then save that row.")
-            : tr("Seul un super administrateur peut modifier les rôles et les entités.", "Only a super administrator can change roles and entities.")}
+            : tr("Seul un super administrateur peut modifier les rôles et entités.", "Only a super administrator can change roles and entities.")}
         </p>
       </div>
 
@@ -65,7 +57,7 @@ export async function UsersManagement({
       ) : null}
 
       {success ? (
-        <div role="status" className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
+        <div role="status" className="rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
           {success}
         </div>
       ) : null}
@@ -105,7 +97,7 @@ export async function UsersManagement({
                           </Button>
                         </form>
                       ) : (
-                        <Badge variant="outline" className={roleBadgeStyles[user.role]}>
+                        <Badge variant="secondary">
                           {roleLabel(user.role)}
                         </Badge>
                       )}

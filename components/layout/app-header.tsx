@@ -136,9 +136,9 @@ export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
                           </Badge>
                         </div>
                         {displayEntityError ? (
-                          <p className="mt-2 text-xs text-red-600 dark:text-red-300">{displayEntityError}</p>
+                          <p className="mt-2 text-xs text-danger">{displayEntityError}</p>
                         ) : displayEntityWarning ? (
-                          <p className="mt-2 text-xs text-amber-600 dark:text-amber-300">{displayEntityWarning}</p>
+                          <p className="mt-2 text-xs text-warning">{displayEntityWarning}</p>
                         ) : null}
                       </div>
                       {canSwitchEntities ? <ChevronsUpDown className="mt-0.5 size-4 shrink-0 text-muted-foreground" /> : null}
@@ -162,7 +162,7 @@ export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
             <DialogDescription>
               {t(
                 "common.confirmations.signOut",
-                "Are you sure you want to sign out? Your current session will end immediately.",
+                "Are you sure want to sign out? Your current session will end immediately.",
               )}
             </DialogDescription>
           </DialogHeader>

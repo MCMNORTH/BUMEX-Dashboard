@@ -33,9 +33,9 @@ type TicketDetailHeaderProps = {
 
 const dueTone = {
   none: "border-border/65 bg-background/38 text-muted-foreground",
-  planned: "border-sky-500/25 bg-sky-50 text-sky-700 dark:border-sky-300/10 dark:bg-sky-500/12 dark:text-sky-100",
-  soon: "border-amber-500/25 bg-amber-50 text-amber-700 dark:border-amber-300/10 dark:bg-amber-500/12 dark:text-amber-100",
-  overdue: "border-rose-500/25 bg-rose-50 text-rose-700 dark:border-rose-300/10 dark:bg-rose-500/12 dark:text-rose-100",
+  planned: "border-primary/25 bg-primary/10 text-primary dark:border-primary/10 dark:bg-primary/12",
+  soon: "border-warning/25 bg-warning/10 text-warning dark:border-warning/10 dark:bg-warning/12",
+  overdue: "border-danger/25 bg-danger/10 text-danger dark:border-danger/10 dark:bg-danger/12",
 } as const;
 
 export function TicketDetailHeader({
@@ -67,7 +67,7 @@ export function TicketDetailHeader({
         </div>
 
         <div className="space-y-3">
-          <h1 className="break-words text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">{ticket.title}</h1>
+          <h1 className="break-words text-2xl font-semibold tracking-tight">{ticket.title}</h1>
           <p className="max-w-3xl whitespace-pre-line break-words text-sm leading-7 text-muted-foreground sm:text-base">
             {ticket.description || (isFr ? "Aucun résumé opérationnel n'a encore été rattaché à ce ticket." : "No operational summary has been attached to this ticket yet.")}
           </p>
@@ -107,7 +107,7 @@ export function TicketDetailHeader({
               description={isFr ? `Cela supprimera définitivement "${ticket.title}". Cette action est irréversible.` : `This will permanently delete "${ticket.title}". This action cannot be undone.`}
               confirmLabel={isFr ? "Supprimer le ticket" : "Delete ticket"}
               trigger={(
-                <Button type="button" variant="ghost" className="rounded-full px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
+                <Button type="button" variant="ghost" className="rounded-full px-5 text-danger hover:bg-danger/10 hover:text-danger">
                   <Trash2 className="size-4" />
                   {isFr ? "Supprimer" : "Delete"}
                 </Button>

@@ -75,7 +75,7 @@ export default async function FinanceInvoicesPage({
       <div className="flex flex-col gap-4">
         <PageHeader
           eyebrow={isFr ? "Module factures" : "Invoices module"}
-          title={isFr ? "Suivez l’émission des factures, l’état des encaissements, les justificatifs et le solde restant dans un espace financier opérationnel." : "Track invoice issuance, collection status, receipts, and remaining balance in one operational finance workspace."}
+          title={isFr ? "Suivez l’émission des factures, l’état encaissements, les justificatifs et le solde restant dans un espace financier opérationnel." : "Track invoice issuance, collection status, receipts, and remaining balance in one operational finance workspace."}
           subtitle={isFr ? "Gérez la facturation clients, clarifiez l’état des factures et suivez les encaissements de l’émission au paiement." : "Manage client billing, keep invoice status clear, and follow incoming cash from issue to payment."}
         />
         {canManage ? (
@@ -97,11 +97,11 @@ export default async function FinanceInvoicesPage({
       </div>
 
       {auth.role === "admin" ? (
-        <div className="bg-amber-50 dark:bg-amber-500/10 relative overflow-hidden rounded-xl border border-amber-200/80 p-5 shadow-[var(--shadow-soft)] dark:border-amber-400/20">
-          <div className="absolute -right-10 -top-16 size-48 rounded-full bg-amber-300/20 blur-3xl" />
+        <div className="bg-warning/10 relative overflow-hidden rounded-xl border border-warning/80 p-5 shadow-[var(--shadow-soft)] dark:border-warning/20">
+          <div className="absolute -right-10 -top-16 size-48 rounded-full bg-warning/20 blur-3xl" />
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-lg shadow-amber-500/20">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-warning text-white shadow-lg ">
                 <ShieldCheck className="size-6" />
               </div>
               <div>
@@ -114,7 +114,7 @@ export default async function FinanceInvoicesPage({
                     : (isFr ? "Toutes les factures visibles ont été traitées." : "All visible invoices have been reviewed.")}
                 </p>
                 {urgentApprovalCount ? (
-                  <p className="mt-2 text-xs font-semibold text-rose-700 dark:text-rose-300">
+                  <p className="mt-2 text-xs font-semibold text-danger">
                     {isFr ? `${urgentApprovalCount} validation${urgentApprovalCount > 1 ? "s" : ""} attend${urgentApprovalCount > 1 ? "ent" : ""} depuis au moins 3 jours.` : `${urgentApprovalCount} approval${urgentApprovalCount > 1 ? "s" : ""} waiting for at least 3 days.`}
                   </p>
                 ) : null}
@@ -127,7 +127,7 @@ export default async function FinanceInvoicesPage({
               </Link>
             </Button>
           </div>
-          <div className="relative mt-4 flex flex-wrap gap-2 border-t border-amber-200/70 pt-4 dark:border-amber-400/15">
+          <div className="relative mt-4 flex flex-wrap gap-2 border-t border-warning/70 pt-4 dark:border-warning/15">
             <Button asChild variant={filters.approvalStatus === "pending" ? "primary" : "secondary"} size="sm" className="rounded-full">
               <Link href="/finance/invoices?approval=pending">{isFr ? "À valider" : "To approve"}</Link>
             </Button>

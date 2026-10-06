@@ -5,27 +5,28 @@ import { Activity, ShieldAlert, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/components/layout/i18n-provider";
 import type { ProjectHealth } from "@/types/project";
+import { toneBadge } from "@/components/ui/tone";
 
 const config = {
   healthy: {
     label: "Healthy",
     icon: ShieldCheck,
-    className: "border-emerald-500/20 bg-emerald-500/12 text-emerald-700 dark:border-emerald-300/10 dark:text-emerald-100",
+    className: toneBadge.success,
   },
   warning: {
     label: "Warning",
     icon: Activity,
-    className: "border-amber-500/20 bg-amber-500/12 text-amber-700 dark:border-amber-300/10 dark:text-amber-100",
+    className: toneBadge.warning,
   },
   at_risk: {
     label: "At risk",
     icon: ShieldAlert,
-    className: "border-rose-500/20 bg-rose-500/12 text-rose-700 dark:border-rose-300/10 dark:text-rose-100",
+    className: toneBadge.danger,
   },
   delayed: {
     label: "Delayed",
     icon: ShieldAlert,
-    className: "border-rose-500/20 bg-rose-600/16 text-rose-700 dark:border-rose-300/10 dark:text-rose-100",
+    className: toneBadge.danger,
   },
 } satisfies Record<
   ProjectHealth,

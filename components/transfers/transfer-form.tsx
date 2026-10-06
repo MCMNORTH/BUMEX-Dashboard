@@ -187,13 +187,13 @@ export function TransferForm({
             />
           </div>
 
-          <div className="bg-card sm:col-span-2 rounded-xl border border-indigo-200 p-4 dark:border-indigo-400/20 dark:bg-indigo-500/10">
+          <div className="bg-card sm:col-span-2 rounded-xl border border-primary/25 p-4 dark:border-primary/20 dark:bg-primary/10">
             <label className="flex cursor-pointer items-start gap-3">
               <input name="renewal_enabled" type="checkbox" checked={renewalEnabled} onChange={(event) => setRenewalEnabled(event.target.checked)} className="mt-1 size-4 rounded border-slate-300 text-primary focus:ring-primary" />
-              <span><span className="flex items-center gap-2 text-sm font-semibold"><Repeat2 className="size-4 text-indigo-600 dark:text-indigo-300" /> Paiement récurrent ou renouvellement</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Activez cette option pour un domaine, un hébergement, un abonnement ou tout service à payer à nouveau.</span></span>
+              <span><span className="flex items-center gap-2 text-sm font-semibold"><Repeat2 className="size-4 text-primary" /> Paiement récurrent ou renouvellement</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Activez cette option pour un domaine, un hébergement, un abonnement ou tout service à payer à nouveau.</span></span>
             </label>
             {renewalEnabled ? (
-              <div className="mt-4 grid gap-4 border-t border-indigo-200/70 pt-4 sm:grid-cols-3 dark:border-indigo-400/15">
+              <div className="mt-4 grid gap-4 border-t border-primary/70 pt-4 sm:grid-cols-3 dark:border-primary/15">
                 <div className="space-y-2 sm:col-span-1"><label className="text-sm font-medium" htmlFor={`${mode}-next-due`}>Prochaine échéance</label><Input id={`${mode}-next-due`} name="renewal_next_due_date" type="date" defaultValue={suggestedRenewalDate} required={renewalEnabled} /></div>
                 <div className="space-y-2"><label className="text-sm font-medium" htmlFor={`${mode}-interval`}>Fréquence (mois)</label><Input id={`${mode}-interval`} name="renewal_interval_months" type="number" min="1" defaultValue={defaults?.renewal_interval_months ?? "12"} required={renewalEnabled} /></div>
                 <div className="space-y-2"><label className="text-sm font-medium" htmlFor={`${mode}-reminder`}>Alerter avant (jours)</label><Input id={`${mode}-reminder`} name="renewal_reminder_days" type="number" min="0" defaultValue={defaults?.renewal_reminder_days ?? "30"} required={renewalEnabled} /></div>
@@ -258,7 +258,7 @@ export function TransferForm({
           </div>
 
           {state.error ? (
-            <div className="sm:col-span-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <div className="sm:col-span-2 rounded-xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm text-danger">
               {state.error}
             </div>
           ) : null}

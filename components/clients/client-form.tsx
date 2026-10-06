@@ -102,10 +102,10 @@ export function ClientForm({
             <>
               <input type="hidden" name="prospect_stage" value="" />
               <input type="hidden" name="next_follow_up_at" value="" />
-              <div className="sm:col-span-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-muted-foreground">
+              <div className="sm:col-span-2 rounded-xl border border-success/20 bg-success/5 px-4 py-3 text-sm text-muted-foreground">
                 {isFr
-                  ? "Ce client est dans le cycle de prestation. Les contrats et projets se créent ensuite dans leurs espaces respectifs."
-                  : "This client is in the delivery cycle. Contracts and projects are then created in their respective areas."}
+                  ? "Ce client est dans le cycle de prestation. Les contrats et projets se créent ensuite leurs espaces respectifs."
+                  : "This client is in the delivery cycle. Contracts and projects are then created their respective areas."}
               </div>
             </>
           )}
@@ -134,7 +134,7 @@ export function ClientForm({
           </div>
           <div className="space-y-2 sm:col-span-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-notes`}>{isOpportunity ? (isFr ? "Note ou prochaine action (facultatif)" : "Note or next action (optional)") : (isFr ? "Notes de la relation (facultatif)" : "Relationship notes (optional)")}</label>
-            <Textarea id={`${mode}-notes`} name="notes" defaultValue={values?.notes ?? ""} placeholder={isOpportunity ? (isFr ? "Ex. Relancer après l’envoi de la proposition" : "E.g. Follow up after the proposal is sent") : (isFr ? "Ex. Préférences de communication ou contexte de la relation" : "E.g. Communication preferences or relationship context")} />
+            <Textarea id={`${mode}-notes`} name="notes" defaultValue={values?.notes ?? ""} placeholder={isOpportunity ? (isFr ? "Ex. Relancer après l’envoi de la proposition" : "E.g. Follow up after the proposal is sent") : (isFr ? "Ex. Préférences de communication ou contexte la relation" : "E.g. Communication preferences or relationship context")} />
           </div>
 
           {state.error ? <div className="sm:col-span-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{state.error}</div> : null}

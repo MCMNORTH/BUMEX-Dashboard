@@ -112,9 +112,9 @@ export function InvoiceApprovalTimeline({ invoice, locale }: { invoice: InvoiceR
 
 const toneClasses = {
   slate: "border-slate-200 bg-slate-50 text-slate-800 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100",
-  amber: "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100",
-  rose: "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-100",
-  emerald: "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100",
+  amber: "border-warning/25 bg-warning/10 text-warning dark:border-warning/20",
+  rose: "border-danger/25 bg-danger/10 text-danger dark:border-danger/20",
+  emerald: "border-success/25 bg-success/10 text-success dark:border-success/20",
 };
 
 function formatTimelineDate(value: string, locale: "fr" | "en") {

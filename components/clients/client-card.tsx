@@ -18,7 +18,7 @@ export function ClientCard({ client }: { client: ClientRecord }) {
 
   return (
     <Link href={`/clients/${client.id}`} className="block">
-      <Card className="surface-highlight group overflow-hidden rounded-xl border-border/70 bg-card shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-sky-200/80 dark:shadow-none dark:hover:border-sky-400/20">
+      <Card className="surface-highlight group overflow-hidden rounded-xl border-border/70 bg-card shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/80 dark:shadow-none dark:hover:border-primary/20">
         <CardContent className="space-y-5 px-5 py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 space-y-4">
@@ -28,13 +28,13 @@ export function ClientCard({ client }: { client: ClientRecord }) {
                 <Badge variant="secondary" className="rounded-full px-3 py-1">{typeLabel}</Badge>
               </div>
               <div className="space-y-2">
-                <h3 className="text-2xl font-semibold tracking-[-0.05em] text-slate-950 transition-colors group-hover:text-primary dark:text-white dark:group-hover:text-sky-200">{client.name}</h3>
+                <h3 className="text-2xl font-semibold tracking-[-0.05em] text-slate-950 transition-colors group-hover:text-primary dark:text-white">{client.name}</h3>
                 <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
                   {client.legal_name || client.industry || (isOpportunity ? (isFr ? "Opportunité commerciale à suivre avant signature." : "Sales opportunity to follow before signing.") : (isFr ? "Client sous contrat et dans le cycle de prestation." : "Client under contract and in the delivery cycle."))}
                 </p>
               </div>
             </div>
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-white/70 bg-white/84 shadow-[0_16px_30px_-24px_rgba(15,23,42,0.42)] dark:border-white/10 dark:bg-white/5 dark:shadow-none"><Building2 className="size-5 text-primary dark:text-sky-200" /></div>
+            <div className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-white/70 bg-white/84 shadow-[0_16px_30px_-24px_rgba(15,23,42,0.42)] dark:border-white/10 dark:bg-white/5 dark:shadow-none"><Building2 className="size-5 text-primary" /></div>
           </div>
 
           {isOpportunity ? (
@@ -59,7 +59,7 @@ export function ClientCard({ client }: { client: ClientRecord }) {
               <span className="flex items-center gap-2"><UserRound className="size-4" />{client.contact_email ?? (isFr ? "Aucun e-mail de contact" : "No contact email")}</span>
               {isOpportunity ? <span className="flex items-center gap-2"><CalendarClock className="size-4" />{isFr ? "Relance" : "Follow-up"} : {formatDate(client.next_follow_up_at)}</span> : null}
             </div>
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 transition-colors group-hover:text-primary dark:text-slate-200 dark:group-hover:text-sky-300">{isFr ? "Voir le détail" : "View detail"}<span className="flex size-8 items-center justify-center rounded-full border border-border/70 bg-white/75 dark:border-white/10 dark:bg-white/5"><ArrowRight className="size-4" /></span></div>
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 transition-colors group-hover:text-primary dark:text-slate-200">{isFr ? "Voir le détail" : "View detail"}<span className="flex size-8 items-center justify-center rounded-full border border-border/70 bg-white/75 dark:border-white/10 dark:bg-white/5"><ArrowRight className="size-4" /></span></div>
           </div>
         </CardContent>
       </Card>
@@ -77,6 +77,6 @@ function stageLabel(stage: ClientRecord["prospect_stage"], isFr: boolean) {
 }
 
 function InsightPill({ label, value, tone }: { label: string; value: string; tone: "sky" | "violet" | "slate" }) {
-  const toneClass = tone === "sky" ? "border-sky-100/80 bg-sky-50/70 dark:border-sky-400/15 dark:bg-sky-400/8" : tone === "violet" ? "border-violet-100/80 bg-violet-50/70 dark:border-violet-400/15 dark:bg-violet-400/8" : "border-slate-200/80 bg-slate-100/76 dark:border-white/8 dark:bg-white/3";
+  const toneClass = tone === "sky" ? "border-primary/80 bg-primary/70 dark:border-primary/15 dark:bg-primary/8" : tone === "violet" ? "border-primary/80 bg-primary/70 dark:border-primary/15 dark:bg-primary/8" : "border-slate-200/80 bg-slate-100/76 dark:border-white/8 dark:bg-white/3";
   return <div className={`rounded-xl border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:shadow-none ${toneClass}`}><p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p><p className="mt-3 text-base font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">{value}</p></div>;
 }

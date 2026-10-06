@@ -7,14 +7,14 @@ import type { TeamWorkloadRecord } from "@/types/team";
 
 function getColor(utilization: number) {
   if (utilization > 1) {
-    return "rgba(244,63,94,0.78)";
+    return "var(--danger)";
   }
 
   if (utilization >= 0.75) {
-    return "rgba(245,158,11,0.76)";
+    return "var(--warning)";
   }
 
-  return "rgba(56,189,248,0.75)";
+  return "var(--chart-2)";
 }
 
 export function WorkloadHeatmap({
@@ -57,9 +57,9 @@ export function WorkloadHeatmap({
       </CardHeader>
       <CardContent className="h-[320px]">
         <ResponsiveContainer width="100%" height="100%">
-          <Treemap data={data} dataKey="size" stroke="rgba(148,163,184,0.18)" fill="rgba(56,189,248,0.6)">
+          <Treemap data={data} dataKey="size" stroke="rgba(148,163,184,0.18)" fill="var(--chart-2)">
             <Tooltip
-              contentStyle={{ borderRadius: 20, border: "1px solid rgba(148,163,184,0.18)", background: "rgba(15,23,42,0.92)", backdropFilter: "blur(12px)" }}
+              contentStyle={{ borderRadius: 10, border: "1px solid var(--border)", background: "var(--popover)", color: "var(--popover-foreground)" }}
               formatter={(value, _name, item) => [`${item.payload?.utilization ?? 0}% utilization`, item.payload?.name ?? "Member"]}
             />
           </Treemap>

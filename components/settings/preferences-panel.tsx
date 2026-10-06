@@ -56,7 +56,7 @@ export function PreferencesPanel() {
       <PageHeader
         eyebrow={isFr ? "Préférences" : "Preferences"}
         title={isFr ? "Paramètres personnels d’interface pour le thème, la langue et les notifications." : "Personal interface defaults for theme, language, and notification posture."}
-        subtitle={isFr ? "Ces préférences restent volontairement légères. Le thème est appliqué directement, tandis que le reste est stocké localement jusqu’à l’introduction d’un vrai modèle de préférences." : "These preferences stay intentionally lightweight. Theme is applied directly, while the rest are stored locally until a dedicated preferences model is introduced."}
+        subtitle={isFr ? "Ces préférences restent volontairement légères. Le thème est appliqué directement, tandis que le reste stocké localement jusqu’à l’introduction d’un vrai modèle de préférences." : "These preferences stay intentionally lightweight. Theme is applied directly, while the rest are stored locally until a dedicated model introduced."}
       />
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
@@ -86,7 +86,7 @@ export function PreferencesPanel() {
             <PreferenceSection
               icon={Globe2}
               title={isFr ? "Préférence de langue" : "Language preference"}
-              description={isFr ? "Placeholder d’interface pour le moment. Stocké localement dans le navigateur." : "UI placeholder only for now. Stored locally in the browser."}
+              description={isFr ? "Placeholder d’interface pour le moment. Stocké localement dans navigateur." : "UI placeholder only for now. Stored locally in the browser."}
             >
               <div className="grid gap-3 sm:grid-cols-2">
                 <PreferenceButton active={language === "fr"} label={isFr ? "Français" : "French"} onClick={() => setLanguage("fr")} />
@@ -189,7 +189,7 @@ function PreferenceButton({
       type="button"
       className={`rounded-xl border px-4 py-4 text-left text-sm transition-all ${
         active
-          ? "border-primary/30 bg-primary/12 text-foreground shadow-[var(--shadow-soft)] dark:border-sky-400/25 dark:bg-sky-500/14 dark:text-sky-100"
+          ? "border-primary/30 bg-primary/12 text-foreground shadow-[var(--shadow-soft)] dark:border-primary/25 dark:bg-primary/14 dark:text-primary"
           : "border-border/65 bg-background/45 text-foreground hover:bg-accent/40 dark:border-white/10 dark:bg-slate-950/45 dark:hover:bg-slate-900/70"
       }`}
       onClick={onClick}
@@ -215,7 +215,7 @@ function ToggleCard({
       type="button"
       className={`rounded-xl border px-4 py-4 text-left transition-all ${
         active
-          ? "border-primary/40 bg-primary/12 dark:border-sky-400/25 dark:bg-sky-500/14"
+          ? "border-primary/40 bg-primary/12 dark:border-primary/25 dark:bg-primary/14"
           : "border-border/65 bg-background/45 hover:bg-accent/40 dark:border-white/10 dark:bg-slate-950/45 dark:hover:bg-slate-900/70"
       }`}
       onClick={onToggle}

@@ -129,7 +129,7 @@ function EmptyRow({ children }: { children: React.ReactNode }) {
 const reasonClasses: Record<OverviewAttentionReason, string> = {
   blocked: "bg-danger/10 text-danger",
   overdue: "bg-danger/10 text-danger",
-  urgent: "bg-amber-500/12 text-amber-700 dark:text-amber-300",
+  urgent: "bg-warning/12 text-warning",
   unassigned: "bg-muted text-muted-foreground",
 };
 
@@ -263,9 +263,9 @@ export function OverviewDashboard({
       </section>
 
       {data.unavailable.length ? (
-        <div role="status" className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+        <div role="status" className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
           <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-          {t("overview.unavailable", "Some data could not be loaded ({sources}). The numbers below may be incomplete.", {
+          {t("overview.unavailable", "Some data could not be loaded ({sources}). The numbers below may incomplete.", {
             sources: data.unavailable.map((source) => t(`overview.sources.${source}`, source)).join(", "),
           })}
         </div>

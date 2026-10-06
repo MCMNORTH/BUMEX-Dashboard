@@ -49,8 +49,8 @@ export default async function TeamMemberDetailPage({
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <PageHeader
           eyebrow={tr("Profil collaborateur", "Team profile")}
-          title={tr("Une vue complète de la charge, des affectations et des priorités à court terme.", "A connected view of workload, assignments, activity, and near-term execution.")}
-          subtitle={tr("Consultez les projets, les tickets, les signaux de capacité et les mouvements opérationnels récents de cette personne.", "Use this profile to understand project exposure, assigned tickets, capacity signals, and recent operational movement.")}
+          title={tr("Une vue complète de la charge, des affectations et priorités à court terme.", "A connected view of workload, assignments, activity, and near-term execution.")}
+          subtitle={tr("Consultez les projets, tickets, signaux de capacité et mouvements opérationnels récents cette personne.", "Use this profile to understand project exposure, assigned tickets, capacity signals, and recent operational movement.")}
         />
         <div className="flex flex-wrap gap-2">{canStaff ? <Button asChild><Link href={`/staffing?person=${detail.member.id}`}><UserRoundPlus className="size-4" />{tr("Affecter dans Staffing", "Assign in Staffing")}</Link></Button> : null}{canEdit ? <TeamMemberForm member={detail.member} viewerRole={auth.role} currentUserId={auth.profile.id} /> : <Badge variant="secondary" className="w-fit rounded-full px-3 py-1">{tr("Vue annuaire", "Directory view")}</Badge>}</div>
       </div>
@@ -96,7 +96,7 @@ export default async function TeamMemberDetailPage({
             {detail.assignedProjects.length ? (
               <div className="space-y-3">
                 {detail.assignedProjects.map((project) => (
-                  <Link key={project.id} href={`/projects/${project.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-blue-500/30 dark:hover:bg-blue-500/5">
+                  <Link key={project.id} href={`/projects/${project.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary/30 dark:hover:bg-primary/5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="flex items-center gap-2 text-sm font-medium">{project.name}<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
@@ -123,7 +123,7 @@ export default async function TeamMemberDetailPage({
             {(performance?.upcomingDeadlines ?? detail.weeklyPlanning).length ? (
               <div className="space-y-3">
                 {(performance?.upcomingDeadlines ?? detail.weeklyPlanning).map((ticket) => (
-                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-amber-500/30 dark:hover:bg-amber-500/5">
+                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-warning/35 hover:bg-warning/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-warning/30 dark:hover:bg-warning/5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="flex items-center gap-2 text-sm font-medium">{ticket.title}<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
@@ -152,7 +152,7 @@ export default async function TeamMemberDetailPage({
             {(performance?.currentFocus ?? detail.assignedTickets).length ? (
               <div className="space-y-3">
                 {(performance?.currentFocus ?? detail.assignedTickets).slice(0, 8).map((ticket) => (
-                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-violet-300 hover:bg-violet-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-violet-500/30 dark:hover:bg-violet-500/5">
+                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary/30 dark:hover:bg-primary/5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="flex items-center gap-2 text-sm font-medium">{ticket.title}<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
@@ -176,7 +176,7 @@ export default async function TeamMemberDetailPage({
               embedded
               activities={detail.recentActivity}
               title={tr("Activité récente", "Recent activity")}
-              description={tr("Mises à jour du profil et événements opérationnels récents liés à ce collaborateur.", "Profile updates and recent operational events connected to this team member.")}
+              description={tr("Mises à jour du profil et événements opérationnels récents liés ce collaborateur.", "Profile updates and recent operational events connected to this team member.")}
             />
           </CardContent>
         </Card>

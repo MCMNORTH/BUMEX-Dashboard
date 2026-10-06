@@ -15,7 +15,7 @@ export function ContractCard({ contract }: { contract: ContractRecord }) {
   const isFr = locale === "fr";
   return (
     <Link href={`/contracts/${contract.id}`} className="block">
-      <Card className="surface-highlight group overflow-hidden rounded-xl border-border/70 bg-card shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-sky-200/80 dark:shadow-none dark:hover:border-sky-400/20">
+      <Card className="surface-highlight group overflow-hidden rounded-xl border-border/70 bg-card shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/80 dark:shadow-none dark:hover:border-primary/20">
         <CardContent className="space-y-5 px-5 py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 space-y-4">
@@ -24,7 +24,7 @@ export function ContractCard({ contract }: { contract: ContractRecord }) {
                 <ContractTypeBadge type={contract.contract_type} />
               </div>
               <div className="space-y-2">
-                <h3 className="text-2xl font-semibold tracking-[-0.05em] text-slate-950 transition-colors group-hover:text-primary dark:text-white dark:group-hover:text-sky-200">
+                <h3 className="text-2xl font-semibold tracking-[-0.05em] text-slate-950 transition-colors group-hover:text-primary dark:text-white">
                   {contract.title}
                 </h3>
                 <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
@@ -33,7 +33,7 @@ export function ContractCard({ contract }: { contract: ContractRecord }) {
               </div>
             </div>
             <div className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-white/70 bg-white/84 shadow-[0_16px_30px_-24px_rgba(15,23,42,0.42)] dark:border-white/10 dark:bg-white/5 dark:shadow-none">
-              <FileText className="size-5 text-primary dark:text-sky-200" />
+              <FileText className="size-5 text-primary" />
             </div>
           </div>
 
@@ -55,7 +55,7 @@ export function ContractCard({ contract }: { contract: ContractRecord }) {
                 {contract.renewalState.replaceAll("_", " ")}
               </span>
             </div>
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 transition-colors group-hover:text-primary dark:text-slate-200 dark:group-hover:text-sky-300">
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 transition-colors group-hover:text-primary dark:text-slate-200">
               {isFr ? "Voir le détail" : "View detail"}
               <span className="flex size-8 items-center justify-center rounded-full border border-border/70 bg-white/75 dark:border-white/10 dark:bg-white/5">
                 <ArrowRight className="size-4" />
@@ -79,11 +79,11 @@ function InsightPanel({
 }) {
   const toneClass =
     tone === "sky"
-      ? "border-sky-100/80 bg-sky-50/70 dark:border-sky-400/15 dark:bg-sky-400/8"
+      ? "border-primary/80 bg-primary/70 dark:border-primary/15 dark:bg-primary/8"
       : tone === "indigo"
-        ? "border-indigo-100/80 bg-indigo-50/70 dark:border-indigo-400/15 dark:bg-indigo-400/8"
+        ? "border-primary/80 bg-primary/70 dark:border-primary/15 dark:bg-primary/8"
         : tone === "amber"
-          ? "border-amber-100/80 bg-amber-50/70 dark:border-amber-400/15 dark:bg-amber-400/8"
+          ? "border-warning/80 bg-warning/70 dark:border-warning/15 dark:bg-warning/8"
           : "border-slate-200/80 bg-slate-100/76 dark:border-white/8 dark:bg-white/3";
 
   return (

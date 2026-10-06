@@ -59,12 +59,12 @@ export default async function ClientsPage({
   return (
     <div className="space-y-6">
       <ClientToast />
-      <section className="surface-hero px-6 py-7 sm:px-8">
+      <section className="surface-hero px-5 py-5 sm:px-6">
         <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
-            <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-amber-100 uppercase"><Handshake className="size-4" />{isFr ? "Portefeuille externe" : "External portfolio"}</div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-[-.05em] sm:text-4xl">{isFr ? "Clients et partenaires, au même endroit." : "Clients and partners, in one place."}</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/78">{isFr ? "Suivez vos relations externes, leurs demandes, leurs projets et les prochaines actions. Les produits créés par BUMEX se pilotent dans Projets, jamais ici." : "Track external relationships, their requests, projects, and next actions. BUMEX-built products are managed in Projects, never here."}</p>
+            <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-white/90 uppercase"><Handshake className="size-4" />{isFr ? "Portefeuille externe" : "External portfolio"}</div>
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight">{isFr ? "Clients et partenaires, au même endroit." : "Clients and partners, in one place."}</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/78">{isFr ? "Suivez vos relations externes, leurs demandes, projets et les prochaines actions. Les produits créés par BUMEX se pilotent dans Projets, jamais ici." : "Track external relationships, their requests, projects, and next actions. BUMEX-built products are managed in Projects, never here."}</p>
           </div>
           {canCreate ? <ClientForm mode="create" filterData={filterData} /> : <Button variant="secondary" className="rounded-full px-5">{isFr ? "Vue en lecture seule" : "Read-only view"}</Button>}
         </div>
@@ -73,7 +73,7 @@ export default async function ClientsPage({
             { title: isFr ? "1 · Ajouter une relation" : "1 · Add a relationship", detail: isFr ? "Client ou partenaire" : "Client or partner" },
             { title: isFr ? "2 · Lier les projets" : "2 · Link projects", detail: isFr ? "Demandes et livrables" : "Requests and delivery" },
             { title: isFr ? "3 · Suivre la prochaine action" : "3 · Track next action", detail: isFr ? "Ne rien laisser de côté" : "Leave nothing behind" },
-          ].map(({ title, detail }, index) => <div key={title} className="flex items-center justify-between rounded-xl border border-white/15 bg-white/[.1] px-4 py-3"><div><p className="text-xs font-semibold">{title}</p><p className="mt-1 text-xs text-white/65">{detail}</p></div>{index < 2 ? <ArrowRight className="size-4 text-amber-100" /> : <Handshake className="size-4 text-amber-100" />}</div>)}
+          ].map(({ title, detail }, index) => <div key={title} className="flex items-center justify-between rounded-xl border border-white/15 bg-white/[.1] px-4 py-3"><div><p className="text-xs font-semibold">{title}</p><p className="mt-1 text-xs text-white/65">{detail}</p></div>{index < 2 ? <ArrowRight className="size-4 text-white/90" /> : <Handshake className="size-4 text-white/90" />}</div>)}
         </div>
       </section>
 
@@ -84,7 +84,7 @@ export default async function ClientsPage({
           { icon: FolderKanban, label: isFr ? "Projets externes" : "External projects", value: formatNumber(totalActiveProjects), detail: isFr ? "Flux de delivery liés" : "Linked delivery streams", tone: "violet" },
           { icon: UserRound, label: isFr ? "À revoir" : "To review", value: formatNumber(suspended), detail: isFr ? "Relations en attente de décision" : "Relationships awaiting a decision", tone: "amber" },
         ].map(({ icon: Icon, label, value, detail, tone }) => (
-          <Card key={label} className={`surface-highlight relative overflow-hidden border dark:border-slate-700 ${tone === "emerald" ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200" : tone === "sky" ? "bg-card border-sky-200" : tone === "violet" ? "bg-card border-violet-200" : "bg-amber-50 dark:bg-amber-500/10 border-amber-200"}`}>
+          <Card key={label} className={`surface-highlight relative overflow-hidden border dark:border-slate-700 ${tone === "emerald" ? "bg-success/10 dark:bg-success/10 border-success/25" : tone === "sky" ? "bg-card border-primary/25" : tone === "violet" ? "bg-card border-primary/25" : "bg-warning/10 dark:bg-warning/10 border-warning/25"}`}>
             <CardContent className="px-5 py-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -92,7 +92,7 @@ export default async function ClientsPage({
                   <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</p>
                   <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
                 </div>
-                <div className={`flex size-11 items-center justify-center rounded-xl border ${tone === "emerald" ? "border-emerald-200 bg-emerald-100 text-emerald-700" : tone === "sky" ? "border-sky-200 bg-sky-100 text-sky-700" : tone === "violet" ? "border-violet-200 bg-violet-100 text-violet-700" : "border-amber-200 bg-amber-100 text-amber-700"}`}>
+                <div className={`flex size-11 items-center justify-center rounded-xl border ${tone === "emerald" ? "border-success/25 bg-success/15 text-success" : tone === "sky" ? "border-primary/25 bg-primary/15 text-primary" : tone === "violet" ? "border-primary/25 bg-primary/15 text-primary" : "border-warning/25 bg-warning/15 text-warning"}`}>
                   <Icon className="size-5" />
                 </div>
               </div>
@@ -137,7 +137,7 @@ export default async function ClientsPage({
       {visibleClients.length ? (
         isFiltered ? <div className="grid gap-4">{visibleClients.map((client) => <ClientCard key={client.id} client={client} />)}</div> : activeView === "relationships" ? (
           <div className="space-y-8">
-            <ClientGroup title={isFr ? "Clients et partenaires actifs" : "Active clients and partners"} description={isFr ? "Relations externes passées au cycle de prestation avec un contrat ou un engagement actif." : "External relationships in the delivery cycle with an active contract or engagement."} clients={contractedClients} />
+            <ClientGroup title={isFr ? "Clients et partenaires actifs" : "Active clients and partners"} description={isFr ? "Relations externes passées au cycle de prestation avec un contrat ou engagement actif." : "External relationships in the delivery cycle with an active contract or engagement."} clients={contractedClients} />
             {otherClients.length ? <ClientGroup title={isFr ? "Relations à revoir" : "Relationships to review"} description={isFr ? "Relations inactives, suspendues ou archivées." : "Inactive, suspended, or archived relationships."} clients={otherClients} /> : null}
           </div>
         ) : <ClientGroup title={isFr ? "Discussions en cours" : "Ongoing conversations"} description={isFr ? "Contacts et organisations à suivre jusqu’à la signature." : "Contacts and organizations to follow through signature."} clients={pipelineClients} />

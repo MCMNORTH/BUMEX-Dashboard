@@ -31,17 +31,17 @@ import { useI18n } from "@/components/layout/i18n-provider";
 import type { ActivityLogRecord } from "@/types/activity";
 
 const kindClasses = {
-  create: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100",
-  update: "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100",
-  delete: "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100",
-  archive: "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100",
+  create: "border-success/25 bg-success/10 text-success dark:border-success/20",
+  update: "border-primary/25 bg-primary/10 text-primary dark:border-primary/20",
+  delete: "border-danger/25 bg-danger/10 text-danger dark:border-danger/20",
+  archive: "border-danger/25 bg-danger/10 text-danger dark:border-danger/20",
   view: "border-slate-500/25 bg-slate-500/10 text-slate-700 dark:border-slate-400/20 dark:bg-slate-400/10 dark:text-slate-100",
-  pin: "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100",
-  status_change: "border-violet-500/25 bg-violet-500/10 text-violet-700 dark:border-violet-400/20 dark:bg-violet-400/10 dark:text-violet-100",
-  assignment_change: "border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-100",
-  priority_change: "border-fuchsia-500/25 bg-fuchsia-500/10 text-fuchsia-700 dark:border-fuchsia-400/20 dark:bg-fuchsia-400/10 dark:text-fuchsia-100",
-  due_date_change: "border-orange-500/25 bg-orange-500/10 text-orange-700 dark:border-orange-400/20 dark:bg-orange-400/10 dark:text-orange-100",
-  completion_change: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100",
+  pin: "border-warning/25 bg-warning/10 text-warning dark:border-warning/20",
+  status_change: "border-primary/25 bg-primary/10 text-primary dark:border-primary/20",
+  assignment_change: "border-primary/25 bg-primary/10 text-primary dark:border-primary/20",
+  priority_change: "border-primary/25 bg-primary/10 text-primary dark:border-primary/20",
+  due_date_change: "border-warning/25 bg-warning/10 text-warning dark:border-warning/20",
+  completion_change: "border-success/25 bg-success/10 text-success dark:border-success/20",
 } as const;
 
 const iconNodes = {

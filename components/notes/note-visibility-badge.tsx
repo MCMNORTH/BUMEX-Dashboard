@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import type { NoteVisibility } from "@/types/note";
+import { toneBadge } from "@/components/ui/tone";
 
 const visibilityLabels: Record<NoteVisibility, string> = {
   private: "Private",
@@ -9,10 +10,10 @@ const visibilityLabels: Record<NoteVisibility, string> = {
 };
 
 const visibilityClasses: Record<NoteVisibility, string> = {
-  private: "border-border bg-muted text-muted-foreground",
-  team: "border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-100",
-  management: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-100",
-  shareholders: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-100",
+  private: toneBadge.neutral,
+  team: toneBadge.neutral,
+  management: toneBadge.neutral,
+  shareholders: toneBadge.neutral,
 };
 
 export function NoteVisibilityBadge({ visibility }: { visibility: NoteVisibility }) {

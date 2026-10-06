@@ -6,9 +6,9 @@ import { formatFinanceCurrency } from "@/lib/finance/helpers";
 import type { FinanceRiskItem } from "@/types/finance";
 
 const severityMeta = {
-  info: { icon: Info, tone: "text-sky-700 bg-sky-50 border-sky-200 dark:text-sky-100 dark:bg-sky-500/12 dark:border-sky-500/20" },
-  warning: { icon: AlertTriangle, tone: "text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-100 dark:bg-amber-500/12 dark:border-amber-500/20" },
-  critical: { icon: TriangleAlert, tone: "text-rose-700 bg-rose-50 border-rose-200 dark:text-rose-100 dark:bg-rose-500/12 dark:border-rose-500/20" },
+  info: { icon: Info, tone: "text-primary bg-primary/10 border-primary/25 dark:bg-primary/12 dark:border-primary/20" },
+  warning: { icon: AlertTriangle, tone: "text-warning bg-warning/10 border-warning/25 dark:bg-warning/12 dark:border-warning/20" },
+  critical: { icon: TriangleAlert, tone: "text-danger bg-danger/10 border-danger/25 dark:bg-danger/12 dark:border-danger/20" },
 } as const;
 
 export function FinanceRiskPanel({ items }: { items: FinanceRiskItem[] }) {
@@ -25,7 +25,7 @@ export function FinanceRiskPanel({ items }: { items: FinanceRiskItem[] }) {
               const meta = severityMeta[item.severity];
               const Icon = meta.icon;
               const content = (
-                <div className="rounded-xl border border-red-200 bg-red-50/50 p-3 transition-colors hover:bg-red-50 dark:border-red-400/20 dark:bg-red-500/10 dark:hover:bg-red-500/12">
+                <div className="rounded-xl border border-danger/25 bg-danger/50 p-3 transition-colors hover:bg-danger/10 dark:border-danger/20 dark:bg-danger/10 dark:hover:bg-danger/12">
                   <div className="flex items-start gap-3">
                     <div className={`mt-0.5 flex size-10 items-center justify-center rounded-xl border ${meta.tone}`}>
                       <Icon className="size-4.5" />

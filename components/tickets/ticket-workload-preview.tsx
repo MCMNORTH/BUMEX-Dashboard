@@ -7,14 +7,14 @@ import type { TicketWorkloadRecord } from "@/types/ticket";
 
 function getWorkloadTone(activeTickets: number, overdueTickets: number) {
   if (overdueTickets > 0 || activeTickets >= 8) {
-    return "border-rose-500/25 bg-rose-50 text-rose-700 dark:border-rose-300/10 dark:bg-rose-500/12 dark:text-rose-100";
+    return "border-danger/25 bg-danger/10 text-danger dark:border-danger/10 dark:bg-danger/12";
   }
 
   if (activeTickets >= 5) {
-    return "border-amber-500/25 bg-amber-50 text-amber-700 dark:border-amber-300/10 dark:bg-amber-500/12 dark:text-amber-100";
+    return "border-warning/25 bg-warning/10 text-warning dark:border-warning/10 dark:bg-warning/12";
   }
 
-  return "border-emerald-500/25 bg-emerald-50 text-emerald-700 dark:border-emerald-300/10 dark:bg-emerald-500/12 dark:text-emerald-100";
+  return "border-success/25 bg-success/10 text-success dark:border-success/10 dark:bg-success/12";
 }
 
 function getWorkloadLabel(activeTickets: number, overdueTickets: number, isFr: boolean) {
@@ -42,8 +42,8 @@ export async function TicketWorkloadPreview({
   const isFr = locale === "fr";
 
   return (
-    <Card className="bg-card overflow-hidden border-cyan-200 shadow-[var(--shadow-soft)] dark:border-slate-700 dark:shadow-none">
-      <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-cyan-100/80">
+    <Card className="bg-card overflow-hidden border-primary/25 shadow-[var(--shadow-soft)] dark:border-slate-700 dark:shadow-none">
+      <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-primary/80">
         <div>
           <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Charge" : "Workload"}</p>
           <CardTitle className="mt-2 text-xl">{title}</CardTitle>

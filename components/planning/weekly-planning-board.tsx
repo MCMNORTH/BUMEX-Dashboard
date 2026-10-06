@@ -230,6 +230,7 @@ export function WeeklyPlanningBoard({
       ) : null}
 
       <DndContext
+        id="weekly-planning-board"
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}

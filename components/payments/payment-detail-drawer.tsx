@@ -60,7 +60,7 @@ export function PaymentDetailDrawer({
               {payment.reference ?? payment.client?.name ?? tr("Détail du paiement", "Payment detail")}
             </DialogTitle>
             <DialogDescription>
-              {tr("Paiement client avec son projet, son contrat, sa facture et son historique.", "Client payment with its project, contract, invoice, and history.")}
+              {tr("Paiement client avec son projet, contrat, sa facture et historique.", "Client payment with its project, contract, invoice, and history.")}
             </DialogDescription>
           </DialogHeader>
 
@@ -171,10 +171,10 @@ export function PaymentDetailDrawer({
                   action={deletePaymentAction}
                   fields={{ payment_id: payment.id }}
                   title={tr("Supprimer ce paiement ?", "Delete payment?")}
-                  description={tr("Ce paiement sera définitivement supprimé. Cette action est irréversible.", "This will permanently delete this payment record. This action cannot be undone.")}
+                  description={tr("Ce paiement sera définitivement supprimé. Cette action est irréversible.", "This will permanently delete this payment record. action cannot be undone.")}
                   confirmLabel={tr("Supprimer le paiement", "Delete payment")}
                   trigger={(
-                    <Button type="button" variant="ghost" className="rounded-xl px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
+                    <Button type="button" variant="ghost" className="rounded-xl px-5 text-danger hover:bg-danger/10 hover:text-danger">
                       <Trash2 className="size-4" />
                       {tr("Supprimer le paiement", "Delete payment")}
                     </Button>

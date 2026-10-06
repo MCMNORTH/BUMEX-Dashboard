@@ -150,7 +150,7 @@ export function BankStatementForm() {
               </h2>
               <p className="mt-3 text-sm leading-7 text-white/78">
                 {isFr
-                  ? "Vous choisissez le fichier du relevé. Le système lit son contenu, affiche les transactions détectées et prépare le rapprochement avant l'import."
+                  ? "Vous choisissez le fichier du relevé. Le système lit son contenu, affiche les transactions détectées et prépare rapprochement avant l'import."
                   : "Choose the statement file. The system reads its content, displays detected transactions, and prepares reconciliation before import."}
               </p>
             </div>
@@ -161,8 +161,8 @@ export function BankStatementForm() {
               </p>
               <p className="mt-3 text-sm text-white/80">
                 {isFr
-                  ? "`.txt` et `.csv` avec colonnes `date | libellé | référence | crédit | débit`"
-                  : "`.txt` and `.csv` with columns `date | label | reference | credit | debit`"}
+                  ? "`.txt` et `.csv` avec colonnes `date | libellé référence crédit débit`"
+                  : "`.txt` and `.csv` with columns `date | label reference credit debit`"}
               </p>
             </div>
 
@@ -303,7 +303,7 @@ export function BankStatementForm() {
                               {line.reference ? ` • ${line.reference}` : ""}
                             </p>
                           </div>
-                          <p className={`text-sm font-semibold ${line.amount >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                          <p className={`text-sm font-semibold ${line.amount >= 0 ? "text-success" : "text-danger"}`}>
                             {formatFinanceCurrency(line.amount, currency)}
                           </p>
                         </div>
@@ -320,13 +320,13 @@ export function BankStatementForm() {
               </div>
 
               {state.error ? (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                <div className="rounded-xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm text-danger">
                   {state.error}
                 </div>
               ) : null}
 
               {state.success ? (
-                <div className="rounded-xl border border-emerald-300/50 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                <div className="rounded-xl border border-success/50 bg-success/10 px-4 py-3 text-sm text-success">
                   {state.success}
                 </div>
               ) : null}

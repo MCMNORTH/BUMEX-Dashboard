@@ -6,23 +6,24 @@ import { Badge } from "@/components/ui/badge";
 import { getTicketPriorityLabel } from "@/lib/tickets/helpers";
 import { useI18n } from "@/components/layout/i18n-provider";
 import type { TicketPriority } from "@/types/ticket";
+import { toneBadge } from "@/components/ui/tone";
 
 const config = {
   low: {
     icon: Gauge,
-    className: "border-slate-500/25 bg-slate-100 text-slate-700 dark:border-slate-300/10 dark:bg-slate-500/12 dark:text-slate-100",
+    className: toneBadge.neutral,
   },
   medium: {
     icon: Equal,
-    className: "border-amber-500/25 bg-amber-50 text-amber-700 dark:border-amber-300/10 dark:bg-amber-500/12 dark:text-amber-100",
+    className: toneBadge.neutral,
   },
   high: {
     icon: ArrowUp,
-    className: "border-orange-500/25 bg-orange-50 text-orange-700 dark:border-orange-300/10 dark:bg-orange-500/12 dark:text-orange-100",
+    className: toneBadge.warning,
   },
   urgent: {
     icon: AlertTriangle,
-    className: "border-rose-500/25 bg-rose-50 text-rose-700 dark:border-rose-300/10 dark:bg-rose-500/12 dark:text-rose-100",
+    className: toneBadge.danger,
   },
 } satisfies Record<TicketPriority, { icon: typeof Gauge; className: string }>;
 

@@ -68,7 +68,7 @@ function InvoiceTableComponent({
                 <td className="px-5 py-4">
                   <InvoiceApprovalBadge status={invoice.approval_status} changesRequested={hasActiveRevisionRequest(invoice)} />
                   {invoice.approval_status === "pending" ? (
-                    <p className={`mt-1.5 text-xs ${getWaitingDays(invoice.updated_at) >= 3 ? "font-semibold text-rose-600" : "text-muted-foreground"}`}>
+                    <p className={`mt-1.5 text-xs ${getWaitingDays(invoice.updated_at) >= 3 ? "font-semibold text-danger" : "text-muted-foreground"}`}>
                       {isFr ? `En attente depuis ${getWaitingDays(invoice.updated_at)} j` : `Waiting for ${getWaitingDays(invoice.updated_at)}d`}
                     </p>
                   ) : null}
@@ -125,7 +125,7 @@ function InvoiceTableComponent({
                           description={isFr ? `La facture ${invoice.invoice_number} sera supprimée définitivement. Cette action est irréversible.` : `This will permanently delete invoice ${invoice.invoice_number}. This action cannot be undone.`}
                           confirmLabel={isFr ? "Supprimer la facture" : "Delete invoice"}
                           trigger={(
-                            <Button variant="ghost" size="icon" className="rounded-full text-rose-700 hover:bg-rose-500/10 hover:text-rose-800">
+                            <Button variant="ghost" size="icon" className="rounded-full text-danger hover:bg-danger/10 hover:text-danger">
                               <Trash2 className="size-4" />
                             </Button>
                           )}

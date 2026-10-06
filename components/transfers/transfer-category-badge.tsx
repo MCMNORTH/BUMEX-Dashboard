@@ -3,16 +3,17 @@
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/components/layout/i18n-provider";
 import type { TransferCategory } from "@/types/finance";
+import { toneBadge } from "@/components/ui/tone";
 
 const categoryStyles: Record<TransferCategory, string> = {
-  supplier: "border-cyan-500/20 bg-cyan-500/12 text-cyan-700 dark:text-cyan-100",
-  salary: "border-indigo-500/20 bg-indigo-500/12 text-indigo-700 dark:text-indigo-100",
-  subcontractor: "border-violet-500/20 bg-violet-500/12 text-violet-700 dark:text-violet-100",
-  software: "border-blue-500/20 bg-blue-500/12 text-blue-700 dark:text-blue-100",
-  hosting: "border-sky-500/20 bg-sky-500/12 text-sky-700 dark:text-sky-100",
-  taxes: "border-amber-500/20 bg-amber-500/12 text-amber-700 dark:text-amber-100",
-  rent: "border-orange-500/20 bg-orange-500/12 text-orange-700 dark:text-orange-100",
-  other: "border-border/70 bg-background/45 text-foreground",
+  supplier: toneBadge.neutral,
+  salary: toneBadge.neutral,
+  subcontractor: toneBadge.neutral,
+  software: toneBadge.neutral,
+  hosting: toneBadge.neutral,
+  taxes: toneBadge.neutral,
+  rent: toneBadge.neutral,
+  other: toneBadge.neutral,
 };
 
 export function TransferCategoryBadge({ category }: { category: TransferCategory }) {

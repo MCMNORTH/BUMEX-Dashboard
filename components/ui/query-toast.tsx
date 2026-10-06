@@ -65,7 +65,7 @@ export function QueryToast({ messages }: QueryToastProps) {
         <div className="flex items-start gap-3">
           <Icon
             className={`mt-0.5 size-5 shrink-0 ${
-              message.tone === "success" ? "text-emerald-600 dark:text-emerald-300" : "text-danger"
+              message.tone === "success" ? "text-success" : "text-danger"
             }`}
           />
           <div className="min-w-0 flex-1 space-y-0.5">

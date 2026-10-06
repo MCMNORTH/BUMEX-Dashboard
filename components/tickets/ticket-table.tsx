@@ -1,105 +1,71 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CalendarClock, CircleUserRound, FolderKanban, UserRound } from "lucide-react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useI18n } from "@/components/layout/i18n-provider";
+import { TicketAssignee, TicketDue } from "@/components/tickets/ticket-meta";
 import { TicketPriorityBadge } from "@/components/tickets/ticket-priority-badge";
 import { TicketStatusBadge } from "@/components/tickets/ticket-status-badge";
-import { TicketTypeBadge } from "@/components/tickets/ticket-type-badge";
-import { useI18n } from "@/components/layout/i18n-provider";
+import { TicketTypeIcon } from "@/components/tickets/ticket-type-badge";
 import { getBumexEntity } from "@/lib/entities/config";
-import { formatTicketDate, getTicketDescriptionPreview, getTicketDueState } from "@/lib/tickets/helpers";
 import type { TicketRecord } from "@/types/ticket";
 
-function initials(name: string | undefined) {
-  return name?.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "—";
-}
+// One column template shared by the header and every row so they always line up.
+const columns = "md:grid-cols-[minmax(0,1fr)_8.5rem_7rem_11rem_5.5rem]";
 
-function TicketRow({ ticket }: { ticket: TicketRecord }) {
-  const { locale } = useI18n();
+function TicketRow({ ticket, locale }: { ticket: TicketRecord; locale: "en" | "fr" }) {
   const fr = locale === "fr";
-  const dueState = getTicketDueState(ticket.due_date);
-  const dueLabel = !ticket.due_date
-    ? (fr ? "Aucune échéance" : "No deadline")
-    : dueState === "overdue"
-      ? (fr ? "En retard" : "Overdue")
-      : formatTicketDate(ticket.due_date);
-  const accent = dueState === "overdue"
-    ? "before:bg-rose-500"
-    : ticket.status === "done"
-      ? "before:bg-emerald-500"
-      : ticket.status === "in_progress"
-        ? "before:bg-violet-500"
-        : ticket.status === "blocked"
-          ? "before:bg-amber-500"
-          : "before:bg-sky-500";
+  const context = ticket.project?.name
+    ?? (fr ? "Sans projet" : "No project");
+  const owner = ticket.project?.entity_code
+    ? getBumexEntity(ticket.project.entity_code)?.name
+    : ticket.project?.client?.name;
 
   return (
-    <Link
-      href={`/tickets/${ticket.id}`}
-      className={`group relative block min-w-0 overflow-hidden rounded-xl border border-border/75 bg-card p-4 shadow-sm transition duration-200 before:absolute before:inset-y-0 before:left-0 before:w-1 before:content-[''] ${accent} motion-safe:hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-lg motion-reduce:transition-none sm:p-5`}
-    >
-      <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <TicketTypeBadge type={ticket.type} />
-            <TicketPriorityBadge priority={ticket.priority} />
-            <TicketStatusBadge status={ticket.status} />
-          </div>
-          <h3 className="mt-3 break-words text-base font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary sm:text-lg">{ticket.title}</h3>
-          {ticket.description ? <p className="mt-1.5 line-clamp-2 max-w-4xl break-words text-sm leading-6 text-muted-foreground">{getTicketDescriptionPreview(ticket.description)}</p> : null}
-        </div>
-        <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-muted/65 px-3 py-2 text-xs font-semibold text-muted-foreground transition group-hover:bg-primary/10 group-hover:text-primary lg:inline-flex">
-          {fr ? "Ouvrir" : "Open"}<ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+    <li>
+      <Link
+        href={`/tickets/${ticket.id}`}
+        className={`grid min-w-0 gap-x-4 gap-y-1.5 px-3 py-2.5 transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none md:items-center ${columns}`}
+      >
+        <span className="flex min-w-0 items-start gap-2.5">
+          <TicketTypeIcon type={ticket.type} className="mt-0.5 shrink-0" />
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium text-foreground">{ticket.title}</span>
+            <span className="block truncate text-xs text-muted-foreground">
+              {context}
+              {owner ? ` · ${owner}` : ""}
+            </span>
+          </span>
         </span>
-      </div>
 
-      <div className="mt-4 grid min-w-0 gap-2 border-t border-border/65 pt-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="flex min-w-0 items-start gap-2.5 rounded-xl bg-sky-500/[0.045] p-2.5 transition-colors group-hover:bg-sky-500/[0.075]">
-          <FolderKanban className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400" />
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{fr ? "Projet / entité" : "Project / entity"}</p>
-            <p className="mt-1 break-words text-sm font-medium">{ticket.project?.name ?? (fr ? "Sans projet" : "No project")}</p>
-            <p className="truncate text-xs text-muted-foreground">{ticket.project?.entity_code ? getBumexEntity(ticket.project.entity_code)?.name ?? ticket.project.entity_code : (ticket.project?.client?.name ?? (fr ? "Projet interne" : "Internal project"))}</p>
-          </div>
-        </div>
-
-        <div className="flex min-w-0 items-start gap-2.5 rounded-xl bg-violet-500/[0.045] p-2.5 transition-colors group-hover:bg-violet-500/[0.075]">
-          <UserRound className="mt-0.5 size-4 shrink-0 text-violet-600 dark:text-violet-400" />
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{fr ? "Responsable" : "Assignee"}</p>
-            <div className="mt-1 flex min-w-0 items-center gap-2">
-              <Avatar className="size-6 shrink-0"><AvatarFallback className="text-xs">{initials(ticket.assignee?.full_name)}</AvatarFallback></Avatar>
-              <span className="truncate text-sm font-medium">{ticket.assignee?.full_name ?? (fr ? "À attribuer" : "Unassigned")}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex min-w-0 items-start gap-2.5 rounded-xl bg-amber-500/[0.045] p-2.5 transition-colors group-hover:bg-amber-500/[0.075]">
-          <CircleUserRound className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{fr ? "Créé par" : "Created by"}</p>
-            <p className="mt-1 truncate text-sm font-medium">{ticket.reporter?.full_name ?? (fr ? "Profil indisponible" : "Profile unavailable")}</p>
-          </div>
-        </div>
-
-        <div className={`flex min-w-0 items-start gap-2.5 rounded-xl p-2.5 transition-colors ${dueState === "overdue" ? "bg-rose-500/[0.08]" : "bg-emerald-500/[0.045] group-hover:bg-emerald-500/[0.075]"}`}>
-          <CalendarClock className={`mt-0.5 size-4 shrink-0 ${dueState === "overdue" ? "text-rose-600" : "text-emerald-600 dark:text-emerald-400"}`} />
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{fr ? "Échéance" : "Due date"}</p>
-            <p className={`mt-1 truncate text-sm font-medium ${dueState === "overdue" ? "text-rose-600 dark:text-rose-300" : ""}`}>{dueLabel}</p>
-          </div>
-        </div>
-      </div>
-    </Link>
+        {/* On small screens the remaining fields share one wrapped line under the title. */}
+        <span className="flex min-w-0 flex-wrap items-center gap-2 pl-6.5 md:contents">
+          <span className="md:block"><TicketStatusBadge status={ticket.status} /></span>
+          <span className="md:block"><TicketPriorityBadge priority={ticket.priority} /></span>
+          <span className="min-w-0 md:block"><TicketAssignee name={ticket.assignee?.full_name} locale={locale} /></span>
+          <TicketDue ticket={ticket} locale={locale} className="text-sm md:text-right" />
+        </span>
+      </Link>
+    </li>
   );
 }
 
 export function TicketTable({ tickets }: { tickets: TicketRecord[] }) {
+  const { locale } = useI18n();
+  const fr = locale === "fr";
+
   return (
-    <div className="grid min-w-0 gap-3">
-      {tickets.map((ticket) => <TicketRow key={ticket.id} ticket={ticket} />)}
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-[var(--shadow-soft)]">
+      <div className={`hidden gap-x-4 border-b border-border bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground md:grid ${columns}`}>
+        <span className="pl-6.5">{fr ? "Ticket" : "Ticket"}</span>
+        <span>{fr ? "Statut" : "Status"}</span>
+        <span>{fr ? "Priorité" : "Priority"}</span>
+        <span>{fr ? "Responsable" : "Assignee"}</span>
+        <span className="text-right">{fr ? "Échéance" : "Due"}</span>
+      </div>
+      <ul className="divide-y divide-border">
+        {tickets.map((ticket) => <TicketRow key={ticket.id} ticket={ticket} locale={locale} />)}
+      </ul>
     </div>
   );
 }

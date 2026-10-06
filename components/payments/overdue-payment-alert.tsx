@@ -29,15 +29,15 @@ export function OverduePaymentAlert({
   const { locale } = useI18n();
   const isFr = locale === "fr";
   return (
-    <Card className="border-rose-500/18 bg-card">
+    <Card className="border-danger/18 bg-card">
       <CardContent className="space-y-4 px-5 py-5">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Encaissements en retard" : "Overdue payments"}</p>
             <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Encaissements à surveiller" : "Collections needing attention"}</h3>
           </div>
-          <div className="mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-xl border border-rose-500/20 bg-rose-500/12">
-            <AlertTriangle className="size-5 text-rose-400" />
+          <div className="mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-xl border border-danger/20 bg-danger/12">
+            <AlertTriangle className="size-5 text-danger" />
           </div>
         </div>
         {payments.length ? (
@@ -54,7 +54,7 @@ export function OverduePaymentAlert({
                 trigger={
                   <button
                     type="button"
-                    className="w-full rounded-xl border border-rose-500/16 bg-rose-500/6 px-4 py-3 text-left transition-colors hover:border-rose-400/28"
+                    className="w-full rounded-xl border border-danger/16 bg-danger/6 px-4 py-3 text-left transition-colors hover:border-danger/28"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>

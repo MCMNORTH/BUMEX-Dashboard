@@ -27,7 +27,7 @@ const roleOverviews: RoleOverview[] = [
     canManage: ["Users", "Roles", "Finance", "Settings", "All delivery modules"],
     restrictions: ["No functional restrictions in normal workspace scope"],
     icon: Crown,
-    badgeClassName: "border-rose-400/30 bg-rose-50 text-rose-700 dark:bg-rose-500/12 dark:text-rose-100",
+    badgeClassName: "border-danger/30 bg-danger/10 text-danger dark:bg-danger/12",
   },
   {
     role: "manager",
@@ -38,18 +38,18 @@ const roleOverviews: RoleOverview[] = [
     canManage: ["Assigned projects", "Assigned clients", "Tickets", "Planning coordination"],
     restrictions: ["Cannot manage system-wide settings", "No unrestricted platform administration"],
     icon: ShieldCheck,
-    badgeClassName: "border-sky-400/30 bg-sky-50 text-sky-700 dark:bg-sky-500/12 dark:text-sky-100",
+    badgeClassName: "border-primary/30 bg-primary/10 text-primary dark:bg-primary/12",
   },
   {
     role: "supervisor",
     label: "Supervisor",
-    description: "Workspace-wide operational visibility similar to a manager, but without access to business modules.",
+    description: "Workspace-wide operational visibility similar to a manager, but without access business modules.",
     accessLevel: "Workspace entity control",
     canView: ["Workspace modules", "Entity-wide tickets", "Planning", "Projects and team coordination"],
     canManage: ["Projects", "Tickets", "Planning coordination", "Workspace execution follow-up"],
     restrictions: ["No business module access", "No finance access", "No user or role management"],
     icon: ShieldCheck,
-    badgeClassName: "border-violet-400/30 bg-violet-50 text-violet-700 dark:bg-violet-500/12 dark:text-violet-100",
+    badgeClassName: "border-primary/30 bg-primary/10 text-primary dark:bg-primary/12",
   },
   {
     role: "employee",
@@ -60,7 +60,7 @@ const roleOverviews: RoleOverview[] = [
     canManage: ["Own ticket updates", "Comments on allowed entities", "Personal delivery actions"],
     restrictions: ["No finance access", "No user or role management", "No system settings management"],
     icon: Users2,
-    badgeClassName: "border-emerald-400/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-100",
+    badgeClassName: "border-success/30 bg-success/10 text-success dark:bg-success/12",
   },
   {
     role: "shareholder",
@@ -71,7 +71,7 @@ const roleOverviews: RoleOverview[] = [
     canManage: ["No operational editing", "No internal workflow management"],
     restrictions: ["No internal ticket details", "No sensitive finance details", "No operational settings control"],
     icon: WalletCards,
-    badgeClassName: "border-amber-400/30 bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-100",
+    badgeClassName: "border-warning/30 bg-warning/10 text-warning dark:bg-warning/12",
   },
 ];
 

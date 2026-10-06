@@ -7,13 +7,13 @@ import { ChartCard } from "@/components/dashboard/chart-card";
 import type { InvoiceStatusPoint } from "@/types/finance";
 
 const palette: Record<string, string> = {
-  draft: "#94a3b8",
-  sent: "#38bdf8",
-  partially_paid: "#f59e0b",
-  paid: "#10b981",
-  overdue: "#f43f5e",
-  cancelled: "#71717a",
-  archived: "#64748b",
+  draft: "var(--chart-5)",
+  sent: "var(--chart-2)",
+  partially_paid: "var(--warning)",
+  paid: "var(--success)",
+  overdue: "var(--danger)",
+  cancelled: "var(--chart-5)",
+  archived: "var(--chart-5)",
 };
 
 function InvoiceStatusChartComponent({ data }: { data: InvoiceStatusPoint[] }) {
@@ -29,11 +29,11 @@ function InvoiceStatusChartComponent({ data }: { data: InvoiceStatusPoint[] }) {
           <PieChart>
             <Pie data={data} dataKey="count" nameKey="status" innerRadius={70} outerRadius={108} paddingAngle={4}>
               {data.map((entry) => (
-                <Cell key={entry.status} fill={palette[entry.status] ?? "#38bdf8"} />
+                <Cell key={entry.status} fill={palette[entry.status] ?? "var(--chart-2)"} />
               ))}
             </Pie>
             <Tooltip
-              contentStyle={{ borderRadius: 20, border: "1px solid rgba(148,163,184,0.18)", background: "rgba(15,23,42,0.92)", backdropFilter: "blur(12px)" }}
+              contentStyle={{ borderRadius: 10, border: "1px solid var(--border)", background: "var(--popover)", color: "var(--popover-foreground)" }}
               formatter={(value) => [Number(value ?? 0), "Count"]}
             />
           </PieChart>

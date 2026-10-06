@@ -34,7 +34,7 @@ export function MilestoneMarker({
           <TooltipTrigger asChild>
             <button
               type="button"
-              className={`absolute top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium tracking-wide uppercase transition-all ${milestone.status === "completed" ? "border-emerald-400/30 bg-emerald-400/12 text-emerald-700 dark:text-emerald-100" : milestone.status === "delayed" ? "border-amber-400/30 bg-amber-400/12 text-amber-700 dark:text-amber-100" : "border-primary/30 bg-primary/14 text-primary-foreground"}`}
+              className={`absolute top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium tracking-wide uppercase transition-all ${milestone.status === "completed" ? "border-success/30 bg-success/12 text-success dark:text-success" : milestone.status === "delayed" ? "border-warning/30 bg-warning/12 text-warning dark:text-warning" : "border-primary/30 bg-primary/14 text-primary-foreground"}`}
             >
               <Flag className="size-3" />
               <span className="hidden md:inline">{milestone.title}</span>
@@ -98,7 +98,7 @@ export function MilestoneMarker({
               description={`This will permanently delete "${milestone.title}". This action cannot be undone.`}
               confirmLabel="Delete milestone"
               trigger={(
-                <Button type="button" variant="ghost" className="rounded-full px-3 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
+                <Button type="button" variant="ghost" className="rounded-full px-3 text-danger hover:bg-danger/10 hover:text-danger">
                   <Trash2 className="size-4" />
                 </Button>
               )}

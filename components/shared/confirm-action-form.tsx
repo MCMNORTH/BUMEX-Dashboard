@@ -55,7 +55,7 @@ export function ConfirmActionForm({
                 {cancelLabel ?? t("common.actions.cancel", "Cancel")}
               </Button>
             </DialogClose>
-            <Button type="submit" className={`rounded-full px-5 text-white ${tone === "success" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"}`}>
+            <Button type="submit" className={`rounded-full px-5 text-white ${tone === "success" ? "bg-success hover:bg-success" : "bg-danger hover:bg-danger"}`}>
               {confirmLabel ?? t("common.actions.confirm", "Confirm")}
             </Button>
           </DialogFooter>

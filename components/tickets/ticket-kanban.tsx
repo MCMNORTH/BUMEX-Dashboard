@@ -20,22 +20,16 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CalendarClock, CheckCircle2, CircleDashed, Eye, FolderKanban, GripVertical, LoaderCircle, ShieldAlert, Sparkles, Timer } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 
 import { updateTicketStatusAction } from "@/app/(app)/tickets/actions";
-import {
-  formatTicketDate,
-  getTicketDescriptionPreview,
-  getTicketDueLabel,
-  ticketKanbanStatuses,
-} from "@/lib/tickets/helpers";
+import { ticketKanbanStatuses } from "@/lib/tickets/helpers";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/components/layout/i18n-provider";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { TicketAssignee, TicketDue, ticketStatusTone } from "@/components/tickets/ticket-meta";
 import { TicketPriorityBadge } from "@/components/tickets/ticket-priority-badge";
-import { TicketStatusBadge } from "@/components/tickets/ticket-status-badge";
-import { TicketTypeBadge } from "@/components/tickets/ticket-type-badge";
+import { TicketTypeIcon } from "@/components/tickets/ticket-type-badge";
+import { toneDot } from "@/components/ui/tone";
 import type { TicketRecord, TicketStatus } from "@/types/ticket";
 
 type TicketKanbanProps = {
@@ -44,19 +38,6 @@ type TicketKanbanProps = {
 };
 
 type TicketBoardState = Record<TicketStatus, TicketRecord[]>;
-
-function getInitials(name: string | undefined) {
-  if (!name) {
-    return "NA";
-  }
-
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
 
 function buildBoard(tickets: TicketRecord[]): TicketBoardState {
   return {
@@ -96,15 +77,6 @@ function moveTicket(board: TicketBoardState, ticketId: string, nextStatus: Ticke
   return nextBoard;
 }
 
-const statusStyle: Record<string, { icon: typeof CircleDashed; accent: string; tint: string }> = {
-  backlog: { icon: CircleDashed, accent: "border-t-slate-400", tint: "bg-slate-50/80 dark:bg-slate-900/30" },
-  todo: { icon: Timer, accent: "border-t-blue-500", tint: "bg-blue-50/45 dark:bg-blue-950/15" },
-  in_progress: { icon: Sparkles, accent: "border-t-violet-500", tint: "bg-violet-50/45 dark:bg-violet-950/15" },
-  review: { icon: Eye, accent: "border-t-amber-500", tint: "bg-amber-50/45 dark:bg-amber-950/15" },
-  blocked: { icon: ShieldAlert, accent: "border-t-rose-500", tint: "bg-rose-50/45 dark:bg-rose-950/15" },
-  done: { icon: CheckCircle2, accent: "border-t-emerald-500", tint: "bg-emerald-50/45 dark:bg-emerald-950/15" },
-};
-
 function TicketKanbanCard({
   ticket,
   dragging = false,
@@ -114,54 +86,27 @@ function TicketKanbanCard({
 }) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
+  const showPriority = ticket.priority === "high" || ticket.priority === "urgent";
 
   return (
     <Link
       href={`/tickets/${ticket.id}`}
       className={cn(
-        "group relative block min-w-0 overflow-hidden rounded-xl border border-slate-200/90 bg-card p-3 shadow-sm transition duration-200 motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-lg hover:border-primary/30 motion-reduce:transition-none dark:border-white/10 dark:bg-slate-950/70 dark:shadow-none dark:hover:border-white/20",
-        dragging && "rotate-1 shadow-[var(--shadow-glow)]",
+        "block min-w-0 rounded-lg border border-border bg-card p-2.5 shadow-[var(--shadow-soft)] transition-colors hover:border-primary/40",
+        dragging && "rotate-1 shadow-[var(--shadow-elevated)]",
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <TicketTypeBadge type={ticket.type} />
-            <TicketPriorityBadge priority={ticket.priority} />
-          </div>
-          <h4 className="line-clamp-2 break-words text-sm font-semibold tracking-[-0.02em] text-foreground">{ticket.title}</h4>
-        </div>
-        <GripVertical className="mt-0.5 size-4 shrink-0 text-muted-foreground/55 transition-colors group-hover:text-primary" />
-      </div>
-
-      <p className="mt-3 line-clamp-3 break-words text-sm leading-6 text-muted-foreground">
-        {getTicketDescriptionPreview(ticket.description) || (isFr ? "Aucune description." : "No description.")}
+      <p className="line-clamp-2 break-words text-sm font-medium text-foreground">{ticket.title}</p>
+      <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+        <TicketTypeIcon type={ticket.type} className="shrink-0 [&_svg]:size-3.5" />
+        <span className="truncate">{ticket.project?.name ?? (isFr ? "Sans projet" : "No project")}</span>
       </p>
-
-      <div className="mt-4 grid min-w-0 gap-2 rounded-xl border border-border/60 bg-background/38 p-3">
-        <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-          <FolderKanban className="size-3.5 shrink-0" />
-          <span className="min-w-0 truncate" title={ticket.project?.name}>{ticket.project?.name ?? (isFr ? "Sans projet" : "No project")}</span>
-        </div>
-        <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-          <CalendarClock className="size-3.5 shrink-0" />
-          <span className="min-w-0 truncate">{formatTicketDate(ticket.due_date)} / {getTicketDueLabel(ticket.due_date)}</span>
-        </div>
-      </div>
-
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <Avatar className="size-8 shrink-0">
-            <AvatarFallback>{getInitials(ticket.assignee?.full_name)}</AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <p className="truncate text-xs font-medium" title={ticket.assignee?.full_name}>{ticket.assignee?.full_name ?? "Unassigned"}</p>
-            <p className="truncate text-xs text-muted-foreground">{ticket.assignee ? ticket.assignee.role : (isFr ? "Sans responsable" : "Unassigned")}</p>
-          </div>
-        </div>
-        <div className="shrink-0">
-          <TicketStatusBadge status={ticket.status} />
-        </div>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-2 text-xs">
+          {showPriority ? <TicketPriorityBadge priority={ticket.priority} /> : null}
+          <TicketDue ticket={ticket} locale={locale} />
+        </span>
+        <TicketAssignee name={ticket.assignee?.full_name} locale={locale} showName={false} />
       </div>
     </Link>
   );
@@ -210,7 +155,7 @@ function KanbanColumn({
   activeTicketId?: string | null;
   canDrag: boolean;
 }) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const isFr = locale === "fr";
   const { setNodeRef, isOver } = useDroppable({
     id: status,
@@ -224,31 +169,24 @@ function KanbanColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex min-h-[19rem] min-w-0 flex-col overflow-hidden rounded-xl border border-t-[3px] border-slate-200 bg-white/80 p-3 shadow-sm transition duration-200 dark:border-white/10 dark:bg-slate-950/40 sm:p-4",
-        statusStyle[status]?.accent,
-        statusStyle[status]?.tint,
-        isOver && "scale-[1.01] border-primary/40 bg-primary/[0.06] shadow-md",
+        "flex min-h-48 min-w-0 flex-col rounded-xl border border-border bg-muted/40 p-2 transition-colors",
+        isOver && "border-primary/40 bg-accent",
       )}
     >
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-            {(() => { const Icon = statusStyle[status]?.icon ?? CircleDashed; return <Icon className="size-3.5 text-primary" />; })()}
-            {status.replace("_", " ")}
-          </p>
-          <h3 className="mt-2 text-lg font-semibold tracking-tight">{tickets.length}</h3>
-        </div>
-        <Badge variant="secondary" className="rounded-full px-3 py-1">
-          {tickets.length} {tickets.length === 1 ? "ticket" : "tickets"}
-        </Badge>
+      <div className="flex items-center justify-between gap-2 px-1 pb-2">
+        <p className="flex min-w-0 items-center gap-2 text-sm font-medium">
+          <span className={cn("size-2 shrink-0 rounded-full", toneDot[ticketStatusTone[status]])} aria-hidden="true" />
+          <span className="truncate">{t(`tickets.form.select.statuses.${status}`, status.replace("_", " "))}</span>
+        </p>
+        <span className="text-xs tabular-nums text-muted-foreground">{tickets.length}</span>
       </div>
 
-      <div className="mt-4 flex-1 space-y-3">
+      <div className="flex-1 space-y-2">
         <SortableContext items={tickets.map((ticket) => ticket.id)} strategy={verticalListSortingStrategy}>
           {tickets.length ? (
             tickets.map((ticket) => <SortableTicketCard key={ticket.id} ticket={ticket} canDrag={canDrag} />)
           ) : (
-            <div className="flex min-h-32 items-center justify-center rounded-xl border border-dashed border-border/70 bg-background/30 px-4 text-center text-sm text-muted-foreground">
+            <div className="flex min-h-20 items-center justify-center rounded-lg border border-dashed border-border px-3 text-center text-xs text-muted-foreground">
               {activeTicketId ? (isFr ? "Déposer le ticket ici" : "Drop ticket here") : (isFr ? "Aucun ticket" : "No tickets")}
             </div>
           )}
@@ -263,6 +201,8 @@ export function TicketKanban({ tickets, canDrag }: TicketKanbanProps) {
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
 
   useEffect(() => {
     setBoard(buildBoard(tickets));
@@ -347,19 +287,21 @@ export function TicketKanban({ tickets, canDrag }: TicketKanbanProps) {
       ) : null}
 
       {!canDrag ? (
-        <div className="rounded-xl border border-border/70 bg-card px-4 py-3 text-sm text-muted-foreground">
-          Kanban is read-only for your current role.
+        <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          {isFr ? "Le tableau est en lecture seule pour votre rôle." : "The board is read-only for your role."}
         </div>
       ) : null}
 
       <DndContext
+        id="ticket-kanban"
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="min-w-0 pb-2">
-          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:gap-4">
+        {/* One row of columns, left to right in workflow order; scrolls sideways on narrow screens. */}
+        <div className="-mx-1 min-w-0 overflow-x-auto px-1 pb-2">
+          <div className="grid min-w-0 auto-cols-[minmax(12rem,1fr)] grid-flow-col gap-2">
             {ticketKanbanStatuses.map((status) => (
               <KanbanColumn
                 key={status}
@@ -380,7 +322,7 @@ export function TicketKanban({ tickets, canDrag }: TicketKanbanProps) {
       {pending ? (
         <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-4 py-2 text-sm text-muted-foreground">
           <LoaderCircle className="size-4 animate-spin" />
-          Syncing board changes
+          {isFr ? "Synchronisation du tableau..." : "Saving board changes..."}
         </div>
       ) : null}
     </div>

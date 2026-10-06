@@ -23,7 +23,7 @@ export function ShareholderFinanceSummary({
         <Card
           key={label}
           className={`relative overflow-hidden border-slate-200 bg-white shadow-[var(--shadow-soft)] border-t-2 ${
-            critical ? "border-t-red-500" : "border-t-blue-500"
+            critical ? "border-t-danger" : "border-t-primary"
           }`}
         >
           <CardContent className="min-h-32 px-5 py-4">
@@ -35,8 +35,8 @@ export function ShareholderFinanceSummary({
                 </p>
                 <p className="mt-2 text-sm leading-5 text-muted-foreground">{detail}</p>
               </div>
-              <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl border ${critical ? "border-red-200 bg-red-50" : "border-blue-200 bg-blue-50"}`}>
-                <Icon className={`size-4.5 ${critical ? "text-red-600" : "text-primary"}`} />
+              <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl border ${critical ? "border-danger/25 bg-danger/10" : "border-primary/25 bg-primary/10"}`}>
+                <Icon className={`size-4.5 ${critical ? "text-danger" : "text-primary"}`} />
               </div>
             </div>
           </CardContent>

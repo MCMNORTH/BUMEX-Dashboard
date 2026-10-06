@@ -5,6 +5,7 @@ import { ShieldCheck, ShieldEllipsis, ShieldUser, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/components/layout/i18n-provider";
 import type { DocumentVisibility } from "@/types/document";
+import { toneBadge } from "@/components/ui/tone";
 
 const config: Record<
   DocumentVisibility,
@@ -12,22 +13,22 @@ const config: Record<
 > = {
   internal: {
     label: "Internal",
-    className: "border-sky-400/30 bg-sky-400/12 text-sky-700 dark:text-sky-100",
+    className: toneBadge.neutral,
     Icon: ShieldUser,
   },
   management: {
     label: "Management",
-    className: "border-indigo-400/30 bg-indigo-400/12 text-indigo-700 dark:text-indigo-100",
+    className: toneBadge.neutral,
     Icon: ShieldCheck,
   },
   shareholders: {
     label: "Shareholders",
-    className: "border-amber-400/30 bg-amber-400/12 text-amber-700 dark:text-amber-100",
+    className: toneBadge.neutral,
     Icon: Users,
   },
   restricted: {
     label: "Restricted",
-    className: "border-rose-400/30 bg-rose-400/12 text-rose-700 dark:text-rose-100",
+    className: toneBadge.neutral,
     Icon: ShieldEllipsis,
   },
 };

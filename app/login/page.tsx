@@ -19,7 +19,7 @@ export default async function LoginPage() {
   const tr = (fr: string, en: string) => (isFr ? fr : en);
 
   return (
-    <main className="login-scene relative min-h-screen overflow-hidden bg-[linear-gradient(180deg,#f6fbff_0%,#ffffff_34%,#f8fbff_100%)] dark:bg-[linear-gradient(180deg,#08111f_0%,#0f172a_34%,#111827_100%)]">
+    <main className="login-scene relative min-h-screen overflow-hidden bg-background">
       <div className="login-grid pointer-events-none absolute inset-0 opacity-60 dark:opacity-35" />
       <div className="login-orb login-orb-a" />
       <div className="login-orb login-orb-b" />
@@ -59,7 +59,7 @@ export default async function LoginPage() {
                 {
                   icon: WalletMinimal,
                   title: tr("Finances", "Finance"),
-                  description: tr("Factures, paiements et virements suivis et validés.", "Invoices, payments, and transfers, tracked and approved."),
+                  description: tr("Factures, paiements et virements suivis validés.", "Invoices, payments, and transfers, tracked approved."),
                 },
               ].map(({ icon: Icon, title, description }) => (
                 <Card key={title}>
@@ -75,7 +75,7 @@ export default async function LoginPage() {
             </div>
 
             {!hasFirebaseEnv() ? (
-              <div className="rounded-[24px] border border-warning/30 bg-warning/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-100">
+              <div className="rounded-[24px] border border-warning/30 bg-warning/10 px-5 py-4 text-sm text-warning">
                 Authentication is not configured for this environment. Set
                 {" "}
                 <code>FIREBASE_PROJECT_ID</code>,
@@ -94,7 +94,6 @@ export default async function LoginPage() {
           </section>
 
           <section className="relative">
-            <div className="pointer-events-none absolute -inset-6 rounded-[36px] bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.15),transparent_48%),radial-gradient(circle_at_bottom_right,rgba(29,78,216,0.16),transparent_42%)] blur-2xl dark:bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.18),transparent_48%),radial-gradient(circle_at_bottom_right,rgba(96,165,250,0.14),transparent_42%)]" />
             <AuthForm />
           </section>
         </div>

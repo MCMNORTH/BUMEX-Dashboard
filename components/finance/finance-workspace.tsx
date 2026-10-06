@@ -140,24 +140,24 @@ export function FinanceWorkspace({
       {workspaceActions ? <div className="flex justify-end">{workspaceActions}</div> : null}
 
       {loadWarnings.length ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/90 px-5 py-4 text-sm text-amber-800 shadow-[var(--shadow-soft)] dark:border-amber-400/20 dark:bg-amber-500/12 dark:text-amber-100 dark:shadow-none">
+        <div className="rounded-xl border border-warning/25 bg-warning/90 px-5 py-4 text-sm text-warning shadow-[var(--shadow-soft)] dark:border-warning/20 dark:bg-warning/12 dark:shadow-none">
           {isFr
-            ? "Certaines données finance n'ont pas pu être chargées. La page reste accessible et vous pouvez continuer, mais quelques blocs peuvent être incomplets."
-            : "Some finance data could not be loaded. The page remains accessible and you can continue, but a few sections may be incomplete."}
+            ? "Certaines données finance n'ont pas pu être chargées. La page reste accessible et vous pouvez continuer, mais quelques blocs peuvent incomplets."
+            : "Some finance data could not be loaded. The page remains accessible and you can continue, but a few sections may incomplete."}
         </div>
       ) : null}
 
       {isAdmin ? (
-        <section className="surface-hero p-6">
-          <div className="absolute -right-16 -top-20 size-64 rounded-full bg-fuchsia-400/20 blur-3xl" />
-          <div className="absolute -bottom-24 left-1/3 size-56 rounded-full bg-cyan-300/15 blur-3xl" />
+        <section className="surface-hero px-5 py-5 sm:px-6">
+          <div className="absolute -right-16 -top-20 size-64 rounded-full bg-primary/20 blur-3xl" />
+          <div className="absolute -bottom-24 left-1/3 size-56 rounded-full bg-primary/15 blur-3xl" />
           <div className="relative flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex items-start gap-4">
               <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/12 ring-1 ring-white/20"><ShieldCheck className="size-6 text-white/75" /></div>
               <div>
                 <p className="text-xs font-semibold tracking-wider text-white/75 uppercase">{isFr ? "Contrôle administratif" : "Administrative control"}</p>
                 <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em]">{isFr ? "Validations de factures" : "Invoice approvals"}</h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-white/75">{isFr ? "Traitez les factures avant leur téléchargement ou leur envoi au client." : "Review invoices before they can be downloaded or sent to clients."}</p>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-white/75">{isFr ? "Traitez les factures avant leur téléchargement ou envoi au client." : "Review invoices before they can be downloaded or sent to clients."}</p>
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -167,11 +167,11 @@ export function FinanceWorkspace({
               </Link>
               <Link href="/finance/invoices?approval=changes_requested" className="group flex min-w-52 items-center justify-between gap-5 rounded-xl border border-white/15 bg-white/10 px-4 py-3 transition hover:bg-white/16">
                 <div><p className="text-xs text-white/75">{isFr ? "À corriger" : "Changes requested"}</p><p className="mt-1 text-2xl font-semibold">{approvalCounts.changesRequested}</p></div>
-                <RotateCcw className="size-5 text-rose-200 transition group-hover:rotate-[-20deg]" />
+                <RotateCcw className="size-5 text-white/90 transition group-hover:rotate-[-20deg]" />
               </Link>
               <Link href="/finance/invoices?approval=approved" className="group flex min-w-52 items-center justify-between gap-5 rounded-xl border border-white/15 bg-white/10 px-4 py-3 transition hover:bg-white/16">
                 <div><p className="text-xs text-white/75">{isFr ? "Validées ce mois" : "Approved this month"}</p><p className="mt-1 text-2xl font-semibold">{approvalCounts.approvedThisMonth}</p></div>
-                <CheckCircle2 className="size-5 text-emerald-200 transition group-hover:scale-110" />
+                <CheckCircle2 className="size-5 text-white/90 transition group-hover:scale-110" />
               </Link>
               <Link href="/finance/invoices?approval=approved" className="group flex min-w-52 items-center justify-between gap-5 rounded-xl border border-white/15 bg-white/10 px-4 py-3 transition hover:bg-white/16">
                 <div><p className="text-xs text-white/75">{isFr ? "Délai moyen" : "Average approval time"}</p><p className="mt-1 text-2xl font-semibold">{formatApprovalDuration(approvalCounts.averageApprovalHours, isFr)}</p></div>
@@ -316,13 +316,13 @@ function ClientPanel({
         <CardContent className="space-y-5 px-6 py-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold tracking-wider text-sky-700 uppercase dark:text-sky-300">{isFr ? "Clients" : "Clients"}</p>
+              <p className="text-xs font-semibold tracking-wider text-primary uppercase">{isFr ? "Clients" : "Clients"}</p>
               <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-slate-50">
                 {isFr ? "Factures envoyées aux clients" : "Invoices sent to clients"}
               </h3>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
                 {isFr
-                  ? "Ici, vous créez les factures clients, vous suivez leur statut manuel et vous comparez ensuite avec les encaissements."
+                  ? "Ici, vous créez les factures clients, suivez leur statut manuel et comparez ensuite avec encaissements."
                   : "Create client invoices here, track their manual status, then compare them with collected payments."}
               </p>
             </div>
@@ -371,8 +371,8 @@ function ClientPanel({
                 title={isFr ? "Ajouter une facture" : "Add invoice"}
                 text={
                   isFr
-                    ? "Crée la facture commerciale envoyée au client : montant, échéance, PDF client et statut."
-                    : "Creates the commercial invoice sent to the client: amount, due date, client PDF, and status."
+                    ? "Crée la facture commerciale envoyée au client : montant, échéance, PDF et statut."
+                    : "Creates the commercial invoice sent to client: amount, due date, client PDF, and status."
                 }
               />
               <InfoLine
@@ -380,7 +380,7 @@ function ClientPanel({
                 text={
                   isFr
                     ? "Ajoute un encaissement attendu ou reçu lié à une facture, pour suivre ce qui a réellement été payé."
-                    : "Adds an expected or received collection linked to an invoice, so you can track what was actually paid."
+                    : "Adds an expected or received collection linked to invoice, so you can track what was actually paid."
                 }
               />
             </div>
@@ -507,14 +507,14 @@ function SupplierPanel({
         <CardContent className="space-y-5 px-6 py-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold tracking-wider text-amber-700 uppercase dark:text-amber-300">{isFr ? "Fournisseurs" : "Suppliers"}</p>
+              <p className="text-xs font-semibold tracking-wider text-warning uppercase">{isFr ? "Fournisseurs" : "Suppliers"}</p>
               <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-slate-50">
                 {isFr ? "Factures fournisseurs et sorties" : "Supplier invoices and outgoing payments"}
               </h3>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
                 {isFr
-                  ? "Cette section centralise ce que vous devez payer, ce que vous avez marqué comme payé, puis ce que la banque a réellement confirmé."
-                  : "This section centralizes what you owe, what you marked as paid, and what the bank actually confirmed."}
+                  ? "Cette section centralise ce que vous devez payer, avez marqué comme payé, puis la banque a réellement confirmé."
+                  : "This section centralizes what you owe, marked as paid, and the bank actually confirmed."}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -583,8 +583,8 @@ function SupplierPanel({
             <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">{isFr ? "Logique de suivi" : "Tracking logic"}</p>
             <div className="mt-4 space-y-3 text-sm text-slate-600">
               <StatusLegend tone="amber" label={isFr ? "À payer" : "To pay"} detail={isFr ? "Facture fournisseur créée mais non réglée." : "Supplier invoice created but not yet paid."} />
-              <StatusLegend tone="slate" label={isFr ? "(Payé)" : "(Paid)"} detail={isFr ? "Vous avez marqué la sortie comme faite, mais la banque ne l'a pas encore confirmée." : "You marked the outflow as done, but the bank has not confirmed it yet."} />
-              <StatusLegend tone="emerald" label={isFr ? "Validé banque" : "Bank validated"} detail={isFr ? "Le relevé bancaire a retrouvé la ligne et a confirmé la sortie." : "The bank statement matched the line and confirmed the outflow."} />
+              <StatusLegend tone="slate" label={isFr ? "(Payé)" : "(Paid)"} detail={isFr ? "Vous avez marqué la sortie comme faite, mais banque ne l'a pas encore confirmée." : "You marked the outflow as done, but bank has not confirmed it yet."} />
+              <StatusLegend tone="emerald" label={isFr ? "Validé banque" : "Bank validated"} detail={isFr ? "Le relevé bancaire a retrouvé la ligne et confirmé sortie." : "The bank statement matched the line and confirmed outflow."} />
             </div>
           </div>
         </CardContent>
@@ -612,12 +612,12 @@ function BankPanel({
         <CardContent className="space-y-5 px-6 py-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold tracking-wider text-cyan-700 uppercase dark:text-cyan-300">{isFr ? "Banques" : "Banks"}</p>
+              <p className="text-xs font-semibold tracking-wider text-primary uppercase">{isFr ? "Banques" : "Banks"}</p>
               <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-slate-50">{isFr ? "Relevés et rapprochement" : "Statements and reconciliation"}</h3>
               <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">
                 {isFr
-                  ? "Cette section lit les crédits et les débits du compte, puis tente de valider les factures clients et fournisseurs."
-                  : "This section reads account credits and debits, then tries to validate client and supplier invoices."}
+                  ? "Cette section lit les crédits et débits du compte, puis tente de valider factures clients fournisseurs."
+                  : "This section reads account credits and debits, then tries to validate client supplier invoices."}
               </p>
             </div>
             {canManageBankFinance ? <BankStatementForm /> : null}
@@ -634,8 +634,8 @@ function BankPanel({
             <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">{isFr ? "Rapprochement automatique" : "Automatic reconciliation"}</p>
             <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
               {isFr
-                ? "Crédits = encaissements clients. Débits = paiements fournisseurs. Si le montant et la référence correspondent, la ligne est validée automatiquement."
-                : "Credits = client collections. Debits = supplier payments. If amount and reference match, the line is validated automatically."}
+                ? "Crédits = encaissements clients. Débits paiements fournisseurs. Si le montant et la référence correspondent, ligne est validée automatiquement."
+                : "Credits = client collections. Debits supplier payments. If amount and reference match, the line is validated automatically."}
             </p>
           </div>
         </CardContent>
@@ -788,7 +788,7 @@ function TabButton({
       className={[
         "inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200",
         active
-          ? "bg-slate-950 text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] dark:bg-sky-500/16 dark:text-sky-100 dark:shadow-none"
+          ? "bg-slate-950 text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] dark:bg-primary/16 dark:text-primary dark:shadow-none"
           : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/[0.08]",
       ].join(" ")}
     >
@@ -818,9 +818,9 @@ function OverviewCard({
   openLabel: string;
 }) {
   const toneClass = {
-    sky: "border-sky-200 bg-sky-50/80 text-sky-800 dark:border-sky-400/20 dark:bg-sky-500/12 dark:text-sky-100",
-    amber: "border-amber-200 bg-amber-50/80 text-amber-800 dark:border-amber-400/20 dark:bg-amber-500/12 dark:text-amber-100",
-    emerald: "border-emerald-200 bg-emerald-50/80 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-500/12 dark:text-emerald-100",
+    sky: "border-primary/25 bg-primary/80 text-primary dark:border-primary/20 dark:bg-primary/12",
+    amber: "border-warning/25 bg-warning/80 text-warning dark:border-warning/20 dark:bg-warning/12",
+    emerald: "border-success/25 bg-success/80 text-success dark:border-success/20 dark:bg-success/12",
   }[tone];
 
   return (
@@ -860,10 +860,10 @@ function MetricTile({
   tone: "sky" | "amber" | "emerald" | "rose" | "slate";
 }) {
   const toneClass = {
-    sky: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-400/20 dark:bg-sky-500/12 dark:text-sky-100",
-    amber: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/20 dark:bg-amber-500/12 dark:text-amber-100",
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/12 dark:text-emerald-100",
-    rose: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/20 dark:bg-rose-500/12 dark:text-rose-100",
+    sky: "border-primary/25 bg-primary/10 text-primary dark:border-primary/20 dark:bg-primary/12",
+    amber: "border-warning/25 bg-warning/10 text-warning dark:border-warning/20 dark:bg-warning/12",
+    emerald: "border-success/25 bg-success/10 text-success dark:border-success/20 dark:bg-success/12",
+    rose: "border-danger/25 bg-danger/10 text-danger dark:border-danger/20 dark:bg-danger/12",
     slate: "border-slate-200 bg-slate-50 text-slate-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-200",
   }[tone];
 
@@ -893,9 +893,9 @@ function StatusChip({
   tone: "emerald" | "amber" | "rose" | "slate";
 }) {
   const toneClass = {
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/12 dark:text-emerald-100",
-    amber: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/20 dark:bg-amber-500/12 dark:text-amber-100",
-    rose: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/20 dark:bg-rose-500/12 dark:text-rose-100",
+    emerald: "border-success/25 bg-success/10 text-success dark:border-success/20 dark:bg-success/12",
+    amber: "border-warning/25 bg-warning/10 text-warning dark:border-warning/20 dark:bg-warning/12",
+    rose: "border-danger/25 bg-danger/10 text-danger dark:border-danger/20 dark:bg-danger/12",
     slate: "border-slate-200 bg-slate-50 text-slate-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-200",
   }[tone];
 

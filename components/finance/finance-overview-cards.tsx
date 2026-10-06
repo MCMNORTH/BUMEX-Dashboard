@@ -23,7 +23,7 @@ export function FinanceOverviewCards({ overview }: { overview: FinanceOverview }
           <Card
             key={card.label}
             className={`relative overflow-hidden border-slate-200 bg-white shadow-[var(--shadow-soft)] border-t-2 dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none ${
-              critical ? "border-t-red-500" : "border-t-blue-500"
+              critical ? "border-t-danger" : "border-t-primary"
             }`}
           >
             <CardContent className="px-5 py-4">
@@ -33,8 +33,8 @@ export function FinanceOverviewCards({ overview }: { overview: FinanceOverview }
                   <p className="mt-2 text-2xl font-bold tracking-[-0.025em] dark:text-white">{value}</p>
                   <p className="mt-2 text-sm text-muted-foreground">{card.detail}</p>
                 </div>
-                <div className={`flex size-9 items-center justify-center rounded-xl border ${critical ? "border-red-200 bg-red-50 dark:border-red-400/20 dark:bg-red-500/12" : "border-blue-200 bg-blue-50 dark:border-sky-400/20 dark:bg-sky-500/12"}`}>
-                  <Icon className={`size-4.5 ${critical ? "text-red-600" : "text-primary"}`} />
+                <div className={`flex size-9 items-center justify-center rounded-xl border ${critical ? "border-danger/25 bg-danger/10 dark:border-danger/20 dark:bg-danger/12" : "border-primary/25 bg-primary/10 dark:border-primary/20 dark:bg-primary/12"}`}>
+                  <Icon className={`size-4.5 ${critical ? "text-danger" : "text-primary"}`} />
                 </div>
               </div>
             </CardContent>

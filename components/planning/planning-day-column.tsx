@@ -30,7 +30,7 @@ export function PlanningDayColumn({
       ref={setNodeRef}
       className={cn(
         "flex min-h-[22rem] flex-col rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] transition-all",
-        isOver && "border-sky-300/16 bg-sky-500/[0.05]",
+        isOver && "border-primary/16 bg-primary/[0.05]",
       )}
     >
       <div className="flex items-center justify-between gap-3">

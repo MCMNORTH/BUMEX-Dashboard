@@ -42,7 +42,7 @@ export function ProjectDetailHeader({
   const isFr = locale === "fr";
   const internalEntityName = getBumexEntity(project.entity_code)?.name ?? (isFr ? "Entité BUMEX" : "BUMEX entity");
   return (
-    <div className="bg-card grid gap-5 overflow-hidden rounded-xl border border-blue-200 p-5 shadow-[var(--shadow-soft)] dark:border-slate-700 dark:shadow-none xl:grid-cols-[1.1fr_0.9fr]">
+    <div className="bg-card grid gap-5 overflow-hidden rounded-xl border border-primary/25 p-5 shadow-[var(--shadow-soft)] dark:border-slate-700 dark:shadow-none xl:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <ProjectStatusBadge status={project.status} />
@@ -55,14 +55,14 @@ export function ProjectDetailHeader({
           </Badge>
         </div>
         <div className="space-y-3">
-          <h1 className="text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">{project.name}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
           <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
             {project.description || (isFr ? "Aucune synthèse exécutive n’a encore été ajoutée à ce projet." : "No executive summary has been added to this project yet.")}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
           {canStaff ? (
-            <Button asChild className="rounded-full px-5 shadow-lg shadow-blue-500/15">
+            <Button asChild className="rounded-full px-5 shadow-lg ">
               <Link href={`/staffing?project=${project.id}`}><UserRoundPlus className="size-4" />{isFr ? "Staffer ce projet" : "Staff this project"}</Link>
             </Button>
           ) : null}
@@ -94,7 +94,7 @@ export function ProjectDetailHeader({
               description={`This will permanently delete "${project.name}". This action cannot be undone.`}
               confirmLabel="Delete project"
               trigger={(
-                <Button type="button" variant="ghost" className="rounded-full px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
+                <Button type="button" variant="ghost" className="rounded-full px-5 text-danger hover:bg-danger/10 hover:text-danger">
                 <Trash2 className="size-4" />
                 {isFr ? "Supprimer" : "Delete"}
                 </Button>
