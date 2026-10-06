@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuthenticatedUser } from "@/lib/auth/server";
 import { getBumexEntity, isBumexEntityCode } from "@/lib/entities/config";
 import { normalizeEntityMutationError } from "@/lib/entities/errors";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -30,12 +30,12 @@ export async function assignEntityAction(formData: FormData) {
     throw new Error("This entity cannot be selected from self-service onboarding.");
   }
 
-  const supabase = await createClient();
-  if (!supabase) {
-    redirect("/select-entity?error=Supabase is not configured.");
+  const db = await createClient();
+  if (!db) {
+    redirect("/select-entity?error=Firebase is not configured.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .rpc("assign_own_entity", { requested_entity_code: entityCode })
     .maybeSingle<{ id: string; entity_code: string | null }>();
 

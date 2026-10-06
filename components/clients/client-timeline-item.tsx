@@ -28,9 +28,9 @@ function TimelineIcon({ type }: { type: ClientTimelineItem["type"] }) {
 export function ClientTimelineItemView({ item, isFr = false }: { item: ClientTimelineItem; isFr?: boolean }) {
   const typeLabel = { all: isFr ? "Activité" : "Activity", projects: isFr ? "Projet" : "Project", tickets: "Ticket", contracts: isFr ? "Contrat" : "Contract", documents: "Document", client: "Client" }[item.type];
   return (
-    <details className="group rounded-[24px] border border-border/65 bg-background/38 p-4">
+    <details className="group rounded-xl border border-border/65 bg-background/38 p-4">
       <summary className="flex cursor-pointer list-none items-start gap-3">
-        <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl border border-border/65 bg-background/45">
+        <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/65 bg-background/45">
           <TimelineIcon type={item.type} />
         </div>
         <div className="min-w-0 flex-1 space-y-2">

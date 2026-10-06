@@ -7,7 +7,7 @@ import {
   canViewSearchResult,
   sanitizeSearchResultForRole,
 } from "@/lib/search/permissions";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import type { AppRole } from "@/types/auth";
 import type { GlobalSearchEntityType, GlobalSearchResult } from "@/types/search";
 
@@ -80,11 +80,11 @@ async function safeSearch<T>(callback: () => Promise<T[]>) {
 
 export async function searchProjects(query: string, limit = RESULT_LIMIT) {
   return safeSearch(async () => {
-    const supabase = await createClient();
-    if (!supabase) return [];
+    const db = await createClient();
+    if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
 
-    let queryBuilder = supabase
+    let queryBuilder = db
       .from("projects")
       .select(
         `
@@ -133,11 +133,11 @@ export async function searchProjects(query: string, limit = RESULT_LIMIT) {
 
 export async function searchTickets(query: string, limit = RESULT_LIMIT) {
   return safeSearch(async () => {
-    const supabase = await createClient();
-    if (!supabase) return [];
+    const db = await createClient();
+    if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
 
-    let queryBuilder = supabase
+    let queryBuilder = db
       .from("tasks")
       .select(
         `
@@ -206,11 +206,11 @@ export async function searchTickets(query: string, limit = RESULT_LIMIT) {
 
 export async function searchClients(query: string, limit = RESULT_LIMIT) {
   return safeSearch(async () => {
-    const supabase = await createClient();
-    if (!supabase) return [];
+    const db = await createClient();
+    if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
 
-    let queryBuilder = supabase
+    let queryBuilder = db
       .from("clients")
       .select(
         `
@@ -261,11 +261,11 @@ export async function searchClients(query: string, limit = RESULT_LIMIT) {
 
 export async function searchContracts(query: string, limit = RESULT_LIMIT) {
   return safeSearch(async () => {
-    const supabase = await createClient();
-    if (!supabase) return [];
+    const db = await createClient();
+    if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
 
-    let queryBuilder = supabase
+    let queryBuilder = db
       .from("contracts")
       .select(
         `
@@ -314,11 +314,11 @@ export async function searchContracts(query: string, limit = RESULT_LIMIT) {
 
 export async function searchDocuments(query: string, limit = RESULT_LIMIT, role?: AppRole) {
   return safeSearch(async () => {
-    const supabase = await createClient();
-    if (!supabase) return [];
+    const db = await createClient();
+    if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
 
-    let queryBuilder = supabase
+    let queryBuilder = db
       .from("documents")
       .select(
         `
@@ -373,11 +373,11 @@ export async function searchDocuments(query: string, limit = RESULT_LIMIT, role?
 
 export async function searchInvoices(query: string, limit = RESULT_LIMIT) {
   return safeSearch(async () => {
-    const supabase = await createClient();
-    if (!supabase) return [];
+    const db = await createClient();
+    if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
 
-    let queryBuilder = supabase
+    let queryBuilder = db
       .from("invoices")
       .select(
         `
@@ -432,11 +432,11 @@ export async function searchInvoices(query: string, limit = RESULT_LIMIT) {
 
 export async function searchPayments(query: string, limit = RESULT_LIMIT) {
   return safeSearch(async () => {
-    const supabase = await createClient();
-    if (!supabase) return [];
+    const db = await createClient();
+    if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
 
-    let queryBuilder = supabase
+    let queryBuilder = db
       .from("payments")
       .select(
         `
@@ -491,11 +491,11 @@ export async function searchPayments(query: string, limit = RESULT_LIMIT) {
 
 export async function searchTeamMembers(query: string, limit = RESULT_LIMIT) {
   return safeSearch(async () => {
-    const supabase = await createClient();
-    if (!supabase) return [];
+    const db = await createClient();
+    if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
 
-    let queryBuilder = supabase
+    let queryBuilder = db
       .from("profiles")
       .select("id, full_name, email, role, job_title, department, availability_status, updated_at")
       .or(`full_name.ilike.${withWildcards(query)},email.ilike.${withWildcards(query)},job_title.ilike.${withWildcards(query)}`)

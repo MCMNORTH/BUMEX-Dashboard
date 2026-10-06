@@ -21,7 +21,7 @@ function getTone(record: TeamWorkloadRecord) {
 
 export function WorkloadCard({ record }: { record: TeamWorkloadRecord }) {
   return (
-    <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+    <Card className="border-border/70 bg-card">
       <CardContent className="space-y-4 px-5 py-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -55,8 +55,8 @@ export function WorkloadCard({ record }: { record: TeamWorkloadRecord }) {
 
 function Metric({ icon: Icon, label, value }: { icon: typeof PanelsTopLeft; label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-      <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+    <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+      <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
         <Icon className="size-3.5" />
         {label}
       </div>

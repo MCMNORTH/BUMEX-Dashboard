@@ -30,7 +30,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-slate-950/52 backdrop-blur-md dark:bg-slate-950/68",
+        "fixed inset-0 z-50 bg-slate-950/50 dark:bg-slate-950/70",
         className,
       )}
       {...props}
@@ -49,13 +49,13 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 gap-5 overflow-y-auto rounded-[28px] border border-border/75 bg-popover/98 p-7 text-popover-foreground shadow-[0_24px_56px_rgba(15,23,42,0.18)] outline-none backdrop-blur-sm duration-200 dark:border-white/10 dark:bg-slate-950/94 dark:shadow-[0_24px_56px_rgba(0,0,0,0.36)]",
+          "fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 gap-5 overflow-y-auto rounded-xl border border-border bg-popover p-6 text-popover-foreground shadow-[var(--shadow-elevated)] outline-none duration-200",
           className,
         )}
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute top-4 right-4 flex size-9 items-center justify-center rounded-full border border-border/70 bg-background/65 text-muted-foreground shadow-[var(--shadow-inner)] transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/55 dark:border-white/10 dark:bg-white/6">
+        <DialogPrimitive.Close className="absolute top-4 right-4 flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/60">
           <X className="size-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>

@@ -7,6 +7,7 @@ import { getDeadlineState } from "@/lib/projects/helpers";
 import { getProjects, getProjectById } from "@/lib/projects/service";
 import { getRoadmapProjects } from "@/lib/roadmap/service";
 import { getMyTickets, getTeamWorkloadPreview, getTickets } from "@/lib/tickets/service";
+import type { Locale } from "@/lib/i18n/config";
 import type { AppRole } from "@/types/auth";
 import type { PlanningAlert } from "@/types/alert";
 import type { ContractRecord } from "@/types/contract";
@@ -15,6 +16,84 @@ import type { ProjectRecord } from "@/types/project";
 import type { TicketRecord } from "@/types/ticket";
 
 const OVERLOAD_THRESHOLD = 8;
+
+function plural(count: number, singular: string, pluralForm: string) {
+  return `${count} ${count === 1 ? singular : pluralForm}`;
+}
+
+// Alert text is built on the server, so it is localized here rather than in the dictionary.
+const alertCopy = {
+  en: {
+    clientPayment: "Client payment",
+    paymentLate: (client: string) => `${client} payment is late`,
+    paymentDueSoon: (client: string) => `${client} payment is due soon`,
+    paymentExpected: (amount: string, project: string | null) => `${amount} expected${project ? ` for ${project}` : ""}.`,
+    noDueDate: "No due date",
+    contractValue: (amount: string) => ` Contract value ${amount}.`,
+    renewalApproaching: (contract: string) => `${contract} renewal is approaching`,
+    clientContract: "Client contract",
+    renewalFollowUp: (client: string, amount: string) => `${client} needs renewal follow-up.${amount}`,
+    internal: "Internal",
+    deadlineLowProgress: (project: string) => `${project} is approaching its deadline with low progress`,
+    progressRemaining: (progress: number, days: number) => `${progress}% complete with ${plural(days, "day", "days")} remaining.`,
+    progressMetric: (progress: number) => `${progress}% progress`,
+    elevatedWorkload: (name: string) => `${name} is carrying a high workload`,
+    workloadDetail: (active: number, overdue: number) => `${plural(active, "active ticket", "active tickets")} and ${plural(overdue, "overdue item", "overdue items")}.`,
+    activeMetric: (count: number) => `${count} active`,
+    deadlinePassed: "Project deadline has passed",
+    deadlinePassedDetail: (progress: number) => `The project is at ${progress}% while its deadline is in the past.`,
+    blockedTickets: (count: number) => `${plural(count, "blocked ticket", "blocked tickets")} on this project`,
+    blockedDetail: "Blocked work slows the project down and should be reviewed first.",
+    blockedMetric: (count: number) => `${count} blocked`,
+    pressureRising: "Delivery pressure is rising",
+    pressureDetail: (overdue: number, urgent: number) => `${plural(overdue, "overdue ticket", "overdue tickets")} and ${plural(urgent, "urgent item", "urgent items")}.`,
+    overdueMetric: (count: number) => `${count} overdue`,
+    ticketOverdue: (ticket: string) => `${ticket} is overdue`,
+    ticketOverdueDetail: (project: string | null) => `${project ?? "The linked project"} has work past its due date.`,
+    unassigned: "Unassigned",
+    ticketBlocked: (ticket: string) => `${ticket} is blocked`,
+    ticketBlockedDetail: (project: string | null) => `Work on ${project ?? "the linked project"} is paused until the blocker is cleared.`,
+    urgentUnassigned: (ticket: string) => `${ticket} is urgent and unassigned`,
+    urgentUnassignedDetail: "High-priority work has no owner and should be assigned now.",
+    milestoneDelayed: (milestone: string) => `${milestone} is delayed`,
+    milestoneDelayedDetail: (project: string) => `${project} has a delayed milestone.`,
+  },
+  fr: {
+    clientPayment: "Paiement client",
+    paymentLate: (client: string) => `Paiement de ${client} en retard`,
+    paymentDueSoon: (client: string) => `Paiement de ${client} bientôt dû`,
+    paymentExpected: (amount: string, project: string | null) => `${amount} attendus${project ? ` pour ${project}` : ""}.`,
+    noDueDate: "Sans échéance",
+    contractValue: (amount: string) => ` Valeur du contrat : ${amount}.`,
+    renewalApproaching: (contract: string) => `Le renouvellement de ${contract} approche`,
+    clientContract: "Contrat client",
+    renewalFollowUp: (client: string, amount: string) => `${client} : renouvellement à suivre.${amount}`,
+    internal: "Interne",
+    deadlineLowProgress: (project: string) => `${project} approche de son échéance avec peu d’avancement`,
+    progressRemaining: (progress: number, days: number) => `${progress} % réalisé, ${plural(days, "jour restant", "jours restants")}.`,
+    progressMetric: (progress: number) => `${progress} % d’avancement`,
+    elevatedWorkload: (name: string) => `${name} porte une charge élevée`,
+    workloadDetail: (active: number, overdue: number) => `${plural(active, "ticket actif", "tickets actifs")} et ${plural(overdue, "élément en retard", "éléments en retard")}.`,
+    activeMetric: (count: number) => `${count} actifs`,
+    deadlinePassed: "L’échéance du projet est dépassée",
+    deadlinePassedDetail: (progress: number) => `Le projet est à ${progress} % alors que son échéance est passée.`,
+    blockedTickets: (count: number) => `${plural(count, "ticket bloqué", "tickets bloqués")} sur ce projet`,
+    blockedDetail: "Le travail bloqué ralentit le projet et doit être traité en priorité.",
+    blockedMetric: (count: number) => `${count} bloqués`,
+    pressureRising: "La pression de livraison augmente",
+    pressureDetail: (overdue: number, urgent: number) => `${plural(overdue, "ticket en retard", "tickets en retard")} et ${plural(urgent, "élément urgent", "éléments urgents")}.`,
+    overdueMetric: (count: number) => `${count} en retard`,
+    ticketOverdue: (ticket: string) => `${ticket} est en retard`,
+    ticketOverdueDetail: (project: string | null) => `${project ?? "Le projet lié"} a du travail au-delà de son échéance.`,
+    unassigned: "Sans responsable",
+    ticketBlocked: (ticket: string) => `${ticket} est bloqué`,
+    ticketBlockedDetail: (project: string | null) => `Le travail sur ${project ?? "le projet lié"} est en pause jusqu’à la levée du blocage.`,
+    urgentUnassigned: (ticket: string) => `${ticket} est urgent et sans responsable`,
+    urgentUnassignedDetail: "Ce travail prioritaire n’a pas de responsable et doit être assigné maintenant.",
+    milestoneDelayed: (milestone: string) => `${milestone} est en retard`,
+    milestoneDelayedDetail: (project: string) => `${project} a un jalon en retard.`,
+  },
+} satisfies Record<Locale, Record<string, unknown>>;
 
 function daysUntil(dateValue: string | null) {
   if (!dateValue) {
@@ -51,35 +130,37 @@ function getPaymentAlertSeverity(payment: PaymentRecord): PlanningAlert["severit
   return "info";
 }
 
-function mapPaymentAlert(payment: PaymentRecord): PlanningAlert {
-  const clientName = payment.client?.name ?? "Client payment";
+function mapPaymentAlert(payment: PaymentRecord, locale: Locale): PlanningAlert {
+  const copy = alertCopy[locale];
+  const clientName = payment.client?.name ?? copy.clientPayment;
   const amount = formatFinanceCurrency(payment.amount, payment.currency);
 
   return {
     id: `financial-due-${payment.id}`,
     type: "financial_due",
     severity: getPaymentAlertSeverity(payment),
-    title: `${clientName} payment ${payment.status === "late" ? "is late" : "is due soon"}`,
-    description: `${amount} expected${payment.project?.name ? ` for ${payment.project.name}` : ""}.`,
+    title: payment.status === "late" ? copy.paymentLate(clientName) : copy.paymentDueSoon(clientName),
+    description: copy.paymentExpected(amount, payment.project?.name ?? null),
     href: `/finance/payments?payment=${payment.id}`,
     label: payment.reference ?? payment.invoice?.invoice_number ?? payment.contract?.title ?? null,
-    metric: payment.due_date ?? "No due date",
+    metric: payment.due_date ?? copy.noDueDate,
     entityId: payment.id,
     entityType: "payment",
   };
 }
 
-function mapContractRenewalAlert(contract: ContractRecord): PlanningAlert {
+function mapContractRenewalAlert(contract: ContractRecord, locale: Locale): PlanningAlert {
+  const copy = alertCopy[locale];
   const renewalDate = contract.renewal_date ?? contract.end_date;
   const days = contract.daysUntilRenewal;
-  const amount = contract.amount ? ` Contract value ${formatFinanceCurrency(contract.amount, contract.currency)}.` : "";
+  const amount = contract.amount ? copy.contractValue(formatFinanceCurrency(contract.amount, contract.currency)) : "";
 
   return {
     id: `contract-due-${contract.id}`,
     type: "contract_due",
     severity: days !== null && days <= 7 ? "warning" : "info",
-    title: `${contract.title} renewal is approaching`,
-    description: `${contract.client?.name ?? "Client contract"} needs renewal follow-up.${amount}`,
+    title: copy.renewalApproaching(contract.title),
+    description: copy.renewalFollowUp(contract.client?.name ?? copy.clientContract, amount),
     href: `/contracts/${contract.id}`,
     label: contract.responsibleUser?.full_name ?? contract.client?.name ?? null,
     metric: renewalDate,
@@ -88,7 +169,8 @@ function mapContractRenewalAlert(contract: ContractRecord): PlanningAlert {
   };
 }
 
-export function getDeadlineRisks(projects: ProjectRecord[]): PlanningAlert[] {
+export function getDeadlineRisks(projects: ProjectRecord[], locale: Locale = "en"): PlanningAlert[] {
+  const copy = alertCopy[locale];
   return projects.flatMap((project) => {
     const days = daysUntil(project.end_date);
 
@@ -100,18 +182,19 @@ export function getDeadlineRisks(projects: ProjectRecord[]): PlanningAlert[] {
       id: `deadline-${project.id}`,
       type: "deadline_risk",
       severity: days <= 7 || project.progress < 50 ? "critical" : "warning",
-      title: `${project.name} is approaching deadline with low progress`,
-      description: `${project.progress}% complete with ${days} day${days === 1 ? "" : "s"} remaining.`,
+      title: copy.deadlineLowProgress(project.name),
+      description: copy.progressRemaining(project.progress, days),
       href: `/projects/${project.id}`,
-      label: project.client?.name ?? "Internal",
-      metric: `${project.progress}% progress`,
+      label: project.client?.name ?? copy.internal,
+      metric: copy.progressMetric(project.progress),
       entityId: project.id,
       entityType: "project",
     }];
   });
 }
 
-export function getTeamWorkloadRisksFromTickets(tickets: TicketRecord[]): PlanningAlert[] {
+export function getTeamWorkloadRisksFromTickets(tickets: TicketRecord[], locale: Locale = "en"): PlanningAlert[] {
+  const copy = alertCopy[locale];
   const workload = getTeamWorkloadPreview(tickets);
 
   return workload
@@ -120,22 +203,23 @@ export function getTeamWorkloadRisksFromTickets(tickets: TicketRecord[]): Planni
       id: `workload-${member.id}`,
       type: "workload" as const,
       severity: member.overdueTickets >= 2 || member.activeTickets >= OVERLOAD_THRESHOLD + 2 ? "critical" : "warning",
-      title: `${member.full_name} is carrying elevated workload`,
-      description: `${member.activeTickets} active tickets and ${member.overdueTickets} overdue item${member.overdueTickets === 1 ? "" : "s"} are increasing delivery pressure.`,
+      title: copy.elevatedWorkload(member.full_name),
+      description: copy.workloadDetail(member.activeTickets, member.overdueTickets),
       href: "/team",
       label: member.role,
-      metric: `${member.activeTickets} active`,
+      metric: copy.activeMetric(member.activeTickets),
       entityId: member.id,
       entityType: "person",
     }));
 }
 
-export async function getTeamWorkloadRisks(role: AppRole, userId?: string) {
+export async function getTeamWorkloadRisks(role: AppRole, userId?: string, locale: Locale = "en") {
   const tickets = role === "employee" && userId ? await getMyTickets(userId, role) : await getTickets(role);
-  return getTeamWorkloadRisksFromTickets(tickets);
+  return getTeamWorkloadRisksFromTickets(tickets, locale);
 }
 
-export async function getProjectRisks(projectId: string): Promise<PlanningAlert[]> {
+export async function getProjectRisks(projectId: string, locale: Locale = "en"): Promise<PlanningAlert[]> {
+  const copy = alertCopy[locale];
   const project = await getProjectById(projectId);
 
   if (!project) {
@@ -153,11 +237,11 @@ export async function getProjectRisks(projectId: string): Promise<PlanningAlert[
       id: `project-overdue-${project.id}`,
       type: "deadline_risk",
       severity: "critical",
-      title: "Project deadline has already passed",
-      description: `The project remains at ${project.progress}% progress while the deadline is in the past.`,
+      title: copy.deadlinePassed,
+      description: copy.deadlinePassedDetail(project.progress),
       href: `/projects/${project.id}`,
-      label: project.client?.name ?? "Internal",
-      metric: `${project.progress}% progress`,
+      label: project.client?.name ?? copy.internal,
+      metric: copy.progressMetric(project.progress),
       entityId: project.id,
       entityType: "project",
     });
@@ -168,11 +252,11 @@ export async function getProjectRisks(projectId: string): Promise<PlanningAlert[
       id: `project-blocked-${project.id}`,
       type: "blocked",
       severity: blockedTickets >= 2 ? "critical" : "warning",
-      title: `${blockedTickets} blocked ticket${blockedTickets === 1 ? "" : "s"} affecting this project`,
-      description: "Blocked work is slowing project throughput and should be reviewed in priority order.",
+      title: copy.blockedTickets(blockedTickets),
+      description: copy.blockedDetail,
       href: `/projects/${project.id}`,
       label: project.name,
-      metric: `${blockedTickets} blocked`,
+      metric: copy.blockedMetric(blockedTickets),
       entityId: project.id,
       entityType: "project",
     });
@@ -183,11 +267,11 @@ export async function getProjectRisks(projectId: string): Promise<PlanningAlert[
       id: `project-pressure-${project.id}`,
       type: "overdue",
       severity: overdueTickets >= 2 || urgentTickets >= 4 ? "critical" : "warning",
-      title: "Project delivery pressure is rising",
-      description: `${overdueTickets} overdue ticket${overdueTickets === 1 ? "" : "s"} and ${urgentTickets} urgent item${urgentTickets === 1 ? "" : "s"} are driving near-term risk.`,
+      title: copy.pressureRising,
+      description: copy.pressureDetail(overdueTickets, urgentTickets),
       href: `/projects/${project.id}`,
       label: project.name,
-      metric: `${overdueTickets} overdue`,
+      metric: copy.overdueMetric(overdueTickets),
       entityId: project.id,
       entityType: "project",
     });
@@ -196,7 +280,8 @@ export async function getProjectRisks(projectId: string): Promise<PlanningAlert[
   return alerts;
 }
 
-export async function getPlanningAlerts(role: AppRole, userId?: string) {
+export async function getPlanningAlerts(role: AppRole, userId?: string, locale: Locale = "en") {
+  const copy = alertCopy[locale];
   const canSeeBusinessAlerts = role !== "employee";
   const [projects, tickets, roadmapProjects, overduePayments, expectedPayments, renewalContracts] = await Promise.all([
     getProjects(),
@@ -218,10 +303,10 @@ export async function getPlanningAlerts(role: AppRole, userId?: string) {
       id: `overdue-${ticket.id}`,
       type: "overdue" as const,
       severity: "critical" as const,
-      title: `${ticket.title} is overdue`,
-      description: `${ticket.project?.name ?? "Linked project"} has work beyond its planned due date.`,
+      title: copy.ticketOverdue(ticket.title),
+      description: copy.ticketOverdueDetail(ticket.project?.name ?? null),
       href: `/tickets/${ticket.id}`,
-      label: ticket.assignee?.full_name ?? "Unassigned",
+      label: ticket.assignee?.full_name ?? copy.unassigned,
       metric: ticket.due_date,
       entityId: ticket.id,
       entityType: "task" as const,
@@ -234,8 +319,8 @@ export async function getPlanningAlerts(role: AppRole, userId?: string) {
       id: `blocked-${ticket.id}`,
       type: "blocked" as const,
       severity: "warning" as const,
-      title: `${ticket.title} is blocked`,
-      description: `Execution is paused inside ${ticket.project?.name ?? "the linked project"} until the blocker is cleared.`,
+      title: copy.ticketBlocked(ticket.title),
+      description: copy.ticketBlockedDetail(ticket.project?.name ?? null),
       href: `/tickets/${ticket.id}`,
       label: ticket.project?.name ?? null,
       metric: ticket.priority,
@@ -252,8 +337,8 @@ export async function getPlanningAlerts(role: AppRole, userId?: string) {
       id: `unassigned-${ticket.id}`,
       type: "unassigned" as const,
       severity: "critical" as const,
-      title: `${ticket.title} is urgent and unassigned`,
-      description: "High-priority work has no owner and should be assigned immediately.",
+      title: copy.urgentUnassigned(ticket.title),
+      description: copy.urgentUnassignedDetail,
       href: `/tickets/${ticket.id}`,
       label: ticket.project?.name ?? null,
       metric: ticket.priority,
@@ -262,8 +347,8 @@ export async function getPlanningAlerts(role: AppRole, userId?: string) {
     })),
   );
 
-  alerts.push(...getDeadlineRisks(projects));
-  alerts.push(...getTeamWorkloadRisksFromTickets(relevantTickets));
+  alerts.push(...getDeadlineRisks(projects, locale));
+  alerts.push(...getTeamWorkloadRisksFromTickets(relevantTickets, locale));
 
   const delayedMilestones = roadmapProjects
     .flatMap((project) =>
@@ -273,8 +358,8 @@ export async function getPlanningAlerts(role: AppRole, userId?: string) {
           id: `milestone-delayed-${milestone.id}`,
           type: "deadline_risk" as const,
           severity: "warning" as const,
-          title: `${milestone.title} is marked as delayed`,
-          description: `${project.name} has a delayed milestone requiring roadmap attention.`,
+          title: copy.milestoneDelayed(milestone.title),
+          description: copy.milestoneDelayedDetail(project.name),
           href: "/roadmap",
           label: project.name,
           metric: milestone.due_date,
@@ -295,10 +380,10 @@ export async function getPlanningAlerts(role: AppRole, userId?: string) {
   alerts.push(
     ...[...overduePayments, ...upcomingPayments]
       .slice(0, 4)
-      .map(mapPaymentAlert),
+      .map((payment) => mapPaymentAlert(payment, locale)),
     ...renewalContracts
       .slice(0, 4)
-      .map(mapContractRenewalAlert),
+      .map((contract) => mapContractRenewalAlert(contract, locale)),
   );
 
   if (role === "shareholder") {

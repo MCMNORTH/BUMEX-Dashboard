@@ -14,17 +14,17 @@ import {
   getInvoicePdfFileName,
 } from "@/lib/finance/invoice-view";
 import { generateInvoicePdf } from "@/lib/finance/invoice-pdf";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import type { InvoiceRecord } from "@/types/finance";
 
 async function getExistingGeneratedInvoiceDocumentId(invoiceId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("documents")
     .select("id")
     .eq("related_type", "invoice")

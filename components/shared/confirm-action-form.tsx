@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 
+import { useI18n } from "@/components/layout/i18n-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,10 +32,11 @@ export function ConfirmActionForm({
   trigger,
   title,
   description,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  cancelLabel,
   tone = "danger",
 }: ConfirmActionFormProps) {
+  const { t } = useI18n();
   return (
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -50,11 +52,11 @@ export function ConfirmActionForm({
           <DialogFooter className="mt-5">
             <DialogClose asChild>
               <Button type="button" variant="ghost" className="rounded-full px-5">
-                {cancelLabel}
+                {cancelLabel ?? t("common.actions.cancel", "Cancel")}
               </Button>
             </DialogClose>
             <Button type="submit" className={`rounded-full px-5 text-white ${tone === "success" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"}`}>
-              {confirmLabel}
+              {confirmLabel ?? t("common.actions.confirm", "Confirm")}
             </Button>
           </DialogFooter>
         </form>

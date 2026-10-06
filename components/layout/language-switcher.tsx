@@ -40,7 +40,7 @@ export function LanguageSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-11 rounded-2xl px-3" disabled={isPending}>
+        <Button variant="ghost" className="px-2.5" disabled={isPending}>
           <Languages className="size-4" />
           <span className="hidden text-sm sm:inline">{t("common.language", "Language")}</span>
           <span className="text-xs font-semibold uppercase text-muted-foreground">{locale}</span>

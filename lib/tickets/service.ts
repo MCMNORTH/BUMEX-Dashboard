@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DataClient } from "@/lib/firebase/server";
 
 import { getTicketActivity, logActivity } from "@/lib/activity/service";
 import {
@@ -17,7 +17,7 @@ import {
   isEntityScopingEnabled,
 } from "@/lib/entities/scope";
 import { getCached, invalidateCached } from "@/lib/server-cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import { getTicketDueState, redactTicketDescription, normalizeTicketPriority, normalizeTicketStatus } from "@/lib/tickets/helpers";
 import type { AppRole } from "@/types/auth";
 import type { TicketActivity, TicketAssignee, TicketFilters, TicketFiltersData, TicketFormValues, TicketProject, TicketRecord, TicketReporter, TicketStats, TicketWorkloadRecord } from "@/types/ticket";
@@ -43,7 +43,7 @@ type TicketRow = {
   reporter: TicketReporter | TicketReporter[] | null;
 };
 
-type AppSupabaseClient = SupabaseClient;
+type AppDataClient = DataClient;
 
 function single<T>(value: T | T[] | null): T | null {
   if (Array.isArray(value)) {
@@ -78,8 +78,8 @@ function mapTicket(row: TicketRow, role: AppRole, activity: TicketActivity[] = [
   };
 }
 
-function getBaseTicketQuery(supabase: AppSupabaseClient) {
-  return supabase
+function getBaseTicketQuery(db: AppDataClient) {
+  return db
     .from("tasks")
     .select(
       `
@@ -211,6 +211,7 @@ function ticketFiltersKey(filters: TicketFilters = {}) {
     projectId: filters.projectId ?? "",
     dueDate: filters.dueDate ?? "",
     type: filters.type ?? "",
+    attention: Boolean(filters.attention),
   });
 }
 
@@ -219,13 +220,13 @@ function invalidateTicketReadCache() {
 }
 
 async function getFreshTickets(role: AppRole, filters: TicketFilters = {}, entityCode?: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  let query = getBaseTicketQuery(supabase);
+  let query = getBaseTicketQuery(db);
   if (entityCode) {
     query = applyEntityScope(query, entityCode);
   }
@@ -237,7 +238,37 @@ async function getFreshTickets(role: AppRole, filters: TicketFilters = {}, entit
     throw new Error(error.message);
   }
 
-  return (data ?? []).map((row) => mapTicket(row, role));
+  const tickets = (data ?? []).map((row) => mapTicket(row, role));
+
+  // These filters need OR logic or a status exclusion, which the query layer cannot express.
+  if (filters.attention) {
+    return tickets.filter(ticketNeedsAttention);
+  }
+
+  // A due-date view is about outstanding work, so closed tickets are left out
+  // unless the user explicitly filtered on a status.
+  if (filters.dueDate === "overdue" || (!filters.status && (filters.dueDate === "this_week" || filters.dueDate === "this_month"))) {
+    return tickets.filter(isOpenTicket);
+  }
+
+  return tickets;
+}
+
+export function isOpenTicket(ticket: Pick<TicketRecord, "status">) {
+  return ticket.status !== "done" && ticket.status !== "archived";
+}
+
+export function isTicketOverdue(ticket: Pick<TicketRecord, "status" | "due_date">, today = new Date().toISOString().slice(0, 10)) {
+  return isOpenTicket(ticket) && Boolean(ticket.due_date && ticket.due_date < today);
+}
+
+export function ticketNeedsAttention(ticket: TicketRecord) {
+  return isOpenTicket(ticket) && (
+    ticket.status === "blocked"
+    || isTicketOverdue(ticket)
+    || ticket.priority === "urgent"
+    || !ticket.assignee_id
+  );
 }
 
 export async function getMyTickets(userId: string, role: AppRole) {
@@ -250,13 +281,13 @@ export async function getMyTickets(userId: string, role: AppRole) {
 }
 
 async function getFreshMyTickets(userId: string, role: AppRole, entityCode?: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  let query = getBaseTicketQuery(supabase);
+  let query = getBaseTicketQuery(db);
   if (entityCode) {
     query = applyEntityScope(query, entityCode);
   }
@@ -272,14 +303,14 @@ async function getFreshMyTickets(userId: string, role: AppRole, entityCode?: str
 }
 
 export async function getTicketById(id: string, role: AppRole) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("tasks")
     .select(
       `
@@ -352,22 +383,22 @@ export async function getTicketsFilterData(): Promise<TicketFiltersData> {
 }
 
 async function getFreshTicketsFilterData(entityCode?: string): Promise<TicketFiltersData> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const shouldScopeByEntity = isEntityScopingEnabled() && Boolean(entityCode);
-  let assigneesQuery = supabase
+  let assigneesQuery = db
     .from("profiles")
     .select("id, full_name, email, avatar_url, role")
     .order("full_name", { ascending: true });
-  let reportersQuery = supabase
+  let reportersQuery = db
     .from("profiles")
     .select("id, full_name, email, avatar_url, role")
     .order("full_name", { ascending: true });
-  let projectsQuery = supabase
+  let projectsQuery = db
     .from("projects")
     .select(
       `
@@ -429,15 +460,15 @@ function parseTicketPayload(values: TicketFormValues) {
 }
 
 export async function createTicket(values: TicketFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
   const payload = extendWithEntityCode(parseTicketPayload(values), entityCode);
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("tasks")
     .insert(payload)
     .select("id")
@@ -485,14 +516,14 @@ export async function createTicket(values: TicketFormValues, actorUserId: string
 }
 
 export async function updateTicket(id: string, values: TicketFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  const previousQuery = applyEntityScope(supabase
+  const previousQuery = applyEntityScope(db
     .from("tasks")
     .select("title, status, priority, assignee_id, due_date, project_id")
     .eq("id", id), entityCode);
@@ -514,7 +545,7 @@ export async function updateTicket(id: string, values: TicketFormValues, actorUs
   }
 
   const payload = parseTicketPayload(values);
-  const { error } = await applyEntityScope(supabase.from("tasks").update(payload).eq("id", id), entityCode);
+  const { error } = await applyEntityScope(db.from("tasks").update(payload).eq("id", id), entityCode);
 
   if (error) {
     throw new Error(error.message);
@@ -623,16 +654,16 @@ export async function updateTicket(id: string, values: TicketFormValues, actorUs
 }
 
 export async function updateTicketStatus(id: string, status: TicketRecord["status"], actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const payloadStatus = status === "review" ? "review" : status;
   const entityCode = await getCurrentEntityCode();
   const { error } = await applyEntityScope(
-    supabase.from("tasks").update({ status: payloadStatus }).eq("id", id),
+    db.from("tasks").update({ status: payloadStatus }).eq("id", id),
     entityCode,
   );
 
@@ -652,7 +683,7 @@ export async function updateTicketStatus(id: string, status: TicketRecord["statu
     },
   });
 
-  const ticketQuery = applyEntityScope(supabase
+  const ticketQuery = applyEntityScope(db
     .from("tasks")
     .select("title, project_id")
     .eq("id", id), entityCode);
@@ -681,13 +712,13 @@ export async function updateTicketStatus(id: string, status: TicketRecord["statu
 }
 
 export async function deleteTicket(id: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { error } = await supabase.from("tasks").delete().eq("id", id);
+  const { error } = await db.from("tasks").delete().eq("id", id);
 
   if (error) {
     throw new Error(error.message);
@@ -702,6 +733,23 @@ export function getTicketStats(tickets: TicketRecord[], currentUserId: string): 
     mine: tickets.filter((ticket) => ticket.assignee_id === currentUserId).length,
     urgent: tickets.filter((ticket) => ticket.priority === "urgent").length,
     blocked: tickets.filter((ticket) => ticket.status === "blocked").length,
+  };
+}
+
+export function getTicketQuickCounts(tickets: TicketRecord[], currentUserId: string) {
+  const today = new Date().toISOString().slice(0, 10);
+  const weekEnd = new Date();
+  weekEnd.setDate(weekEnd.getDate() + 7);
+  const weekEndKey = weekEnd.toISOString().slice(0, 10);
+
+  return {
+    all: tickets.length,
+    mine: tickets.filter((ticket) => ticket.assignee_id === currentUserId).length,
+    attention: tickets.filter(ticketNeedsAttention).length,
+    overdue: tickets.filter((ticket) => isTicketOverdue(ticket, today)).length,
+    dueThisWeek: tickets.filter((ticket) => isOpenTicket(ticket) && Boolean(ticket.due_date && ticket.due_date >= today && ticket.due_date <= weekEndKey)).length,
+    blocked: tickets.filter((ticket) => ticket.status === "blocked").length,
+    unassigned: tickets.filter((ticket) => !ticket.assignee_id).length,
   };
 }
 

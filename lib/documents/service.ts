@@ -9,7 +9,7 @@ import {
   extendWithEntityCode,
   isEntityScopingEnabled,
 } from "@/lib/entities/scope";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import type { AppRole } from "@/types/auth";
 import type { ActivityLogRecord } from "@/types/activity";
 import type {
@@ -130,14 +130,14 @@ function getCategoryLabel(documentType: DocumentRecord["document_type"]) {
 }
 
 async function getDocumentActivityMap(documentIds: string[]) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || !documentIds.length) {
+  if (!db || !documentIds.length) {
     return new Map<string, ActivityLogRecord[]>();
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("activity_logs")
     .select(
       `
@@ -180,14 +180,14 @@ async function getDocumentActivityMap(documentIds: string[]) {
 }
 
 async function getUploaderMap(userIds: string[]) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || !userIds.length) {
+  if (!db || !userIds.length) {
     return new Map<string, DocumentUploader>();
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("profiles")
     .select("id, full_name, email, avatar_url, role")
     .in("id", userIds);
@@ -206,14 +206,14 @@ async function getUploaderMap(userIds: string[]) {
 }
 
 async function getClientMap(clientIds: string[]) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || !clientIds.length) {
+  if (!db || !clientIds.length) {
     return new Map<string, DocumentClientPreview>();
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("clients")
     .select("id, name, status, contact_email")
     .in("id", clientIds);
@@ -232,14 +232,14 @@ async function getClientMap(clientIds: string[]) {
 }
 
 async function getProjectMap(projectIds: string[]) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || !projectIds.length) {
+  if (!db || !projectIds.length) {
     return new Map<string, DocumentProjectPreview>();
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("projects")
     .select("id, name, status, end_date")
     .in("id", projectIds);
@@ -258,14 +258,14 @@ async function getProjectMap(projectIds: string[]) {
 }
 
 async function getContractMap(contractIds: string[]) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || !contractIds.length) {
+  if (!db || !contractIds.length) {
     return new Map<string, DocumentContractPreview>();
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("contracts")
     .select("id, title, status, end_date")
     .in("id", contractIds);
@@ -293,14 +293,14 @@ type TicketLookupRow = {
 };
 
 async function getTicketMap(ticketIds: string[]) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || !ticketIds.length) {
+  if (!db || !ticketIds.length) {
     return new Map<string, DocumentTicketPreview>();
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("tasks")
     .select("id, title, status, priority, due_date, project_id")
     .in("id", ticketIds);
@@ -330,14 +330,14 @@ async function getTicketMap(ticketIds: string[]) {
 }
 
 async function getInvoiceMap(invoiceIds: string[]) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || !invoiceIds.length) {
+  if (!db || !invoiceIds.length) {
     return new Map<string, DocumentInvoicePreview>();
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("invoices")
     .select("id, invoice_number, status, due_date, amount_ttc")
     .in("id", invoiceIds);
@@ -356,14 +356,14 @@ async function getInvoiceMap(invoiceIds: string[]) {
 }
 
 async function getPaymentMap(paymentIds: string[]) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || !paymentIds.length) {
+  if (!db || !paymentIds.length) {
     return new Map<string, DocumentPaymentPreview>();
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("payments")
     .select("id, reference, status, amount, currency")
     .in("id", paymentIds);
@@ -382,14 +382,14 @@ async function getPaymentMap(paymentIds: string[]) {
 }
 
 async function getTransferMap(transferIds: string[]) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || !transferIds.length) {
+  if (!db || !transferIds.length) {
     return new Map<string, DocumentTransferPreview>();
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("transfers")
     .select("id, transfer_reference, status, amount, currency")
     .in("id", transferIds);
@@ -506,14 +506,14 @@ function filterMappedDocuments(documents: DocumentRecord[], filters: DocumentFil
 }
 
 export async function getDocuments(role: AppRole, filters: DocumentFilters = {}) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("documents")
     .select(
       `
@@ -613,14 +613,14 @@ export async function getDocuments(role: AppRole, filters: DocumentFilters = {})
 }
 
 export async function getDocumentById(id: string, role: AppRole) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("documents")
     .select(
       `
@@ -671,21 +671,21 @@ export async function getDocumentById(id: string, role: AppRole) {
 }
 
 export async function getDocumentsFilterData(): Promise<DocumentFiltersData> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let clientsQuery = supabase.from("clients").select("id, name, status, contact_email").order("name", { ascending: true });
-  let projectsQuery = supabase.from("projects").select("id, name, status, end_date").order("name", { ascending: true });
-  let contractsQuery = supabase.from("contracts").select("id, title, status, end_date").order("title", { ascending: true });
-  let ticketsQuery = supabase.from("tasks").select("id, title, status, priority, due_date").order("updated_at", { ascending: false }).limit(100);
-  let invoicesQuery = supabase.from("invoices").select("id, invoice_number, status, due_date, amount_ttc").order("created_at", { ascending: false }).limit(100);
-  let paymentsQuery = supabase.from("payments").select("id, reference, status, amount, currency").order("created_at", { ascending: false }).limit(100);
-  let transfersQuery = supabase.from("transfers").select("id, transfer_reference, status, amount, currency").order("created_at", { ascending: false }).limit(100);
-  let uploadersQuery = supabase.from("profiles").select("id, full_name, email, avatar_url, role").order("full_name", { ascending: true });
+  let clientsQuery = db.from("clients").select("id, name, status, contact_email").order("name", { ascending: true });
+  let projectsQuery = db.from("projects").select("id, name, status, end_date").order("name", { ascending: true });
+  let contractsQuery = db.from("contracts").select("id, title, status, end_date").order("title", { ascending: true });
+  let ticketsQuery = db.from("tasks").select("id, title, status, priority, due_date").order("updated_at", { ascending: false }).limit(100);
+  let invoicesQuery = db.from("invoices").select("id, invoice_number, status, due_date, amount_ttc").order("created_at", { ascending: false }).limit(100);
+  let paymentsQuery = db.from("payments").select("id, reference, status, amount, currency").order("created_at", { ascending: false }).limit(100);
+  let transfersQuery = db.from("transfers").select("id, transfer_reference, status, amount, currency").order("created_at", { ascending: false }).limit(100);
+  let uploadersQuery = db.from("profiles").select("id, full_name, email, avatar_url, role").order("full_name", { ascending: true });
 
   if (isEntityScopingEnabled()) {
     clientsQuery = clientsQuery.eq("entity_code", entityCode);
@@ -761,10 +761,10 @@ function validateFile(file: File) {
 }
 
 export async function createDocument(values: DocumentFormValues, file: File, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   validateFile(file);
@@ -774,7 +774,7 @@ export async function createDocument(values: DocumentFormValues, file: File, act
   const path = getStoragePath(file.name, actorUserId);
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await db.storage
     .from("documents")
     .upload(path, buffer, {
       contentType: file.type || "application/octet-stream",
@@ -794,14 +794,14 @@ export async function createDocument(values: DocumentFormValues, file: File, act
     uploaded_by: actorUserId,
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("documents")
     .insert(insertPayload)
     .select("id")
     .single<{ id: string }>();
 
   if (error) {
-    await supabase.storage.from("documents").remove([path]);
+    await db.storage.from("documents").remove([path]);
     throw new Error(error.message);
   }
 
@@ -835,15 +835,15 @@ export async function upsertBinaryDocument({
   bytes,
   actorUserId,
 }: UpsertBinaryDocumentParams) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
   const path = getStoragePath(fileName, actorUserId);
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await db.storage
     .from("documents")
     .upload(path, bytes, {
       contentType: mimeType || "application/octet-stream",
@@ -855,7 +855,7 @@ export async function upsertBinaryDocument({
   }
 
   if (existingDocumentId) {
-    let previousQuery = supabase
+    let previousQuery = db
       .from("documents")
       .select("file_url")
       .eq("id", existingDocumentId);
@@ -865,11 +865,11 @@ export async function upsertBinaryDocument({
     const { data: previous, error: previousError } = await previousQuery.maybeSingle<{ file_url: string }>();
 
     if (previousError) {
-      await supabase.storage.from("documents").remove([path]);
+      await db.storage.from("documents").remove([path]);
       throw new Error(previousError.message);
     }
 
-    let updateQuery = supabase
+    let updateQuery = db
       .from("documents")
       .update({
         title,
@@ -893,12 +893,12 @@ export async function upsertBinaryDocument({
     const { error: updateError } = await updateQuery;
 
     if (updateError) {
-      await supabase.storage.from("documents").remove([path]);
+      await db.storage.from("documents").remove([path]);
       throw new Error(updateError.message);
     }
 
     if (previous?.file_url) {
-      await supabase.storage.from("documents").remove([previous.file_url]);
+      await db.storage.from("documents").remove([previous.file_url]);
     }
 
     await logActivity({
@@ -915,7 +915,7 @@ export async function upsertBinaryDocument({
     return existingDocumentId;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("documents")
     .insert({
       title,
@@ -935,7 +935,7 @@ export async function upsertBinaryDocument({
     .single<{ id: string }>();
 
   if (error) {
-    await supabase.storage.from("documents").remove([path]);
+    await db.storage.from("documents").remove([path]);
     throw new Error(error.message);
   }
 
@@ -957,14 +957,14 @@ export async function upsertBinaryDocument({
 }
 
 export async function updateDocument(id: string, values: DocumentFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let previousQuery = supabase
+  let previousQuery = db
     .from("documents")
     .select("title, document_type, related_type, related_id, visibility, is_archived")
     .eq("id", id);
@@ -989,7 +989,7 @@ export async function updateDocument(id: string, values: DocumentFormValues, act
     updated_at: new Date().toISOString(),
   };
 
-  let updateQuery = supabase.from("documents").update(payload).eq("id", id);
+  let updateQuery = db.from("documents").update(payload).eq("id", id);
   updateQuery = applyEntityScope(updateQuery, entityCode);
   const { error } = await updateQuery;
 
@@ -1051,14 +1051,14 @@ export async function updateDocument(id: string, values: DocumentFormValues, act
 }
 
 export async function setDocumentArchiveState(id: string, isArchived: boolean, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let updateQuery = supabase
+  let updateQuery = db
     .from("documents")
     .update({
       is_archived: isArchived,
@@ -1089,14 +1089,14 @@ export async function setDocumentArchiveState(id: string, isArchived: boolean, a
 }
 
 export async function deleteDocument(id: string, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let existingQuery = supabase
+  let existingQuery = db
     .from("documents")
     .select("file_url")
     .eq("id", id);
@@ -1113,13 +1113,13 @@ export async function deleteDocument(id: string, actorUserId: string) {
     return;
   }
 
-  const { error: removeError } = await supabase.storage.from("documents").remove([data.file_url]);
+  const { error: removeError } = await db.storage.from("documents").remove([data.file_url]);
 
   if (removeError) {
     throw new Error(removeError.message);
   }
 
-  let deleteQuery = supabase.from("documents").delete().eq("id", id);
+  let deleteQuery = db.from("documents").delete().eq("id", id);
   deleteQuery = applyEntityScope(deleteQuery, entityCode);
   const { error: deleteError } = await deleteQuery;
 
@@ -1140,14 +1140,14 @@ export async function deleteDocument(id: string, actorUserId: string) {
 }
 
 export async function getDocumentDownloadUrl(id: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("documents")
     .select("id, file_url")
     .eq("id", id);
@@ -1164,7 +1164,7 @@ export async function getDocumentDownloadUrl(id: string) {
     return null;
   }
 
-  const { data, error: signedError } = await supabase.storage
+  const { data, error: signedError } = await db.storage
     .from("documents")
     .createSignedUrl(document.file_url, 60);
 

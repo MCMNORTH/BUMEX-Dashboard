@@ -15,7 +15,7 @@ export function ContractCard({ contract }: { contract: ContractRecord }) {
   const isFr = locale === "fr";
   return (
     <Link href={`/contracts/${contract.id}`} className="block">
-      <Card className="surface-highlight group overflow-hidden rounded-[30px] border-border/70 bg-white/96 shadow-[0_24px_64px_-46px_rgba(37,99,235,0.24)] transition-all duration-300 hover:-translate-y-1 hover:border-sky-200/80 hover:shadow-[0_30px_72px_-48px_rgba(37,99,235,0.3)] dark:bg-[#161b26] dark:shadow-none dark:hover:border-sky-400/20">
+      <Card className="surface-highlight group overflow-hidden rounded-xl border-border/70 bg-card shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-sky-200/80 dark:shadow-none dark:hover:border-sky-400/20">
         <CardContent className="space-y-5 px-5 py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 space-y-4">
@@ -32,7 +32,7 @@ export function ContractCard({ contract }: { contract: ContractRecord }) {
                 </p>
               </div>
             </div>
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-[22px] border border-white/70 bg-white/84 shadow-[0_16px_30px_-24px_rgba(15,23,42,0.42)] dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+            <div className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-white/70 bg-white/84 shadow-[0_16px_30px_-24px_rgba(15,23,42,0.42)] dark:border-white/10 dark:bg-white/5 dark:shadow-none">
               <FileText className="size-5 text-primary dark:text-sky-200" />
             </div>
           </div>
@@ -55,7 +55,7 @@ export function ContractCard({ contract }: { contract: ContractRecord }) {
                 {contract.renewalState.replaceAll("_", " ")}
               </span>
             </div>
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 transition-colors group-hover:text-[#244b86] dark:text-slate-200 dark:group-hover:text-sky-300">
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 transition-colors group-hover:text-primary dark:text-slate-200 dark:group-hover:text-sky-300">
               {isFr ? "Voir le détail" : "View detail"}
               <span className="flex size-8 items-center justify-center rounded-full border border-border/70 bg-white/75 dark:border-white/10 dark:bg-white/5">
                 <ArrowRight className="size-4" />
@@ -87,8 +87,8 @@ function InsightPanel({
           : "border-slate-200/80 bg-slate-100/76 dark:border-white/8 dark:bg-white/3";
 
   return (
-    <div className={`rounded-[24px] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:shadow-none ${toneClass}`}>
-      <p className="text-[11px] font-semibold tracking-[0.2em] text-muted-foreground uppercase">{label}</p>
+    <div className={`rounded-xl border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:shadow-none ${toneClass}`}>
+      <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
       <p className="mt-3 text-base font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">{value}</p>
     </div>
   );

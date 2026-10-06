@@ -102,7 +102,7 @@ export function ClientForm({
             <>
               <input type="hidden" name="prospect_stage" value="" />
               <input type="hidden" name="next_follow_up_at" value="" />
-              <div className="sm:col-span-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-muted-foreground">
+              <div className="sm:col-span-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-muted-foreground">
                 {isFr
                   ? "Ce client est dans le cycle de prestation. Les contrats et projets se créent ensuite dans leurs espaces respectifs."
                   : "This client is in the delivery cycle. Contracts and projects are then created in their respective areas."}
@@ -137,8 +137,8 @@ export function ClientForm({
             <Textarea id={`${mode}-notes`} name="notes" defaultValue={values?.notes ?? ""} placeholder={isOpportunity ? (isFr ? "Ex. Relancer après l’envoi de la proposition" : "E.g. Follow up after the proposal is sent") : (isFr ? "Ex. Préférences de communication ou contexte de la relation" : "E.g. Communication preferences or relationship context")} />
           </div>
 
-          {state.error ? <div className="sm:col-span-2 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-red-200">{state.error}</div> : null}
-          <div className="sm:col-span-2 flex justify-end"><Button type="submit" className="rounded-2xl px-5">{mode === "create" ? (isFr ? "Enregistrer" : "Save") : (isFr ? "Enregistrer les modifications" : "Save changes")}</Button></div>
+          {state.error ? <div className="sm:col-span-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{state.error}</div> : null}
+          <div className="sm:col-span-2 flex justify-end"><Button type="submit" className="rounded-xl px-5">{mode === "create" ? (isFr ? "Enregistrer" : "Save") : (isFr ? "Enregistrer les modifications" : "Save changes")}</Button></div>
         </form>
       </DialogContent>
     </Dialog>

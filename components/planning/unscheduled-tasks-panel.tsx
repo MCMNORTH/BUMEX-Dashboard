@@ -27,7 +27,7 @@ export function UnscheduledTasksPanel({
     <Card
       ref={setNodeRef}
       className={cn(
-        "border-border/70 bg-card/72 backdrop-blur-xl transition-all",
+        "border-border/70 bg-card transition-all",
         isOver && "border-sky-300/16 bg-sky-500/[0.05]",
       )}
     >
@@ -41,7 +41,7 @@ export function UnscheduledTasksPanel({
       <CardContent className="space-y-3">
         {tickets.length ? (
           summaryMode ? (
-            <div className="rounded-[22px] border border-border/65 bg-background/38 p-4">
+            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
               <p className="text-sm font-medium">{tickets.length} unscheduled items</p>
               <p className="mt-1 text-xs text-muted-foreground">Detailed task visibility is hidden in summary mode.</p>
             </div>
@@ -51,7 +51,7 @@ export function UnscheduledTasksPanel({
             tickets.map((ticket) => <PlanningTaskCard key={ticket.id} ticket={ticket} />)
           )
         ) : (
-          <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
             No unscheduled tasks in the current planning scope.
           </div>
         )}

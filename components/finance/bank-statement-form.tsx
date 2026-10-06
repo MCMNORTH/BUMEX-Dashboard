@@ -135,10 +135,10 @@ export function BankStatementForm() {
           {isFr ? "Importer un relevé" : "Import statement"}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[94vh] max-w-[min(96vw,1380px)] overflow-y-auto rounded-[32px] border-slate-200 p-0">
+      <DialogContent className="max-h-[94vh] max-w-[min(96vw,1380px)] overflow-y-auto rounded-xl border-slate-200 p-0">
         <div className="grid gap-0 xl:grid-cols-[0.92fr_1.08fr]">
-          <div className="space-y-5 bg-[linear-gradient(160deg,#0b1530,#12386d_55%,#2a8ad6)] px-6 py-6 text-white">
-            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-[0.16em] uppercase">
+          <div className="hero-fill space-y-5 px-6 py-6 text-white">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wider uppercase">
               <FileSpreadsheet className="size-3.5" />
               {isFr ? "Banques" : "Banks"}
             </div>
@@ -155,8 +155,8 @@ export function BankStatementForm() {
               </p>
             </div>
 
-            <div className="rounded-[28px] border border-white/12 bg-white/10 p-5 backdrop-blur-sm">
-              <p className="text-xs font-semibold tracking-[0.16em] text-white/70 uppercase">
+            <div className="rounded-xl border border-white/12 bg-white/10 p-5">
+              <p className="text-xs font-semibold tracking-wider text-white/70 uppercase">
                 {isFr ? "Formats pris en charge" : "Supported formats"}
               </p>
               <p className="mt-3 text-sm text-white/80">
@@ -166,8 +166,8 @@ export function BankStatementForm() {
               </p>
             </div>
 
-            <div className="rounded-[28px] border border-white/12 bg-slate-950/25 p-5">
-              <p className="text-xs font-semibold tracking-[0.16em] text-white/70 uppercase">
+            <div className="rounded-xl border border-white/12 bg-slate-950/25 p-5">
+              <p className="text-xs font-semibold tracking-wider text-white/70 uppercase">
                 {isFr ? "Fichier sélectionné" : "Selected file"}
               </p>
               <p className="mt-3 text-sm text-white/82">
@@ -194,9 +194,9 @@ export function BankStatementForm() {
                   <label className="text-sm font-medium" htmlFor="bank-statement-file">
                     {isFr ? "Fichier du relevé" : "Statement file"}
                   </label>
-                  <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50/70 p-4">
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex size-11 items-center justify-center rounded-2xl border border-slate-200 bg-white">
+                      <div className="flex size-11 items-center justify-center rounded-xl border border-slate-200 bg-white">
                         <Upload className="size-5 text-primary" />
                       </div>
                       <div className="min-w-0">
@@ -273,10 +273,10 @@ export function BankStatementForm() {
                 />
               </div>
 
-              <div className="rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fbff)] p-5">
+              <div className="bg-card rounded-xl border border-slate-200 p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase">
+                    <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
                       {isFr ? "Aperçu des transactions" : "Transaction preview"}
                     </p>
                     <p className="mt-2 text-sm text-slate-600">
@@ -294,7 +294,7 @@ export function BankStatementForm() {
                 {previewLines.length ? (
                   <div className="mt-4 grid gap-3">
                     {previewLines.slice(0, 8).map((line, index) => (
-                      <div key={`${line.line_date}-${line.description}-${index}`} className="rounded-[22px] border border-slate-200 bg-white p-4">
+                      <div key={`${line.line_date}-${line.description}-${index}`} className="rounded-xl border border-slate-200 bg-white p-4">
                         <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
                           <div>
                             <p className="text-sm font-semibold text-slate-950">{line.description}</p>
@@ -311,7 +311,7 @@ export function BankStatementForm() {
                     ))}
                   </div>
                 ) : (
-                  <div className="mt-4 rounded-[22px] border border-dashed border-slate-300 bg-slate-50/80 p-5 text-sm text-slate-500">
+                  <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/80 p-5 text-sm text-slate-500">
                     {isFr
                       ? "Sélectionnez un fichier lisible pour voir chaque transaction avant l'import."
                       : "Select a readable file to preview each transaction before import."}
@@ -320,19 +320,19 @@ export function BankStatementForm() {
               </div>
 
               {state.error ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                   {state.error}
                 </div>
               ) : null}
 
               {state.success ? (
-                <div className="rounded-2xl border border-emerald-300/50 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                <div className="rounded-xl border border-emerald-300/50 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
                   {state.success}
                 </div>
               ) : null}
 
               <div className="flex justify-end">
-                <Button type="submit" className="rounded-2xl px-5" disabled={pending}>
+                <Button type="submit" className="rounded-xl px-5" disabled={pending}>
                   {pending
                     ? isFr
                       ? "Import en cours..."

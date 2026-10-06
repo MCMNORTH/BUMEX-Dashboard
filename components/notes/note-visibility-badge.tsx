@@ -9,10 +9,10 @@ const visibilityLabels: Record<NoteVisibility, string> = {
 };
 
 const visibilityClasses: Record<NoteVisibility, string> = {
-  private: "border-white/10 bg-white/5 text-slate-200",
-  team: "border-sky-500/20 bg-sky-500/10 text-sky-100",
-  management: "border-amber-500/20 bg-amber-500/10 text-amber-100",
-  shareholders: "border-emerald-500/20 bg-emerald-500/10 text-emerald-100",
+  private: "border-border bg-muted text-muted-foreground",
+  team: "border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-100",
+  management: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-100",
+  shareholders: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-100",
 };
 
 export function NoteVisibilityBadge({ visibility }: { visibility: NoteVisibility }) {

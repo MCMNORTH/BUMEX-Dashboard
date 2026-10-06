@@ -18,7 +18,7 @@ function SubmitButton({ mode, isFr }: { mode: "create" | "edit"; isFr: boolean }
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" className="rounded-2xl px-5" disabled={pending}>
+    <Button type="submit" className="rounded-xl px-5" disabled={pending}>
       {pending ? (isFr ? "Enregistrement..." : "Saving...") : mode === "create" ? (isFr ? "Ajouter un commentaire" : "Add comment") : (isFr ? "Enregistrer" : "Save changes")}
     </Button>
   );
@@ -116,7 +116,7 @@ export function CommentEditor({
   }
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-4 rounded-[24px] border border-border/65 bg-background/35 p-4">
+    <form ref={formRef} action={formAction} className="space-y-4 rounded-xl border border-border/65 bg-background/35 p-4">
       <input type="hidden" name="entity_type" value={entityType} />
       <input type="hidden" name="entity_id" value={entityId} />
       <input type="hidden" name="return_path" value={returnPath} />
@@ -143,7 +143,7 @@ export function CommentEditor({
         value={body}
         rows={mode === "create" ? 4 : 3}
         placeholder={isFr ? "Écrivez une note interne, un blocage, une passation ou une mise à jour de contexte" : "Write a clear internal note, blocker, handoff, or context update"}
-        className="min-h-[120px] w-full rounded-2xl border border-input bg-background/70 px-4 py-3 text-sm outline-none focus-visible:ring-4 focus-visible:ring-ring/55"
+        className="min-h-[120px] w-full rounded-xl border border-input bg-background/70 px-4 py-3 text-sm outline-none focus-visible:ring-4 focus-visible:ring-ring/55"
         onChange={(event) => {
           setBody(event.target.value);
           setCursorPosition(event.target.selectionStart ?? event.target.value.length);
@@ -153,8 +153,8 @@ export function CommentEditor({
       />
 
       {mentionState && filteredCandidates.length ? (
-        <div className="rounded-2xl border border-border/65 bg-background/55 p-2">
-          <p className="px-2 py-1 text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+        <div className="rounded-xl border border-border/65 bg-background/55 p-2">
+          <p className="px-2 py-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
             {isFr ? "Mentionner des personnes" : "Mention people"}
           </p>
           <div className="mt-1 grid gap-1">
@@ -185,7 +185,7 @@ export function CommentEditor({
 
         <div className="flex gap-2">
           {mode === "edit" && onCancel ? (
-            <Button type="button" variant="ghost" className="rounded-2xl px-5" onClick={onCancel}>
+            <Button type="button" variant="ghost" className="rounded-xl px-5" onClick={onCancel}>
               {isFr ? "Annuler" : "Cancel"}
             </Button>
           ) : null}
@@ -194,7 +194,7 @@ export function CommentEditor({
       </div>
 
       {state.error ? (
-        <div className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-red-200">
+        <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
           {state.error}
         </div>
       ) : null}

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { isAuthorizedCronRequest } from "@/lib/cron/auth";
 import { dispatchNotificationEmails } from "@/lib/notifications/email-delivery";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/firebase/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,13 +22,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = createAdminClient();
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase service configuration is missing." }, { status: 503 });
+  const db = createAdminClient();
+  if (!db) {
+    return NextResponse.json({ error: "Firebase service configuration is missing." }, { status: 503 });
   }
 
   const weekStart = getPreviousWeekStart(new Date());
-  const { data: remindersCreated, error: reminderError } = await supabase.rpc(
+  const { data: remindersCreated, error: reminderError } = await db.rpc(
     "queue_weekly_timesheet_reminders",
     { p_week_start: weekStart },
   );

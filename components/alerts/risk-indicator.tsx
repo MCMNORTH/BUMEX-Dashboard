@@ -7,15 +7,15 @@ const widths: Record<AlertSeverity, string> = {
 };
 
 const tones: Record<AlertSeverity, string> = {
-  info: "from-sky-400 via-cyan-300 to-indigo-300",
-  warning: "from-amber-400 via-orange-300 to-amber-200",
-  critical: "from-rose-500 via-red-400 to-orange-300",
+  info: "bg-sky-500",
+  warning: "bg-amber-500",
+  critical: "bg-rose-500",
 };
 
 export function RiskIndicator({ severity }: { severity: AlertSeverity }) {
   return (
     <div className="h-2 overflow-hidden rounded-full bg-secondary/70">
-      <div className={`h-full rounded-full bg-gradient-to-r ${tones[severity]}`} style={{ width: widths[severity] }} />
+      <div className={`h-full rounded-full ${tones[severity]}`} style={{ width: widths[severity] }} />
     </div>
   );
 }

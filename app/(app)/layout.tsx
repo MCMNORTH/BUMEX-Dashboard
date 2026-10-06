@@ -1,7 +1,9 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { requireAuthenticatedUser } from "@/lib/auth/server";
+import { sidebarCollapsedCookieName } from "@/lib/site";
 
 export default async function ApplicationLayout({
   children,
@@ -14,5 +16,8 @@ export default async function ApplicationLayout({
     redirect("/select-entity");
   }
 
-  return <AppShell>{children}</AppShell>;
+  const cookieStore = await cookies();
+  const sidebarCollapsed = cookieStore.get(sidebarCollapsedCookieName)?.value === "1";
+
+  return <AppShell initialCollapsed={sidebarCollapsed}>{children}</AppShell>;
 }

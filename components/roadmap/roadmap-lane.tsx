@@ -39,7 +39,7 @@ export function RoadmapLane({
   const visibleMilestones = getVisibleMilestones(project, rangeStart, rangeEnd);
 
   return (
-    <div className="rounded-[30px] border border-border/65 bg-background/36 p-5 shadow-[var(--shadow-soft)]">
+    <div className="rounded-xl border border-border/65 bg-background/36 p-5 shadow-[var(--shadow-soft)]">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -48,7 +48,7 @@ export function RoadmapLane({
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <div className="flex size-11 items-center justify-center rounded-2xl border border-border/65 bg-background/48">
+              <div className="flex size-11 items-center justify-center rounded-xl border border-border/65 bg-background/48">
                 <FolderGit2 className="size-4.5 text-primary" />
               </div>
               <div>
@@ -65,23 +65,23 @@ export function RoadmapLane({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-border/65 bg-background/42 px-4 py-3">
-            <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">{isFr ? "Progression" : "Progress"}</p>
+          <div className="rounded-xl border border-border/65 bg-background/42 px-4 py-3">
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Progression" : "Progress"}</p>
             <p className="mt-2 text-xl font-semibold tracking-[-0.04em]">{project.progress}%</p>
           </div>
-          <div className="rounded-2xl border border-border/65 bg-background/42 px-4 py-3">
-            <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">{isFr ? "Jalons" : "Milestones"}</p>
+          <div className="rounded-xl border border-border/65 bg-background/42 px-4 py-3">
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Jalons" : "Milestones"}</p>
             <p className="mt-2 text-xl font-semibold tracking-[-0.04em]">{project.totalMilestones}</p>
           </div>
-          <div className="rounded-2xl border border-border/65 bg-background/42 px-4 py-3">
-            <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">{isFr ? "Ouverts" : "Open"}</p>
+          <div className="rounded-xl border border-border/65 bg-background/42 px-4 py-3">
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Ouverts" : "Open"}</p>
             <p className="mt-2 text-xl font-semibold tracking-[-0.04em]">{project.openMilestones}</p>
           </div>
         </div>
       </div>
 
-      <div className="mt-5 rounded-[28px] border border-border/65 bg-card/64 p-4">
-        <div className="relative h-20 overflow-hidden rounded-[24px] border border-border/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.015),rgba(255,255,255,0.03))]">
+      <div className="mt-5 rounded-xl border border-border/65 bg-card p-4">
+        <div className="bg-muted/40 relative h-20 overflow-hidden rounded-xl border border-border/60">
           <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${periods.length}, minmax(0, 1fr))` }}>
             {periods.map((period) => (
               <div key={period.key} className="border-r border-border/40 last:border-r-0" />
@@ -89,7 +89,7 @@ export function RoadmapLane({
           </div>
 
           <div
-            className="absolute top-1/2 h-4 -translate-y-1/2 rounded-full bg-[linear-gradient(90deg,rgba(56,189,248,0.16),rgba(99,102,241,0.26),rgba(59,130,246,0.16))] shadow-[0_0_24px_rgba(59,130,246,0.18)]"
+            className="bg-muted/40 absolute top-1/2 h-4 -translate-y-1/2 rounded-full shadow-[var(--shadow-soft)]"
             style={{
               left: `${barStart}%`,
               width: `${Math.max(barEnd - barStart, 8)}%`,
@@ -144,7 +144,7 @@ export function RoadmapLane({
             />
           ))
         ) : (
-          <div className="xl:col-span-2 rounded-[24px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+          <div className="xl:col-span-2 rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
             {isFr ? "Aucun jalon dans l’horizon sélectionné." : "No milestones inside the selected roadmap horizon."}
           </div>
         )}

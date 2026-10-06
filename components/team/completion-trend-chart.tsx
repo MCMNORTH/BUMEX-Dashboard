@@ -10,9 +10,9 @@ export function CompletionTrendChart({
   const palette = ["#38bdf8", "#10b981", "#f59e0b", "#f43f5e"];
 
   return (
-    <div className="rounded-[28px] border border-border/70 bg-card/72 p-5 backdrop-blur-xl">
+    <div className="rounded-xl border border-border/70 bg-card p-5">
       <div>
-        <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Completion mix</p>
+        <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Completion mix</p>
         <h3 className="mt-2 text-xl font-semibold tracking-tight">Delivery distribution</h3>
       </div>
       <div className="mt-4 h-[280px]">
@@ -31,7 +31,7 @@ export function CompletionTrendChart({
             </PieChart>
           </ResponsiveContainer>
         ) : (
-          <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-8 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-8 text-sm text-muted-foreground">
             No completion distribution is available yet.
           </div>
         )}

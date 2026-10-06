@@ -7,7 +7,7 @@ import {
   getNotificationRecipientsForProject,
 } from "@/lib/notifications/service";
 import { getCached, invalidateCached } from "@/lib/server-cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import {
   applyEntityScope,
   extendWithEntityCode,
@@ -45,10 +45,10 @@ export type ProjectStaffingSummary = {
 };
 
 export async function getProjectStaffingSummary(projectId: string): Promise<ProjectStaffingSummary> {
-  const supabase = await createClient();
-  if (!supabase) return { activePeople: 0, totalAllocation: 0, assignments: [] };
+  const db = await createClient();
+  if (!db) return { activePeople: 0, totalAllocation: 0, assignments: [] };
   const today = new Date().toISOString().slice(0, 10);
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("staffing_assignments")
     .select("id, user_id, project_role, allocation_percent, start_date, end_date, status, person:profiles!staffing_assignments_user_id_fkey(full_name)")
     .eq("project_id", projectId)
@@ -308,10 +308,10 @@ export async function getProjects(filters: ProjectFilters = {}): Promise<Project
 }
 
 async function getFreshProjects(filters: ProjectFilters = {}, entityCode?: string): Promise<ProjectRecord[]> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const today = new Date();
@@ -321,7 +321,7 @@ async function getFreshProjects(filters: ProjectFilters = {}, entityCode?: strin
   monthEnd.setDate(today.getDate() + 30);
 
   const runQuery = async (selectClause: string) => {
-    let query = supabase
+    let query = db
       .from("projects")
       .select(selectClause)
       .order("created_at", { ascending: false });
@@ -383,14 +383,44 @@ async function getFreshProjects(filters: ProjectFilters = {}, entityCode?: strin
     throw new Error(error.message);
   }
 
-  const projects = (data ?? []).map((row) => mapProject(row));
+  let projects = (data ?? []).map((row) => mapProject(row));
+  // A deadline view is about outstanding delivery, so closed projects are left out
+  // unless the user explicitly filtered on a status.
+  if (filters.deadline === "overdue" || (!filters.status && (filters.deadline === "this_week" || filters.deadline === "this_month"))) {
+    projects = projects.filter(isOpenProject);
+  }
   if (filters.health === "attention") {
-    return projects.filter((project) => project.health === "at_risk" || project.health === "delayed");
+    return projects.filter(projectNeedsAttention);
   }
   if (filters.health) {
     return projects.filter((project) => project.health === filters.health);
   }
   return projects;
+}
+
+export function isOpenProject(project: Pick<ProjectRecord, "status">) {
+  return project.status !== "completed" && project.status !== "cancelled";
+}
+
+export function projectNeedsAttention(project: Pick<ProjectRecord, "health">) {
+  return project.health === "at_risk" || project.health === "delayed";
+}
+
+export function getProjectQuickCounts(projects: ProjectRecord[], currentUserId: string) {
+  const today = new Date().toISOString().slice(0, 10);
+  const weekEnd = new Date();
+  weekEnd.setDate(weekEnd.getDate() + 7);
+  const weekEndKey = weekEnd.toISOString().slice(0, 10);
+
+  return {
+    all: projects.length,
+    active: projects.filter((project) => project.status === "active").length,
+    mine: projects.filter((project) => project.owner_id === currentUserId).length,
+    attention: projects.filter(projectNeedsAttention).length,
+    overdue: projects.filter((project) => isOpenProject(project) && Boolean(project.end_date && project.end_date < today)).length,
+    dueThisWeek: projects.filter((project) => isOpenProject(project) && Boolean(project.end_date && project.end_date >= today && project.end_date <= weekEndKey)).length,
+    onHold: projects.filter((project) => project.status === "on_hold").length,
+  };
 }
 
 export async function getProjectsFilterData(): Promise<ProjectFiltersData> {
@@ -401,18 +431,18 @@ export async function getProjectsFilterData(): Promise<ProjectFiltersData> {
 }
 
 async function getFreshProjectsFilterData(entityCode?: string): Promise<ProjectFiltersData> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const shouldScopeByEntity = isEntityScopingEnabled() && Boolean(entityCode);
-  let clientsQuery = supabase
+  let clientsQuery = db
     .from("clients")
     .select("id, name, contact_email")
     .order("name", { ascending: true });
-  let ownersQuery = supabase
+  let ownersQuery = db
     .from("profiles")
     .select("id, full_name, email, avatar_url, role")
     .in("role", ["admin", "manager"])
@@ -455,16 +485,16 @@ export async function getProjectById(id: string): Promise<ProjectRecord | null> 
 }
 
 async function getFreshProjectById(id: string, entityCode?: string): Promise<ProjectRecord | null> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const scopedEntityCode = entityCode ?? await getCurrentEntityCode();
   const runQuery = async (selectClause: string) =>
     applyEntityScope(
-      supabase
+      db
         .from("projects")
         .select(selectClause)
         .eq("id", id),
@@ -522,16 +552,16 @@ function parseProjectPayload(values: ProjectFormValues) {
 }
 
 export async function createProject(values: ProjectFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
   const payload = extendWithEntityCode(parseProjectPayload(values), entityCode);
 
-  let { data, error } = await supabase
+  let { data, error } = await db
     .from("projects")
     .insert(payload)
     .select("id")
@@ -571,10 +601,10 @@ export async function createProject(values: ProjectFormValues, actorUserId: stri
 }
 
 export async function updateProject(id: string, values: ProjectFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   type PreviousProjectRow = {
@@ -591,7 +621,7 @@ export async function updateProject(id: string, values: ProjectFormValues, actor
   const entityCode = await getCurrentEntityCode();
   const runPreviousQuery = async (selectClause: string) =>
     applyEntityScope(
-      supabase
+      db
         .from("projects")
         .select(selectClause)
         .eq("id", id),
@@ -621,7 +651,7 @@ export async function updateProject(id: string, values: ProjectFormValues, actor
   }
 
   const payload = parseProjectPayload(values);
-  let { error } = await applyEntityScope(supabase.from("projects").update(payload).eq("id", id), entityCode);
+  let { error } = await applyEntityScope(db.from("projects").update(payload).eq("id", id), entityCode);
 
   if (error) {
     throw new Error(error.message);
@@ -709,14 +739,14 @@ export async function updateProject(id: string, values: ProjectFormValues, actor
 }
 
 export async function deleteProject(id: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  const { error } = await applyEntityScope(supabase.from("projects").delete().eq("id", id), entityCode);
+  const { error } = await applyEntityScope(db.from("projects").delete().eq("id", id), entityCode);
 
   if (error) {
     throw new Error(error.message);

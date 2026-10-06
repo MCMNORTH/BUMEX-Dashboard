@@ -15,7 +15,7 @@ export function PrintButton() {
     <Button
       type="button"
       variant="secondary"
-      className="print-hidden rounded-2xl px-5"
+      className="print-hidden rounded-xl px-5"
       onClick={() => {
         setPrinting(true);
         window.setTimeout(() => {

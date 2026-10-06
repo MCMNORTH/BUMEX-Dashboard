@@ -9,6 +9,7 @@ type TicketViewSwitcherProps = {
   canUseKanban: boolean;
   basePath?: "/tickets" | "/my-work";
   queryString?: string;
+  labels?: Partial<Record<TicketWorkspaceView, string>>;
 };
 
 function buildHref(
@@ -28,6 +29,7 @@ export function TicketViewSwitcher({
   canUseKanban,
   basePath = "/tickets",
   queryString,
+  labels,
 }: TicketViewSwitcherProps) {
   const views: Array<{
     key: TicketWorkspaceView;
@@ -35,12 +37,12 @@ export function TicketViewSwitcher({
     icon: typeof LayoutList;
     hidden?: boolean;
   }> = [
-    { key: "table", label: "Table", icon: LayoutList },
-    { key: "kanban", label: "Kanban", icon: Rows3, hidden: !canUseKanban },
+    { key: "table", label: labels?.table ?? "Table", icon: LayoutList },
+    { key: "kanban", label: labels?.kanban ?? "Kanban", icon: Rows3, hidden: !canUseKanban },
   ];
 
   return (
-    <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
+    <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
       {views.filter((view) => !view.hidden).map((view) => {
         const Icon = view.icon;
         const active = activeView === view.key;
@@ -49,11 +51,13 @@ export function TicketViewSwitcher({
           <Link
             key={view.key}
             href={buildHref(basePath, view.key, queryString)}
+            scroll={false}
+            aria-current={active ? "page" : undefined}
             className={cn(
-              "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all",
+              "inline-flex h-8 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors",
               active
-                ? "bg-primary text-primary-foreground shadow-[0_10px_24px_rgba(15,23,42,0.18)]"
-                : "text-muted-foreground hover:bg-slate-50 hover:text-foreground dark:hover:bg-white/[0.06]",
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
             <Icon className="size-4" />

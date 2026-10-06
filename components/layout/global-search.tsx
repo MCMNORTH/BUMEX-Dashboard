@@ -203,7 +203,7 @@ export function GlobalSearch() {
 
   return (
     <div ref={containerRef} className="relative order-last basis-full min-w-0 lg:order-none lg:basis-auto lg:flex-1">
-      <div className="group flex h-10 items-center gap-2.5 rounded-[10px] border border-input bg-card px-3 shadow-none transition-[background-color,border-color,box-shadow] duration-200 hover:border-border focus-within:border-primary focus-within:ring-3 focus-within:ring-ring/60 sm:px-4">
+      <div className="group flex h-10 items-center gap-2.5 rounded-lg border border-input bg-card px-3 shadow-none transition-[background-color,border-color,box-shadow] duration-200 hover:border-border focus-within:border-primary focus-within:ring-3 focus-within:ring-ring/60 sm:px-4">
         <Search className="size-4 text-muted-foreground transition-colors group-hover:text-primary" />
         <input
           ref={inputRef}
@@ -215,7 +215,7 @@ export function GlobalSearch() {
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={t("search.placeholder", "Search workspace")}
-          className="flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
+          className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
           aria-label={t("search.ariaLabel", "Global search")}
           aria-expanded={open}
           aria-controls="global-search-results"
@@ -226,13 +226,13 @@ export function GlobalSearch() {
             <X className="size-3.5" />
           </button>
         ) : null}
-        <span className="hidden items-center gap-1 rounded-[7px] border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:flex">
+        <span className="hidden items-center gap-1 rounded-lg border border-border bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground sm:flex">
           <Command className="size-2.5" /> K
         </span>
       </div>
 
       {open ? (
-        <div id="global-search-results" className="absolute inset-x-0 top-[calc(100%+0.45rem)] z-50 overflow-hidden rounded-[12px] border border-border bg-card shadow-[var(--shadow-elevated)] lg:min-w-[36rem]">
+        <div id="global-search-results" className="absolute inset-x-0 top-[calc(100%+0.45rem)] z-50 overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-elevated)] lg:min-w-[36rem]">
           <div className="max-h-[70vh] overflow-y-auto p-2.5 sm:max-h-[30rem]">
             {state === "loading" ? <DropdownMessage icon={Loader2} label={t("search.loading", "Searching workspace...")} spinning /> : null}
             {state === "error" ? <DropdownMessage icon={AlertCircle} label={t("search.error", "Search is temporarily unavailable.")} /> : null}
@@ -241,7 +241,7 @@ export function GlobalSearch() {
                 {!query.trim() && recentSearches.length ? (
                   <SearchSection title={t("search.recent", "Recent searches")} icon={History}>
                     {recentSearches.map((item) => (
-                      <button key={item} type="button" onClick={() => { setQuery(item); inputRef.current?.focus(); }} className="flex w-full items-center gap-3 rounded-[9px] px-3 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                      <button key={item} type="button" onClick={() => { setQuery(item); inputRef.current?.focus(); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
                         <History className="size-3.5" /> <span>{item}</span>
                       </button>
                     ))}
@@ -253,7 +253,7 @@ export function GlobalSearch() {
                     {suggestedLinks.map((link, index) => {
                       const Icon = link.icon;
                       const active = activeIndex === index;
-                      return <button key={link.href} type="button" onClick={() => navigate(link.href)} className={cn("flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left transition-colors", active ? "bg-accent" : "hover:bg-muted")}>
+                      return <button key={link.href} type="button" onClick={() => navigate(link.href)} className={cn("flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors", active ? "bg-accent" : "hover:bg-muted")}>
                         <span className="grid size-8 place-items-center rounded-lg bg-primary/10 text-primary"><Icon className="size-4" /></span>
                         <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-foreground">{link.title}</span><span className="block truncate text-xs text-muted-foreground">{link.description}</span></span>
                         <ArrowRight className="size-3.5 text-muted-foreground" />
@@ -268,18 +268,18 @@ export function GlobalSearch() {
                   <SearchSection key={group.label} title={group.label}>
                     {group.items.map((result) => {
                       const menuIndex = menuItems.findIndex((item) => item.key === `result-${result.entityType}-${result.id}`);
-                      return <Link key={`${result.entityType}-${result.id}`} href={result.href} onClick={() => setOpen(false)} className={cn("flex items-start gap-3 rounded-[10px] px-3 py-2.5 transition-colors", activeIndex === menuIndex ? "bg-accent" : "hover:bg-muted")}>
-                        <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="truncate text-sm font-medium text-foreground">{result.title}</p>{result.status ? <Badge variant="outline" className="rounded-full text-[10px] uppercase">{result.status.replaceAll("_", " ")}</Badge> : null}</div>{result.description ? <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{result.description}</p> : null}{result.relatedLabel ? <p className="mt-1 text-xs text-muted-foreground/90">{result.relatedLabel}</p> : null}</div>
+                      return <Link key={`${result.entityType}-${result.id}`} href={result.href} onClick={() => setOpen(false)} className={cn("flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors", activeIndex === menuIndex ? "bg-accent" : "hover:bg-muted")}>
+                        <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="truncate text-sm font-medium text-foreground">{result.title}</p>{result.status ? <Badge variant="outline">{result.status.replaceAll("_", " ")}</Badge> : null}</div>{result.description ? <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{result.description}</p> : null}{result.relatedLabel ? <p className="mt-1 text-xs text-muted-foreground/90">{result.relatedLabel}</p> : null}</div>
                       </Link>;
                     })}
                   </SearchSection>
                 ))}
 
-                {query.trim().length >= 2 ? <div className="border-t border-border/60 pt-2"><button type="button" onClick={() => navigate(`/search?q=${encodeURIComponent(query.trim())}`, query)} className={cn("flex w-full items-center justify-between rounded-[10px] px-3 py-3 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground", activeIndex === menuItems.length - 1 && "bg-accent text-foreground")}><span>{t("search.viewAll", "View all results")}</span><span className="text-xs uppercase tracking-[0.16em]">{t("search.action", "Search")}</span></button></div> : null}
+                {query.trim().length >= 2 ? <div className="border-t border-border/60 pt-2"><button type="button" onClick={() => navigate(`/search?q=${encodeURIComponent(query.trim())}`, query)} className={cn("flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground", activeIndex === menuItems.length - 1 && "bg-accent text-foreground")}><span>{t("search.viewAll", "View all results")}</span><span className="text-xs uppercase tracking-wider">{t("search.action", "Search")}</span></button></div> : null}
               </div>
             ) : null}
           </div>
-          <div className="border-t border-border/60 bg-muted/40 px-4 py-2 text-[11px] text-muted-foreground"><span>{t("search.keyboardHint", "Use ↑ ↓ to navigate and Enter to open")}</span></div>
+          <div className="border-t border-border/60 bg-muted/40 px-4 py-2 text-xs text-muted-foreground"><span>{t("search.keyboardHint", "Use ↑ ↓ to navigate and Enter to open")}</span></div>
         </div>
       ) : null}
     </div>
@@ -287,9 +287,9 @@ export function GlobalSearch() {
 }
 
 function SearchSection({ title, icon: Icon, children }: { title: string; icon?: LucideIcon; children: React.ReactNode }) {
-  return <section className="space-y-1.5"><p className="flex items-center gap-1.5 px-2 text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">{Icon ? <Icon className="size-3" /> : null}{title}</p><div className="space-y-1">{children}</div></section>;
+  return <section className="space-y-1.5"><p className="flex items-center gap-1.5 px-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">{Icon ? <Icon className="size-3" /> : null}{title}</p><div className="space-y-1">{children}</div></section>;
 }
 
 function DropdownMessage({ icon: Icon, label, spinning = false }: { icon: LucideIcon; label: string; spinning?: boolean }) {
-  return <div className="flex min-h-28 flex-col items-center justify-center gap-3 rounded-[12px] border border-dashed border-border bg-muted/60 px-6 py-7 text-center"><Icon className={cn("size-4 text-muted-foreground", spinning && "animate-spin")} /><p className="text-sm text-muted-foreground">{label}</p></div>;
+  return <div className="flex min-h-28 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-muted/60 px-6 py-7 text-center"><Icon className={cn("size-4 text-muted-foreground", spinning && "animate-spin")} /><p className="text-sm text-muted-foreground">{label}</p></div>;
 }

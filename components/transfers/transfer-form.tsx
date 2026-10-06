@@ -73,7 +73,7 @@ export function TransferForm({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-[min(94vw,1240px)] rounded-[28px]">
+      <DialogContent className="max-w-[min(94vw,1240px)] rounded-xl">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? t("finance.transferForm.titleCreate", "Create transfer") : t("finance.transferForm.titleEdit", "Edit transfer")}</DialogTitle>
           <DialogDescription>
@@ -112,7 +112,7 @@ export function TransferForm({
             <p className="text-xs text-muted-foreground">Ex. Kapen, OVH, Google, Microsoft ou un prestataire.</p>
           </div>
 
-          <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/75 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50/75 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
             <button type="button" onClick={() => setShowBankDetails((current) => !current)} className="flex w-full items-center justify-between gap-3 text-left text-sm font-medium">
               <span className="flex items-center gap-2"><Landmark className="size-4 text-primary" /> Informations bancaires <span className="text-xs font-normal text-muted-foreground">(uniquement pour un virement)</span></span>
               <ChevronDown className={`size-4 text-muted-foreground transition-transform ${showBankDetails ? "rotate-180" : ""}`} />
@@ -187,7 +187,7 @@ export function TransferForm({
             />
           </div>
 
-          <div className="sm:col-span-2 rounded-[22px] border border-indigo-200 bg-[linear-gradient(135deg,#eef5ff_0%,#f8f7ff_100%)] p-4 dark:border-indigo-400/20 dark:bg-indigo-500/10">
+          <div className="bg-card sm:col-span-2 rounded-xl border border-indigo-200 p-4 dark:border-indigo-400/20 dark:bg-indigo-500/10">
             <label className="flex cursor-pointer items-start gap-3">
               <input name="renewal_enabled" type="checkbox" checked={renewalEnabled} onChange={(event) => setRenewalEnabled(event.target.checked)} className="mt-1 size-4 rounded border-slate-300 text-primary focus:ring-primary" />
               <span><span className="flex items-center gap-2 text-sm font-semibold"><Repeat2 className="size-4 text-indigo-600 dark:text-indigo-300" /> Paiement récurrent ou renouvellement</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Activez cette option pour un domaine, un hébergement, un abonnement ou tout service à payer à nouveau.</span></span>
@@ -258,13 +258,13 @@ export function TransferForm({
           </div>
 
           {state.error ? (
-            <div className="sm:col-span-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <div className="sm:col-span-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {state.error}
             </div>
           ) : null}
 
           <div className="sm:col-span-2 flex justify-end gap-2">
-            <Button type="submit" className="rounded-2xl px-5">
+            <Button type="submit" className="rounded-xl px-5">
               {mode === "create" ? t("finance.transferForm.actions.create", "Create transfer") : t("finance.transferForm.actions.save", "Save changes")}
             </Button>
           </div>

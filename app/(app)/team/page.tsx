@@ -133,7 +133,7 @@ export default async function TeamPage({
 
           <TeamFilters filters={filters} filterData={filterData} />
 
-          {attentionMembers.length ? <section className="overflow-hidden rounded-[26px] border border-rose-200 bg-gradient-to-r from-rose-50 via-orange-50/55 to-card shadow-[0_24px_70px_-52px_rgba(225,29,72,.5)] dark:border-rose-500/20 dark:from-rose-950/20 dark:via-orange-950/10 dark:to-card" aria-labelledby="team-pressure-title"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-200/70 px-5 py-4 dark:border-rose-500/15"><div><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-rose-700 dark:text-rose-300">{isFr ? "Capacité sous pression" : "Capacity pressure"}</p><h2 id="team-pressure-title" className="mt-1 text-lg font-semibold">{isFr ? "Profils à examiner" : "People to review"}</h2><p className="mt-1 text-xs text-muted-foreground">{isFr ? "Blocages et retards d’abord, puis niveaux de charge élevés." : "Blockers and overdue work first, followed by high workload."}</p></div><Badge variant="secondary" className="rounded-full px-3 py-1">{attentionMembers.length} {isFr ? "profil(s)" : "people"}</Badge></div><div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">{attentionMembers.map((member) => { const incidents = member.blocked_tasks_count + member.overdue_tasks_count; return <Link key={member.id} href={`/team/${member.id}`} className="group rounded-2xl border border-rose-200/80 bg-white/75 p-4 transition hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-rose-500/20 dark:bg-background/45"><div className="flex items-start justify-between gap-3"><span className="rounded-full bg-rose-500/10 px-2.5 py-1 text-[10px] font-semibold text-rose-700 dark:text-rose-300">{incidents ? `${incidents} ${isFr ? "incident(s)" : "issue(s)"}` : `${member.workload_score}%`}</span><ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></div><p className="mt-3 truncate text-sm font-semibold">{member.full_name}</p><p className="mt-1 truncate text-xs text-muted-foreground">{member.job_title ?? (isFr ? "Membre de l’équipe" : "Team member")}</p><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-rose-100 dark:bg-rose-950/50"><div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-rose-600" style={{ width: `${Math.min(100, member.workload_score)}%` }} /></div><p className="mt-2 text-[10px] text-muted-foreground">{isFr ? "Charge calculée" : "Calculated workload"} · {member.workload_score}%</p></Link>; })}</div></section> : null}
+          {attentionMembers.length ? <section className="bg-rose-50 dark:bg-rose-500/10 overflow-hidden rounded-xl border border-rose-200 shadow-[var(--shadow-soft)] dark:border-rose-500/20" aria-labelledby="team-pressure-title"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-200/70 px-5 py-4 dark:border-rose-500/15"><div><p className="text-xs font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-300">{isFr ? "Capacité sous pression" : "Capacity pressure"}</p><h2 id="team-pressure-title" className="mt-1 text-lg font-semibold">{isFr ? "Profils à examiner" : "People to review"}</h2><p className="mt-1 text-xs text-muted-foreground">{isFr ? "Blocages et retards d’abord, puis niveaux de charge élevés." : "Blockers and overdue work first, followed by high workload."}</p></div><Badge variant="secondary" className="rounded-full px-3 py-1">{attentionMembers.length} {isFr ? "profil(s)" : "people"}</Badge></div><div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">{attentionMembers.map((member) => { const incidents = member.blocked_tasks_count + member.overdue_tasks_count; return <Link key={member.id} href={`/team/${member.id}`} className="group rounded-xl border border-rose-200/80 bg-white/75 p-4 transition hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-rose-500/20 dark:bg-background/45"><div className="flex items-start justify-between gap-3"><span className="rounded-full bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-700 dark:text-rose-300">{incidents ? `${incidents} ${isFr ? "incident(s)" : "issue(s)"}` : `${member.workload_score}%`}</span><ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></div><p className="mt-3 truncate text-sm font-semibold">{member.full_name}</p><p className="mt-1 truncate text-xs text-muted-foreground">{member.job_title ?? (isFr ? "Membre de l’équipe" : "Team member")}</p><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-rose-100 dark:bg-rose-950/50"><div className="bg-amber-500 h-full rounded-full" style={{ width: `${Math.min(100, member.workload_score)}%` }} /></div><p className="mt-2 text-xs text-muted-foreground">{isFr ? "Charge calculée" : "Calculated workload"} · {member.workload_score}%</p></Link>; })}</div></section> : null}
 
           {members.length ? (
             <div className="grid gap-3">
@@ -142,7 +142,7 @@ export default async function TeamPage({
               ))}
             </div>
           ) : (
-            <Card className="rounded-[28px] border border-border/70 bg-white/88 shadow-[0_22px_60px_-42px_rgba(37,99,235,0.28)] dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none">
+            <Card className="rounded-xl border border-border/70 bg-white/88 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none">
               <CardContent className="px-6 py-10 text-sm text-slate-500 dark:text-slate-400">
                 {isFr ? "Aucun membre de l'équipe ne correspond aux filtres actuels." : "No team members match the current filters."}
               </CardContent>
@@ -167,19 +167,19 @@ function SignalCard({
   detail: string;
   href?: string;
 }) {
-  const card = <Card className="h-full rounded-[28px] border border-border/70 bg-white/94 shadow-[0_24px_60px_-42px_rgba(37,99,235,0.24)] transition group-hover:-translate-y-0.5 group-hover:border-sky-300 group-hover:shadow-lg dark:border-white/10 dark:bg-[#161b26] dark:shadow-none dark:group-hover:border-sky-500/30">
+  const card = <Card className="h-full rounded-xl border border-border/70 bg-card shadow-[var(--shadow-soft)] transition group-hover:-translate-y-0.5 group-hover:border-sky-300 group-hover:shadow-lg dark:border-white/10 dark:shadow-none dark:group-hover:border-sky-500/30">
       <CardContent className="px-5 py-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400">{label}</p>
+            <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">{label}</p>
             <p className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-900 dark:text-slate-50">{value}</p>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{detail}</p>
           </div>
-          <div className="flex size-11 items-center justify-center rounded-2xl border border-white/80 bg-white/90 text-[#2b5baa] shadow-sm dark:border-white/10 dark:bg-slate-900/80 dark:text-sky-300 dark:shadow-none">
+          <div className="flex size-11 items-center justify-center rounded-xl border border-white/80 bg-card text-primary shadow-sm dark:border-white/10 dark:bg-slate-900/80 dark:text-sky-300 dark:shadow-none">
             <Icon className="size-5" />
           </div>
         </div>
       </CardContent>
     </Card>;
-  return href ? <Link href={href} aria-label={`${label}: ${value}`} className="group block rounded-[28px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{card}</Link> : card;
+  return href ? <Link href={href} aria-label={`${label}: ${value}`} className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{card}</Link> : card;
 }

@@ -39,7 +39,7 @@ export function ProjectHealthBadge({ health }: { health: ProjectHealth }) {
   return (
     <Badge
       variant="outline"
-      className={`rounded-full px-3 py-1 text-[11px] tracking-[0.16em] uppercase ${config[health].className}`}
+      className={config[health].className}
     >
       <Icon className="mr-1 size-3.5" />
       {locale === "fr" ? ({ healthy: "Bon", warning: "Vigilance", at_risk: "À risque", delayed: "En retard" } as const)[health] : config[health].label}

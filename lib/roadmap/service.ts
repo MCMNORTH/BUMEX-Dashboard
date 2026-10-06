@@ -3,7 +3,7 @@ import "server-only";
 import { getProjectActivity, logActivity } from "@/lib/activity/service";
 import { createStatusChangeNotification } from "@/lib/notifications/service";
 import { calculateProjectHealth, calculateProjectProgress, getDeadlineState } from "@/lib/projects/helpers";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import type {
   MilestoneFormValues,
   MilestoneRecord,
@@ -115,13 +115,13 @@ function mapRoadmapProject(row: RoadmapProjectRow): RoadmapProjectRecord {
 }
 
 export async function getRoadmapProjects(filters: RoadmapFilters = {}) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  let query = supabase
+  let query = db
     .from("projects")
     .select(
       `
@@ -221,21 +221,21 @@ export async function getRoadmapProjects(filters: RoadmapFilters = {}) {
 }
 
 export async function getRoadmapFilterData(): Promise<RoadmapFilterData> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const [{ data: projects, error: projectsError }, { data: clients, error: clientsError }, { data: owners, error: ownersError }] =
     await Promise.all([
-      supabase.from("projects").select("id, name").order("name", { ascending: true }).returns<Array<{ id: string; name: string }>>(),
-      supabase
+      db.from("projects").select("id, name").order("name", { ascending: true }).returns<Array<{ id: string; name: string }>>(),
+      db
         .from("clients")
         .select("id, name, contact_email")
         .order("name", { ascending: true })
         .returns<ProjectClient[]>(),
-      supabase
+      db
         .from("profiles")
         .select("id, full_name, email, avatar_url, role")
         .order("full_name", { ascending: true })
@@ -254,13 +254,13 @@ export async function getRoadmapFilterData(): Promise<RoadmapFilterData> {
 }
 
 export async function getProjectMilestones(projectId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("milestones")
     .select(
       `
@@ -306,14 +306,14 @@ function parseMilestonePayload(values: MilestoneFormValues) {
 }
 
 export async function createMilestone(values: MilestoneFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const payload = parseMilestonePayload(values);
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("milestones")
     .insert(payload)
     .select("id, project_id")
@@ -338,13 +338,13 @@ export async function createMilestone(values: MilestoneFormValues, actorUserId: 
 }
 
 export async function updateMilestone(id: string, values: MilestoneFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data: previous, error: previousError } = await supabase
+  const { data: previous, error: previousError } = await db
     .from("milestones")
     .select("title, status, due_date, owner_id, project_id")
     .eq("id", id)
@@ -366,7 +366,7 @@ export async function updateMilestone(id: string, values: MilestoneFormValues, a
     completed_at: values.status === "completed" ? new Date().toISOString() : null,
   };
 
-  const { error } = await supabase.from("milestones").update(payload).eq("id", id);
+  const { error } = await db.from("milestones").update(payload).eq("id", id);
 
   if (error) {
     throw new Error(error.message);
@@ -463,13 +463,13 @@ export async function updateMilestone(id: string, values: MilestoneFormValues, a
 }
 
 export async function deleteMilestone(id: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error: selectError } = await supabase
+  const { data, error: selectError } = await db
     .from("milestones")
     .select("project_id")
     .eq("id", id)
@@ -479,7 +479,7 @@ export async function deleteMilestone(id: string) {
     throw new Error(selectError.message);
   }
 
-  const { error } = await supabase.from("milestones").delete().eq("id", id);
+  const { error } = await db.from("milestones").delete().eq("id", id);
 
   if (error) {
     throw new Error(error.message);
@@ -489,14 +489,14 @@ export async function deleteMilestone(id: string) {
 }
 
 export async function completeMilestone(id: string, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const completedAt = new Date().toISOString();
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("milestones")
     .update({
       status: "completed",
@@ -524,7 +524,7 @@ export async function completeMilestone(id: string, actorUserId: string) {
     },
   });
 
-  const { data: milestone } = await supabase
+  const { data: milestone } = await db
     .from("milestones")
     .select("title, owner_id")
     .eq("id", id)
@@ -549,12 +549,12 @@ export async function getMilestoneActivity(milestoneIds: string[], limit = 20) {
     return [];
   }
 
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const activity = await getProjectActivity("", [], milestoneIds, limit, supabase);
+  const activity = await getProjectActivity("", [], milestoneIds, limit, db);
   return activity;
 }

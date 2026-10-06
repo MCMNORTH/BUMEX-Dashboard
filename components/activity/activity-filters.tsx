@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/layout/i18n-provider";
 import { ModernSelect } from "@/components/ui/modern-select";
 
 type ActivityFilterValue = {
@@ -23,46 +24,49 @@ export function ActivityFilters({
   actionTypes: string[];
   users: Array<{ id: string; full_name: string }>;
 }) {
+  const { locale } = useI18n();
+  const tr = (fr: string, en: string) => (locale === "fr" ? fr : en);
+
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       <FilterSelect
-        label="Entity"
+        label={tr("Élément", "Record type")}
         value={value.entityType}
         onChange={(entityType) => onChange({ ...value, entityType })}
-        options={[{ value: "all", label: "All entities" }, ...entityTypes.map((item) => ({ value: item, label: item.replaceAll("_", " ") }))]}
+        options={[{ value: "all", label: tr("Tous les éléments", "All record types") }, ...entityTypes.map((item) => ({ value: item, label: item.replaceAll("_", " ") }))]}
       />
       <FilterSelect
-        label="Action"
+        label={tr("Action", "Action")}
         value={value.actionType}
         onChange={(actionType) => onChange({ ...value, actionType })}
-        options={[{ value: "all", label: "All actions" }, ...actionTypes.map((item) => ({ value: item, label: item.replaceAll("_", " ") }))]}
+        options={[{ value: "all", label: tr("Toutes les actions", "All actions") }, ...actionTypes.map((item) => ({ value: item, label: item.replaceAll("_", " ") }))]}
       />
       <FilterSelect
-        label="User"
+        label={tr("Utilisateur", "User")}
         value={value.userId}
         onChange={(userId) => onChange({ ...value, userId })}
-        options={[{ value: "all", label: "All users" }, ...users.map((user) => ({ value: user.id, label: user.full_name }))]}
+        options={[{ value: "all", label: tr("Tous les utilisateurs", "All users") }, ...users.map((user) => ({ value: user.id, label: user.full_name }))]}
       />
       <FilterSelect
-        label="Date range"
+        label={tr("Période", "Date range")}
         value={value.dateRange}
         onChange={(dateRange) => onChange({ ...value, dateRange })}
         options={[
-          { value: "all", label: "All dates" },
-          { value: "today", label: "Today" },
-          { value: "yesterday", label: "Yesterday" },
-          { value: "last_7_days", label: "Last 7 days" },
-          { value: "last_30_days", label: "Last 30 days" },
+          { value: "all", label: tr("Toutes les dates", "All dates") },
+          { value: "today", label: tr("Aujourd’hui", "Today") },
+          { value: "yesterday", label: tr("Hier", "Yesterday") },
+          { value: "last_7_days", label: tr("7 derniers jours", "Last 7 days") },
+          { value: "last_30_days", label: tr("30 derniers jours", "Last 30 days") },
         ]}
       />
       <FilterSelect
-        label="Project / client"
+        label={tr("Projet / client", "Project / client")}
         value={value.scope}
         onChange={(scope) => onChange({ ...value, scope })}
         options={[
-          { value: "all", label: "All scopes" },
-          { value: "project", label: "Project" },
-          { value: "client", label: "Client" },
+          { value: "all", label: tr("Tous", "All") },
+          { value: "project", label: tr("Projet", "Project") },
+          { value: "client", label: tr("Client", "Client") },
         ]}
       />
     </div>

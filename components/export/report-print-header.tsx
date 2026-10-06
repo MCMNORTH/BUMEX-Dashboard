@@ -19,7 +19,7 @@ export function ReportPrintHeader({
 }) {
   return (
     <div className="report-print-header hidden border-b border-black/15 pb-6 print:block">
-      <p className="text-xs font-semibold tracking-[0.2em] uppercase">BUMEX IT</p>
+      <p className="text-xs font-semibold tracking-wider uppercase">BUMEX IT</p>
       <h1 className="mt-3 text-3xl font-semibold">{title}</h1>
       {subtitle ? <p className="mt-2 text-sm leading-6 text-black/70">{subtitle}</p> : null}
       <p className="mt-4 text-xs text-black/60">Generated on {formatPrintDate(generatedAt)}</p>

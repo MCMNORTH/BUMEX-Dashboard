@@ -59,12 +59,10 @@ export default async function ClientsPage({
   return (
     <div className="space-y-6">
       <ClientToast />
-      <section className="relative overflow-hidden rounded-[32px] border border-orange-300/25 bg-[linear-gradient(122deg,#1d2857_0%,#155e75_48%,#c2410c_110%)] px-6 py-7 text-white shadow-[0_28px_80px_-45px_rgba(14,116,144,.72)] sm:px-8">
-        <div className="pointer-events-none absolute -right-12 -top-20 size-64 rounded-full bg-amber-300/25 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-0 left-1/3 size-52 rounded-full bg-cyan-300/20 blur-3xl" />
+      <section className="surface-hero px-6 py-7 sm:px-8">
         <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
-            <div className="flex items-center gap-2 text-xs font-semibold tracking-[.18em] text-amber-100 uppercase"><Handshake className="size-4" />{isFr ? "Portefeuille externe" : "External portfolio"}</div>
+            <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-amber-100 uppercase"><Handshake className="size-4" />{isFr ? "Portefeuille externe" : "External portfolio"}</div>
             <h1 className="mt-3 text-3xl font-semibold tracking-[-.05em] sm:text-4xl">{isFr ? "Clients et partenaires, au même endroit." : "Clients and partners, in one place."}</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-white/78">{isFr ? "Suivez vos relations externes, leurs demandes, leurs projets et les prochaines actions. Les produits créés par BUMEX se pilotent dans Projets, jamais ici." : "Track external relationships, their requests, projects, and next actions. BUMEX-built products are managed in Projects, never here."}</p>
           </div>
@@ -75,7 +73,7 @@ export default async function ClientsPage({
             { title: isFr ? "1 · Ajouter une relation" : "1 · Add a relationship", detail: isFr ? "Client ou partenaire" : "Client or partner" },
             { title: isFr ? "2 · Lier les projets" : "2 · Link projects", detail: isFr ? "Demandes et livrables" : "Requests and delivery" },
             { title: isFr ? "3 · Suivre la prochaine action" : "3 · Track next action", detail: isFr ? "Ne rien laisser de côté" : "Leave nothing behind" },
-          ].map(({ title, detail }, index) => <div key={title} className="flex items-center justify-between rounded-2xl border border-white/15 bg-white/[.1] px-4 py-3 backdrop-blur"><div><p className="text-xs font-semibold">{title}</p><p className="mt-1 text-[11px] text-white/65">{detail}</p></div>{index < 2 ? <ArrowRight className="size-4 text-amber-100" /> : <Handshake className="size-4 text-amber-100" />}</div>)}
+          ].map(({ title, detail }, index) => <div key={title} className="flex items-center justify-between rounded-xl border border-white/15 bg-white/[.1] px-4 py-3"><div><p className="text-xs font-semibold">{title}</p><p className="mt-1 text-xs text-white/65">{detail}</p></div>{index < 2 ? <ArrowRight className="size-4 text-amber-100" /> : <Handshake className="size-4 text-amber-100" />}</div>)}
         </div>
       </section>
 
@@ -86,15 +84,15 @@ export default async function ClientsPage({
           { icon: FolderKanban, label: isFr ? "Projets externes" : "External projects", value: formatNumber(totalActiveProjects), detail: isFr ? "Flux de delivery liés" : "Linked delivery streams", tone: "violet" },
           { icon: UserRound, label: isFr ? "À revoir" : "To review", value: formatNumber(suspended), detail: isFr ? "Relations en attente de décision" : "Relationships awaiting a decision", tone: "amber" },
         ].map(({ icon: Icon, label, value, detail, tone }) => (
-          <Card key={label} className={`surface-highlight relative overflow-hidden border backdrop-blur-xl dark:border-slate-700 ${tone === "emerald" ? "border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-950/65 dark:via-slate-900 dark:to-teal-950/55" : tone === "sky" ? "border-sky-200 bg-gradient-to-br from-sky-50 via-white to-cyan-50 dark:from-sky-950/65 dark:via-slate-900 dark:to-cyan-950/55" : tone === "violet" ? "border-violet-200 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 dark:from-violet-950/65 dark:via-slate-900 dark:to-fuchsia-950/55" : "border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50 dark:from-amber-950/65 dark:via-slate-900 dark:to-orange-950/55"}`}>
+          <Card key={label} className={`surface-highlight relative overflow-hidden border dark:border-slate-700 ${tone === "emerald" ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200" : tone === "sky" ? "bg-card border-sky-200" : tone === "violet" ? "bg-card border-violet-200" : "bg-amber-50 dark:bg-amber-500/10 border-amber-200"}`}>
             <CardContent className="px-5 py-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{label}</p>
+                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
                   <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</p>
                   <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
                 </div>
-                <div className={`flex size-11 items-center justify-center rounded-2xl border ${tone === "emerald" ? "border-emerald-200 bg-emerald-100 text-emerald-700" : tone === "sky" ? "border-sky-200 bg-sky-100 text-sky-700" : tone === "violet" ? "border-violet-200 bg-violet-100 text-violet-700" : "border-amber-200 bg-amber-100 text-amber-700"}`}>
+                <div className={`flex size-11 items-center justify-center rounded-xl border ${tone === "emerald" ? "border-emerald-200 bg-emerald-100 text-emerald-700" : tone === "sky" ? "border-sky-200 bg-sky-100 text-sky-700" : tone === "violet" ? "border-violet-200 bg-violet-100 text-violet-700" : "border-amber-200 bg-amber-100 text-amber-700"}`}>
                   <Icon className="size-5" />
                 </div>
               </div>
@@ -124,7 +122,7 @@ export default async function ClientsPage({
 
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">{isFr ? "Portefeuille externe" : "External portfolio"}</p>
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Portefeuille externe" : "External portfolio"}</p>
           <h2 className="mt-2 text-xl font-semibold tracking-tight">{activeView === "relationships" ? (isFr ? "Clients et partenaires" : "Clients and partners") : (isFr ? "Opportunités commerciales" : "Sales opportunities")}</h2>
         </div>
         <div className="flex items-center gap-2">
@@ -156,7 +154,7 @@ function ClientGroup({ title, description, clients }: { title: string; descripti
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </div>
       {clients.length ? <div className="grid gap-4">{clients.map((client) => <ClientCard key={client.id} client={client} />)}</div> : (
-        <div className="rounded-[24px] border border-dashed border-border/70 bg-card/45 px-5 py-6 text-sm text-muted-foreground">Aucun élément dans cette section.</div>
+        <div className="rounded-xl border border-dashed border-border/70 bg-card/45 px-5 py-6 text-sm text-muted-foreground">Aucun élément dans cette section.</div>
       )}
     </section>
   );

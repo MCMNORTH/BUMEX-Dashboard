@@ -23,7 +23,7 @@ export async function PlanningFilters({
   const isFr = locale === "fr";
 
   return (
-    <form className="grid gap-3 rounded-[28px] border border-border/70 bg-card/72 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl xl:grid-cols-[repeat(5,minmax(0,1fr))_auto]">
+    <form className="grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[repeat(5,minmax(0,1fr))_auto]">
       {canFilterAssignee ? (
         <ModernSelect
           name="assignee"
@@ -100,10 +100,10 @@ export async function PlanningFilters({
       <input type="hidden" name="week" value={week} />
 
       <div className="flex gap-2">
-        <Button type="submit" className="rounded-2xl px-5">
+        <Button type="submit" className="rounded-xl px-5">
           {isFr ? "Appliquer" : "Apply"}
         </Button>
-        <Button asChild variant="secondary" className="rounded-2xl px-5">
+        <Button asChild variant="secondary" className="rounded-xl px-5">
           <Link href={`/planning?week=${week}`}>{isFr ? "Réinitialiser" : "Reset"}</Link>
         </Button>
       </div>

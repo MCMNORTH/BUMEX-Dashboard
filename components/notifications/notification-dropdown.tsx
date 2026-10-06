@@ -50,7 +50,7 @@ export function NotificationDropdown() {
       </div>
       <DropdownMenuSeparator />
       <div className="p-2">
-        <Button asChild variant="secondary" className="w-full rounded-2xl">
+        <Button asChild variant="secondary" className="w-full rounded-xl">
           <Link href="/notifications">{isFr ? "Voir toutes les notifications" : "View all notifications"}</Link>
         </Button>
       </div>

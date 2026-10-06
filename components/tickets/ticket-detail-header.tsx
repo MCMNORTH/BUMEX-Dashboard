@@ -55,20 +55,20 @@ export function TicketDetailHeader({
     : getTicketDueLabel(ticket.due_date);
 
   return (
-    <div className="grid gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--shadow-soft)] xl:grid-cols-[1.1fr_0.9fr]">
+    <div className="grid gap-5 rounded-xl border border-slate-200 bg-white p-5 shadow-[var(--shadow-soft)] xl:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <TicketStatusBadge status={ticket.status} />
           <TicketPriorityBadge priority={ticket.priority} />
           <TicketTypeBadge type={ticket.type} />
-          <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-medium tracking-[0.16em] uppercase ${dueTone[dueState]}`}>
+          <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium tracking-wider uppercase ${dueTone[dueState]}`}>
             {dueLabel}
           </span>
         </div>
 
         <div className="space-y-3">
-          <h1 className="text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">{ticket.title}</h1>
-          <p className="max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
+          <h1 className="break-words text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">{ticket.title}</h1>
+          <p className="max-w-3xl whitespace-pre-line break-words text-sm leading-7 text-muted-foreground sm:text-base">
             {ticket.description || (isFr ? "Aucun résumé opérationnel n'a encore été rattaché à ce ticket." : "No operational summary has been attached to this ticket yet.")}
           </p>
         </div>
@@ -124,35 +124,35 @@ export function TicketDetailHeader({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Projet" : "Project"}</p>
+        <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Projet" : "Project"}</p>
           <p className="mt-2 text-sm font-medium">{ticket.project?.name ?? (isFr ? "Non lié" : "Not linked")}</p>
           <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.client?.name ?? (isFr ? "Aucun client" : "No client")}</p>
         </div>
-        <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Assigné" : "Assignee"}</p>
+        <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Assigné" : "Assignee"}</p>
           <p className="mt-2 text-sm font-medium">{ticket.assignee?.full_name ?? (isFr ? "Non assigné" : "Unassigned")}</p>
           <p className="mt-1 text-xs text-muted-foreground">{ticket.assignee?.email ?? (isFr ? "Aucun e-mail" : "No email")}</p>
         </div>
-        <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Reporteur" : "Reporter"}</p>
+        <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Reporteur" : "Reporter"}</p>
           <p className="mt-2 text-sm font-medium">{ticket.reporter?.full_name ?? (isFr ? "Inconnu" : "Unknown")}</p>
           <p className="mt-1 text-xs text-muted-foreground">{ticket.reporter?.email ?? (isFr ? "Aucun e-mail" : "No email")}</p>
         </div>
-        <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Suivi" : "Tracking"}</p>
+        <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Suivi" : "Tracking"}</p>
           <p className="mt-2 text-sm font-medium">{formatHours(ticket.actual_hours)} {isFr ? "utilisées" : "used"}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {formatHours(ticket.estimated_hours)} {isFr ? "estimées" : "estimated"}
           </p>
         </div>
-        <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Date d'échéance" : "Due date"}</p>
+        <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Date d'échéance" : "Due date"}</p>
           <p className="mt-2 text-sm font-medium">{formatTicketDate(ticket.due_date)}</p>
           <p className="mt-1 text-xs text-muted-foreground">{dueLabel}</p>
         </div>
-        <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Dernière mise à jour" : "Last update"}</p>
+        <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Dernière mise à jour" : "Last update"}</p>
           <p className="mt-2 text-sm font-medium">{formatTicketDate(ticket.updated_at)}</p>
           <p className="mt-1 text-xs text-muted-foreground">{isFr ? "Créé" : "Created"} {formatTicketDate(ticket.created_at)}</p>
         </div>

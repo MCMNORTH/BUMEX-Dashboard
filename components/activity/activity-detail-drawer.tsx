@@ -33,7 +33,7 @@ export function ActivityDetailDrawer({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="left-auto right-4 top-4 h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-2xl translate-x-0 translate-y-0 overflow-y-auto rounded-[28px] p-0">
+      <DialogContent className="left-auto right-4 top-4 h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-2xl translate-x-0 translate-y-0 overflow-y-auto rounded-xl p-0">
         {activity ? (
           <div className="space-y-6 p-6">
             <DialogHeader className="space-y-3">
@@ -55,8 +55,8 @@ export function ActivityDetailDrawer({
             </div>
 
             {entityUrl ? (
-              <div className="rounded-2xl border border-border/65 bg-background/35 p-4">
-                <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Related entity</p>
+              <div className="rounded-xl border border-border/65 bg-background/35 p-4">
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Related entity</p>
                 <Link href={entityUrl} className="mt-3 inline-flex text-sm font-medium text-primary hover:underline">
                   Open related record
                 </Link>
@@ -73,8 +73,8 @@ export function ActivityDetailDrawer({
 
 function DrawerField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-border/65 bg-background/35 p-4">
-      <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">{label}</p>
+    <div className="rounded-xl border border-border/65 bg-background/35 p-4">
+      <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
       <p className="mt-3 text-sm leading-6 text-foreground/90">{value}</p>
     </div>
   );

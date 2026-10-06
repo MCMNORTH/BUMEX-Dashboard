@@ -28,7 +28,7 @@ export function ContractStatusBadge({ status }: { status: ContractStatus }) {
   const { locale } = useI18n();
   const localizedLabels = locale === "fr" ? { draft: "Brouillon", under_review: "En révision", signed: "Signé", active: "Actif", expired: "Expiré", cancelled: "Annulé", archived: "Archivé" } : labels;
   return (
-    <Badge variant="outline" className={`rounded-full px-3 py-1 text-[11px] tracking-[0.16em] uppercase ${classes[status]}`}>
+    <Badge variant="outline" className={classes[status]}>
       {localizedLabels[status]}
     </Badge>
   );

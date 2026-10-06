@@ -31,7 +31,7 @@ export function WorkloadVsCompletionChart({
           </BarChart>
         </ResponsiveContainer>
       ) : (
-        <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-8 text-sm text-muted-foreground">
+        <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-8 text-sm text-muted-foreground">
           No workload-to-completion comparison is available yet.
         </div>
       )}

@@ -45,7 +45,7 @@ export function DocumentCard({
       mentionCandidates={mentionCandidates}
       trigger={(
         <button type="button" className="w-full text-left">
-          <Card className="surface-highlight group overflow-hidden border-border/70 bg-white/96 shadow-[0_24px_64px_-46px_rgba(37,99,235,0.24)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_30px_72px_-48px_rgba(37,99,235,0.3)] dark:bg-[#161b26] dark:shadow-none">
+          <Card className="surface-highlight group overflow-hidden border-border/70 bg-card shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 dark:shadow-none">
             <CardContent className="space-y-5 px-5 py-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-3">
@@ -63,22 +63,22 @@ export function DocumentCard({
                     </p>
                   </div>
                 </div>
-                <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-background/46">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-background/46">
                   <FileStack className="size-5 text-primary" />
                 </div>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Rattaché à" : "Related"}</p>
+                <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Rattaché à" : "Related"}</p>
                   <p className="mt-2 text-sm font-medium">{document.relatedLabel}</p>
                 </div>
-                <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Taille" : "File size"}</p>
+                <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Taille" : "File size"}</p>
                   <p className="mt-2 text-sm font-medium">{formatFileSize(document.file_size)}</p>
                 </div>
-                <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Mis à jour" : "Updated"}</p>
+                <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Mis à jour" : "Updated"}</p>
                   <p className="mt-2 text-sm font-medium">{formatDate(document.updated_at)}</p>
                 </div>
               </div>

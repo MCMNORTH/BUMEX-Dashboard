@@ -8,11 +8,11 @@ import type { ContractRecord } from "@/types/contract";
 export function RenewalAlertCard({ contract }: { contract: ContractRecord }) {
   return (
     <Link href={`/contracts/${contract.id}`} className="block">
-      <Card className="border-border/70 bg-card/72 shadow-[var(--shadow-soft)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--shadow-glow)]">
+      <Card className="border-border/70 bg-card shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[var(--shadow-glow)]">
         <CardContent className="space-y-3 px-4 py-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <div className="flex size-10 items-center justify-center rounded-2xl border border-border/65 bg-background/45">
+              <div className="flex size-10 items-center justify-center rounded-xl border border-border/65 bg-background/45">
                 <TriangleAlert className="size-4 text-amber-300" />
               </div>
               <div>

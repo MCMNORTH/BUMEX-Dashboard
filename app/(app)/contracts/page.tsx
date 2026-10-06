@@ -79,15 +79,15 @@ export default async function ContractsPage({
           { icon: Landmark, label: isFr ? "Signés" : "Signed", value: formatNumber(signedCount), detail: isFr ? "Contrats en attente d’activation ou d’exécution" : "Contracts awaiting activation or execution" },
           { icon: CalendarClock, label: isFr ? "Renouvellement proche" : "Renewing soon", value: formatNumber(renewingSoon), detail: isFr ? "Renouvellements dans les 30 jours" : "Renewals inside 30 days" },
         ].map(({ icon: Icon, label, value, detail }) => (
-          <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
+          <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card">
             <CardContent className="px-5 py-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{label}</p>
+                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
                   <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</p>
                   <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
                 </div>
-                <div className="flex size-11 items-center justify-center rounded-2xl border border-border/70 bg-background/45">
+                <div className="flex size-11 items-center justify-center rounded-xl border border-border/70 bg-background/45">
                   <Icon className="size-5 text-primary" />
                 </div>
               </div>
@@ -99,10 +99,10 @@ export default async function ContractsPage({
       <ContractFilters filters={filters} filterData={filterData} />
 
       <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardContent className="space-y-4 px-5 py-5">
             <div>
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Alertes de renouvellement" : "Renewal alerts"}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Alertes de renouvellement" : "Renewal alerts"}</p>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Renouvellements à venir" : "Upcoming renewals"}</h3>
             </div>
             {renewalContracts.length ? (
@@ -110,7 +110,7 @@ export default async function ContractsPage({
                 <RenewalAlertCard key={contract.id} contract={contract} />
               ))
             ) : (
-              <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
                 {isFr ? "Aucun renouvellement de contrat n’est attendu dans l’horizon visible actuel." : "No contract renewals are due in the current visible horizon."}
               </div>
             )}
@@ -120,7 +120,7 @@ export default async function ContractsPage({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">{isFr ? "Portefeuille" : "Portfolio"}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Portefeuille" : "Portfolio"}</p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Liste des contrats" : "Contract list"}</h2>
             </div>
             <div className="flex items-center gap-2">
@@ -132,7 +132,7 @@ export default async function ContractsPage({
             {contracts.length ? (
               contracts.map((contract) => <ContractCard key={contract.id} contract={contract} />)
             ) : (
-              <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
                 {isFr ? "Aucun contrat ne correspond aux filtres actuels." : "No contracts match the current filters."}
               </div>
             )}

@@ -15,10 +15,10 @@ export function CapacityBar({
         className={cn(
           "h-full rounded-full transition-[width] duration-300",
           tone === "critical"
-            ? "bg-gradient-to-r from-rose-500 via-orange-400 to-amber-300"
+            ? "bg-rose-500"
             : tone === "warning"
-              ? "bg-gradient-to-r from-amber-500 via-yellow-400 to-lime-300"
-              : "bg-gradient-to-r from-sky-400 via-cyan-300 to-indigo-300",
+              ? "bg-amber-500"
+              : "bg-primary",
         )}
         style={{ width: `${width}%` }}
       />

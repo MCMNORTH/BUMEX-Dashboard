@@ -29,7 +29,7 @@ export function FinanceOverviewCards({ overview }: { overview: FinanceOverview }
             <CardContent className="px-5 py-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-300/80">{card.label}</p>
+                  <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-300/80">{card.label}</p>
                   <p className="mt-2 text-2xl font-bold tracking-[-0.025em] dark:text-white">{value}</p>
                   <p className="mt-2 text-sm text-muted-foreground">{card.detail}</p>
                 </div>

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import { getBumexEntity } from "@/lib/entities/config";
 import { normalizeEntityMutationError } from "@/lib/entities/errors";
 import type { AppRole, AvailabilityStatus, Profile } from "@/types/auth";
@@ -29,16 +29,16 @@ function isMissingEntityFoundationColumn(message: string | undefined) {
 }
 
 export async function getSettingsUsers(filters: SettingsUserFilters = {}) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
+  if (!db) {
     return {
       users: [] satisfies SettingsUserRecord[],
       supportsEntityManagement: false,
     } satisfies SettingsUsersResult;
   }
 
-  let query = supabase
+  let query = db
     .from("profiles")
     .select("id, full_name, email, role, is_super_admin, entity_code, availability_status, created_at")
     .order("full_name", { ascending: true });
@@ -58,7 +58,7 @@ export async function getSettingsUsers(filters: SettingsUserFilters = {}) {
   const supportsEntityManagement = !isMissingEntityFoundationColumn(error?.message);
 
   if (error && isMissingEntityFoundationColumn(error.message)) {
-    const legacyResponse = await supabase
+    const legacyResponse = await db
       .from("profiles")
       .select("id, full_name, email, role, availability_status, created_at")
       .order("full_name", { ascending: true })
@@ -87,13 +87,13 @@ export async function getSettingsUsers(filters: SettingsUserFilters = {}) {
 }
 
 export async function updateSettingsUserRole(userId: string, role: AppRole) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from("profiles")
     .update({
       role,
@@ -107,13 +107,13 @@ export async function updateSettingsUserRole(userId: string, role: AppRole) {
 }
 
 export async function updateSettingsUserEntity(userId: string, entityCode: BumexEntityCode) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from("profiles")
     .update({
       entity_code: entityCode,

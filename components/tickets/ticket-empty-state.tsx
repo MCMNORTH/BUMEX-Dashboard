@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { PanelsTopLeft } from "lucide-react";
 
 import { useI18n } from "@/components/layout/i18n-provider";
@@ -12,37 +13,45 @@ import { TicketForm } from "@/components/tickets/ticket-form";
 type TicketEmptyStateProps = {
   role: AppRole;
   filterData: TicketFiltersData;
+  /** When filters are active, the useful next step is clearing them rather than creating a ticket. */
+  clearFiltersHref?: string;
 };
 
-export function TicketEmptyState({ role, filterData }: TicketEmptyStateProps) {
+export function TicketEmptyState({ role, filterData, clearFiltersHref }: TicketEmptyStateProps) {
   const canCreate = role === "admin" || role === "manager" || role === "supervisor";
   const { t } = useI18n();
 
   return (
-    <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
-      <CardContent className="flex flex-col items-center gap-5 px-6 py-16 text-center">
-        <div className="flex size-16 items-center justify-center rounded-[26px] border border-border/70 bg-background/45 text-primary shadow-[var(--shadow-soft)]">
-          <PanelsTopLeft className="size-7" />
+    <Card>
+      <CardContent className="flex flex-col items-center gap-4 px-6 py-12 text-center">
+        <div className="flex size-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+          <PanelsTopLeft className="size-6" />
         </div>
-        <div className="space-y-2">
-          <h2 className="text-2xl font-semibold tracking-[-0.04em]">{t("tickets.emptyState.title", "No tickets matched the current view")}</h2>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            {t("tickets.emptyState.description", "Refine the filters, broaden the search scope, or create a new ticket to start tracking operational work.")}
+        <div className="space-y-1.5">
+          <h2 className="text-lg font-semibold">
+            {clearFiltersHref
+              ? t("tickets.emptyState.filteredTitle", "No tickets match these filters")
+              : t("tickets.emptyState.title", "No tickets yet")}
+          </h2>
+          <p className="max-w-xl text-sm text-muted-foreground">
+            {clearFiltersHref
+              ? t("tickets.emptyState.filteredDescription", "Try another quick filter or clear the filters to see every ticket.")
+              : t("tickets.emptyState.description", "Create a ticket to start tracking work.")}
           </p>
         </div>
-        {canCreate ? (
+        {clearFiltersHref ? (
+          <Button asChild variant="secondary">
+            <Link href={clearFiltersHref} scroll={false}>{t("common.actions.clearFilters", "Clear filters")}</Link>
+          </Button>
+        ) : canCreate ? (
           <TicketForm
             mode="create"
             role={role}
             filterData={filterData}
-            triggerLabel="Create ticket"
+            triggerLabel={t("common.actions.createTicket", "Create ticket")}
             triggerIcon="plus"
           />
-        ) : (
-          <Button variant="secondary" className="rounded-full px-5" disabled>
-            {t("tickets.emptyState.noAccess", "No create access")}
-          </Button>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

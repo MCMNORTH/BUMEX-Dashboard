@@ -79,24 +79,24 @@ export default async function TeamMemberDetailPage({
           </div>
         </>
       ) : (
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
-          <CardContent className="rounded-[24px] border border-dashed border-border/70 bg-background/35 px-6 py-6 text-sm text-muted-foreground">
+        <Card className="border-border/70 bg-card">
+          <CardContent className="rounded-xl border border-dashed border-border/70 bg-background/35 px-6 py-6 text-sm text-muted-foreground">
             {tr("Les indicateurs de performance sont visibles uniquement par les administrateurs, superviseurs, managers et le propriétaire du profil.", "Performance analytics are only visible to administrators, supervisors, managers, or the profile owner.")}
           </CardContent>
         </Card>
       )}
 
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardContent className="space-y-4 px-6 py-6">
             <div>
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{tr("Projets affectés", "Assigned projects")}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{tr("Projets affectés", "Assigned projects")}</p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight">{tr("Contexte de livraison actuel", "Current delivery context")}</h2>
             </div>
             {detail.assignedProjects.length ? (
               <div className="space-y-3">
                 {detail.assignedProjects.map((project) => (
-                  <Link key={project.id} href={`/projects/${project.id}`} className="group block rounded-[22px] border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-blue-500/30 dark:hover:bg-blue-500/5">
+                  <Link key={project.id} href={`/projects/${project.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-blue-500/30 dark:hover:bg-blue-500/5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="flex items-center gap-2 text-sm font-medium">{project.name}<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
@@ -114,16 +114,16 @@ export default async function TeamMemberDetailPage({
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardContent className="space-y-4 px-6 py-6">
             <div>
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{tr("Échéances à venir", "Upcoming deadlines")}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{tr("Échéances à venir", "Upcoming deadlines")}</p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight">{tr("Sept prochains jours", "Next seven days")}</h2>
             </div>
             {(performance?.upcomingDeadlines ?? detail.weeklyPlanning).length ? (
               <div className="space-y-3">
                 {(performance?.upcomingDeadlines ?? detail.weeklyPlanning).map((ticket) => (
-                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-[22px] border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-amber-500/30 dark:hover:bg-amber-500/5">
+                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-amber-500/30 dark:hover:bg-amber-500/5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="flex items-center gap-2 text-sm font-medium">{ticket.title}<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
@@ -143,16 +143,16 @@ export default async function TeamMemberDetailPage({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardContent className="space-y-4 px-6 py-6">
             <div>
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{tr("Focus actuel", "Current focus")}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{tr("Focus actuel", "Current focus")}</p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight">{tr("Priorités actives visibles", "Visible active priorities")}</h2>
             </div>
             {(performance?.currentFocus ?? detail.assignedTickets).length ? (
               <div className="space-y-3">
                 {(performance?.currentFocus ?? detail.assignedTickets).slice(0, 8).map((ticket) => (
-                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-[22px] border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-violet-300 hover:bg-violet-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-violet-500/30 dark:hover:bg-violet-500/5">
+                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-violet-300 hover:bg-violet-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-violet-500/30 dark:hover:bg-violet-500/5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="flex items-center gap-2 text-sm font-medium">{ticket.title}<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
@@ -170,7 +170,7 @@ export default async function TeamMemberDetailPage({
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardContent className="px-6 py-6">
             <ActivityFeed
               embedded
@@ -187,14 +187,14 @@ export default async function TeamMemberDetailPage({
 
 function MetricCard({ label, value, icon: Icon }: { label: string; value: string; icon: typeof BriefcaseBusiness }) {
   return (
-    <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+    <Card className="border-border/70 bg-card">
       <CardContent className="px-5 py-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{label}</p>
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
             <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</p>
           </div>
-          <div className="flex size-11 items-center justify-center rounded-2xl border border-border/70 bg-background/45">
+          <div className="flex size-11 items-center justify-center rounded-xl border border-border/70 bg-background/45">
             <Icon className="size-5 text-primary" />
           </div>
         </div>
@@ -204,5 +204,5 @@ function MetricCard({ label, value, icon: Icon }: { label: string; value: string
 }
 
 function EmptyPanel({ text }: { text: string }) {
-  return <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">{text}</div>;
+  return <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">{text}</div>;
 }

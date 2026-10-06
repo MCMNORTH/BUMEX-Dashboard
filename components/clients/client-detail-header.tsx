@@ -27,7 +27,7 @@ export function ClientDetailHeader({
   const isFr = locale === "fr";
   const isOpportunity = client.status === "prospect";
   return (
-    <div className="grid gap-5 rounded-[30px] border border-border/70 bg-card/72 p-6 shadow-[var(--shadow-soft)] backdrop-blur-xl xl:grid-cols-[1.1fr_0.9fr]">
+    <div className="grid gap-5 rounded-xl border border-border/70 bg-card p-6 shadow-[var(--shadow-soft)] xl:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <ClientStatusBadge status={client.status} />
@@ -88,36 +88,36 @@ export function ClientDetailHeader({
       <div className="grid gap-3 sm:grid-cols-2">
         {isOpportunity ? (
           <>
-            <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4">
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Responsable du suivi" : "Follow-up owner"}</p>
+            <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Responsable du suivi" : "Follow-up owner"}</p>
               <p className="mt-2 text-sm font-medium">{client.accountManager?.full_name ?? (isFr ? "À attribuer" : "Unassigned")}</p>
               <p className="mt-1 text-xs text-muted-foreground">{client.accountManager?.email ?? (isFr ? "Choisissez un responsable avec Modifier" : "Choose an owner with Edit")}</p>
             </div>
-            <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4">
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Prochaine relance" : "Next follow-up"}</p>
+            <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Prochaine relance" : "Next follow-up"}</p>
               <p className="mt-2 text-sm font-medium">{formatDate(client.next_follow_up_at)}</p>
               <p className="mt-1 text-xs text-muted-foreground">{client.contact_email ?? (isFr ? "Aucun e-mail de contact" : "No contact email")}</p>
             </div>
           </>
         ) : (
           <>
-        <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Raison sociale" : "Legal name"}</p>
+        <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Raison sociale" : "Legal name"}</p>
           <p className="mt-2 text-sm font-medium">{client.legal_name ?? (isFr ? "Non renseignée" : "Not set")}</p>
           <p className="mt-1 text-xs text-muted-foreground">{client.industry ?? (isFr ? "Secteur non renseigné" : "No industry")}</p>
         </div>
-        <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Responsable" : "Account manager"}</p>
+        <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Responsable" : "Account manager"}</p>
           <p className="mt-2 text-sm font-medium">{client.accountManager?.full_name ?? (isFr ? "Non attribué" : "Unassigned")}</p>
           <p className="mt-1 text-xs text-muted-foreground">{client.accountManager?.email ?? (isFr ? "Aucun e-mail" : "No email")}</p>
         </div>
-        <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Localisation" : "Location"}</p>
+        <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Localisation" : "Location"}</p>
           <p className="mt-2 text-sm font-medium">{client.city ?? (isFr ? "Ville non renseignée" : "Unknown city")}</p>
           <p className="mt-1 text-xs text-muted-foreground">{client.country ?? (isFr ? "Pays non renseigné" : "Unknown country")}</p>
         </div>
-        <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Site web" : "Website"}</p>
+        <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Site web" : "Website"}</p>
           <p className="mt-2 text-sm font-medium">{client.website ?? (isFr ? "Non renseigné" : "Not set")}</p>
           <p className="mt-1 text-xs text-muted-foreground">{client.contact_email ?? (isFr ? "Aucun e-mail de contact" : "No contact email")}</p>
         </div>

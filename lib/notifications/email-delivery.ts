@@ -2,7 +2,7 @@ import "server-only";
 
 import { isSmtpConfigured, sendMail } from "@/lib/email/server";
 import { isMicrosoftGraphConfigured, sendMicrosoftGraphMail } from "@/lib/email/microsoft-graph";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/firebase/server";
 
 const MAX_ATTEMPTS = 5;
 const NOTIFICATION_EMAIL_FROM = process.env.NOTIFICATION_EMAIL_FROM || "BUMEX <bumex@bumex.mr>";
@@ -78,7 +78,7 @@ function retryDelayMinutes(attempt: number) {
 }
 
 async function processEmail(
-  supabase: NonNullable<ReturnType<typeof createAdminClient>>,
+  db: NonNullable<ReturnType<typeof createAdminClient>>,
   notification: NotificationEmail,
 ) {
   try {
@@ -98,7 +98,7 @@ async function processEmail(
       });
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from("notification_email_outbox")
       .update({ status: "sent", sent_at: new Date().toISOString(), locked_at: null, last_error: null })
       .eq("id", notification.id)
@@ -110,7 +110,7 @@ async function processEmail(
     const retry = notification.attempts < MAX_ATTEMPTS;
     const retryAt = new Date(Date.now() + retryDelayMinutes(notification.attempts) * 60_000).toISOString();
     const message = error instanceof Error ? error.message.slice(0, 500) : "Email delivery failed.";
-    const { error: updateError } = await supabase
+    const { error: updateError } = await db
       .from("notification_email_outbox")
       .update({
         status: retry ? "pending" : "failed",
@@ -132,12 +132,12 @@ async function processEmail(
 export async function dispatchNotificationEmails(notificationIds?: string[]) {
   if (notificationIds && notificationIds.length === 0) return { sent: 0, failed: 0, deferred: false };
 
-  const supabase = createAdminClient();
-  if (!supabase || (!isMicrosoftGraphConfigured() && !isSmtpConfigured(NOTIFICATION_EMAIL_FROM))) {
+  const db = createAdminClient();
+  if (!db || (!isMicrosoftGraphConfigured() && !isSmtpConfigured(NOTIFICATION_EMAIL_FROM))) {
     return { sent: 0, failed: 0, deferred: true };
   }
 
-  const { data, error } = await supabase.rpc("claim_notification_email_outbox", {
+  const { data, error } = await db.rpc("claim_notification_email_outbox", {
     p_batch_size: 100,
     p_notification_ids: notificationIds ?? null,
   }).returns<NotificationEmail[]>();
@@ -151,7 +151,7 @@ export async function dispatchNotificationEmails(notificationIds?: string[]) {
   const items = (Array.isArray(data) ? data : []) as NotificationEmail[];
 
   for (let index = 0; index < items.length; index += 5) {
-    const batch = await Promise.all(items.slice(index, index + 5).map((item) => processEmail(supabase, item)));
+    const batch = await Promise.all(items.slice(index, index + 5).map((item) => processEmail(db, item)));
     sent += batch.reduce((total, result) => total + result.sent, 0);
     failed += batch.reduce((total, result) => total + result.failed, 0);
   }

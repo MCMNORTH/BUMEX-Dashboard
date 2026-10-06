@@ -2,7 +2,7 @@ import "server-only";
 
 import { logActivity } from "@/lib/activity/service";
 import { createMentionNotifications } from "@/lib/notifications/service";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import type { AppRole } from "@/types/auth";
 import type { CommentActionState, CommentAttachmentRecord, CommentEntityType, CommentFormValues, CommentRecord } from "@/types/comment";
 
@@ -70,17 +70,17 @@ export async function getCommentsForEntity(entityType: CommentEntityType, entity
 }
 
 export async function getCommentsForEntities(entityType: CommentEntityType, entityIds: string[]) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   if (!entityIds.length) {
     return {} as Record<string, CommentRecord[]>;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("comments")
     .select(
       `
@@ -133,10 +133,10 @@ export async function createComment(values: CommentFormValues, actor: { id: stri
     throw new Error("You do not have permission to comment on this entity.");
   }
 
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const payload = {
@@ -147,7 +147,7 @@ export async function createComment(values: CommentFormValues, actor: { id: stri
     is_internal: values.is_internal,
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("comments")
     .insert(payload)
     .select("id")
@@ -185,13 +185,13 @@ export async function createComment(values: CommentFormValues, actor: { id: stri
 }
 
 async function getCommentById(id: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("comments")
     .select("id, entity_type, entity_id, author_id, body, is_internal, deleted_at")
     .eq("id", id)
@@ -219,13 +219,13 @@ export async function updateComment(commentId: string, body: string, actor: { id
     throw new Error("Deleted comments cannot be edited.");
   }
 
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from("comments")
     .update({
       body: body.trim(),
@@ -261,13 +261,13 @@ export async function deleteComment(commentId: string, actor: { id: string; role
     throw new Error("You do not have permission to delete this comment.");
   }
 
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from("comments")
     .update({
       deleted_at: new Date().toISOString(),

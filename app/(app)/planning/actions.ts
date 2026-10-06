@@ -69,10 +69,10 @@ export async function rebalanceTaskAction(ticketId: string, nextDueDate: string,
   const ticket = await getTicketById(ticketId, auth.role);
   if (!ticket) return { error: "The task could not be found." };
 
-  const supabaseModule = await import("@/lib/supabase/server");
-  const supabase = await supabaseModule.createClient();
-  if (!supabase) return { error: "Planning is unavailable." };
-  let profileQuery = supabase.from("profiles").select("id, entity_code, availability_status").eq("id", assigneeId);
+  const firebaseServer = await import("@/lib/firebase/server");
+  const db = await firebaseServer.createClient();
+  if (!db) return { error: "Planning is unavailable." };
+  let profileQuery = db.from("profiles").select("id, entity_code, availability_status").eq("id", assigneeId);
   if (auth.role === "manager") profileQuery = profileQuery.eq("entity_code", auth.profile.entity_code);
   const { data: target, error } = await profileQuery.maybeSingle<{ id: string; entity_code: string | null; availability_status: string }>();
   if (error || !target) return { error: "This person is outside your planning scope." };
@@ -91,16 +91,16 @@ export async function rebalanceTasksAction(items: Array<{ ticketId: string; next
   const auth = await requireRouteAccess("planning");
   if (auth.role !== "admin" && auth.role !== "manager") return { error: "Only administrators and managers can rebalance team work." };
   if (!items.length || items.length > 20) return { error: "Select between 1 and 20 tasks." };
-  const supabaseModule = await import("@/lib/supabase/server");
-  const supabase = await supabaseModule.createClient();
-  if (!supabase) return { error: "Planning is unavailable." };
+  const firebaseServer = await import("@/lib/firebase/server");
+  const db = await firebaseServer.createClient();
+  if (!db) return { error: "Planning is unavailable." };
 
   const uniqueItems = [...new Map(items.map(item => [item.ticketId, item])).values()];
   const validated: Array<{ ticketId: string; nextDueDate: string; assigneeId: string; projectId: string }> = [];
   for (const item of uniqueItems) {
     const ticket = await getTicketById(item.ticketId, auth.role);
     if (!ticket) return { error: "One of the selected tasks is outside your planning scope." };
-    let targetQuery = supabase.from("profiles").select("id, entity_code, availability_status").eq("id", item.assigneeId);
+    let targetQuery = db.from("profiles").select("id, entity_code, availability_status").eq("id", item.assigneeId);
     if (auth.role === "manager") targetQuery = targetQuery.eq("entity_code", auth.profile.entity_code);
     const { data: target } = await targetQuery.maybeSingle<{ id: string; entity_code: string | null; availability_status: string }>();
     if (!target || target.availability_status === "away" || target.availability_status === "inactive") return { error: "One of the suggested assignees is no longer available." };

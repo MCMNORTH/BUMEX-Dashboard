@@ -19,14 +19,14 @@ export function DocumentFilters({
   const isFr = locale === "fr";
 
   return (
-    <form className="grid gap-3 rounded-[28px] border border-border/70 bg-card/72 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl lg:grid-cols-[1.2fr_repeat(6,minmax(0,1fr))]">
+    <form className="grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] lg:grid-cols-[1.2fr_repeat(6,minmax(0,1fr))]">
       <div className="relative lg:col-span-2">
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           name="search"
           defaultValue={filters.search ?? ""}
           placeholder={isFr ? "Rechercher un titre, fichier ou une description" : "Search title, file, or description"}
-          className="h-11 rounded-2xl pl-10"
+          className="h-11 rounded-xl pl-10"
         />
       </div>
 
@@ -144,10 +144,10 @@ export function DocumentFilters({
       />
 
       <div className="flex gap-2 lg:col-span-2 lg:justify-end">
-        <Button type="submit" variant="secondary" className="rounded-2xl px-5">
+        <Button type="submit" variant="secondary" className="rounded-xl px-5">
           {isFr ? "Appliquer les filtres" : "Apply filters"}
         </Button>
-        <Button asChild variant="ghost" className="rounded-2xl px-4">
+        <Button asChild variant="ghost" className="rounded-xl px-4">
           <a href="/documents">{isFr ? "Réinitialiser" : "Reset"}</a>
         </Button>
       </div>

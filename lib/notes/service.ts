@@ -1,7 +1,7 @@
 import "server-only";
 
 import { logActivity } from "@/lib/activity/service";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import type { AppRole } from "@/types/auth";
 import {
   canCreateNoteByRole,
@@ -72,13 +72,13 @@ export function validateNoteValues(title: string, body: string): InternalNoteAct
 }
 
 export async function getNotesForEntity(entityType: InternalNoteEntityType, entityId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("internal_notes")
     .select(
       `
@@ -117,13 +117,13 @@ export async function getNotesForEntity(entityType: InternalNoteEntityType, enti
 }
 
 async function getNoteById(noteId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("internal_notes")
     .select("id, entity_type, entity_id, author_id, title, body, visibility, pinned, archived_at")
     .eq("id", noteId)
@@ -150,10 +150,10 @@ export async function createNote(values: InternalNoteFormValues, actor: { id: st
     throw new Error("You do not have permission to use this visibility level.");
   }
 
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const payload = {
@@ -166,7 +166,7 @@ export async function createNote(values: InternalNoteFormValues, actor: { id: st
     pinned: values.pinned,
   };
 
-  const { data, error } = await supabase.from("internal_notes").insert(payload).select("id").maybeSingle<{ id: string }>();
+  const { data, error } = await db.from("internal_notes").insert(payload).select("id").maybeSingle<{ id: string }>();
 
   if (error) {
     throw new Error(error.message);
@@ -207,13 +207,13 @@ export async function updateNote(noteId: string, values: InternalNoteFormValues,
     throw new Error("You do not have permission to use this visibility level.");
   }
 
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("internal_notes")
     .update({
       title: values.title.trim(),
@@ -265,13 +265,13 @@ export async function togglePinnedNote(noteId: string, pinned: boolean, actor: {
     throw new Error("You do not have permission to pin this note.");
   }
 
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("internal_notes")
     .update({
       pinned,
@@ -314,13 +314,13 @@ export async function archiveNote(noteId: string, actor: { id: string; role: App
     throw new Error("You do not have permission to archive this note.");
   }
 
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("internal_notes")
     .update({
       archived_at: new Date().toISOString(),

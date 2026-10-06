@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getCurrentSessionUser } from "@/lib/firebase/server";
+
 type CacheEntry<T> = {
   expiresAt: number;
   value: Promise<T>;
@@ -7,7 +9,13 @@ type CacheEntry<T> = {
 
 const cacheStore = new Map<string, CacheEntry<unknown>>();
 
-export function getCached<T>(key: string, ttlMs: number, loader: () => Promise<T>): Promise<T> {
+// Loaders only return rows the current user may see, so entries must never be
+// shared between users.
+const USER_SEPARATOR = "\u0000";
+
+export async function getCached<T>(baseKey: string, ttlMs: number, loader: () => Promise<T>): Promise<T> {
+  const user = await getCurrentSessionUser();
+  const key = `${user?.id ?? "anonymous"}${USER_SEPARATOR}${baseKey}`;
   const now = Date.now();
   const current = cacheStore.get(key) as CacheEntry<T> | undefined;
 
@@ -30,7 +38,7 @@ export function getCached<T>(key: string, ttlMs: number, loader: () => Promise<T
 
 export function invalidateCached(predicate: (key: string) => boolean) {
   for (const key of cacheStore.keys()) {
-    if (predicate(key)) {
+    if (predicate(key.slice(key.indexOf(USER_SEPARATOR) + 1))) {
       cacheStore.delete(key);
     }
   }

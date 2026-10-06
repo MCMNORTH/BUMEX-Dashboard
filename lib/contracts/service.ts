@@ -7,7 +7,7 @@ import {
   getCurrentEntityCode,
   isEntityScopingEnabled,
 } from "@/lib/entities/scope";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import type { AppRole } from "@/types/auth";
 import type {
   ContractClientPreview,
@@ -235,13 +235,13 @@ function stripOptionalContractUpdateFields(
 }
 
 async function getContractActivityMap(contractIds: string[]) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || !contractIds.length) {
+  if (!db || !contractIds.length) {
     return new Map<string, ActivityLogRecord[]>();
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("activity_logs")
     .select(
       `
@@ -314,17 +314,17 @@ function mapContract(row: ContractRow, role: AppRole, activity: ActivityLogRecor
 }
 
 export async function getContracts(role: AppRole, filters: ContractFilters = {}) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const scopedSupabase = supabase;
+  const scopedDb = db;
   const entityCode = await getCurrentEntityCode();
 
   async function runContractsQuery(useLegacy = false) {
-    let query = scopedSupabase
+    let query = scopedDb
       .from("contracts")
       .select(useLegacy ? LEGACY_CONTRACT_SELECT : FULL_CONTRACT_SELECT)
       .order(useLegacy ? "created_at" : "updated_at", { ascending: false });
@@ -412,20 +412,20 @@ export async function getContracts(role: AppRole, filters: ContractFilters = {})
 }
 
 export async function getContractsFilterData(): Promise<ContractFiltersData> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let clientsQuery = supabase
+  let clientsQuery = db
     .from("clients")
     .select("id, name, status, contact_email");
-  let projectsQuery = supabase
+  let projectsQuery = db
     .from("projects")
     .select("id, name, status, end_date");
-  let usersQuery = supabase
+  let usersQuery = db
     .from("profiles")
     .select("id, full_name, email, avatar_url, role");
 
@@ -461,17 +461,17 @@ export async function getContractsFilterData(): Promise<ContractFiltersData> {
 }
 
 export async function getContractById(id: string, role: AppRole) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const scopedSupabase = supabase;
+  const scopedDb = db;
   const entityCode = await getCurrentEntityCode();
 
   async function runContractByIdQuery(useLegacy = false) {
-    let query = scopedSupabase
+    let query = scopedDb
       .from("contracts")
       .select(useLegacy ? LEGACY_CONTRACT_SELECT : FULL_CONTRACT_SELECT)
       .eq("id", id);
@@ -528,22 +528,22 @@ function parseContractPayload(values: ContractFormValues) {
 }
 
 export async function createContract(values: ContractFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
   const payload = extendWithEntityCode(parseContractPayload(values), entityCode);
-  let createResponse = await supabase
+  let createResponse = await db
     .from("contracts")
     .insert(payload)
     .select("id")
     .single<{ id: string }>();
 
   if (createResponse.error && isMissingOptionalContractField(createResponse.error.message)) {
-    createResponse = await supabase
+    createResponse = await db
       .from("contracts")
       .insert(extendWithEntityCode(stripOptionalContractFields(parseContractPayload(values)), entityCode))
       .select("id")
@@ -571,17 +571,17 @@ export async function createContract(values: ContractFormValues, actorUserId: st
 }
 
 export async function updateContract(id: string, values: ContractFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const scopedSupabase = supabase;
+  const scopedDb = db;
   const entityCode = await getCurrentEntityCode();
 
   async function getPreviousContract(useLegacy = false) {
-    let previousQuery = scopedSupabase
+    let previousQuery = scopedDb
       .from("contracts")
       .select(useLegacy ? LEGACY_CONTRACT_PREVIOUS_SELECT : FULL_CONTRACT_PREVIOUS_SELECT)
       .eq("id", id);
@@ -619,7 +619,7 @@ export async function updateContract(id: string, values: ContractFormValues, act
     updated_at: new Date().toISOString(),
   };
 
-  let updateQuery = supabase.from("contracts").update(payload).eq("id", id);
+  let updateQuery = db.from("contracts").update(payload).eq("id", id);
 
   if (isEntityScopingEnabled()) {
     updateQuery = updateQuery.eq("entity_code", entityCode);
@@ -628,7 +628,7 @@ export async function updateContract(id: string, values: ContractFormValues, act
   let { error } = await updateQuery;
 
   if (error && isMissingOptionalContractField(error.message)) {
-    let legacyUpdateQuery = supabase
+    let legacyUpdateQuery = db
       .from("contracts")
       .update(stripOptionalContractUpdateFields(payload))
       .eq("id", id);
@@ -728,14 +728,14 @@ export async function updateContract(id: string, values: ContractFormValues, act
 }
 
 export async function archiveContract(id: string, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let archiveQuery = supabase
+  let archiveQuery = db
     .from("contracts")
     .update({
       status: "archived",
@@ -750,7 +750,7 @@ export async function archiveContract(id: string, actorUserId: string) {
   let { error } = await archiveQuery;
 
   if (error && isMissingOptionalContractField(error.message)) {
-    let legacyArchiveQuery = supabase
+    let legacyArchiveQuery = db
       .from("contracts")
       .update({
         status: "archived",

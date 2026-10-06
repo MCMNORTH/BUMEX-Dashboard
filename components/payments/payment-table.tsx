@@ -37,10 +37,10 @@ export function PaymentTable({
   const { locale } = useI18n();
   const isFr = locale === "fr";
   return (
-    <div className="overflow-hidden rounded-[28px] border border-border/70 bg-card/72 shadow-[var(--shadow-soft)] backdrop-blur-xl">
+    <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-[var(--shadow-soft)]">
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="border-b border-border/65 bg-background/35 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+          <thead className="border-b border-border/65 bg-background/35 text-xs uppercase tracking-wider text-muted-foreground">
             <tr>
               <th className="px-5 py-4 font-medium">{isFr ? "Encaissement" : "Payment"}</th>
               <th className="px-5 py-4 font-medium">{isFr ? "Statut" : "Status"}</th>

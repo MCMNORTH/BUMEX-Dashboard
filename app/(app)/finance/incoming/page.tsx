@@ -69,10 +69,10 @@ export default async function FinanceIncomingPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card className="border-border/70 bg-card/72 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/42 dark:shadow-none">
+        <Card className="border-border/70 bg-card shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/42 dark:shadow-none">
           <CardContent className="space-y-4 px-5 py-5">
             <div>
-              <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">{getMessage(dictionary, "finance.incoming.sections.invoices", "Invoices")}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{getMessage(dictionary, "finance.incoming.sections.invoices", "Invoices")}</p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight">{getMessage(dictionary, "finance.incoming.sections.latestInvoices", "Latest client invoices")}</h2>
             </div>
             <div className="space-y-3">
@@ -89,7 +89,7 @@ export default async function FinanceIncomingPage() {
                   returnPath="/finance/incoming"
                   trigger={(
                     <button type="button" className="w-full text-left">
-                      <div className="rounded-2xl border border-border/70 bg-background/45 p-4 transition-colors hover:border-primary/25 dark:border-white/10 dark:bg-slate-900/55">
+                      <div className="rounded-xl border border-border/70 bg-background/45 p-4 transition-colors hover:border-primary/25 dark:border-white/10 dark:bg-slate-900/55">
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-medium">{invoice.invoice_number}</p>
@@ -111,15 +111,15 @@ export default async function FinanceIncomingPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 bg-card/72 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/42 dark:shadow-none">
+        <Card className="border-border/70 bg-card shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/42 dark:shadow-none">
           <CardContent className="space-y-4 px-5 py-5">
             <div>
-              <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">{getMessage(dictionary, "finance.incoming.sections.incomingPayments", "Incoming payments")}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{getMessage(dictionary, "finance.incoming.sections.incomingPayments", "Incoming payments")}</p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight">{getMessage(dictionary, "finance.incoming.sections.latestCollections", "Latest client collections")}</h2>
             </div>
             <div className="space-y-3">
               {payments.slice(0, 5).map((payment) => (
-                <div key={payment.id} className="rounded-2xl border border-border/70 bg-background/45 p-4 dark:border-white/10 dark:bg-slate-900/55">
+                <div key={payment.id} className="rounded-xl border border-border/70 bg-background/45 p-4 dark:border-white/10 dark:bg-slate-900/55">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium">{payment.reference ?? payment.client?.name ?? getMessage(dictionary, "finance.incoming.misc.incomingPayment", "Incoming payment")}</p>
@@ -154,15 +154,15 @@ function SummaryCard({
   detail: string;
 }) {
   return (
-    <Card className="border-border/70 bg-card/72 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/42 dark:shadow-none">
+    <Card className="border-border/70 bg-card shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/42 dark:shadow-none">
       <CardContent className="px-5 py-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{label}</p>
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
             <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</p>
             <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
           </div>
-          <div className="flex size-11 items-center justify-center rounded-2xl border border-border/70 bg-background/45 dark:border-white/10 dark:bg-slate-900/60">
+          <div className="flex size-11 items-center justify-center rounded-xl border border-border/70 bg-background/45 dark:border-white/10 dark:bg-slate-900/60">
             <Icon className="size-5 text-primary" />
           </div>
         </div>

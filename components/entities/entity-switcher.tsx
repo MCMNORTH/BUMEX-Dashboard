@@ -29,14 +29,14 @@ export function EntitySwitcher({ className, compact = false, size = "default" }:
       variant="ghost"
       size={size}
       className={cn(
-        "justify-start gap-2 rounded-2xl border border-border bg-card px-3 text-left",
+        "justify-start gap-2 rounded-xl border border-border bg-card px-3 text-left",
         compact ? "h-9 w-full max-w-none" : "h-10 max-w-[15rem]",
         className,
       )}
     >
       <EntityLogo entity={activeEntity} size="sm" />
       <div className={cn("min-w-0 text-left", !compact && "hidden md:block")}>
-        <p className="text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+        <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
           {locale === "fr" ? "Entité active" : "Active entity"}
         </p>
         <p className="truncate text-sm font-semibold">{activeEntity.name}</p>

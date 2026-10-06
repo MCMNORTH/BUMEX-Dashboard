@@ -140,7 +140,7 @@ export function FinanceWorkspace({
       {workspaceActions ? <div className="flex justify-end">{workspaceActions}</div> : null}
 
       {loadWarnings.length ? (
-        <div className="rounded-[28px] border border-amber-200 bg-amber-50/90 px-5 py-4 text-sm text-amber-800 shadow-[0_12px_30px_rgba(217,119,6,0.08)] dark:border-amber-400/20 dark:bg-amber-500/12 dark:text-amber-100 dark:shadow-none">
+        <div className="rounded-xl border border-amber-200 bg-amber-50/90 px-5 py-4 text-sm text-amber-800 shadow-[var(--shadow-soft)] dark:border-amber-400/20 dark:bg-amber-500/12 dark:text-amber-100 dark:shadow-none">
           {isFr
             ? "Certaines données finance n'ont pas pu être chargées. La page reste accessible et vous pouvez continuer, mais quelques blocs peuvent être incomplets."
             : "Some finance data could not be loaded. The page remains accessible and you can continue, but a few sections may be incomplete."}
@@ -148,34 +148,34 @@ export function FinanceWorkspace({
       ) : null}
 
       {isAdmin ? (
-        <section className="relative overflow-hidden rounded-[32px] border border-indigo-200/80 bg-[linear-gradient(120deg,#172554,#312e81_52%,#6d28d9)] p-6 text-white shadow-[0_22px_60px_rgba(49,46,129,0.22)] dark:border-indigo-300/15">
+        <section className="surface-hero p-6">
           <div className="absolute -right-16 -top-20 size-64 rounded-full bg-fuchsia-400/20 blur-3xl" />
           <div className="absolute -bottom-24 left-1/3 size-56 rounded-full bg-cyan-300/15 blur-3xl" />
           <div className="relative flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex items-start gap-4">
-              <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-white/12 ring-1 ring-white/20"><ShieldCheck className="size-6 text-cyan-200" /></div>
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/12 ring-1 ring-white/20"><ShieldCheck className="size-6 text-white/75" /></div>
               <div>
-                <p className="text-xs font-semibold tracking-[0.18em] text-cyan-200 uppercase">{isFr ? "Contrôle administratif" : "Administrative control"}</p>
+                <p className="text-xs font-semibold tracking-wider text-white/75 uppercase">{isFr ? "Contrôle administratif" : "Administrative control"}</p>
                 <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em]">{isFr ? "Validations de factures" : "Invoice approvals"}</h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-indigo-100">{isFr ? "Traitez les factures avant leur téléchargement ou leur envoi au client." : "Review invoices before they can be downloaded or sent to clients."}</p>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-white/75">{isFr ? "Traitez les factures avant leur téléchargement ou leur envoi au client." : "Review invoices before they can be downloaded or sent to clients."}</p>
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Link href="/finance/invoices?approval=pending" className="group flex min-w-52 items-center justify-between gap-5 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur transition hover:bg-white/16">
-                <div><p className="text-xs text-indigo-100">{isFr ? "À valider" : "To approve"}</p><p className="mt-1 text-2xl font-semibold">{approvalCounts.pending}</p></div>
-                <ShieldCheck className="size-5 text-cyan-200 transition group-hover:scale-110" />
+              <Link href="/finance/invoices?approval=pending" className="group flex min-w-52 items-center justify-between gap-5 rounded-xl border border-white/15 bg-white/10 px-4 py-3 transition hover:bg-white/16">
+                <div><p className="text-xs text-white/75">{isFr ? "À valider" : "To approve"}</p><p className="mt-1 text-2xl font-semibold">{approvalCounts.pending}</p></div>
+                <ShieldCheck className="size-5 text-white/75 transition group-hover:scale-110" />
               </Link>
-              <Link href="/finance/invoices?approval=changes_requested" className="group flex min-w-52 items-center justify-between gap-5 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur transition hover:bg-white/16">
-                <div><p className="text-xs text-indigo-100">{isFr ? "À corriger" : "Changes requested"}</p><p className="mt-1 text-2xl font-semibold">{approvalCounts.changesRequested}</p></div>
+              <Link href="/finance/invoices?approval=changes_requested" className="group flex min-w-52 items-center justify-between gap-5 rounded-xl border border-white/15 bg-white/10 px-4 py-3 transition hover:bg-white/16">
+                <div><p className="text-xs text-white/75">{isFr ? "À corriger" : "Changes requested"}</p><p className="mt-1 text-2xl font-semibold">{approvalCounts.changesRequested}</p></div>
                 <RotateCcw className="size-5 text-rose-200 transition group-hover:rotate-[-20deg]" />
               </Link>
-              <Link href="/finance/invoices?approval=approved" className="group flex min-w-52 items-center justify-between gap-5 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur transition hover:bg-white/16">
-                <div><p className="text-xs text-indigo-100">{isFr ? "Validées ce mois" : "Approved this month"}</p><p className="mt-1 text-2xl font-semibold">{approvalCounts.approvedThisMonth}</p></div>
+              <Link href="/finance/invoices?approval=approved" className="group flex min-w-52 items-center justify-between gap-5 rounded-xl border border-white/15 bg-white/10 px-4 py-3 transition hover:bg-white/16">
+                <div><p className="text-xs text-white/75">{isFr ? "Validées ce mois" : "Approved this month"}</p><p className="mt-1 text-2xl font-semibold">{approvalCounts.approvedThisMonth}</p></div>
                 <CheckCircle2 className="size-5 text-emerald-200 transition group-hover:scale-110" />
               </Link>
-              <Link href="/finance/invoices?approval=approved" className="group flex min-w-52 items-center justify-between gap-5 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur transition hover:bg-white/16">
-                <div><p className="text-xs text-indigo-100">{isFr ? "Délai moyen" : "Average approval time"}</p><p className="mt-1 text-2xl font-semibold">{formatApprovalDuration(approvalCounts.averageApprovalHours, isFr)}</p></div>
-                <Landmark className="size-5 text-violet-200 transition group-hover:scale-110" />
+              <Link href="/finance/invoices?approval=approved" className="group flex min-w-52 items-center justify-between gap-5 rounded-xl border border-white/15 bg-white/10 px-4 py-3 transition hover:bg-white/16">
+                <div><p className="text-xs text-white/75">{isFr ? "Délai moyen" : "Average approval time"}</p><p className="mt-1 text-2xl font-semibold">{formatApprovalDuration(approvalCounts.averageApprovalHours, isFr)}</p></div>
+                <Landmark className="size-5 text-white/75 transition group-hover:scale-110" />
               </Link>
             </div>
           </div>
@@ -187,7 +187,7 @@ export function FinanceWorkspace({
         </section>
       ) : null}
 
-      <section className="rounded-[34px] border border-slate-200 bg-white p-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap gap-2">
             <TabButton active={activeTab === "client"} onClick={() => setActiveTab("client")} icon={ReceiptText} label={isFr ? "Clients" : "Clients"} />
@@ -312,11 +312,11 @@ function ClientPanel({
 
   return (
     <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-      <Card className="overflow-hidden rounded-[34px] border-0 bg-[linear-gradient(160deg,#fbfcff,#eef6ff_48%,#dff1ff)] shadow-[0_20px_60px_rgba(23,43,77,0.12)] dark:bg-[linear-gradient(160deg,#0f172a,#111827_48%,#0b1220)] dark:shadow-none">
+      <Card className="bg-card overflow-hidden rounded-xl border-0 shadow-[var(--shadow-soft)] dark:shadow-none">
         <CardContent className="space-y-5 px-6 py-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold tracking-[0.18em] text-sky-700 uppercase dark:text-sky-300">{isFr ? "Clients" : "Clients"}</p>
+              <p className="text-xs font-semibold tracking-wider text-sky-700 uppercase dark:text-sky-300">{isFr ? "Clients" : "Clients"}</p>
               <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-slate-50">
                 {isFr ? "Factures envoyées aux clients" : "Invoices sent to clients"}
               </h3>
@@ -362,7 +362,7 @@ function ClientPanel({
             />
           </div>
 
-          <div className="rounded-[28px] border border-slate-200 bg-white/75 p-5 dark:border-white/10 dark:bg-white/[0.05]">
+          <div className="rounded-xl border border-slate-200 bg-white/75 p-5 dark:border-white/10 dark:bg-white/[0.05]">
             <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">
               {isFr ? "Différence entre facture et règlement" : "Difference between invoice and payment"}
             </p>
@@ -391,7 +391,7 @@ function ClientPanel({
               <Link
                 key={invoice.id}
                 href={`/finance/invoices/${invoice.id}/preview`}
-                className="animate-fade-up rounded-[28px] border border-white/70 bg-white/88 p-4 shadow-[0_12px_30px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-slate-900/70 dark:shadow-none"
+                className="animate-fade-up rounded-xl border border-white/70 bg-white/88 p-4 shadow-[0_12px_30px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-slate-900/70 dark:shadow-none"
                 style={{ animationDelay: `${index * 60}ms` }}
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -420,11 +420,11 @@ function ClientPanel({
         </CardContent>
       </Card>
 
-      <Card className="rounded-[34px] border-slate-200 bg-white shadow-[0_20px_60px_rgba(23,43,77,0.08)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
+      <Card className="rounded-xl border-slate-200 bg-white shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
         <CardContent className="space-y-5 px-6 py-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-300">{isFr ? "Règlements" : "Payments"}</p>
+              <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-300">{isFr ? "Règlements" : "Payments"}</p>
               <h3 className="mt-2 text-xl font-semibold tracking-tight">
                 {isFr ? "Lecture simple des encaissements" : "Simple collections view"}
               </h3>
@@ -454,7 +454,7 @@ function ClientPanel({
               <Link
                 key={payment.id}
                 href="/finance/payments"
-                className="animate-fade-up rounded-[24px] border border-slate-200 bg-slate-50/85 p-4 dark:border-white/10 dark:bg-white/[0.04]"
+                className="animate-fade-up rounded-xl border border-slate-200 bg-slate-50/85 p-4 dark:border-white/10 dark:bg-white/[0.04]"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -503,11 +503,11 @@ function SupplierPanel({
 
   return (
     <section className="grid gap-5 xl:grid-cols-[0.96fr_1.04fr]">
-      <Card className="rounded-[34px] border-0 bg-[linear-gradient(160deg,#fffdf7,#fff5db_52%,#ffeccc)] shadow-[0_20px_60px_rgba(23,43,77,0.1)] dark:bg-[linear-gradient(160deg,#1f1a10,#221c10_52%,#23180c)] dark:shadow-none">
+      <Card className="bg-card rounded-xl border-0 shadow-[var(--shadow-soft)] dark:shadow-none">
         <CardContent className="space-y-5 px-6 py-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold tracking-[0.18em] text-amber-700 uppercase dark:text-amber-300">{isFr ? "Fournisseurs" : "Suppliers"}</p>
+              <p className="text-xs font-semibold tracking-wider text-amber-700 uppercase dark:text-amber-300">{isFr ? "Fournisseurs" : "Suppliers"}</p>
               <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-slate-50">
                 {isFr ? "Factures fournisseurs et sorties" : "Supplier invoices and outgoing payments"}
               </h3>
@@ -543,7 +543,7 @@ function SupplierPanel({
               <Link
                 key={transfer.id}
                 href="/finance/transfers"
-                className="animate-fade-up rounded-[28px] border border-white/70 bg-white/88 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-slate-900/70 dark:shadow-none"
+                className="animate-fade-up rounded-xl border border-white/70 bg-white/88 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-slate-900/70 dark:shadow-none"
                 style={{ animationDelay: `${index * 55}ms` }}
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -567,10 +567,10 @@ function SupplierPanel({
         </CardContent>
       </Card>
 
-      <Card className="rounded-[34px] border-slate-200 bg-white shadow-[0_20px_60px_rgba(23,43,77,0.08)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
+      <Card className="rounded-xl border-slate-200 bg-white shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
         <CardContent className="space-y-5 px-6 py-6">
           <div>
-            <p className="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-300">{isFr ? "Lecture fournisseurs" : "Supplier reading"}</p>
+            <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-300">{isFr ? "Lecture fournisseurs" : "Supplier reading"}</p>
             <h3 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Statut simple et lisible" : "Simple readable status"}</h3>
           </div>
 
@@ -579,7 +579,7 @@ function SupplierPanel({
             <MiniMetric label={isFr ? "Confirmées" : "Confirmed"} value={String(transferSummary.confirmedCount)} />
           </div>
 
-          <div className="rounded-[28px] border border-slate-200 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.04]">
             <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">{isFr ? "Logique de suivi" : "Tracking logic"}</p>
             <div className="mt-4 space-y-3 text-sm text-slate-600">
               <StatusLegend tone="amber" label={isFr ? "À payer" : "To pay"} detail={isFr ? "Facture fournisseur créée mais non réglée." : "Supplier invoice created but not yet paid."} />
@@ -608,11 +608,11 @@ function BankPanel({
 
   return (
     <section className="grid gap-5 xl:grid-cols-[0.86fr_1.14fr]">
-      <Card className="rounded-[34px] border-0 bg-[linear-gradient(160deg,#f7fcff,#e6f4ff_48%,#d6eeff)] shadow-[0_20px_60px_rgba(23,43,77,0.1)] dark:bg-[linear-gradient(160deg,#0d1820,#10202b_48%,#0b1721)] dark:shadow-none">
+      <Card className="bg-card rounded-xl border-0 shadow-[var(--shadow-soft)] dark:shadow-none">
         <CardContent className="space-y-5 px-6 py-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold tracking-[0.18em] text-cyan-700 uppercase dark:text-cyan-300">{isFr ? "Banques" : "Banks"}</p>
+              <p className="text-xs font-semibold tracking-wider text-cyan-700 uppercase dark:text-cyan-300">{isFr ? "Banques" : "Banks"}</p>
               <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-slate-50">{isFr ? "Relevés et rapprochement" : "Statements and reconciliation"}</h3>
               <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">
                 {isFr
@@ -630,7 +630,7 @@ function BankPanel({
             <MetricTile label={isFr ? "Non reconnues" : "Unrecognized"} value={String(bankSummary?.unmatchedLines ?? 0)} detail={isFr ? "Lignes sans correspondance" : "Lines without a match"} tone="slate" />
           </div>
 
-          <div className="rounded-[28px] border border-white/70 bg-white/88 p-5 dark:border-white/10 dark:bg-slate-900/70">
+          <div className="rounded-xl border border-white/70 bg-white/88 p-5 dark:border-white/10 dark:bg-slate-900/70">
             <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">{isFr ? "Rapprochement automatique" : "Automatic reconciliation"}</p>
             <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
               {isFr
@@ -641,10 +641,10 @@ function BankPanel({
         </CardContent>
       </Card>
 
-      <Card className="rounded-[34px] border-slate-200 bg-white shadow-[0_20px_60px_rgba(23,43,77,0.08)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
+      <Card className="rounded-xl border-slate-200 bg-white shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
         <CardContent className="space-y-5 px-6 py-6">
           <div>
-            <p className="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-300">{isFr ? "Derniers relevés" : "Latest statements"}</p>
+            <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-300">{isFr ? "Derniers relevés" : "Latest statements"}</p>
             <h3 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Lignes lues et validation" : "Read lines and validation"}</h3>
           </div>
 
@@ -653,7 +653,7 @@ function BankPanel({
               {bankStatements.slice(0, 4).map((statement, index) => (
                 <div
                   key={statement.id}
-                  className="animate-fade-up rounded-[28px] border border-slate-200 bg-slate-50/75 p-4 dark:border-white/10 dark:bg-white/[0.04]"
+                  className="animate-fade-up rounded-xl border border-slate-200 bg-slate-50/75 p-4 dark:border-white/10 dark:bg-white/[0.04]"
                   style={{ animationDelay: `${index * 70}ms` }}
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -671,7 +671,7 @@ function BankPanel({
 
                   <div className="mt-4 grid gap-3">
                     {statement.lines.slice(0, 4).map((line) => (
-                      <div key={line.id} className="rounded-[22px] border border-white bg-white p-4 dark:border-white/10 dark:bg-slate-900/70">
+                      <div key={line.id} className="rounded-xl border border-white bg-white p-4 dark:border-white/10 dark:bg-slate-900/70">
                         <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
                           <div>
                             <p className="text-sm font-medium text-slate-950 dark:text-slate-50">{line.description}</p>
@@ -698,7 +698,7 @@ function BankPanel({
               ))}
             </div>
           ) : (
-            <div className="rounded-[28px] border border-dashed border-slate-300 bg-slate-50/70 p-6 text-sm text-slate-500 dark:border-white/12 dark:bg-white/[0.04] dark:text-slate-300">
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-6 text-sm text-slate-500 dark:border-white/12 dark:bg-white/[0.04] dark:text-slate-300">
               {isFr ? "Aucun relevé importé pour le moment." : "No statement imported yet."}
             </div>
           )}
@@ -786,7 +786,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={[
-        "inline-flex items-center gap-2 rounded-[22px] px-4 py-3 text-sm font-medium transition-all duration-200",
+        "inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200",
         active
           ? "bg-slate-950 text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] dark:bg-sky-500/16 dark:text-sky-100 dark:shadow-none"
           : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/[0.08]",
@@ -828,11 +828,11 @@ function OverviewCard({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`group w-full rounded-[28px] border p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${toneClass} ${active ? "ring-2 ring-slate-950/15 ring-offset-2 dark:ring-white/25 dark:ring-offset-slate-950" : ""}`}
+      className={`group w-full rounded-xl border p-5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${toneClass} ${active ? "ring-2 ring-slate-950/15 ring-offset-2 dark:ring-white/25 dark:ring-offset-slate-950" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold tracking-[0.14em] uppercase">{title}</p>
+          <p className="text-xs font-semibold tracking-wider uppercase">{title}</p>
           <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</p>
           <p className="mt-2 text-sm opacity-80">{detail}</p>
           <p className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold">
@@ -840,7 +840,7 @@ function OverviewCard({
             <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-1" />
           </p>
         </div>
-        <div className="flex size-11 items-center justify-center rounded-2xl border border-current/10 bg-white/60 dark:bg-white/[0.08]">
+        <div className="flex size-11 items-center justify-center rounded-xl border border-current/10 bg-white/60 dark:bg-white/[0.08]">
           <Icon className="size-4" />
         </div>
       </div>
@@ -868,8 +868,8 @@ function MetricTile({
   }[tone];
 
   return (
-    <div className={`rounded-[24px] border p-4 ${toneClass}`}>
-      <p className="text-xs font-semibold tracking-[0.14em] uppercase">{label}</p>
+    <div className={`rounded-xl border p-4 ${toneClass}`}>
+      <p className="text-xs font-semibold tracking-wider uppercase">{label}</p>
       <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</p>
       <p className="mt-2 text-sm opacity-80">{detail}</p>
     </div>
@@ -878,8 +878,8 @@ function MetricTile({
 
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.04]">
-      <p className="text-xs font-semibold tracking-[0.14em] text-slate-500 uppercase dark:text-slate-300">{label}</p>
+    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+      <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-300">{label}</p>
       <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-slate-50">{value}</p>
     </div>
   );
@@ -900,7 +900,7 @@ function StatusChip({
   }[tone];
 
   return (
-    <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold tracking-[0.14em] uppercase ${toneClass}`}>
+    <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold tracking-wider uppercase ${toneClass}`}>
       <CheckCircle2 className="size-3.5" />
       {label}
     </div>
@@ -926,7 +926,7 @@ function StatusLegend({
 
 function InfoLine({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-[22px] border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+    <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.04]">
       <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">{title}</p>
       <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{text}</p>
     </div>

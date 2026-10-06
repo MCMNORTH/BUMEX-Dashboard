@@ -28,7 +28,7 @@ export function CalendarEventCard({
     <button
       type="button"
       onClick={() => onSelect(event)}
-      className={`w-full rounded-[20px] border border-border/65 bg-background/40 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:bg-background/56 ${compact ? "p-3" : "p-4"}`}
+      className={`w-full rounded-xl border border-border/65 bg-background/40 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:bg-background/56 ${compact ? "p-3" : "p-4"}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -46,7 +46,7 @@ export function CalendarEventCard({
             ) : null}
           </div>
         </div>
-        <Badge variant="secondary" className="rounded-full px-2.5 py-1 text-[10px] uppercase">
+        <Badge variant="secondary">
           {getTypeLabel(event.type, locale === "fr")}
         </Badge>
       </div>
@@ -59,13 +59,13 @@ export function CalendarEventCard({
           {event.priority ? <TicketPriorityBadge priority={event.priority as never} /> : null}
           {event.health ? <ProjectHealthBadge health={event.health} /> : null}
           {event.status && event.type !== "milestone" ? (
-            <Badge variant="outline" className="rounded-full px-2.5 py-1 text-[10px] uppercase">
+            <Badge variant="outline">
               <CircleAlert className="mr-1 size-3" />
               {event.status.replaceAll("_", " ")}
             </Badge>
           ) : null}
           {event.clientName ? (
-            <Badge variant="outline" className="rounded-full px-2.5 py-1 text-[10px] uppercase">
+            <Badge variant="outline">
               <Flag className="mr-1 size-3" />
               {event.clientName}
             </Badge>

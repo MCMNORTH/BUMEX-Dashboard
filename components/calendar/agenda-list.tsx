@@ -14,7 +14,7 @@ export function AgendaList({
   const { locale } = useI18n();
   if (!events.length) {
     return (
-      <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
+      <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
         {locale === "fr" ? "Aucun événement dans la période affichée." : "No events in the current agenda scope."}
       </div>
     );

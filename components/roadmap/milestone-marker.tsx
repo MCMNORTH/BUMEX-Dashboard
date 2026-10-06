@@ -34,13 +34,13 @@ export function MilestoneMarker({
           <TooltipTrigger asChild>
             <button
               type="button"
-              className={`absolute top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.08em] uppercase transition-all ${milestone.status === "completed" ? "border-emerald-400/30 bg-emerald-400/12 text-emerald-100" : milestone.status === "delayed" ? "border-amber-400/30 bg-amber-400/12 text-amber-100" : "border-primary/30 bg-primary/14 text-primary-foreground"}`}
+              className={`absolute top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium tracking-wide uppercase transition-all ${milestone.status === "completed" ? "border-emerald-400/30 bg-emerald-400/12 text-emerald-700 dark:text-emerald-100" : milestone.status === "delayed" ? "border-amber-400/30 bg-amber-400/12 text-amber-700 dark:text-amber-100" : "border-primary/30 bg-primary/14 text-primary-foreground"}`}
             >
               <Flag className="size-3" />
               <span className="hidden md:inline">{milestone.title}</span>
             </button>
           </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-xs rounded-2xl border-border/70 bg-popover/95 backdrop-blur-xl">
+          <TooltipContent side="top" className="max-w-xs rounded-xl border-border/70 bg-popover/95">
             <p className="font-medium">{milestone.title}</p>
             <p className="mt-1 text-xs text-muted-foreground">{formatRoadmapDate(milestone.due_date)}</p>
           </TooltipContent>
@@ -50,7 +50,7 @@ export function MilestoneMarker({
   }
 
   return (
-    <div className="rounded-[24px] border border-border/65 bg-background/40 p-4 shadow-[var(--shadow-soft)]">
+    <div className="rounded-xl border border-border/65 bg-background/40 p-4 shadow-[var(--shadow-soft)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <div className="flex items-center gap-2">

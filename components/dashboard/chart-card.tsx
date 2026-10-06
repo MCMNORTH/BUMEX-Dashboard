@@ -27,12 +27,12 @@ export function ChartCard({
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-lg tracking-[-0.01em]">{title}</CardTitle>
           {badge ? (
-            <Badge variant="secondary" className="rounded-full px-2.5 py-0.5 text-[10px] tracking-[0.14em] uppercase">
+            <Badge variant="secondary">
               {badge}
             </Badge>
           ) : null}
         </div>
-        <CardDescription className="max-w-xl text-[12px] leading-5">{description}</CardDescription>
+        <CardDescription className="max-w-xl text-xs leading-5">{description}</CardDescription>
       </CardHeader>
       <CardContent className={cn("relative min-w-0 px-4 pb-4", contentClassName)}>{children}</CardContent>
     </Card>

@@ -56,7 +56,7 @@ export function MyWorkViewPanel({
           </Activity>
         </>
       ) : (
-        <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+        <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
           {isFr
             ? "Aucun ticket ne vous est assigné dans le périmètre actuel."
             : "No tickets are assigned to you in the current scope."}
@@ -92,7 +92,7 @@ function CardShell({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
             {isFr ? "File prioritaire" : "Focus queue"}
           </p>
           <h2 className="mt-2 text-xl font-semibold tracking-tight">

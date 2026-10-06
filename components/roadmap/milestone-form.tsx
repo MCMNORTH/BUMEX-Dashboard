@@ -30,7 +30,7 @@ function SubmitButton({ mode, isFr }: { mode: "create" | "edit"; isFr: boolean }
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" className="rounded-2xl px-5" disabled={pending}>
+    <Button type="submit" className="rounded-xl px-5" disabled={pending}>
       {pending ? (isFr ? "Enregistrement..." : "Saving...") : mode === "create" ? (isFr ? "Créer le jalon" : "Create milestone") : (isFr ? "Enregistrer" : "Save changes")}
     </Button>
   );
@@ -167,7 +167,7 @@ export function MilestoneForm({
           </div>
 
           {state.error ? (
-            <div className="sm:col-span-2 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-red-200">
+            <div className="sm:col-span-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
               {state.error}
             </div>
           ) : null}

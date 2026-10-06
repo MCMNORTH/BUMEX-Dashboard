@@ -9,9 +9,9 @@
       "profile": "Profil",
       "preferences": "Préférences de l’espace",
       "notifications": "Notifications",
-    "signOut": "Se déconnecter",
-    "cancel": "Annuler",
-    "confirmSignOut": "Oui, se déconnecter",
+      "signOut": "Se déconnecter",
+      "cancel": "Annuler",
+      "confirmSignOut": "Oui, se déconnecter",
       "create": "Créer",
       "edit": "Modifier",
       "apply": "Appliquer",
@@ -21,9 +21,12 @@
       "editTicket": "Modifier le ticket",
       "saving": "Enregistrement...",
       "boardSummary": "Résumé board",
-      "exportCsv": "Exporter CSV"
+      "exportCsv": "Exporter CSV",
+      "confirm": "Confirmer",
+      "clearFilters": "Effacer les filtres",
+      "archive": "Archiver"
     },
-  "states": {
+    "states": {
       "loading": "Chargement..."
     }
   },
@@ -117,7 +120,8 @@
         "description": "Mentions, assignations et mises à jour."
       }
     },
-    "liveShell": "Shell actif"
+    "liveShell": "Shell actif",
+    "switchEntity": "Changer d’entité"
   },
   "search": {
     "placeholder": "Rechercher dans l’espace de travail",
@@ -168,255 +172,6 @@
       "defaultSubtitle": "Risques tickets, échéances, jalons et charge dérivés du planning en direct."
     }
   },
-  "overview": {
-    "eyebrow": "Vue exécutive",
-    "titles": {
-      "shareholder": "Une vue stratégique simplifiée de la performance BUMEX IT.",
-      "employee": "Votre espace de delivery pour le cycle opérationnel en cours.",
-      "default": "Une surface de pilotage en direct pour la performance BUMEX IT."
-    },
-    "subtitles": {
-      "shareholder": "Signaux high-level, visibilité risque et contexte board sans bruit opérationnel.",
-      "employee": "Une vue concentrée sur votre exécution, votre charge assignée et les signaux de delivery prioritaires.",
-      "default": "Un dashboard investor-grade avec métriques fortes, visibilité opérationnelle et signaux prospectifs."
-    },
-    "hero": {
-      "badge": "Mode haute visibilité",
-      "titles": {
-        "shareholder": "La performance stratégique reste stable, avec deux zones delivery demandant une vigilance board plus forte.",
-        "employee": "Votre flux de delivery avance bien, mais la concentration de charge en milieu de semaine demande de l’attention.",
-        "default": "L’exécution progresse au-dessus du plan, mais la concentration delivery demande de l’attention."
-      },
-      "descriptions": {
-        "shareholder": "Les indicateurs principaux restent solides. Les principaux points de pression à court terme concernent la charge support et quelques validations impactant la prévision.",
-        "employee": "Le travail assigné progresse proprement, la réactivité ticket s’est améliorée, et la pression principale vient d’une demande support concentrée.",
-        "default": "Les projets avancent vite, la réponse ticket s’est améliorée, et la production opérationnelle est solide. La pression principale reste concentrée sur le support et deux programmes freinés par des validations."
-      },
-      "confidence": "Confiance delivery",
-      "focus": "Focus personnel",
-      "riskReview": "Revue de risque",
-      "watchlist": "Watchlist board",
-      "programs": "2 programmes",
-      "signalTitle": "Signal principal",
-      "signalDescription": "La capacité support demande de l’attention avant une escalade en milieu de semaine.",
-      "watchClosely": "À surveiller",
-      "signalFooter": "Une exécution solide compense les points de pression actuels",
-      "healthScore": "Score de santé",
-      "healthDetail": "Confiance delivery composite",
-      "focusWindow": "Fenêtre de focus",
-      "focusWindowValue": "7 jours",
-      "focusWindowDetail": "Échéances et actions de leadership"
-    },
-    "sections": {
-      "teamWorkload": "Visualisation de la charge équipe",
-      "assignedWorkload": "Charge équipe assignée",
-      "workloadDescription": "Répartition actuelle de l’effort par unité, avec emphase au survol pour comparer rapidement.",
-      "kpis": "KPIs",
-      "performancePulse": "Pulse de performance opérationnelle",
-      "insights": "Analyses",
-      "focusToday": "Focus du jour",
-      "strategicFocus": "Focus stratégique",
-      "weeklyProgress": "Progression hebdomadaire",
-      "weeklyProgressDescription": "Travail terminé versus charge active sur la semaine.",
-      "projectHealth": "Indicateurs de santé projet",
-      "projectHealthDescription": "Lecture rapide de la confiance delivery stratégique.",
-      "taskDistribution": "Répartition des tâches",
-      "taskDistributionDescription": "Part du travail par domaine de delivery.",
-      "activityTimeline": "Timeline d’activité",
-      "activityTimelineDescription": "Mouvements récents dans le système opérationnel.",
-      "upcomingDeadlines": "Échéances à venir",
-      "upcomingDeadlinesDescription": "Événements et engagements à garder visibles.",
-      "atRiskProjects": "Projets à risque",
-      "atRiskProjectsDescription": "Zones demandant une attention exécutive avant aggravation.",
-      "next7Days": "Planification des 7 prochains jours",
-      "next7DaysDescription": "Aperçu du rythme opérationnel à venir."
-    },
-    "misc": {
-      "capacity": "Capacité",
-      "allStatuses": "Tous statuts",
-      "healthScore": "Score de santé",
-      "currentResilience": "Résilience actuelle",
-      "planningReadiness": "Maturité planning",
-      "planningReadinessDetail": "Structuré pour les futurs modules de timeline",
-      "stable": "Stable",
-      "strong": "Fort",
-      "excellent": "Excellent",
-      "watch": "Surveillance",
-      "atRisk": "À risque",
-      "mix": "Répartition",
-      "activity": "Activité",
-      "planning": "Planning",
-      "risks": "Risques",
-      "sevenDayView": "Vue 7 jours"
-    },
-    "datasets": {
-      "kpis": [
-        {
-          "title": "Projets actifs",
-          "caption": "4 nouveaux lancements ce mois"
-        },
-        {
-          "title": "Tickets ouverts",
-          "caption": "Le temps de réponse SLA s’améliore"
-        },
-        {
-          "title": "Tâches terminées",
-          "caption": "La vélocité d’exécution accélère"
-        },
-        {
-          "title": "Paiements en attente",
-          "caption": "2 factures dépassent la fenêtre cible"
-        }
-      ],
-      "workload": [
-        "Infrastructure",
-        "Produit",
-        "Support",
-        "Sécurité",
-        "Data"
-      ],
-      "taskDistribution": [
-        "Delivery",
-        "Opérations",
-        "Conformité",
-        "Finance"
-      ],
-      "projectHealth": [
-        {
-          "name": "Déploiement Atlas ERP",
-          "status": "Fort",
-          "owner": "Infrastructure"
-        },
-        {
-          "name": "Portail client Nimbus",
-          "status": "Surveillance",
-          "owner": "Produit"
-        },
-        {
-          "name": "Audit sécurité Orion",
-          "status": "Excellent",
-          "owner": "Sécurité"
-        },
-        {
-          "name": "Hub Data Vertex",
-          "status": "À risque",
-          "owner": "Data"
-        }
-      ],
-      "focusToday": [
-        {
-          "label": "Pulse exécutif",
-          "title": "La vélocité delivery dépasse la prévision",
-          "description": "La complétion des tâches suit une trajectoire 14% au-dessus du benchmark des sept derniers jours."
-        },
-        {
-          "label": "Signal équipe",
-          "title": "La charge support approche la saturation",
-          "description": "La capacité de tri reste saine, mais la file actuelle suggère une pression staffing plus tard dans la semaine."
-        },
-        {
-          "label": "Commercial",
-          "title": "Deux contrats enterprise sont prêts pour le circuit d’approbation",
-          "description": "Les commentaires juridiques sont levés et la validation finance peut être lancée une fois l’espace connecté."
-        }
-      ],
-      "activityFeed": [
-        {
-          "title": "Revue sécurité validée pour l’audit Orion",
-          "description": "Les contrôles de risque ont été validés et la note de leadership publiée.",
-          "actor": "Security Office"
-        },
-        {
-          "title": "Escalade client reçue pour le rollout Nimbus",
-          "description": "Les leads support et produit se sont alignés sur la mitigation et le timing de réponse.",
-          "actor": "Client Success"
-        },
-        {
-          "title": "Pack de facturation généré pour le cycle finance d’avril",
-          "description": "La file des paiements en attente a été rafraîchie avec deux nouveaux sujets enterprise.",
-          "actor": "Finance Ops"
-        },
-        {
-          "title": "Mise à jour de ressources soumise par le lead infrastructure",
-          "description": "L’allocation de capacité a changé pour le flux de migration Atlas.",
-          "actor": "PMO"
-        }
-      ],
-      "atRiskProjects": [
-        {
-          "title": "Hub Data Vertex",
-          "owner": "Plateforme Data",
-          "risk": "L’extension de périmètre dépasse la capacité d’intégration.",
-          "severity": "Élevé"
-        },
-        {
-          "title": "Portail client Nimbus",
-          "owner": "Delivery Produit",
-          "risk": "Les validations stakeholders retardent la design freeze.",
-          "severity": "Moyen"
-        }
-      ],
-      "upcomingDeadlines": [
-        {
-          "title": "Revue de préparation migration Atlas",
-          "date": "Demain",
-          "detail": "Checkpoint exécutif avec les sponsors infrastructure et finance."
-        },
-        {
-          "title": "Mémo steering client Nimbus",
-          "date": "Dans 2 jours",
-          "detail": "Le package de statut et la recommandation de lancement révisée sont attendus."
-        },
-        {
-          "title": "Fenêtre d’approbation contrat d’avril",
-          "date": "Dans 5 jours",
-          "detail": "Deux avenants enterprise demandent une confirmation finale."
-        },
-        {
-          "title": "Soumission des preuves sécurité",
-          "date": "Dans 7 jours",
-          "detail": "Les artefacts d’audit sont planifiés pour livraison aux reviewers externes."
-        }
-      ],
-      "nextSevenDays": [
-        {
-          "day": "Lun",
-          "title": "Sync PMO",
-          "theme": "Alignement roadmap et blockers"
-        },
-        {
-          "day": "Mar",
-          "title": "Checkpoint sécurité",
-          "theme": "Preuves d’audit et validations"
-        },
-        {
-          "day": "Mer",
-          "title": "Steering client",
-          "theme": "Suivi de l’escalade Nimbus"
-        },
-        {
-          "day": "Jeu",
-          "title": "Préparation clôture finance",
-          "theme": "Validation des factures et approbations"
-        },
-        {
-          "day": "Ven",
-          "title": "Revue leadership",
-          "theme": "Résumé hebdo board-ready"
-        },
-        {
-          "day": "Sam",
-          "title": "Opérations légères",
-          "theme": "Couverture de monitoring réduite"
-        },
-        {
-          "day": "Dim",
-          "title": "Reset planning",
-          "theme": "Séquençage de la semaine et focus"
-        }
-      ]
-    }
-  },
   "tickets": {
     "page": {
       "eyebrow": "Module tickets",
@@ -456,9 +211,11 @@
       }
     },
     "emptyState": {
-      "title": "Aucun ticket ne correspond à la vue actuelle",
-      "description": "Affinez les filtres, élargissez la recherche, ou créez un ticket pour commencer à suivre le travail opérationnel.",
-      "noAccess": "Aucun droit de création"
+      "title": "Aucun ticket pour le moment",
+      "description": "Créez un ticket pour commencer à suivre le travail.",
+      "noAccess": "Aucun droit de création",
+      "filteredTitle": "Aucun ticket ne correspond à ces filtres",
+      "filteredDescription": "Essayez un autre filtre rapide ou effacez les filtres pour voir tous les tickets."
     },
     "form": {
       "createTitle": "Créer un ticket",
@@ -482,7 +239,7 @@
         "githubIssueUrl": "URL GitHub issue"
       },
       "placeholders": {
-        "description": "Contexte opérationnel, détails du bug ou résultat attendu",
+        "description": "Que faut-il faire, et pourquoi ?",
         "optional": "Optionnel",
         "github": "https://github.com/..."
       },
@@ -514,11 +271,13 @@
           "client_request": "Demande client",
           "internal": "Interne"
         }
-      }
+      },
+      "moreDetails": "Plus de détails",
+      "moreDetailsHint": "Type, statut, rapporteur, temps, lien GitHub"
     },
     "filters": {
       "allStatuses": "Tous les statuts",
-      "searchPlaceholder": "Rechercher tickets, bugs, demandes client ou travail support",
+      "searchPlaceholder": "Rechercher un ticket par titre",
       "allPriorities": "Toutes les priorités",
       "allAssignees": "Tous les assignés",
       "allProjects": "Tous les projets",
@@ -527,7 +286,9 @@
       "dueIn7Days": "Échéance dans 7 jours",
       "dueIn30Days": "Échéance dans 30 jours",
       "noDeadline": "Aucune échéance",
-      "allTypes": "Tous les types"
+      "allTypes": "Tous les types",
+      "unassigned": "Sans responsable",
+      "searchLabel": "Rechercher des tickets"
     }
   },
   "finance": {
@@ -610,7 +371,7 @@
       "titleEdit": "Mettre à jour la facture",
       "description": "Construisez un dossier de facturation propre pour les revenus clients, gardez le statut visible et joignez directement un justificatif.",
       "generatedAutomatically": "Généré automatiquement",
-      "noTaxHint": "Utilisez `0` si cette facture n'a pas de taxe.",
+      "noTaxHint": "Indiquez 0 si cette facture n’a pas de taxe.",
       "supportingFileHint": "Joignez le PDF final de la facture, une copie signée par le client ou tout autre fichier utile.",
       "fields": {
         "invoiceNumber": "Numéro de facture",
@@ -764,8 +525,313 @@
       "next7Days": "7 prochains jours",
       "next30Days": "30 prochains jours"
     }
-  }
-  ,"confirmations": {
+  },
+  "confirmations": {
     "signOut": "Êtes-vous sûr de vouloir vous déconnecter ? Votre session actuelle prendra fin immédiatement."
+  },
+  "overview": {
+    "title": "Vue générale",
+    "subtitle": "Ce qui demande votre attention aujourd’hui, et ce qui arrive.",
+    "actions": {
+      "newTicket": "Nouveau ticket",
+      "newProject": "Nouveau projet",
+      "myWork": "Mon travail"
+    },
+    "unavailable": "Certaines données n’ont pas pu être chargées ({sources}). Les chiffres ci-dessous peuvent être incomplets.",
+    "sources": {
+      "projects": "projets",
+      "tickets": "tickets",
+      "workload": "charge de l’équipe",
+      "finance": "finances"
+    },
+    "kpis": {
+      "label": "Chiffres clés",
+      "activeProjects": "Projets actifs",
+      "openTickets": "Tickets ouverts",
+      "thisMonth": "+{count} ce mois-ci",
+      "needsAttention": "Tickets à traiter",
+      "needsAttentionCaption": "Bloqués, en retard, urgents ou sans responsable",
+      "myAttentionCaption": "Vos tickets bloqués, en retard ou urgents",
+      "completedThisMonth": "Terminés ce mois-ci",
+      "completedCaption": "Tickets passés à terminé",
+      "pendingInvoices": "Factures en attente",
+      "pendingInvoicesCaption": "{count} en attente de paiement",
+      "atRiskProjects": "Projets à risque",
+      "atRiskCaption": "À risque ou en retard",
+      "notAvailable": "Indisponible"
+    },
+    "attention": {
+      "title": "À traiter",
+      "projects": "Projets à risque",
+      "projectsEmpty": "Aucun projet à risque ou en retard.",
+      "tickets": "Tickets",
+      "ticketsEmpty": "Rien n’est bloqué, en retard, urgent ou sans responsable.",
+      "seeAll": "Tout voir ({count})",
+      "noOwner": "Sans responsable",
+      "noProject": "Sans projet",
+      "due": "Échéance {date}",
+      "reasons": {
+        "blocked": "Bloqué",
+        "overdue": "En retard",
+        "urgent": "Urgent",
+        "unassigned": "Sans responsable"
+      }
+    },
+    "upcoming": {
+      "title": "À venir",
+      "subtitle": "Échéances des 14 prochains jours",
+      "empty": "Aucune échéance dans les 14 prochains jours.",
+      "openCalendar": "Ouvrir le calendrier",
+      "kinds": {
+        "project": "Projet",
+        "ticket": "Ticket",
+        "invoice": "Facture",
+        "payment": "Paiement"
+      }
+    },
+    "workload": {
+      "title": "Charge de l’équipe",
+      "subtitle": "Les personnes les plus chargées en ce moment",
+      "empty": "Pas encore de données de charge. Assignez des tickets et renseignez la capacité hebdomadaire pour les voir ici.",
+      "active": "{count} en cours",
+      "overdue": "{count} en retard",
+      "openTeam": "Voir l’équipe"
+    },
+    "dates": {
+      "today": "Aujourd’hui",
+      "tomorrow": "Demain",
+      "inDays": "Dans {count} jours"
+    }
+  },
+  "toasts": {
+    "client-created": {
+      "title": "Client créé",
+      "description": "Le client a été ajouté."
+    },
+    "client-updated": {
+      "title": "Client mis à jour",
+      "description": "Vos modifications ont été enregistrées."
+    },
+    "client-archived": {
+      "title": "Client archivé",
+      "description": "Le client a été archivé."
+    },
+    "client-archive-error": {
+      "title": "Archivage impossible",
+      "description": "Vous n’avez pas les droits pour archiver ce client."
+    },
+    "contract-created": {
+      "title": "Contrat créé",
+      "description": "Le contrat a été ajouté."
+    },
+    "contract-updated": {
+      "title": "Contrat mis à jour",
+      "description": "Vos modifications ont été enregistrées."
+    },
+    "contract-archived": {
+      "title": "Contrat archivé",
+      "description": "Le contrat a été archivé."
+    },
+    "contract-archive-error": {
+      "title": "Archivage impossible",
+      "description": "Vous n’avez pas les droits pour archiver ce contrat."
+    },
+    "document-uploaded": {
+      "title": "Document importé",
+      "description": "Le fichier a été enregistré et associé."
+    },
+    "document-updated": {
+      "title": "Document mis à jour",
+      "description": "Vos modifications ont été enregistrées."
+    },
+    "document-archived": {
+      "title": "Document archivé",
+      "description": "Le document a été déplacé dans les archives."
+    },
+    "document-restored": {
+      "title": "Document restauré",
+      "description": "Le document est de nouveau actif."
+    },
+    "document-deleted": {
+      "title": "Document supprimé",
+      "description": "Le document a été supprimé."
+    },
+    "document-action-error": {
+      "title": "Action impossible",
+      "description": "L’action sur le document n’a pas pu aboutir."
+    },
+    "invoice-created": {
+      "title": "Facture créée",
+      "description": "La facture a été ajoutée."
+    },
+    "invoice-updated": {
+      "title": "Facture mise à jour",
+      "description": "Vos modifications ont été enregistrées."
+    },
+    "invoice-deleted": {
+      "title": "Facture supprimée",
+      "description": "La facture a été supprimée."
+    },
+    "invoice-delete-error": {
+      "title": "Suppression impossible",
+      "description": "Vous n’avez pas les droits pour supprimer cette facture."
+    },
+    "invoice-delete-approved-error": {
+      "title": "Suppression protégée",
+      "description": "Une facture validée ne peut être supprimée que par un administrateur."
+    },
+    "receipt-created": {
+      "title": "Reçu créé",
+      "description": "Le reçu a été associé."
+    },
+    "invoice-sent": {
+      "title": "Facture envoyée",
+      "description": "L’e-mail de la facture a été envoyé."
+    },
+    "invoice-approved": {
+      "title": "Facture validée",
+      "description": "Le PDF peut maintenant être téléchargé et envoyé au client."
+    },
+    "invoice-approval-error": {
+      "title": "Validation impossible",
+      "description": "Seul un administrateur peut valider cette facture."
+    },
+    "invoice-changes-requested": {
+      "title": "Corrections demandées",
+      "description": "Le créateur de la facture a reçu votre demande et son motif."
+    },
+    "invoice-changes-error": {
+      "title": "Demande incomplète",
+      "description": "Ajoutez un motif clair d’au moins cinq caractères."
+    },
+    "invoice-reminder-sent": {
+      "title": "Relance envoyée",
+      "description": "Les administrateurs ont reçu un rappel de validation."
+    },
+    "invoice-reminder-limited": {
+      "title": "Relance déjà envoyée",
+      "description": "Une seule relance est autorisée toutes les 24 heures."
+    },
+    "invoice-reminder-error": {
+      "title": "Relance impossible",
+      "description": "Cette facture ne peut pas être relancée avec votre accès actuel."
+    },
+    "invoice-revoked": {
+      "title": "Validation retirée",
+      "description": "La facture est de nouveau verrouillée et son créateur a été informé."
+    },
+    "invoice-revoke-error": {
+      "title": "Retrait impossible",
+      "description": "Indiquez un motif clair pour retirer cette validation."
+    },
+    "payment-created": {
+      "title": "Paiement créé",
+      "description": "Le paiement a été ajouté."
+    },
+    "payment-updated": {
+      "title": "Paiement mis à jour",
+      "description": "Vos modifications ont été enregistrées."
+    },
+    "payment-deleted": {
+      "title": "Paiement supprimé",
+      "description": "Le paiement a été supprimé."
+    },
+    "payment-delete-error": {
+      "title": "Suppression impossible",
+      "description": "Vous n’avez pas les droits pour supprimer ce paiement."
+    },
+    "project-created": {
+      "title": "Projet créé",
+      "description": "Le projet a été ajouté."
+    },
+    "project-updated": {
+      "title": "Projet mis à jour",
+      "description": "Vos modifications ont été enregistrées."
+    },
+    "project-deleted": {
+      "title": "Projet supprimé",
+      "description": "Le projet a été supprimé."
+    },
+    "project-delete-error": {
+      "title": "Suppression impossible",
+      "description": "Vous n’avez pas les droits pour supprimer ce projet."
+    },
+    "milestone-created": {
+      "title": "Jalon créé",
+      "description": "Le jalon a été ajouté à la roadmap."
+    },
+    "milestone-updated": {
+      "title": "Jalon mis à jour",
+      "description": "Vos modifications ont été enregistrées."
+    },
+    "milestone-deleted": {
+      "title": "Jalon supprimé",
+      "description": "Le jalon a été retiré de la roadmap."
+    },
+    "milestone-completed": {
+      "title": "Jalon terminé",
+      "description": "Le jalon a été marqué comme terminé."
+    },
+    "milestone-delete-error": {
+      "title": "Suppression impossible",
+      "description": "Vous n’avez pas les droits pour supprimer ce jalon."
+    },
+    "milestone-update-error": {
+      "title": "Mise à jour impossible",
+      "description": "La modification du jalon n’a pas pu être enregistrée."
+    },
+    "team-updated": {
+      "title": "Profil mis à jour",
+      "description": "Vos modifications ont été enregistrées."
+    },
+    "ticket-created": {
+      "title": "Ticket créé",
+      "description": "Le ticket a été ajouté."
+    },
+    "ticket-updated": {
+      "title": "Ticket mis à jour",
+      "description": "Vos modifications ont été enregistrées."
+    },
+    "ticket-deleted": {
+      "title": "Ticket supprimé",
+      "description": "Le ticket a été supprimé."
+    },
+    "ticket-delete-error": {
+      "title": "Suppression impossible",
+      "description": "Vous n’avez pas les droits pour supprimer ce ticket."
+    },
+    "transfer-created": {
+      "title": "Virement créé",
+      "description": "Le virement sortant a été ajouté."
+    },
+    "transfer-updated": {
+      "title": "Virement mis à jour",
+      "description": "Vos modifications ont été enregistrées."
+    },
+    "transfer-deleted": {
+      "title": "Virement supprimé",
+      "description": "Le virement a été supprimé."
+    },
+    "transfer-delete-error": {
+      "title": "Suppression impossible",
+      "description": "Vous n’avez pas les droits pour supprimer ce virement."
+    },
+    "dismiss": "Fermer"
+  },
+  "errors": {
+    "description": "Un problème est survenu pendant le chargement de cette page. Réessayez ; si le problème persiste, contactez un administrateur.",
+    "reference": "Référence",
+    "retry": "Réessayer",
+    "modules": {
+      "section": "Impossible de charger cette page",
+      "tickets": "Impossible de charger les tickets",
+      "projects": "Impossible de charger les projets",
+      "myWork": "Impossible de charger Mon travail",
+      "planning": "Impossible de charger la planification",
+      "calendar": "Impossible de charger le calendrier",
+      "roadmap": "Impossible de charger la roadmap",
+      "staffing": "Impossible de charger le staffing",
+      "timesheet": "Impossible de charger votre feuille de temps"
+    }
   }
 }

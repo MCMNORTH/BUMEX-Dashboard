@@ -119,7 +119,7 @@ export function TeamMemberForm({
           </div>
 
           {state.error ? (
-            <div className="sm:col-span-2 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-red-200">
+            <div className="sm:col-span-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
               {state.error}
             </div>
           ) : null}
@@ -134,7 +134,7 @@ export function TeamMemberForm({
           </div>
 
           <div className="sm:col-span-2 flex justify-end">
-            <Button type="submit" className="rounded-2xl px-5">
+            <Button type="submit" className="rounded-xl px-5">
               {isFr ? "Enregistrer les modifications" : "Save changes"}
             </Button>
           </div>

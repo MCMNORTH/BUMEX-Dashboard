@@ -14,7 +14,7 @@ export function AssignmentHelper({
   return (
     <div className="space-y-3 sm:col-span-2">
       <div>
-        <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Assignment helper</p>
+        <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Assignment helper</p>
         <h3 className="mt-2 text-base font-semibold tracking-tight">Visible assignee load</h3>
       </div>
 
@@ -38,20 +38,20 @@ export function AssignmentHelper({
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-4 text-sm text-muted-foreground">
+        <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-4 text-sm text-muted-foreground">
           Select an assignee to review current visible workload.
         </div>
       )}
 
       {helper.suggestedMembers.length ? (
-        <div className="rounded-[22px] border border-border/65 bg-background/35 p-4">
+        <div className="rounded-xl border border-border/65 bg-background/35 p-4">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Sparkles className="size-4 text-primary" />
             Suggested available people
           </div>
           <div className="mt-3 space-y-3">
             {helper.suggestedMembers.slice(0, 3).map((member) => (
-              <div key={member.id} className="rounded-2xl border border-border/60 bg-background/30 p-3">
+              <div key={member.id} className="rounded-xl border border-border/60 bg-background/30 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium">{member.full_name}</p>

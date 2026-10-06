@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { requireAuthenticatedUser } from "@/lib/auth/server";
 import { activeEntityCookieName, isBumexEntityCode } from "@/lib/entities/config";
 import { normalizeEntityMutationError } from "@/lib/entities/errors";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -38,8 +38,8 @@ export async function setActiveEntityAction(formData: FormData): Promise<SetActi
       maxAge: 60 * 60 * 24 * 365,
     });
 
-    const supabase = await createClient();
-    if (!supabase) {
+    const db = await createClient();
+    if (!db) {
       if (redirectPath.startsWith("/")) {
         revalidatePath(redirectPath);
       }
@@ -51,7 +51,7 @@ export async function setActiveEntityAction(formData: FormData): Promise<SetActi
       };
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from("profiles")
       .update({
         entity_code: entityCode,

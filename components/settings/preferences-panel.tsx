@@ -60,7 +60,7 @@ export function PreferencesPanel() {
       />
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-      <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+      <Card className="border-border/70 bg-card">
           <CardHeader>
             <CardTitle>{isFr ? "Préférences d’interface" : "Interface preferences"}</CardTitle>
             <CardDescription>{isFr ? "Valeurs visuelles par défaut et comportement personnel dans l’espace." : "Visual defaults and personal workspace behavior."}</CardDescription>
@@ -117,7 +117,7 @@ export function PreferencesPanel() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardHeader>
             <CardTitle>{isFr ? "État des préférences" : "Preferences state"}</CardTitle>
             <CardDescription>{isFr ? "Résumé local actuel des préférences pour cette session navigateur." : "Current local preference summary for this browser session."}</CardDescription>
@@ -136,8 +136,8 @@ export function PreferencesPanel() {
               detail={isFr ? "Placeholder temporaire" : "Placeholder only for now"}
             />
 
-            <div className="rounded-2xl border border-border/65 bg-background/35 p-4">
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Mode de stockage" : "Storage mode"}</p>
+            <div className="rounded-xl border border-border/65 bg-background/35 p-4">
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Mode de stockage" : "Storage mode"}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge variant="secondary" className="rounded-full px-3 py-1">{isFr ? "Fournisseur de thème" : "Theme provider"}</Badge>
                 <Badge variant="outline" className="rounded-full px-3 py-1">{isFr ? "État local du navigateur" : "Local browser state"}</Badge>
@@ -162,7 +162,7 @@ function PreferenceSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-4 rounded-[24px] border border-border/65 bg-background/35 p-4">
+    <div className="space-y-4 rounded-xl border border-border/65 bg-background/35 p-4">
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm font-medium">
           <Icon className="size-4 text-primary" />
@@ -187,9 +187,9 @@ function PreferenceButton({
   return (
     <button
       type="button"
-      className={`rounded-2xl border px-4 py-4 text-left text-sm transition-all ${
+      className={`rounded-xl border px-4 py-4 text-left text-sm transition-all ${
         active
-          ? "border-primary/30 bg-primary/12 text-foreground shadow-[0_10px_24px_rgba(14,165,233,0.08)] dark:border-sky-400/25 dark:bg-sky-500/14 dark:text-sky-100"
+          ? "border-primary/30 bg-primary/12 text-foreground shadow-[var(--shadow-soft)] dark:border-sky-400/25 dark:bg-sky-500/14 dark:text-sky-100"
           : "border-border/65 bg-background/45 text-foreground hover:bg-accent/40 dark:border-white/10 dark:bg-slate-950/45 dark:hover:bg-slate-900/70"
       }`}
       onClick={onClick}
@@ -213,7 +213,7 @@ function ToggleCard({
   return (
     <button
       type="button"
-      className={`rounded-2xl border px-4 py-4 text-left transition-all ${
+      className={`rounded-xl border px-4 py-4 text-left transition-all ${
         active
           ? "border-primary/40 bg-primary/12 dark:border-sky-400/25 dark:bg-sky-500/14"
           : "border-border/65 bg-background/45 hover:bg-accent/40 dark:border-white/10 dark:bg-slate-950/45 dark:hover:bg-slate-900/70"
@@ -240,8 +240,8 @@ function SummaryTile({
   detail: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border/65 bg-background/35 p-4 dark:border-white/10 dark:bg-slate-950/40">
-      <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">{label}</p>
+    <div className="rounded-xl border border-border/65 bg-background/35 p-4 dark:border-white/10 dark:bg-slate-950/40">
+      <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
       <p className="mt-3 text-sm font-medium capitalize">{value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
     </div>

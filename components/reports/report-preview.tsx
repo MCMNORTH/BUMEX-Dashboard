@@ -38,7 +38,7 @@ export function ReportPreview({ report, isFr = false }: { report: ReportDocument
         >
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div className="space-y-2">
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase print:text-black/60">{scopeLabel}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase print:text-black/60">{scopeLabel}</p>
               <h2 className="text-2xl font-semibold tracking-tight print:text-black">{title}</h2>
               <p className="text-sm leading-6 text-muted-foreground print:text-black/70">{subtitle}</p>
               <p className="text-sm leading-7 text-foreground/90 print:text-black">{summary}</p>

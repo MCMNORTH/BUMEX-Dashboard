@@ -18,7 +18,7 @@ export async function WeekNavigator({ week }: WeekNavigatorProps) {
   const currentWeek = formatDateKey(getWeekStart());
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-[28px] border border-border/70 bg-card/72 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl">
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)]">
       <Button asChild variant="secondary" className="rounded-full px-4">
         <Link href={`/planning?week=${previousWeek}`}>
           <ArrowLeft className="size-4" />
@@ -26,8 +26,8 @@ export async function WeekNavigator({ week }: WeekNavigatorProps) {
         </Link>
       </Button>
 
-      <div className="min-w-[12rem] flex-1 rounded-[22px] border border-border/65 bg-background/40 px-4 py-3">
-        <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+      <div className="min-w-[12rem] flex-1 rounded-xl border border-border/65 bg-background/40 px-4 py-3">
+        <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
           <CalendarDays className="size-4" />
           {isFr ? "Semaine actuelle" : "Current week"}
         </div>

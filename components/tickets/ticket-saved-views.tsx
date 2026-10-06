@@ -45,10 +45,10 @@ export function TicketSavedViews({
   }));
 
   return (
-    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
+    <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Saved views</p>
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Saved views</p>
           <h3 className="mt-2 text-lg font-semibold tracking-tight">Quick work slices</h3>
         </div>
         <span className="rounded-full border border-border/70 bg-background/40 px-3 py-1 text-xs text-muted-foreground">
@@ -69,7 +69,7 @@ export function TicketSavedViews({
               href={href}
               className="group rounded-xl border border-slate-200 bg-slate-50/70 p-3 transition-colors hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-white/16 dark:hover:bg-white/[0.06]"
             >
-              <div className="flex size-10 items-center justify-center rounded-2xl border border-border/65 bg-background/50 text-primary">
+              <div className="flex size-10 items-center justify-center rounded-xl border border-border/65 bg-background/50 text-primary">
                 <Icon className="size-4.5" />
               </div>
               <p className="mt-4 text-sm font-medium">{getTicketSavedViewLabel(view.key)}</p>

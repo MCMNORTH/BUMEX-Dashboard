@@ -15,14 +15,14 @@ export function OverdueClientsList({
     <Card className="border-slate-200 bg-white shadow-[var(--shadow-soft)]">
       <CardContent className="space-y-4 px-5 py-5">
         <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Overdue by client</p>
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Overdue by client</p>
           <h3 className="mt-2 text-lg font-semibold tracking-tight">Clients with the highest delay exposure</h3>
         </div>
         {clients.length ? (
           <div className="space-y-3">
             {clients.map((client) => {
               const content = (
-                <div className="rounded-[22px] border border-border/65 bg-background/35 p-4">
+                <div className="rounded-xl border border-border/65 bg-background/35 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium">{client.clientName}</p>
@@ -45,7 +45,7 @@ export function OverdueClientsList({
             })}
           </div>
         ) : (
-          <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
             No overdue client exposure is currently visible.
           </div>
         )}

@@ -10,11 +10,11 @@ export default function FinanceTransfersLoading() {
       </div>
       <div className="grid gap-4 xl:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
-          <Skeleton key={index} className="h-36 rounded-[28px]" />
+          <Skeleton key={index} className="h-36 rounded-xl" />
         ))}
       </div>
-      <Skeleton className="h-28 rounded-[28px]" />
-      <Skeleton className="h-[420px] rounded-[28px]" />
+      <Skeleton className="h-28 rounded-xl" />
+      <Skeleton className="h-[420px] rounded-xl" />
     </div>
   );
 }

@@ -165,15 +165,15 @@ export default async function FinanceTransfersPage({
             detail: isFr ? "Montant des décaissements suivis ce mois-ci" : "Tracked outgoing amount this month",
           },
         ].map(({ icon: Icon, label, value, detail }) => (
-          <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
+          <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card">
             <CardContent className="px-5 py-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{label}</p>
+                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
                   <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</p>
                   <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
                 </div>
-                <div className="flex size-11 items-center justify-center rounded-2xl border border-border/70 bg-background/45">
+                <div className="flex size-11 items-center justify-center rounded-xl border border-border/70 bg-background/45">
                   <Icon className="size-5 text-primary" />
                 </div>
               </div>
@@ -186,7 +186,7 @@ export default async function FinanceTransfersPage({
 
       <div className="grid gap-4 xl:grid-cols-5">
         {entitySummary.map((item) => (
-          <Card key={item.entity} className="border-border/70 bg-card/72 shadow-[var(--shadow-soft)]">
+          <Card key={item.entity} className="border-border/70 bg-card shadow-[var(--shadow-soft)]">
             <CardContent className="space-y-3 px-5 py-5">
               <TransferEntityBadge entity={item.entity as "bumex_it" | "insec" | "cnam_intec" | "ltm_yh" | "unassigned"} />
               <div>
@@ -201,7 +201,7 @@ export default async function FinanceTransfersPage({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">{isFr ? "Registre des règlements" : "Structured paid register"}</p>
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Registre des règlements" : "Structured paid register"}</p>
             <h2 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Éléments réglés par entité et par mois" : "Paid items grouped by entity and month"}</h2>
           </div>
           <Badge variant="secondary" className="rounded-full px-3 py-1">{formatNumber(structuredGroups.reduce((sum, group) => sum + group.count, 0))} {isFr ? "règlements" : "paid results"}</Badge>
@@ -210,7 +210,7 @@ export default async function FinanceTransfersPage({
         {structuredGroups.length ? (
           <div className="grid gap-4">
             {structuredGroups.map((group) => (
-              <Card key={group.entity} className="border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f9fbff)] shadow-[var(--shadow-soft)]">
+              <Card key={group.entity} className="bg-card border-slate-200 shadow-[var(--shadow-soft)]">
                 <CardContent className="space-y-4 px-5 py-5">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
@@ -223,7 +223,7 @@ export default async function FinanceTransfersPage({
 
                   <div className="grid gap-4">
                     {group.months.map((monthGroup) => (
-                      <div key={`${group.entity}-${monthGroup.month}`} className="rounded-[24px] border border-slate-200 bg-white p-4">
+                      <div key={`${group.entity}-${monthGroup.month}`} className="rounded-xl border border-slate-200 bg-white p-4">
                         <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <p className="text-sm font-semibold">{monthGroup.month}</p>
@@ -234,7 +234,7 @@ export default async function FinanceTransfersPage({
 
                         <div className="mt-4 space-y-3">
                           {monthGroup.items.map((transfer) => (
-                            <div key={transfer.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                            <div key={transfer.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
                               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                 <div>
                                   <p className="text-sm font-semibold">{transfer.beneficiary_name}</p>
@@ -260,7 +260,7 @@ export default async function FinanceTransfersPage({
             ))}
           </div>
         ) : (
-          <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
             {isFr ? "Aucun décaissement réglé n’est visible avec les filtres actuels." : "No paid outgoing records are visible yet for the current filters."}
           </div>
         )}
@@ -269,7 +269,7 @@ export default async function FinanceTransfersPage({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">{isFr ? "Registre des décaissements" : "Outgoing ledger"}</p>
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Registre des décaissements" : "Outgoing ledger"}</p>
             <h2 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Liste des décaissements" : "Transfers list"}</h2>
           </div>
           <Badge variant="secondary" className="rounded-full px-3 py-1">{formatNumber(transfers.length)} {isFr ? "résultats" : "results"}</Badge>
@@ -305,7 +305,7 @@ export default async function FinanceTransfersPage({
             </div>
           </>
         ) : (
-          <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
             {isFr ? "Aucun décaissement ne correspond aux filtres actuels." : "No transfers match the current filters."}
           </div>
         )}

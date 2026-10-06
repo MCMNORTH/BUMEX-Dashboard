@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DataClient } from "@/lib/firebase/server";
 
 import { sanitizeShareholderMetadata } from "@/lib/activity/presentation";
 import { sanitizeActivityCollectionForViewer } from "@/lib/activity/security";
@@ -9,7 +9,7 @@ import { getContractsDueForRenewal } from "@/lib/contracts/service";
 import { applyEntityScope, getOptionalCurrentEntityCode } from "@/lib/entities/scope";
 import { SHAREHOLDER_NOTES_ENTITY_ID } from "@/lib/notes/constants";
 import { getNotesForEntity } from "@/lib/notes/service";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import type { AppRole } from "@/types/auth";
 import type { ActivityEntityType, ActivityLogRecord, ActivityMetadata } from "@/types/activity";
 
@@ -72,10 +72,10 @@ export async function logActivity(params: {
   entityId: string;
   metadata?: ActivityMetadata;
 }) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getOptionalCurrentEntityCode();
@@ -87,13 +87,13 @@ export async function logActivity(params: {
     metadata: params.metadata ?? {},
   };
 
-  let { error } = await supabase.from("activity_logs").insert({
+  let { error } = await db.from("activity_logs").insert({
     ...basePayload,
     ...(entityCode ? { entity_code: entityCode } : {}),
   });
 
   if (error && entityCode && isMissingActivityEntityCodeError(error)) {
-    ({ error } = await supabase.from("activity_logs").insert(basePayload));
+    ({ error } = await db.from("activity_logs").insert(basePayload));
   }
 
   if (error) {
@@ -102,14 +102,14 @@ export async function logActivity(params: {
 }
 
 async function queryActivityLogs(limit = 40) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getOptionalCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("activity_logs")
     .select(
       `
@@ -138,7 +138,7 @@ async function queryActivityLogs(limit = 40) {
   let { data, error } = await query.returns<ActivityRow[]>();
 
   if (error && entityCode && isMissingActivityEntityCodeError(error)) {
-    ({ data, error } = await supabase
+    ({ data, error } = await db
       .from("activity_logs")
       .select(
         `
@@ -240,12 +240,12 @@ export async function getProjectActivity(
   taskIds: string[] = [],
   milestoneIds: string[] = [],
   limit = 12,
-  existingClient?: SupabaseClient,
+  existingClient?: DataClient,
 ) {
-  const supabase = existingClient ?? await createClient();
+  const db = existingClient ?? await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const taskFilter = taskIds.length
@@ -259,7 +259,7 @@ export async function getProjectActivity(
     : "";
 
   const entityCode = await getOptionalCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("activity_logs")
     .select(
       `
@@ -289,7 +289,7 @@ export async function getProjectActivity(
   let { data, error } = await query.returns<ActivityRow[]>();
 
   if (error && entityCode && isMissingActivityEntityCodeError(error)) {
-    ({ data, error } = await supabase
+    ({ data, error } = await db
       .from("activity_logs")
       .select(
         `
@@ -322,14 +322,14 @@ export async function getProjectActivity(
 }
 
 export async function getTicketActivity(ticketId: string, projectId: string, limit = 12) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getOptionalCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("activity_logs")
     .select(
       `
@@ -359,7 +359,7 @@ export async function getTicketActivity(ticketId: string, projectId: string, lim
   let { data, error } = await query.returns<ActivityRow[]>();
 
   if (error && entityCode && isMissingActivityEntityCodeError(error)) {
-    ({ data, error } = await supabase
+    ({ data, error } = await db
       .from("activity_logs")
       .select(
         `

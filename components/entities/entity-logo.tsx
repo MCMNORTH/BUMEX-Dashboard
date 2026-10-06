@@ -20,10 +20,10 @@ export function EntityLogo({
     size === "sm"
       ? "size-10 rounded-xl p-1"
       : size === "lg"
-        ? "size-20 rounded-[22px] p-1.5"
+        ? "size-20 rounded-xl p-1.5"
       : size === "xl"
-          ? "size-28 rounded-[28px] p-2"
-          : "size-14 rounded-2xl p-1.25";
+          ? "size-28 rounded-xl p-2"
+          : "size-14 rounded-xl p-1.25";
 
   if (!entity.logoPath) {
     return (

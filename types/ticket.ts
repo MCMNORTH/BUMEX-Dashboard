@@ -80,6 +80,8 @@ export type TicketFilters = {
   projectId?: string;
   dueDate?: "all" | "overdue" | "this_week" | "this_month" | "none";
   type?: TicketType | "";
+  /** Open tickets that are blocked, overdue, urgent, or unassigned. */
+  attention?: boolean;
 };
 
 export type TicketFormValues = {

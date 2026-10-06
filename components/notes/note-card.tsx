@@ -62,7 +62,7 @@ export function NoteCard({
   const canManage = canManageNote(note, role, currentUserId);
 
   return (
-    <div className="rounded-[24px] border border-border/65 bg-background/35 p-4">
+    <div className="rounded-xl border border-border/65 bg-background/35 p-4">
       <div className="flex items-start gap-3">
         <Avatar className="size-10">
           <AvatarFallback>{getInitials(note.author?.full_name)}</AvatarFallback>
@@ -117,7 +117,7 @@ export function NoteCard({
                   <form action={archiveNoteAction}>
                     <input type="hidden" name="note_id" value={note.id} />
                     <input type="hidden" name="return_path" value={returnPath} />
-                    <Button type="submit" variant="ghost" className="rounded-full px-4 text-rose-200 hover:bg-rose-500/10 hover:text-rose-100">
+                    <Button type="submit" variant="ghost" className="rounded-full px-4 text-danger hover:bg-danger/10 hover:text-danger">
                       <Archive className="size-4" />
                       Archive
                     </Button>

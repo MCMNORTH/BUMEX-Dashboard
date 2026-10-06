@@ -26,10 +26,10 @@ export function AlertCard({
   const Icon = iconMap[alert.type];
 
   const content = (
-    <div className={`rounded-[24px] border border-border/65 bg-background/40 p-4 transition-all duration-300 hover:-translate-y-0.5 hover:bg-background/52 ${compact ? "" : "shadow-[var(--shadow-soft)]"}`}>
+    <div className={`rounded-xl border border-border/65 bg-background/40 p-4 transition-all duration-300 hover:-translate-y-0.5 hover:bg-background/52 ${compact ? "" : "shadow-[var(--shadow-soft)]"}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <div className="flex size-10 items-center justify-center rounded-2xl border border-border/65 bg-background/50">
+          <div className="flex size-10 items-center justify-center rounded-xl border border-border/65 bg-background/50">
             <Icon className="size-4 text-primary" />
           </div>
           <div className="min-w-0">

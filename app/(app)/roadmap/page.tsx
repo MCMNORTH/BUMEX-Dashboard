@@ -107,23 +107,23 @@ export default async function RoadmapPage({
         </Badge>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-[28px] border border-border/70 bg-card/72 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <Link href={previousHref} className="flex size-11 items-center justify-center rounded-2xl border border-border/65 bg-background/45 transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:text-white">
+          <Link href={previousHref} className="flex size-11 items-center justify-center rounded-xl border border-border/65 bg-background/45 transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:text-white">
             <ChevronLeft className="size-4" />
           </Link>
           <div>
-            <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Horizon visible" : "Visible horizon"}</p>
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Horizon visible" : "Visible horizon"}</p>
             <p className="mt-1 text-lg font-semibold tracking-[-0.03em]">
               {periods[0].label} {isFr ? "à" : "to"} {periods.at(-1)?.label}
             </p>
           </div>
-          <Link href={nextHref} className="flex size-11 items-center justify-center rounded-2xl border border-border/65 bg-background/45 transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:text-white">
+          <Link href={nextHref} className="flex size-11 items-center justify-center rounded-xl border border-border/65 bg-background/45 transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:text-white">
             <ChevronRight className="size-4" />
           </Link>
         </div>
 
-        <Link href={todayHref} className="inline-flex h-11 items-center justify-center rounded-2xl border border-primary/30 bg-primary/12 px-4 text-sm font-medium text-primary transition-all hover:border-primary/40 hover:bg-primary/18">
+        <Link href={todayHref} className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/30 bg-primary/12 px-4 text-sm font-medium text-primary transition-all hover:border-primary/40 hover:bg-primary/18">
           {isFr ? "Aujourd’hui" : "Today"}
         </Link>
       </div>
@@ -162,15 +162,15 @@ export default async function RoadmapPage({
           },
         ].map(({ icon: Icon, label, value, detail, href }) => (
           <Link key={label} href={href} aria-label={`${label}: ${value}`} className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Card className="surface-highlight relative h-full overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl transition group-hover:-translate-y-0.5 group-hover:border-blue-300 group-hover:shadow-lg dark:group-hover:border-blue-500/30">
+          <Card className="surface-highlight relative h-full overflow-hidden border-border/70 bg-card transition group-hover:-translate-y-0.5 group-hover:border-blue-300 group-hover:shadow-lg dark:group-hover:border-blue-500/30">
             <CardContent className="px-5 py-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{label}</p>
+                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
                   <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</p>
                   <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
                 </div>
-                <div className="flex size-11 items-center justify-center rounded-2xl border border-border/70 bg-background/45">
+                <div className="flex size-11 items-center justify-center rounded-xl border border-border/70 bg-background/45">
                   <Icon className="size-5 text-primary" />
                 </div>
               </div>
@@ -180,9 +180,9 @@ export default async function RoadmapPage({
         ))}
       </div>
 
-      {!summaryMode && delayedMilestones.length ? <section className="overflow-hidden rounded-[26px] border border-rose-200 bg-gradient-to-r from-rose-50 via-orange-50/60 to-card shadow-[0_24px_70px_-52px_rgba(225,29,72,.55)] dark:border-rose-500/20 dark:from-rose-950/20 dark:via-orange-950/10 dark:to-card" aria-labelledby="roadmap-delay-title">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-200/70 px-5 py-4 dark:border-rose-500/15"><div><p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-rose-700 dark:text-rose-300"><AlertTriangle className="size-3.5" />{isFr ? "Action requise" : "Action required"}</p><h2 id="roadmap-delay-title" className="mt-1 text-lg font-semibold">{isFr ? "Jalons à rattraper" : "Milestones to recover"}</h2><p className="mt-1 text-xs text-muted-foreground">{isFr ? "Jalons déclarés en retard ou dépassés sans clôture." : "Milestones marked delayed or past due without completion."}</p></div><Badge variant="secondary" className="rounded-full px-3 py-1">{delayedMilestones.length} {isFr ? "priorité(s)" : "priority item(s)"}</Badge></div>
-        <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">{delayedMilestones.map((milestone) => <Link key={milestone.id} href={`/projects/${milestone.projectId}`} className="group rounded-2xl border border-rose-200/80 bg-white/75 p-4 transition hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-rose-500/20 dark:bg-background/45"><div className="flex items-start justify-between gap-3"><span className="rounded-full bg-rose-500/10 px-2.5 py-1 text-[10px] font-semibold text-rose-700 dark:text-rose-300">{formatRoadmapDate(milestone.due_date)}</span><ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></div><p className="mt-3 line-clamp-2 text-sm font-semibold">{milestone.title}</p><p className="mt-2 truncate text-xs text-muted-foreground">{milestone.projectName}{milestone.owner ? ` · ${milestone.owner.full_name}` : ` · ${isFr ? "Sans responsable" : "Unassigned"}`}</p></Link>)}</div>
+      {!summaryMode && delayedMilestones.length ? <section className="bg-rose-50 dark:bg-rose-500/10 overflow-hidden rounded-xl border border-rose-200 shadow-[var(--shadow-soft)] dark:border-rose-500/20" aria-labelledby="roadmap-delay-title">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-200/70 px-5 py-4 dark:border-rose-500/15"><div><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-300"><AlertTriangle className="size-3.5" />{isFr ? "Action requise" : "Action required"}</p><h2 id="roadmap-delay-title" className="mt-1 text-lg font-semibold">{isFr ? "Jalons à rattraper" : "Milestones to recover"}</h2><p className="mt-1 text-xs text-muted-foreground">{isFr ? "Jalons déclarés en retard ou dépassés sans clôture." : "Milestones marked delayed or past due without completion."}</p></div><Badge variant="secondary" className="rounded-full px-3 py-1">{delayedMilestones.length} {isFr ? "priorité(s)" : "priority item(s)"}</Badge></div>
+        <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">{delayedMilestones.map((milestone) => <Link key={milestone.id} href={`/projects/${milestone.projectId}`} className="group rounded-xl border border-rose-200/80 bg-white/75 p-4 transition hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-rose-500/20 dark:bg-background/45"><div className="flex items-start justify-between gap-3"><span className="rounded-full bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-700 dark:text-rose-300">{formatRoadmapDate(milestone.due_date)}</span><ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></div><p className="mt-3 line-clamp-2 text-sm font-semibold">{milestone.title}</p><p className="mt-2 truncate text-xs text-muted-foreground">{milestone.projectName}{milestone.owner ? ` · ${milestone.owner.full_name}` : ` · ${isFr ? "Sans responsable" : "Unassigned"}`}</p></Link>)}</div>
       </section> : null}
 
       <RoadmapTimeline
@@ -197,15 +197,15 @@ export default async function RoadmapPage({
       />
 
       <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardContent className="space-y-4 px-5 py-5">
             <div>
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Jalons à venir" : "Upcoming milestones"}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Jalons à venir" : "Upcoming milestones"}</p>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Points de contrôle proches" : "Near-term checkpoints"}</h3>
             </div>
             {upcomingMilestones.length ? (
               upcomingMilestones.slice(0, 6).map((milestone) => (
-                <Link key={milestone.id} href={`/projects/${milestone.projectId}`} className="group block rounded-[22px] border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-blue-500/30 dark:hover:bg-blue-500/5">
+                <Link key={milestone.id} href={`/projects/${milestone.projectId}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-blue-500/30 dark:hover:bg-blue-500/5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="flex items-center gap-2 text-sm font-medium">{milestone.title}<ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
@@ -220,17 +220,17 @@ export default async function RoadmapPage({
                 </Link>
               ))
             ) : (
-              <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
                 {isFr ? "Aucun jalon n’est planifié dans la période affichée." : "No milestones are scheduled in the visible range."}
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardContent className="space-y-4 px-5 py-5">
             <div>
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Santé du portefeuille" : "Portfolio health"}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Santé du portefeuille" : "Portfolio health"}</p>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Programmes prioritaires" : "Priority programs in focus"}</h3>
             </div>
             {projects.length ? (
@@ -239,7 +239,7 @@ export default async function RoadmapPage({
                 .sort((left, right) => right.delayedMilestones - left.delayedMilestones || right.openMilestones - left.openMilestones)
                 .slice(0, 5)
                 .map((project) => (
-                  <Link key={project.id} href={`/projects/${project.id}`} className="group block rounded-[22px] border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-violet-300 hover:bg-violet-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-violet-500/30 dark:hover:bg-violet-500/5">
+                  <Link key={project.id} href={`/projects/${project.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-violet-300 hover:bg-violet-50/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-violet-500/30 dark:hover:bg-violet-500/5">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="flex items-center gap-2 text-sm font-medium">{project.name}<ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
@@ -252,7 +252,7 @@ export default async function RoadmapPage({
                   </Link>
                 ))
             ) : (
-              <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
                 {isFr ? "Aucun projet disponible dans le périmètre sélectionné." : "No projects available in the selected roadmap scope."}
               </div>
             )}

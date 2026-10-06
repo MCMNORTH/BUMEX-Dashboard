@@ -7,11 +7,11 @@ import type { TeamMemberRecord } from "@/types/team";
 
 export function TeamMemberTable({ members }: { members: TeamMemberRecord[] }) {
   return (
-    <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+    <Card className="border-border/70 bg-card">
       <CardContent className="px-0 py-0">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="border-b border-border/70 bg-background/30 text-left text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+            <thead className="border-b border-border/70 bg-background/30 text-left text-xs font-semibold tracking-wider text-muted-foreground uppercase">
               <tr>
                 <th className="px-5 py-4">Member</th>
                 <th className="px-5 py-4">Role</th>
@@ -43,7 +43,7 @@ export function TeamMemberTable({ members }: { members: TeamMemberRecord[] }) {
                   <td className="px-5 py-4">
                     <div className="space-y-2">
                       <div className="h-2 w-28 overflow-hidden rounded-full bg-secondary/70">
-                        <div className="h-full rounded-full bg-gradient-to-r from-sky-400 via-cyan-300 to-indigo-300" style={{ width: `${member.workload_score}%` }} />
+                        <div className="bg-primary h-full rounded-full" style={{ width: `${member.workload_score}%` }} />
                       </div>
                       <p className="text-xs text-muted-foreground">{member.workload_level} / {member.workload_score}%</p>
                     </div>

@@ -224,7 +224,7 @@ export function WeeklyPlanningBoard({
   return (
     <div className="space-y-4">
       {error ? (
-        <div className="rounded-[22px] border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+        <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
           {error}
         </div>
       ) : null}
@@ -248,7 +248,7 @@ export function WeeklyPlanningBoard({
                     <SortablePlanningCard key={ticket.id} ticket={ticket} summaryMode={summaryMode} />
                   ))
                 ) : (
-                  <div className="flex min-h-32 items-center justify-center rounded-[22px] border border-dashed border-border/70 bg-background/30 px-4 text-center text-sm text-muted-foreground">
+                  <div className="flex min-h-32 items-center justify-center rounded-xl border border-dashed border-border/70 bg-background/30 px-4 text-center text-sm text-muted-foreground">
                     No tasks planned for this day
                   </div>
                 )}
@@ -267,7 +267,7 @@ export function WeeklyPlanningBoard({
                 <SortablePlanningCard key={ticket.id} ticket={ticket} summaryMode={summaryMode} />
               ))
             ) : (
-              <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
                 No unscheduled tasks in the current planning scope.
               </div>
             )}
@@ -280,7 +280,7 @@ export function WeeklyPlanningBoard({
       </DndContext>
 
       {pending ? (
-        <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/72 px-4 py-2 text-sm text-muted-foreground">
+        <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-4 py-2 text-sm text-muted-foreground">
           <LoaderCircle className="size-4 animate-spin" />
           Updating planning
         </div>

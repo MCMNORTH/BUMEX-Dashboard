@@ -36,7 +36,7 @@ export function PlanningTaskCard({
 
   if (summaryMode) {
     return (
-      <div className="rounded-[20px] border border-border/65 bg-background/38 p-4">
+      <div className="rounded-xl border border-border/65 bg-background/38 p-4">
         <p className="text-sm font-medium">{isFr ? "Élément de travail planifié" : "Scheduled work item"}</p>
         <p className="mt-1 text-xs text-muted-foreground">{formatTicketDate(ticket.due_date)}</p>
       </div>
@@ -46,14 +46,14 @@ export function PlanningTaskCard({
   return (
     <Link
       href={`/tickets/${ticket.id}`}
-      className="block rounded-[20px] border border-border/65 bg-card/82 p-4 shadow-[var(--shadow-soft)] transition-all hover:-translate-y-0.5 hover:border-sky-300/10 hover:bg-card"
+      className="block rounded-xl border border-border/65 bg-card p-4 shadow-[var(--shadow-soft)] transition-all hover:-translate-y-0.5 hover:border-sky-300/10 hover:bg-card"
     >
       <div className="flex flex-wrap items-center gap-2">
         <TicketTypeBadge type={ticket.type} />
         <TicketPriorityBadge priority={ticket.priority} />
       </div>
       <h4 className="mt-3 text-sm font-semibold tracking-[-0.02em]">{ticket.title}</h4>
-      <div className="mt-3 grid gap-2 rounded-2xl border border-border/60 bg-background/38 p-3">
+      <div className="mt-3 grid gap-2 rounded-xl border border-border/60 bg-background/38 p-3">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <FolderKanban className="size-3.5" />
           <span className="truncate">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</span>
@@ -70,7 +70,7 @@ export function PlanningTaskCard({
           </Avatar>
           <div>
             <p className="text-xs font-medium">{ticket.assignee?.full_name ?? (isFr ? "Non assigné" : "Unassigned")}</p>
-            <p className="text-[11px] text-muted-foreground">{ticket.assignee?.role ?? (isFr ? "Aucun rôle" : "No role")}</p>
+            <p className="text-xs text-muted-foreground">{ticket.assignee?.role ?? (isFr ? "Aucun rôle" : "No role")}</p>
           </div>
         </div>
         <TicketStatusBadge status={ticket.status} />

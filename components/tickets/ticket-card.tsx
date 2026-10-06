@@ -7,6 +7,7 @@ import { useI18n } from "@/components/layout/i18n-provider";
 import {
   formatHours,
   formatTicketDate,
+  getTicketDescriptionPreview,
   getTicketDueLabel,
   getTicketDueState,
 } from "@/lib/tickets/helpers";
@@ -49,7 +50,7 @@ export function TicketCard({ ticket }: { ticket: TicketRecord }) {
 
   return (
     <Link href={`/tickets/${ticket.id}`} className="block">
-      <Card className="group relative overflow-hidden border-border/70 bg-card/72 shadow-[var(--shadow-soft)] transition-[border-color,box-shadow] duration-200 hover:border-primary/25 dark:border-white/10 dark:bg-slate-950/42 dark:shadow-none">
+      <Card className="group relative overflow-hidden border-border/70 bg-card shadow-[var(--shadow-soft)] transition-[border-color,box-shadow] duration-200 hover:border-primary/25 dark:border-white/10 dark:bg-slate-950/42 dark:shadow-none">
         <CardContent className="relative space-y-4 px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-3">
@@ -62,8 +63,8 @@ export function TicketCard({ ticket }: { ticket: TicketRecord }) {
                 <h3 className="text-lg font-semibold tracking-[-0.015em] transition-colors group-hover:text-primary dark:group-hover:text-white">
                   {ticket.title}
                 </h3>
-                <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                  {ticket.description || (isFr ? "Aucune description n'a encore été ajoutée à ce ticket." : "No ticket description has been added yet.")}
+                <p className="max-w-3xl break-words text-sm leading-6 text-muted-foreground">
+                  {getTicketDescriptionPreview(ticket.description) || (isFr ? "Aucune description n'a encore été ajoutée à ce ticket." : "No ticket description has been added yet.")}
                 </p>
               </div>
             </div>
@@ -74,19 +75,19 @@ export function TicketCard({ ticket }: { ticket: TicketRecord }) {
 
           <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
             <div className="rounded-xl border border-border/70 bg-background/45 p-3 dark:border-white/10 dark:bg-slate-900/58">
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Projet" : "Project"}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Projet" : "Project"}</p>
               <p className="mt-2 text-sm font-medium">{ticket.project?.name ?? (isFr ? "Non lié" : "Not linked")}</p>
               <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.client?.name ?? (isFr ? "Aucun client" : "No client")}</p>
             </div>
             <div className="rounded-xl border border-border/70 bg-background/45 p-3 dark:border-white/10 dark:bg-slate-900/58">
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Échéance" : "Deadline"}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Échéance" : "Deadline"}</p>
               <p className="mt-2 text-sm font-medium">{formatTicketDate(ticket.due_date)}</p>
-              <div className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${dueTone[dueState]}`}>
+              <div className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${dueTone[dueState]}`}>
                 {getTicketDueLabel(ticket.due_date)}
               </div>
             </div>
             <div className="rounded-xl border border-border/70 bg-background/45 p-3 dark:border-white/10 dark:bg-slate-900/58">
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Assigné" : "Assignee"}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Assigné" : "Assignee"}</p>
               <div className="mt-2 flex items-center gap-2">
                 <Avatar className="size-8">
                   <AvatarFallback>{getInitials(ticket.assignee?.full_name)}</AvatarFallback>
@@ -98,7 +99,7 @@ export function TicketCard({ ticket }: { ticket: TicketRecord }) {
               </div>
             </div>
             <div className="rounded-xl border border-border/70 bg-background/45 p-3 dark:border-white/10 dark:bg-slate-900/58">
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Suivi" : "Tracking"}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Suivi" : "Tracking"}</p>
               <div className="mt-2 space-y-2 text-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="flex items-center gap-2 text-muted-foreground">
@@ -114,7 +115,7 @@ export function TicketCard({ ticket }: { ticket: TicketRecord }) {
                   </span>
                   <span className="font-medium">{formatHours(ticket.actual_hours)}</span>
                 </div>
-                <div className="pt-1"><div className="flex items-center justify-between gap-2 text-[10px]"><span className={timeOverrun ? "font-semibold text-rose-600 dark:text-rose-300" : "text-muted-foreground"}>{estimatedHours > 0 ? (timeOverrun ? (isFr ? "Dépassement" : "Overrun") : (isFr ? "Temps consommé" : "Time used")) : (isFr ? "Sans estimation" : "No estimate")}</span>{estimatedHours > 0 ? <strong className={timeOverrun ? "text-rose-600 dark:text-rose-300" : "text-foreground"}>{timeUsage}%</strong> : null}</div><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full transition-all ${timeOverrun ? "bg-gradient-to-r from-orange-500 to-rose-600" : timeUsage >= 80 ? "bg-amber-500" : "bg-gradient-to-r from-cyan-500 to-blue-600"}`} style={{ width: `${Math.min(100, timeUsage)}%` }} /></div></div>
+                <div className="pt-1"><div className="flex items-center justify-between gap-2 text-xs"><span className={timeOverrun ? "font-semibold text-rose-600 dark:text-rose-300" : "text-muted-foreground"}>{estimatedHours > 0 ? (timeOverrun ? (isFr ? "Dépassement" : "Overrun") : (isFr ? "Temps consommé" : "Time used")) : (isFr ? "Sans estimation" : "No estimate")}</span>{estimatedHours > 0 ? <strong className={timeOverrun ? "text-rose-600 dark:text-rose-300" : "text-foreground"}>{timeUsage}%</strong> : null}</div><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full transition-all ${timeOverrun ? "bg-rose-500" : timeUsage >= 80 ? "bg-amber-500" : "bg-primary"}`} style={{ width: `${Math.min(100, timeUsage)}%` }} /></div></div>
               </div>
             </div>
           </div>

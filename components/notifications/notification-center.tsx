@@ -35,11 +35,11 @@ export function NotificationCenter() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="surface-highlight relative overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="surface-highlight relative overflow-hidden border-border/70 bg-card">
           <CardContent className="px-5 py-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                   {isFr ? "Notifications visibles" : "Visible notifications"}
                 </p>
                 <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">
@@ -51,18 +51,18 @@ export function NotificationCenter() {
                     : "Current items in your notification center."}
                 </p>
               </div>
-              <div className="flex size-11 items-center justify-center rounded-2xl border border-border/70 bg-background/45">
+              <div className="flex size-11 items-center justify-center rounded-xl border border-border/70 bg-background/45">
                 <Inbox className="size-5 text-primary" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="surface-highlight relative overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="surface-highlight relative overflow-hidden border-border/70 bg-card">
           <CardContent className="px-5 py-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                   {isFr ? "Non lues" : "Unread"}
                 </p>
                 <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">
@@ -74,17 +74,17 @@ export function NotificationCenter() {
                     : "Items still awaiting attention."}
                 </p>
               </div>
-              <div className="flex size-11 items-center justify-center rounded-2xl border border-border/70 bg-background/45">
+              <div className="flex size-11 items-center justify-center rounded-xl border border-border/70 bg-background/45">
                 <BellRing className="size-5 text-primary" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="surface-highlight relative overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="surface-highlight relative overflow-hidden border-border/70 bg-card">
           <CardContent className="flex h-full flex-col justify-between gap-4 px-5 py-5">
             <div>
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                 {isFr ? "Actions" : "Actions"}
               </p>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">
@@ -116,7 +116,7 @@ export function NotificationCenter() {
       <NotificationFilters filters={filters} onChange={setFilters} />
 
       {loading ? (
-        <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
           {isFr ? "Chargement des notifications..." : "Loading notifications..."}
         </div>
       ) : (

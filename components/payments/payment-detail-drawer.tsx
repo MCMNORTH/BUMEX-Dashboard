@@ -6,6 +6,7 @@ import { Download, History, Link2, Trash2 } from "lucide-react";
 
 import { deletePaymentAction } from "@/app/(app)/finance/payments/actions";
 import { CommentsPanel } from "@/components/comments/comments-panel";
+import { useI18n } from "@/components/layout/i18n-provider";
 import { PaymentForm } from "@/components/payments/payment-form";
 import { PaymentMethodBadge } from "@/components/payments/payment-method-badge";
 import { PaymentStatusBadge } from "@/components/payments/payment-status-badge";
@@ -46,6 +47,9 @@ export function PaymentDetailDrawer({
   currentUserId: string;
   mentionCandidates?: MentionCandidate[];
 }) {
+  const { locale } = useI18n();
+  const tr = (fr: string, en: string) => (locale === "fr" ? fr : en);
+
   return (
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -53,10 +57,10 @@ export function PaymentDetailDrawer({
         <div className="flex h-full flex-col overflow-hidden">
           <DialogHeader className="border-b border-border/65 px-6 py-5">
             <DialogTitle className="text-xl">
-              {payment.reference ?? payment.client?.name ?? "Payment detail"}
+              {payment.reference ?? payment.client?.name ?? tr("Détail du paiement", "Payment detail")}
             </DialogTitle>
             <DialogDescription>
-              Client payment record with linked project, contract, invoice, and activity history.
+              {tr("Paiement client avec son projet, son contrat, sa facture et son historique.", "Client payment with its project, contract, invoice, and history.")}
             </DialogDescription>
           </DialogHeader>
 
@@ -67,61 +71,61 @@ export function PaymentDetailDrawer({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <Metric label="Amount" value={formatFinanceCurrency(payment.amount, payment.currency)} detail={payment.currency} />
-              <Metric label="Client" value={payment.client?.name ?? "Not linked"} detail={payment.client?.contact_email ?? "No client email"} />
-              <Metric label="Project" value={payment.project?.name ?? "No linked project"} detail={payment.project?.status ?? "No project status"} />
-              <Metric label="Contract" value={payment.contract?.title ?? "No linked contract"} detail={payment.contract?.status ?? "No contract status"} />
-              <Metric label="Due date" value={formatDate(payment.due_date)} detail="Expected collection date" />
-              <Metric label="Payment date" value={formatDate(payment.payment_date)} detail="Recorded receipt date" />
+              <Metric label={tr("Montant", "Amount")} value={formatFinanceCurrency(payment.amount, payment.currency)} detail={payment.currency} />
+              <Metric label={tr("Client", "Client")} value={payment.client?.name ?? tr("Non lié", "Not linked")} detail={payment.client?.contact_email ?? tr("Pas d’e-mail client", "No client email")} />
+              <Metric label={tr("Projet", "Project")} value={payment.project?.name ?? tr("Aucun projet lié", "No linked project")} detail={payment.project?.status ?? "—"} />
+              <Metric label={tr("Contrat", "Contract")} value={payment.contract?.title ?? tr("Aucun contrat lié", "No linked contract")} detail={payment.contract?.status ?? "—"} />
+              <Metric label={tr("Échéance", "Due date")} value={formatDate(payment.due_date)} detail={tr("Date d’encaissement prévue", "Expected collection date")} />
+              <Metric label={tr("Date de paiement", "Payment date")} value={formatDate(payment.payment_date)} detail={tr("Date de réception enregistrée", "Recorded receipt date")} />
             </div>
 
-            <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Linked invoice</p>
+            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{tr("Facture liée", "Linked invoice")}</p>
               {payment.invoice ? (
                 <div className="mt-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium">{payment.invoice.invoice_number}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {formatFinanceCurrency(payment.invoice.amount_ttc, payment.currency)} due {formatDate(payment.invoice.due_date)}
+                      {formatFinanceCurrency(payment.invoice.amount_ttc, payment.currency)} · {tr("échéance", "due")} {formatDate(payment.invoice.due_date)}
                     </p>
                   </div>
                   <PaymentStatusBadge status={payment.status} />
                 </div>
               ) : (
-                <p className="mt-3 text-sm text-muted-foreground">This payment is not linked to an invoice yet.</p>
+                <p className="mt-3 text-sm text-muted-foreground">{tr("Ce paiement n’est lié à aucune facture.", "This payment is not linked to an invoice yet.")}</p>
               )}
             </div>
 
-            <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-              <p className="text-sm font-medium">Reference</p>
+            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+              <p className="text-sm font-medium">{tr("Référence", "Reference")}</p>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                {payment.reference ?? "No payment reference has been recorded."}
+                {payment.reference ?? tr("Aucune référence enregistrée.", "No reference recorded.")}
               </p>
               <Separator className="my-4 bg-border/60" />
-              <p className="text-sm font-medium">Notes</p>
+              <p className="text-sm font-medium">{tr("Notes", "Notes")}</p>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                {payment.notes ?? "No additional payment notes have been recorded."}
+                {payment.notes ?? tr("Aucune note.", "No notes.")}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
+            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
               <div className="flex items-center gap-2">
                 <Link2 className="size-4 text-primary" />
-                <h3 className="text-base font-semibold">Linked records</h3>
+                <h3 className="text-base font-semibold">{tr("Éléments liés", "Linked records")}</h3>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <LinkButton href={payment.client ? `/clients/${payment.client.id}` : undefined} label="Client profile" />
-                <LinkButton href={payment.project ? `/projects/${payment.project.id}` : undefined} label="Project detail" />
-                <LinkButton href={payment.contract ? `/contracts/${payment.contract.id}` : undefined} label="Contract detail" />
+                <LinkButton href={payment.client ? `/clients/${payment.client.id}` : undefined} label={tr("Fiche client", "Client profile")} unavailableLabel={tr("Non disponible", "Not available")} />
+                <LinkButton href={payment.project ? `/projects/${payment.project.id}` : undefined} label={tr("Projet", "Project")} unavailableLabel={tr("Non disponible", "Not available")} />
+                <LinkButton href={payment.contract ? `/contracts/${payment.contract.id}` : undefined} label={tr("Contrat", "Contract")} unavailableLabel={tr("Non disponible", "Not available")} />
               </div>
             </div>
 
-            <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-              <p className="text-sm font-medium">Supporting documents</p>
+            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+              <p className="text-sm font-medium">{tr("Justificatifs", "Supporting documents")}</p>
               {payment.supportingDocuments.length ? (
                 <div className="mt-4 space-y-3">
                   {payment.supportingDocuments.map((document) => (
-                    <div key={document.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border/65 bg-background/35 p-4">
+                    <div key={document.id} className="flex items-center justify-between gap-3 rounded-xl border border-border/65 bg-background/35 p-4">
                       <div>
                         <p className="text-sm font-medium">{document.title}</p>
                         <p className="mt-1 text-xs text-muted-foreground">{document.file_name}</p>
@@ -129,7 +133,7 @@ export function PaymentDetailDrawer({
                       <Button asChild variant="secondary" className="rounded-full px-4">
                         <a href={`/api/documents/${document.id}/download`} target="_blank" rel="noreferrer">
                           <Download className="size-4" />
-                          Open
+                          {tr("Ouvrir", "Open")}
                         </a>
                       </Button>
                     </div>
@@ -137,7 +141,7 @@ export function PaymentDetailDrawer({
                 </div>
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  No payment proof has been attached yet.
+                  {tr("Aucun justificatif joint.", "No payment proof attached yet.")}
                 </p>
               )}
             </div>
@@ -166,13 +170,13 @@ export function PaymentDetailDrawer({
                 <ConfirmActionForm
                   action={deletePaymentAction}
                   fields={{ payment_id: payment.id }}
-                  title="Delete payment?"
-                  description="This will permanently delete this payment record. This action cannot be undone."
-                  confirmLabel="Delete payment"
+                  title={tr("Supprimer ce paiement ?", "Delete payment?")}
+                  description={tr("Ce paiement sera définitivement supprimé. Cette action est irréversible.", "This will permanently delete this payment record. This action cannot be undone.")}
+                  confirmLabel={tr("Supprimer le paiement", "Delete payment")}
                   trigger={(
-                    <Button type="button" variant="ghost" className="rounded-2xl px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
+                    <Button type="button" variant="ghost" className="rounded-xl px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
                       <Trash2 className="size-4" />
-                      Delete payment
+                      {tr("Supprimer le paiement", "Delete payment")}
                     </Button>
                   )}
                 />
@@ -182,26 +186,29 @@ export function PaymentDetailDrawer({
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <History className="size-4 text-primary" />
-                <h3 className="text-base font-semibold">Activity history</h3>
+                <h3 className="text-base font-semibold">{tr("Historique", "Activity history")}</h3>
               </div>
               {payment.recentActivity.length ? (
                 payment.recentActivity.map((activity) => (
-                  <div key={activity.id} className="rounded-2xl border border-border/65 bg-background/38 p-4">
+                  <div key={activity.id} className="rounded-xl border border-border/65 bg-background/38 p-4">
                     <p className="text-sm font-medium">{activity.action}</p>
                     <p className="mt-2 text-xs leading-5 text-muted-foreground">
                       {activity.metadata.summary
                         ?? (activity.metadata.field
-                          ? `${activity.metadata.field} changed from ${activity.metadata.from ?? "empty"} to ${activity.metadata.to ?? "empty"}`
-                          : "Payment activity recorded.")}
+                          ? tr(
+                              `${activity.metadata.field} : ${activity.metadata.from ?? "vide"} → ${activity.metadata.to ?? "vide"}`,
+                              `${activity.metadata.field} changed from ${activity.metadata.from ?? "empty"} to ${activity.metadata.to ?? "empty"}`,
+                            )
+                          : tr("Activité enregistrée.", "Payment activity recorded."))}
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      {activity.user?.full_name ?? "System"} / {formatDate(activity.created_at)}
+                      {activity.user?.full_name ?? tr("Système", "System")} / {formatDate(activity.created_at)}
                     </p>
                   </div>
                 ))
               ) : (
-                <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                  No payment activity has been recorded yet.
+                <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+                  {tr("Aucune activité pour le moment.", "No activity yet.")}
                 </div>
               )}
             </div>
@@ -232,25 +239,25 @@ function Metric({
   detail: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-      <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{label}</p>
+    <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+      <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
       <p className="mt-2 text-sm font-medium">{value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
     </div>
   );
 }
 
-function LinkButton({ href, label }: { href?: string; label: string }) {
+function LinkButton({ href, label, unavailableLabel }: { href?: string; label: string; unavailableLabel: string }) {
   if (!href) {
     return (
-      <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 px-4 py-3 text-sm text-muted-foreground">
-        {label} unavailable
+      <div className="rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
+        {label} · {unavailableLabel}
       </div>
     );
   }
 
   return (
-    <Button asChild variant="secondary" className="justify-start rounded-2xl px-4">
+    <Button asChild variant="secondary" className="justify-start rounded-xl px-4">
       <Link href={href}>{label}</Link>
     </Button>
   );

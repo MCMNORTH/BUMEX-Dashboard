@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireAuthenticatedUser } from "@/lib/auth/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 
 export type ProfileSettingsActionState = {
   error?: string;
@@ -28,8 +28,10 @@ async function getAvatarDataUrl(formData: FormData) {
     return { error: "Avatar must be a PNG, JPG, or WebP image." } as const;
   }
 
-  if (file.size > 2 * 1024 * 1024) {
-    return { error: "Avatar image must be 2 MB or smaller." } as const;
+  // The avatar is stored inline as a data URL, and Firestore documents are
+  // capped at 1 MiB, so keep the encoded image comfortably below that.
+  if (file.size > 512 * 1024) {
+    return { error: "Avatar image must be 512 KB or smaller." } as const;
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
@@ -54,10 +56,10 @@ export async function updateProfileSettingsAction(
   formData: FormData,
 ): Promise<ProfileSettingsActionState> {
   const auth = await requireAuthenticatedUser();
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    return { error: "Supabase is not configured." };
+  if (!db) {
+    return { error: "Firebase is not configured." };
   }
 
   const fullName = getString(formData, "full_name");
@@ -76,7 +78,7 @@ export async function updateProfileSettingsAction(
 
   const nextAvatarUrl = avatarUpload?.value ?? auth.profile.avatar_url ?? null;
 
-  const { error } = await supabase
+  const { error } = await db
     .from("profiles")
     .update({
       full_name: fullName,

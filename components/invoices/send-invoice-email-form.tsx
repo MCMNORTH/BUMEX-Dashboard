@@ -37,7 +37,7 @@ export function SendInvoiceEmailForm({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button type="button" className="rounded-2xl px-5">
+        <Button type="button" className="rounded-xl px-5">
           <SendHorizontal className="size-4" />
           Send to client
         </Button>
@@ -53,8 +53,8 @@ export function SendInvoiceEmailForm({
           <input type="hidden" name="invoice_id" value={invoiceId} />
           <input type="hidden" name="return_path" value={returnPath} />
 
-          <div className="rounded-2xl border border-border/70 bg-background/40 p-4">
-            <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Suggested recipient</p>
+          <div className="rounded-xl border border-border/70 bg-background/40 p-4">
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Suggested recipient</p>
             <p className="mt-2 text-sm font-medium">{defaultEmail || "No client email on file"}</p>
           </div>
 
@@ -81,13 +81,13 @@ export function SendInvoiceEmailForm({
           </div>
 
           {state.error ? (
-            <div className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-red-200">
+            <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
               {state.error}
             </div>
           ) : null}
 
           <div className="flex justify-end">
-            <Button type="submit" className="rounded-2xl px-5">
+            <Button type="submit" className="rounded-xl px-5">
               <SendHorizontal className="size-4" />
               Send invoice
             </Button>

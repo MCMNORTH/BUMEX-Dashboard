@@ -1,5 +1,3 @@
-import type { User } from "@supabase/supabase-js";
-
 import type { BumexEntityCode } from "@/types/entity";
 import type { AppRouteKey } from "@/types/navigation";
 
@@ -24,8 +22,20 @@ export type Profile = {
   updated_at: string;
 };
 
+export type AuthUser = {
+  id: string;
+  email: string | null;
+  email_confirmed: boolean;
+  user_metadata: {
+    full_name?: string;
+    avatar_url?: string;
+    role?: string;
+  };
+  created_at: string;
+};
+
 export type AuthState = {
-  user: User | null;
+  user: AuthUser | null;
   profile: Profile | null;
   loading: boolean;
 };

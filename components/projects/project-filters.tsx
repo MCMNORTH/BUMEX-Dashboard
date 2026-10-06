@@ -1,12 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 
 import { useI18n } from "@/components/layout/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
+import { useFilterParams } from "@/hooks/use-filter-params";
+import { cn } from "@/lib/utils";
 import type { ProjectFilters, ProjectFiltersData } from "@/types/project";
 
 type ProjectFiltersProps = {
@@ -14,26 +15,46 @@ type ProjectFiltersProps = {
   filterData: ProjectFiltersData;
 };
 
+const filterKeys = ["search", "status", "kind", "client", "owner", "deadline", "health"] as const;
+
 export function ProjectFilters({ filters, filterData }: ProjectFiltersProps) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
+  const { applyFilter, clearFilters, hasActiveFilters, isPending } = useFilterParams(filterKeys);
 
   return (
-    <form className="grid gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-violet-50 p-4 shadow-[var(--shadow-soft)] dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950/80 dark:shadow-none xl:grid-cols-[1.3fr_repeat(6,minmax(0,1fr))_auto]">
-      <div className="relative xl:col-span-1">
-        <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
+    <div
+      className={cn(
+        "grid gap-2 rounded-xl border border-border bg-card p-3 transition-opacity sm:grid-cols-2 xl:grid-cols-[minmax(14rem,1.6fr)_repeat(6,minmax(0,1fr))_auto]",
+        isPending && "opacity-70",
+      )}
+      aria-busy={isPending}
+    >
+      <form
+        className="relative sm:col-span-2 xl:col-span-1"
+        role="search"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const value = new FormData(event.currentTarget).get("search");
+          applyFilter("search", typeof value === "string" ? value.trim() : "");
+        }}
+      >
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
+          key={filters.search ?? ""}
           name="search"
-          placeholder={isFr ? "Rechercher des projets, flux delivery ou clients" : "Search projects, delivery streams, or clients"}
+          type="search"
+          aria-label={isFr ? "Rechercher des projets" : "Search projects"}
+          placeholder={isFr ? "Rechercher un projet par nom" : "Search projects by name"}
           defaultValue={filters.search ?? ""}
-          className="pl-11"
+          className="pl-9"
         />
-      </div>
+      </form>
 
       <ModernSelect
         name="status"
-        defaultValue={filters.status ?? ""}
-        placeholder={isFr ? "Tous les statuts" : "All statuses"}
+        value={filters.status ?? ""}
+        onValueChange={(value) => applyFilter("status", value)}
         options={[
           { value: "", label: isFr ? "Tous les statuts" : "All statuses" },
           { value: "draft", label: isFr ? "Brouillon" : "Draft" },
@@ -46,10 +67,10 @@ export function ProjectFilters({ filters, filterData }: ProjectFiltersProps) {
 
       <ModernSelect
         name="kind"
-        defaultValue={filters.kind ?? ""}
-        placeholder={isFr ? "Toutes les natures" : "All project types"}
+        value={filters.kind ?? ""}
+        onValueChange={(value) => applyFilter("kind", value)}
         options={[
-          { value: "", label: isFr ? "Toutes les natures" : "All project types" },
+          { value: "", label: isFr ? "Tous les types" : "All project types" },
           { value: "client_mission", label: isFr ? "Mission client" : "Client mission" },
           { value: "institutional_partnership", label: isFr ? "Partenariat institutionnel" : "Institutional partnership" },
           { value: "internal_product", label: isFr ? "Produit interne BUMEX" : "Internal BUMEX product" },
@@ -59,18 +80,18 @@ export function ProjectFilters({ filters, filterData }: ProjectFiltersProps) {
 
       <ModernSelect
         name="client"
-        defaultValue={filters.clientId ?? ""}
-        placeholder={isFr ? "Toutes les entités" : "All entities"}
+        value={filters.clientId ?? ""}
+        onValueChange={(value) => applyFilter("client", value)}
         options={[
-          { value: "", label: isFr ? "Toutes les entités" : "All entities" },
+          { value: "", label: isFr ? "Tous les clients" : "All clients" },
           ...filterData.clients.map((client) => ({ value: client.id, label: client.name })),
         ]}
       />
 
       <ModernSelect
         name="owner"
-        defaultValue={filters.ownerId ?? ""}
-        placeholder={isFr ? "Tous les responsables" : "All owners"}
+        value={filters.ownerId ?? ""}
+        onValueChange={(value) => applyFilter("owner", value)}
         options={[
           { value: "", label: isFr ? "Tous les responsables" : "All owners" },
           ...filterData.owners.map((owner) => ({ value: owner.id, label: owner.full_name })),
@@ -79,7 +100,8 @@ export function ProjectFilters({ filters, filterData }: ProjectFiltersProps) {
 
       <ModernSelect
         name="deadline"
-        defaultValue={filters.deadline ?? "all"}
+        value={filters.deadline ?? "all"}
+        onValueChange={(value) => applyFilter("deadline", value)}
         options={[
           { value: "all", label: isFr ? "Toute échéance" : "Any deadline" },
           { value: "overdue", label: isFr ? "En retard" : "Overdue" },
@@ -91,8 +113,8 @@ export function ProjectFilters({ filters, filterData }: ProjectFiltersProps) {
 
       <ModernSelect
         name="health"
-        defaultValue={filters.health ?? ""}
-        placeholder={isFr ? "Toute santé" : "Any health"}
+        value={filters.health ?? ""}
+        onValueChange={(value) => applyFilter("health", value)}
         options={[
           { value: "", label: isFr ? "Toute santé" : "Any health" },
           { value: "healthy", label: isFr ? "Bonne santé" : "Healthy" },
@@ -103,14 +125,16 @@ export function ProjectFilters({ filters, filterData }: ProjectFiltersProps) {
         ]}
       />
 
-      <div className="flex gap-2">
-        <Button type="submit" className="rounded-2xl px-5">
-          {isFr ? "Appliquer" : "Apply"}
-        </Button>
-        <Button asChild variant="secondary" className="rounded-2xl px-5">
-          <Link href="/projects">{isFr ? "Réinitialiser" : "Reset"}</Link>
-        </Button>
-      </div>
-    </form>
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={clearFilters}
+        disabled={!hasActiveFilters || isPending}
+        className="text-muted-foreground"
+      >
+        <X />
+        {isFr ? "Effacer les filtres" : "Clear filters"}
+      </Button>
+    </div>
   );
 }

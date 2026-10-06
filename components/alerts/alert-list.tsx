@@ -12,7 +12,7 @@ export function AlertList({
 }) {
   if (!alerts.length) {
     return (
-      <div className="rounded-[24px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+      <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
         {emptyMessage}
       </div>
     );

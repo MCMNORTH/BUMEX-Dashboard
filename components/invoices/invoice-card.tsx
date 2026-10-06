@@ -90,7 +90,7 @@ function hasActiveRevisionRequest(invoice: Pick<InvoiceRecord, "updated_at" | "r
 function Info({ icon: Icon, label, value }: { icon: typeof CalendarClock; label: string; value: string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-      <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+      <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
         <Icon className="size-3.5" />
         {label}
       </div>

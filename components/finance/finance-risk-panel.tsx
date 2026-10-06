@@ -16,7 +16,7 @@ export function FinanceRiskPanel({ items }: { items: FinanceRiskItem[] }) {
     <Card className="border-slate-200 bg-white shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
       <CardContent className="space-y-4 px-5 py-5">
         <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Finance risks</p>
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Finance risks</p>
           <h3 className="mt-2 text-lg font-semibold tracking-tight">Signals needing attention</h3>
         </div>
         {items.length ? (
@@ -27,7 +27,7 @@ export function FinanceRiskPanel({ items }: { items: FinanceRiskItem[] }) {
               const content = (
                 <div className="rounded-xl border border-red-200 bg-red-50/50 p-3 transition-colors hover:bg-red-50 dark:border-red-400/20 dark:bg-red-500/10 dark:hover:bg-red-500/12">
                   <div className="flex items-start gap-3">
-                    <div className={`mt-0.5 flex size-10 items-center justify-center rounded-2xl border ${meta.tone}`}>
+                    <div className={`mt-0.5 flex size-10 items-center justify-center rounded-xl border ${meta.tone}`}>
                       <Icon className="size-4.5" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -53,7 +53,7 @@ export function FinanceRiskPanel({ items }: { items: FinanceRiskItem[] }) {
             })}
           </div>
         ) : (
-          <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
             No material finance risks are visible in the current scope.
           </div>
         )}

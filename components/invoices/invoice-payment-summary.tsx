@@ -20,7 +20,7 @@ export function InvoicePaymentSummary({
       <Metric icon={Receipt} label="Linked payments" value={formatNumber(summary.linkedPaymentsCount)} />
       <Card className="border-border/65 bg-background/38">
         <CardContent className="px-4 py-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Payment status</p>
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Payment status</p>
           <div className="mt-3">
             <InvoiceStatusBadge status={summary.paymentStatus} />
           </div>
@@ -42,7 +42,7 @@ function Metric({
   return (
     <Card className="border-border/65 bg-background/38">
       <CardContent className="px-4 py-4">
-        <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+        <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
           <Icon className="size-3.5" />
           {label}
         </div>

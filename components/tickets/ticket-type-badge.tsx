@@ -1,5 +1,8 @@
+"use client";
+
 import { Bug, Building2, Cpu, LifeBuoy, Sparkles, SquareCheck } from "lucide-react";
 
+import { useI18n } from "@/components/layout/i18n-provider";
 import { Badge } from "@/components/ui/badge";
 import { getTicketTypeLabel } from "@/lib/tickets/helpers";
 import type { TicketType } from "@/types/ticket";
@@ -33,14 +36,15 @@ const config = {
 
 export function TicketTypeBadge({ type }: { type: TicketType }) {
   const Icon = config[type].icon;
+  const { t } = useI18n();
 
   return (
     <Badge
       variant="outline"
-      className={`rounded-full px-3 py-1 text-[11px] tracking-[0.16em] uppercase ${config[type].className}`}
+      className={config[type].className}
     >
       <Icon className="mr-1 size-3.5" />
-      {getTicketTypeLabel(type)}
+      {t(`tickets.form.select.types.${type}`, getTicketTypeLabel(type))}
     </Badge>
   );
 }

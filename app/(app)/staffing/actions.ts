@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireRouteAccess } from "@/lib/auth/server";
 import { createStaffingAssignment, updateStaffingAssignment, updateStaffingAssignmentStatus } from "@/lib/staffing/service";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import type { StaffingStatus } from "@/types/staffing";
 
 function text(formData: FormData, key: string) { return String(formData.get(key) ?? "").trim(); }
@@ -24,10 +24,10 @@ export async function createStaffingAssignmentAction(formData: FormData) {
   const validStatuses: StaffingStatus[] = ["draft", "requested", "confirmed"];
   if (!projectId || !userId || projectRole.length < 2 || !startDate || !endDate || endDate < startDate || !Number.isFinite(allocationPercent) || allocationPercent < 1 || allocationPercent > 100 || !Number.isFinite(weeklyHours) || weeklyHours <= 0 || !validStatuses.includes(status)) redirect("/staffing?error=invalid");
 
-  const supabase = await createClient();
-  if (!supabase) redirect("/staffing?error=unavailable");
+  const db = await createClient();
+  if (!db) redirect("/staffing?error=unavailable");
   if (status === "confirmed" || status === "requested") {
-    let overlapQuery = supabase.from("staffing_assignments").select("allocation_percent")
+    let overlapQuery = db.from("staffing_assignments").select("allocation_percent")
       .eq("user_id", userId).in("status", ["requested", "confirmed"])
       .lte("start_date", endDate).gte("end_date", startDate);
     if (auth.role === "manager" && auth.profile.entity_code) overlapQuery = overlapQuery.eq("entity_code", auth.profile.entity_code);

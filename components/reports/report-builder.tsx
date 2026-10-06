@@ -97,10 +97,10 @@ export function ReportBuilder({
           )}
 
           <div className="xl:col-span-2 flex flex-wrap gap-2">
-            <Button type="submit" className="rounded-2xl px-5">
+            <Button type="submit" className="rounded-xl px-5">
               {isFr ? "Générer le rapport" : "Generate report"}
             </Button>
-            <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 px-4 py-3 text-sm leading-6 text-muted-foreground">
+            <div className="rounded-xl border border-dashed border-border/70 bg-background/35 px-4 py-3 text-sm leading-6 text-muted-foreground">
               {isFr ? "La rédaction assistée par IA sera proposée dans une prochaine version et n’est pas activée actuellement." : "AI-assisted report drafting is reserved as a future enhancement and is intentionally not enabled."}
             </div>
           </div>

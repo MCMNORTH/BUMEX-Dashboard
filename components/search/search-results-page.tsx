@@ -132,7 +132,7 @@ export function SearchResultsPage({
               aria-label={isFr ? "Requête de recherche" : "Search query"}
             />
           </div>
-          <Button type="submit" className="h-12 rounded-2xl px-5">
+          <Button type="submit" className="h-12 rounded-xl px-5">
             {isFr ? "Rechercher" : "Search"}
           </Button>
         </form>
@@ -150,7 +150,7 @@ export function SearchResultsPage({
               }`}
             >
               <span>{categoryConfig[key].label}</span>
-              <span className="text-[11px] opacity-80">{counts[key]}</span>
+              <span className="text-xs opacity-80">{counts[key]}</span>
             </button>
           ))}
         </div>
@@ -184,13 +184,13 @@ export function SearchResultsPage({
           <div className="space-y-5">
             {groupedResults.map((group) => (
               <div key={group.label} className="space-y-3">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{group.label}</p>
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{group.label}</p>
                 <div className="grid gap-3 lg:grid-cols-2">
                   {group.items.map((result) => (
                     <Link
                       key={`${result.entityType}-${result.id}`}
                       href={result.href}
-                      className="group surface-highlight relative overflow-hidden rounded-[24px] border border-border/70 bg-card/72 p-5 shadow-[var(--shadow-soft)] transition-[transform,background-color,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-white/[0.03]"
+                      className="group surface-highlight relative overflow-hidden rounded-xl border border-border/70 bg-card p-5 shadow-[var(--shadow-soft)] transition-[transform,background-color,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-white/[0.03]"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">

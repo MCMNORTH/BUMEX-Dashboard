@@ -2,9 +2,9 @@ import type { ReportSection as ReportSectionType } from "@/types/report";
 
 export function ReportSection({ section }: { section: ReportSectionType }) {
   return (
-    <div className="rounded-[24px] border border-border/65 bg-background/35 p-5">
+    <div className="rounded-xl border border-border/65 bg-background/35 p-5">
       <div>
-        <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{section.title}</p>
+        <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{section.title}</p>
       </div>
       <div className="mt-4 space-y-2">
         {section.items.length ? (

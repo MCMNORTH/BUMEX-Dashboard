@@ -30,7 +30,7 @@ export function ClientTimeline({
   const groups = groupByDate(items);
 
   return (
-    <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+    <Card className="border-border/70 bg-card">
       <CardHeader>
         <div className="flex items-center gap-2">
           <CalendarClock className="size-4 text-primary" />
@@ -42,7 +42,7 @@ export function ClientTimeline({
         {groups.length ? (
           groups.map(([date, group]) => (
             <div key={date} className="space-y-3">
-              <div className="sticky top-20 z-10 inline-flex rounded-full border border-border/65 bg-background/75 px-3 py-1 text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase backdrop-blur-xl">
+              <div className="sticky top-20 z-10 inline-flex rounded-full border border-border/65 bg-background/75 px-3 py-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                 {formatDate(date)}
               </div>
               <div className="space-y-3">
@@ -53,7 +53,7 @@ export function ClientTimeline({
             </div>
           ))
         ) : (
-          <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
             {isFr ? "Aucun événement ne correspond au filtre sélectionné." : "No client timeline events match the current filter."}
           </div>
         )}

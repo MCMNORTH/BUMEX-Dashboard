@@ -6,7 +6,7 @@ export function UnreadBadge({ count }: { count: number }) {
   }
 
   return (
-    <Badge className="rounded-full px-2 py-0.5 text-[11px]">
+    <Badge className="rounded-full px-2 py-0.5 text-xs">
       {count > 99 ? "99+" : count}
     </Badge>
   );

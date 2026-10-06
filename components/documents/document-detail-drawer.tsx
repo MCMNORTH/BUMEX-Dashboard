@@ -68,29 +68,29 @@ export function DocumentDetailDrawer({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Fichier" : "File"}</p>
+              <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Fichier" : "File"}</p>
                 <p className="mt-2 text-sm font-medium">{document.file_name}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{formatFileSize(document.file_size)}</p>
               </div>
-              <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Rattaché à" : "Linked to"}</p>
+              <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Rattaché à" : "Linked to"}</p>
                 <p className="mt-2 text-sm font-medium">{relatedTypeLabel(document.related_type, isFr)}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{document.relatedLabel}</p>
               </div>
-              <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Ajouté par" : "Uploaded by"}</p>
+              <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Ajouté par" : "Uploaded by"}</p>
                 <p className="mt-2 text-sm font-medium">{document.uploadedBy?.full_name ?? (isFr ? "Inconnu" : "Unknown")}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{formatDate(document.created_at)}</p>
               </div>
-              <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Format du fichier" : "File format"}</p>
+              <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Format du fichier" : "File format"}</p>
                 <p className="mt-2 text-sm font-medium">{document.mime_type ?? (isFr ? "Inconnu" : "Unknown")}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{isFr ? "Mis à jour le" : "Updated"} {formatDate(document.updated_at)}</p>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
+            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
               <p className="text-sm font-medium">Description</p>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
                 {document.description ?? (isFr ? "Aucune description supplémentaire n’a été enregistrée." : "No additional document description has been recorded.")}
@@ -98,13 +98,13 @@ export function DocumentDetailDrawer({
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Button asChild className="rounded-2xl px-5">
+              <Button asChild className="rounded-xl px-5">
                 <a href={`/api/documents/${document.id}/download`} target="_blank" rel="noreferrer">
                   <Download className="size-4" />
                   {isFr ? "Télécharger" : "Download"}
                 </a>
               </Button>
-              <Button asChild variant="secondary" className="rounded-2xl px-5">
+              <Button asChild variant="secondary" className="rounded-xl px-5">
                 <a href={`/api/documents/${document.id}/download`} target="_blank" rel="noreferrer">
                   <ExternalLink className="size-4" />
                   {isFr ? "Ouvrir le fichier" : "Open file"}
@@ -128,11 +128,11 @@ export function DocumentDetailDrawer({
             </div>
 
             {canManage ? (
-              <div className="flex flex-wrap gap-3 rounded-2xl border border-border/65 bg-background/38 p-4">
+              <div className="flex flex-wrap gap-3 rounded-xl border border-border/65 bg-background/38 p-4">
                 <form action={toggleDocumentArchiveAction}>
                   <input type="hidden" name="document_id" value={document.id} />
                   <input type="hidden" name="next_state" value={document.is_archived ? "active" : "archived"} />
-                  <Button type="submit" variant="secondary" className="rounded-2xl px-5">
+                  <Button type="submit" variant="secondary" className="rounded-xl px-5">
                     {document.is_archived ? (isFr ? "Restaurer le document" : "Restore document") : (isFr ? "Archiver le document" : "Archive document")}
                   </Button>
                 </form>
@@ -143,7 +143,7 @@ export function DocumentDetailDrawer({
                   description={isFr ? `Le document « ${document.title} » et son fichier seront supprimés définitivement. Cette action est irréversible.` : `This will permanently delete "${document.title}" and remove its stored file. This action cannot be undone.`}
                   confirmLabel={isFr ? "Supprimer le document" : "Delete document"}
                   trigger={(
-                    <Button type="button" variant="ghost" className="rounded-2xl px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
+                    <Button type="button" variant="ghost" className="rounded-xl px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
                       <Trash2 className="size-4" />
                       {isFr ? "Supprimer" : "Delete"}
                     </Button>
@@ -159,7 +159,7 @@ export function DocumentDetailDrawer({
               </div>
               {document.recentActivity.length ? (
                 document.recentActivity.map((activity) => (
-                  <div key={activity.id} className="rounded-2xl border border-border/65 bg-background/38 p-4">
+                  <div key={activity.id} className="rounded-xl border border-border/65 bg-background/38 p-4">
                     <p className="text-sm font-medium">{activity.action}</p>
                     <p className="mt-2 text-xs leading-5 text-muted-foreground">
                       {activity.metadata.summary
@@ -173,7 +173,7 @@ export function DocumentDetailDrawer({
                   </div>
                 ))
               ) : (
-                <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+                <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
                   {isFr ? "Aucune activité n’a encore été enregistrée pour ce document." : "No document activity has been recorded yet."}
                 </div>
               )}

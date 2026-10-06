@@ -26,7 +26,7 @@ export default async function InvoicePreviewPage({
 
   if (!invoice) {
     return (
-      <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
+      <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
         {locale === "fr" ? "Facture introuvable." : "Invoice not found."}
       </div>
     );
@@ -43,7 +43,7 @@ export default async function InvoicePreviewPage({
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
             {locale === "fr" ? "Aperçu de facture" : "Invoice preview"}
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-slate-950">{invoice.invoice_number}</h1>
@@ -81,7 +81,7 @@ export default async function InvoicePreviewPage({
         </div>
       </div>
 
-      <div className={`flex flex-col gap-4 rounded-[26px] border p-5 sm:flex-row sm:items-start sm:justify-between ${isApproved ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100" : revisionRequest ? "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-100" : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100"}`}>
+      <div className={`flex flex-col gap-4 rounded-xl border p-5 sm:flex-row sm:items-start sm:justify-between ${isApproved ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100" : revisionRequest ? "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-100" : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100"}`}>
         <div className="flex items-start gap-3">
           {isApproved ? <ShieldCheck className="mt-0.5 size-5 shrink-0" /> : revisionRequest ? <RotateCcw className="mt-0.5 size-5 shrink-0" /> : <LockKeyhole className="mt-0.5 size-5 shrink-0" />}
           <div>
@@ -108,7 +108,7 @@ export default async function InvoicePreviewPage({
               trigger={<Button type="button" className="rounded-full px-5"><ShieldCheck className="size-4" />{locale === "fr" ? "Valider la facture" : "Approve invoice"}</Button>}
             />
           </div>
-          <form action={requestInvoiceChangesAction} className="space-y-2 rounded-2xl border border-current/15 bg-white/55 p-3 dark:bg-black/10">
+          <form action={requestInvoiceChangesAction} className="space-y-2 rounded-xl border border-current/15 bg-white/55 p-3 dark:bg-black/10">
             <input type="hidden" name="invoice_id" value={invoice.id} />
             <input type="hidden" name="return_path" value={`/finance/invoices/${invoice.id}/preview`} />
             <Textarea name="reason" required minLength={5} placeholder={locale === "fr" ? "Expliquez clairement ce qui doit être corrigé…" : "Explain clearly what needs to be corrected…"} className="min-h-20 bg-white/80 dark:bg-black/15" />
@@ -120,7 +120,7 @@ export default async function InvoicePreviewPage({
           <input type="hidden" name="return_path" value={`/finance/invoices/${invoice.id}/preview`} />
           <Button type="submit" variant="secondary" className="rounded-full px-5"><BellRing className="size-4" />{locale === "fr" ? "Relancer les administrateurs" : "Remind administrators"}</Button>
         </form> : null}
-        {isApproved && isAdmin ? <form action={revokeInvoiceApprovalAction} className="w-full max-w-md space-y-2 rounded-2xl border border-emerald-700/15 bg-white/55 p-3 dark:bg-black/10">
+        {isApproved && isAdmin ? <form action={revokeInvoiceApprovalAction} className="w-full max-w-md space-y-2 rounded-xl border border-emerald-700/15 bg-white/55 p-3 dark:bg-black/10">
           <input type="hidden" name="invoice_id" value={invoice.id} />
           <input type="hidden" name="return_path" value={`/finance/invoices/${invoice.id}/preview`} />
           <Textarea name="reason" required minLength={5} placeholder={locale === "fr" ? "Motif du retrait de validation…" : "Reason for revoking approval…"} className="min-h-20 bg-white/80 dark:bg-black/15" />

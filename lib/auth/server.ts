@@ -1,13 +1,12 @@
 import { redirect } from "next/navigation";
-import type { User } from "@supabase/supabase-js";
 import { cache } from "react";
 
 import { getDefaultRouteForRole, canRoleAccessRoute } from "@/lib/auth/permissions";
 import { getAccessibleEntityCodes, getActiveEntityCodeForProfile } from "@/lib/entities/server";
 import { sanitizeProfileEntityCode } from "@/lib/entities/runtime";
-import { hasSupabaseEnv } from "@/lib/supabase/config";
-import { createClient } from "@/lib/supabase/server";
-import type { Profile, AppRole } from "@/types/auth";
+import { hasFirebaseEnv } from "@/lib/firebase/config";
+import { createClient, getCurrentSessionUser } from "@/lib/firebase/server";
+import type { AppRole, AuthUser, Profile } from "@/types/auth";
 import { DEFAULT_BUMEX_ENTITY_CODE, type BumexEntityCode } from "@/types/entity";
 import type { AppRouteKey } from "@/types/navigation";
 
@@ -29,16 +28,15 @@ const DEV_PREVIEW_PROFILE: Profile = {
   updated_at: new Date(0).toISOString(),
 };
 
-const DEV_PREVIEW_USER = {
+const DEV_PREVIEW_USER: AuthUser = {
   id: DEV_PREVIEW_PROFILE.id,
   email: DEV_PREVIEW_PROFILE.email,
+  email_confirmed: true,
   user_metadata: {
     full_name: DEV_PREVIEW_PROFILE.full_name,
   },
-  app_metadata: {},
-  aud: "authenticated",
   created_at: DEV_PREVIEW_PROFILE.created_at,
-} as User;
+};
 
 const profileSelectClause =
   "id, email, full_name, role, is_super_admin, entity_code, avatar_url, job_title, department, skills, phone, availability_status, weekly_capacity_hours, created_at, updated_at";
@@ -88,9 +86,9 @@ async function elevateProfileIfNeeded(profile: Profile | null) {
     return profile;
   }
 
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
+  if (!db) {
     return {
       ...profile,
       role: "admin" as AppRole,
@@ -98,7 +96,7 @@ async function elevateProfileIfNeeded(profile: Profile | null) {
     };
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("profiles")
     .update({
       role: "admin",
@@ -125,7 +123,7 @@ async function elevateProfileIfNeeded(profile: Profile | null) {
 }
 
 export type AuthContext = {
-  user: User | null;
+  user: AuthUser | null;
   profile: Profile | null;
   role: AppRole | null;
   activeEntityCode: BumexEntityCode | null;
@@ -137,7 +135,7 @@ export function isDevPreviewAuthEnabled() {
 }
 
 export function getDevPreviewAuthContext(): AuthContext & {
-  user: User;
+  user: AuthUser;
   profile: Profile;
   role: AppRole;
 } {
@@ -151,20 +149,20 @@ export function getDevPreviewAuthContext(): AuthContext & {
 }
 
 const getProfile = cache(async (userId: string) => {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
+  if (!db) {
     return null;
   }
 
-  let { data, error } = await supabase
+  let { data, error } = await db
     .from("profiles")
     .select(profileSelectClause)
     .eq("id", userId)
     .maybeSingle<Profile>();
 
   if (error) {
-    const ownProfileResponse = await supabase
+    const ownProfileResponse = await db
       .rpc("get_own_profile")
       .maybeSingle<Profile>();
 
@@ -175,7 +173,7 @@ const getProfile = cache(async (userId: string) => {
   }
 
   if (error && isMissingEntityFoundationColumn(error.message)) {
-    const legacyResponse = await supabase
+    const legacyResponse = await db
       .from("profiles")
       .select(legacyProfileSelectClause)
       .eq("id", userId)
@@ -196,7 +194,7 @@ function isAppRole(value: unknown): value is AppRole {
   return value === "admin" || value === "manager" || value === "supervisor" || value === "employee" || value === "shareholder";
 }
 
-function buildFallbackProfile(user: User): Profile | null {
+function buildFallbackProfile(user: AuthUser): Profile | null {
   if (!user.email) {
     return null;
   }
@@ -229,10 +227,10 @@ function buildFallbackProfile(user: User): Profile | null {
   };
 }
 
-async function provisionMissingProfile(user: User) {
-  const supabase = await createClient();
+async function provisionMissingProfile(user: AuthUser) {
+  const db = await createClient();
 
-  if (!supabase || !user.email) {
+  if (!db || !user.email) {
     return null;
   }
 
@@ -244,7 +242,7 @@ async function provisionMissingProfile(user: User) {
 
   const now = new Date().toISOString();
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("profiles")
     .upsert(
       {
@@ -269,7 +267,7 @@ async function provisionMissingProfile(user: User) {
     .maybeSingle<Profile>();
 
   if (error && isMissingEntityFoundationColumn(error.message)) {
-    const { data: legacyData, error: legacyError } = await supabase
+    const { data: legacyData, error: legacyError } = await db
       .from("profiles")
       .upsert(
         {
@@ -306,7 +304,7 @@ async function provisionMissingProfile(user: User) {
 }
 
 export const getAuthContext = cache(async (): Promise<AuthContext> => {
-  if (!hasSupabaseEnv()) {
+  if (!hasFirebaseEnv()) {
     return {
       user: null,
       profile: null,
@@ -316,21 +314,7 @@ export const getAuthContext = cache(async (): Promise<AuthContext> => {
     };
   }
 
-  const supabase = await createClient();
-
-  if (!supabase) {
-    return {
-      user: null,
-      profile: null,
-      role: null,
-      activeEntityCode: null,
-      availableEntityCodes: [],
-    };
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentSessionUser();
 
   if (!user) {
     return {

@@ -3,7 +3,11 @@
 import { redirect } from "next/navigation";
 
 import { getAppBaseUrl } from "@/lib/app-url";
-import { createClient } from "@/lib/supabase/server";
+import { sendMail } from "@/lib/email/server";
+import { adminAuth } from "@/lib/firebase/admin";
+import { hasFirebaseEnv } from "@/lib/firebase/config";
+import { createAdminClient } from "@/lib/firebase/server";
+import { clearSession, createPasswordSession } from "@/lib/firebase/session";
 
 export type AuthActionState = {
   error?: string;
@@ -40,6 +44,10 @@ function getCompanyEmailError() {
 }
 
 function getReadableAuthError(error: unknown) {
+  if ((error as { code?: string })?.code === "auth/email-already-exists") {
+    return "User already registered";
+  }
+
   if (error instanceof Error) {
     const message = error.message.trim();
     if (message.length > 0) {
@@ -69,33 +77,26 @@ export async function signInAction(
     };
   }
 
-  const supabase = await createClient();
-
-  if (!supabase) {
+  if (!hasFirebaseEnv()) {
     return {
-      error: "Supabase environment variables are missing.",
+      error: "Firebase environment variables are missing.",
     };
   }
 
-  try {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  let userId: string;
 
-    if (error) {
-      return {
-        error: error.message,
-      };
-    }
+  try {
+    userId = await createPasswordSession(email, password);
   } catch (error) {
     return {
       error: getReadableAuthError(error),
     };
   }
 
-  const { data: ownProfile } = await supabase
-    .rpc("get_own_profile")
+  const { data: ownProfile } = await createAdminClient()!
+    .from("profiles")
+    .select("entity_code")
+    .eq("id", userId)
     .maybeSingle<{ entity_code: string | null }>();
 
   redirect(ownProfile?.entity_code ? "/overview" : "/select-entity");
@@ -127,35 +128,52 @@ export async function signUpAction(
     };
   }
 
-  const supabase = await createClient();
+  const db = createAdminClient();
 
-  if (!supabase) {
+  if (!db) {
     return {
-      error: "Supabase environment variables are missing.",
+      error: "Firebase environment variables are missing.",
     };
   }
 
   try {
-    const appBaseUrl = await getAppBaseUrl();
-    const { error } = await supabase.auth.signUp({
+    const user = await adminAuth().createUser({
       email,
       password,
-      options: {
-        emailRedirectTo: appBaseUrl ? `${appBaseUrl}/login` : undefined,
-        data: {
-          full_name: fullName,
-          role: "employee",
-          entity_code: null,
-          is_super_admin: false,
-        },
-      },
+      displayName: fullName,
+      emailVerified: false,
+    });
+
+    // Replaces the former `on_auth_user_created` trigger: self-service
+    // accounts always start as employees without an entity.
+    const { error } = await db.from("profiles").insert({
+      id: user.uid,
+      email,
+      full_name: fullName,
+      role: "employee",
+      entity_code: null,
+      is_super_admin: false,
     });
 
     if (error) {
+      await adminAuth().deleteUser(user.uid);
       return {
         error: error.message,
       };
     }
+
+    const appBaseUrl = await getAppBaseUrl();
+    const confirmationLink = await adminAuth().generateEmailVerificationLink(
+      email,
+      appBaseUrl ? { url: `${appBaseUrl}/login` } : undefined,
+    );
+
+    await sendMail({
+      to: email,
+      subject: "Confirm your BUMEX account",
+      text: `Confirm your email address to finish creating your account: ${confirmationLink}`,
+      html: `<p>Confirm your email address to finish creating your account.</p><p><a href="${confirmationLink}">Confirm my email</a></p>`,
+    });
   } catch (error) {
     return {
       error: getReadableAuthError(error),
@@ -168,11 +186,7 @@ export async function signUpAction(
 }
 
 export async function signOutAction() {
-  const supabase = await createClient();
-
-  if (supabase) {
-    await supabase.auth.signOut();
-  }
+  await clearSession();
 
   redirect("/login");
 }

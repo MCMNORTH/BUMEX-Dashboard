@@ -56,3 +56,9 @@ tmp/
 scripts/__pycache__/
 
 .vercel
+
+# firebase
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+*-service-account*.json

@@ -28,21 +28,21 @@ export function ActivityMetadataView({
   return (
     <div className="space-y-4">
       {summary ? (
-        <div className="rounded-2xl border border-border/65 bg-background/35 p-4">
-          <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Summary</p>
+        <div className="rounded-xl border border-border/65 bg-background/35 p-4">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Summary</p>
           <p className="mt-3 text-sm leading-6 text-foreground/90">{summary}</p>
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-border/65 bg-background/35 p-4">
-        <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Metadata</p>
+      <div className="rounded-xl border border-border/65 bg-background/35 p-4">
+        <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Metadata</p>
         {!metadataVisible || activity.metadata_hidden ? (
           <p className="mt-4 text-sm text-muted-foreground">Details hidden due to your permission level.</p>
         ) : visibleEntries.length ? (
           <div className="mt-4 space-y-3">
             {visibleEntries.map(([key, value]) => (
               <div key={key} className="grid gap-1 sm:grid-cols-[140px_minmax(0,1fr)]">
-                <p className="text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase">{key.replaceAll("_", " ")}</p>
+                <p className="text-xs font-medium tracking-wider text-muted-foreground uppercase">{key.replaceAll("_", " ")}</p>
                 <p className="text-sm leading-6 text-foreground/90">{String(value)}</p>
               </div>
             ))}

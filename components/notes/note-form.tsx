@@ -19,7 +19,7 @@ function SubmitButton({ mode, isFr }: { mode: "create" | "edit"; isFr: boolean }
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" className="rounded-2xl px-5" disabled={pending}>
+    <Button type="submit" className="rounded-xl px-5" disabled={pending}>
       {pending ? (isFr ? "Enregistrement..." : "Saving...") : mode === "create" ? (isFr ? "Ajouter une note" : "Add note") : (isFr ? "Enregistrer la note" : "Save note")}
     </Button>
   );
@@ -77,7 +77,7 @@ export function NoteForm({
   }
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-4 rounded-[24px] border border-border/65 bg-background/35 p-4">
+    <form ref={formRef} action={formAction} className="space-y-4 rounded-xl border border-border/65 bg-background/35 p-4">
       <input type="hidden" name="entity_type" value={entityType} />
       <input type="hidden" name="entity_id" value={entityId} />
       <input type="hidden" name="return_path" value={returnPath} />
@@ -125,7 +125,7 @@ export function NoteForm({
           defaultValue={note?.body}
           rows={mode === "create" ? 5 : 4}
           placeholder={isFr ? "Saisissez le contexte opérationnel, les décisions de suivi, les risques ou une note exécutive." : "Capture operational context, follow-up decisions, risks, or an executive note."}
-          className="min-h-[140px] w-full rounded-2xl border border-input bg-background/70 px-4 py-3 text-sm outline-none focus-visible:ring-4 focus-visible:ring-ring/55"
+          className="min-h-[140px] w-full rounded-xl border border-input bg-background/70 px-4 py-3 text-sm outline-none focus-visible:ring-4 focus-visible:ring-ring/55"
         />
       </div>
 
@@ -142,7 +142,7 @@ export function NoteForm({
 
         <div className="flex gap-2">
           {mode === "edit" && onCancel ? (
-            <Button type="button" variant="ghost" className="rounded-2xl px-5" onClick={onCancel}>
+            <Button type="button" variant="ghost" className="rounded-xl px-5" onClick={onCancel}>
               {isFr ? "Annuler" : "Cancel"}
             </Button>
           ) : null}
@@ -151,7 +151,7 @@ export function NoteForm({
       </div>
 
       {state.error ? (
-        <div className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-red-200">
+        <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
           {state.error}
         </div>
       ) : null}

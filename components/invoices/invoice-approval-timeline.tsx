@@ -84,22 +84,22 @@ export function InvoiceApprovalTimeline({ invoice, locale }: { invoice: InvoiceR
   events.sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime());
 
   return (
-    <section className="rounded-[26px] border border-border/70 bg-card/75 p-5 shadow-[var(--shadow-soft)]">
+    <section className="rounded-xl border border-border/70 bg-card p-5 shadow-[var(--shadow-soft)]">
       <div>
-        <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">{isFr ? "Traçabilité" : "Audit trail"}</p>
+        <p className="text-xs font-semibold tracking-wider text-primary uppercase">{isFr ? "Traçabilité" : "Audit trail"}</p>
         <h2 className="mt-1 text-lg font-semibold">{isFr ? "Parcours de validation" : "Approval journey"}</h2>
       </div>
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {events.map((event) => {
           const Icon = event.icon;
           return (
-            <div key={event.key} className={`rounded-2xl border p-4 ${toneClasses[event.tone]}`}>
+            <div key={event.key} className={`rounded-xl border p-4 ${toneClasses[event.tone]}`}>
               <div className="flex items-start gap-3">
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white/75 shadow-sm dark:bg-black/15"><Icon className="size-4" /></div>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold">{event.title}</p>
                   <p className="mt-1 text-xs leading-5 opacity-80">{event.detail}</p>
-                  <p className="mt-2 text-[11px] font-medium opacity-65">{formatTimelineDate(event.date, locale)}</p>
+                  <p className="mt-2 text-xs font-medium opacity-65">{formatTimelineDate(event.date, locale)}</p>
                 </div>
               </div>
             </div>

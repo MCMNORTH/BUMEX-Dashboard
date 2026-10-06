@@ -22,7 +22,7 @@ export function ClientFilters({
   const isFr = locale === "fr";
 
   return (
-    <form className="grid gap-3 rounded-[28px] border border-sky-200 bg-gradient-to-r from-sky-50 via-white to-amber-50 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-amber-950/55 xl:grid-cols-[1.3fr_repeat(3,minmax(0,1fr))_auto]">
+    <form className="bg-card grid gap-3 rounded-xl border border-sky-200 p-4 shadow-[var(--shadow-soft)] dark:border-slate-700 xl:grid-cols-[1.3fr_repeat(3,minmax(0,1fr))_auto]">
       <input type="hidden" name="view" value={activeView === "opportunities" ? "opportunities" : ""} />
       <div className="relative xl:col-span-1">
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -90,10 +90,10 @@ export function ClientFilters({
       />
 
       <div className="flex gap-2">
-        <Button type="submit" className="rounded-2xl px-5">
+        <Button type="submit" className="rounded-xl px-5">
           {isFr ? "Appliquer" : "Apply"}
         </Button>
-        <Button asChild variant="secondary" className="rounded-2xl px-5">
+        <Button asChild variant="secondary" className="rounded-xl px-5">
           <Link href={activeView === "opportunities" ? "/clients?view=opportunities" : "/clients"}>{isFr ? "Réinitialiser" : "Reset"}</Link>
         </Button>
       </div>

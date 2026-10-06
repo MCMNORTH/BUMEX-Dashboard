@@ -101,8 +101,8 @@ export const bumexEntities: BumexEntity[] = [
     logoPath: null,
     billingName: "BUMEX Advisory",
     title: {
-      fr: "Missions de conseil, visibilit\u00e9 consulting et support client premium.",
-      en: "Advisory workstreams, consulting visibility, and premium client support.",
+      fr: "Missions de conseil, visibilit\u00e9 consulting et support client d\u00e9di\u00e9.",
+      en: "Advisory workstreams, consulting visibility, and dedicated client support.",
     },
     description: {
       fr: "L\u2019entit\u00e9 est active. Le logo Advisory pourra \u00eatre appliqu\u00e9 d\u00e8s validation de l\u2019identit\u00e9 visuelle.",

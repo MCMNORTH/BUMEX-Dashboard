@@ -97,11 +97,11 @@ export default async function FinanceInvoicesPage({
       </div>
 
       {auth.role === "admin" ? (
-        <div className="relative overflow-hidden rounded-[28px] border border-amber-200/80 bg-gradient-to-r from-amber-50 via-orange-50 to-white p-5 shadow-[var(--shadow-soft)] dark:border-amber-400/20 dark:from-amber-950/40 dark:via-orange-950/25 dark:to-card">
+        <div className="bg-amber-50 dark:bg-amber-500/10 relative overflow-hidden rounded-xl border border-amber-200/80 p-5 shadow-[var(--shadow-soft)] dark:border-amber-400/20">
           <div className="absolute -right-10 -top-16 size-48 rounded-full bg-amber-300/20 blur-3xl" />
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-500/20">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-lg shadow-amber-500/20">
                 <ShieldCheck className="size-6" />
               </div>
               <div>
@@ -155,15 +155,15 @@ export default async function FinanceInvoicesPage({
           { icon: Landmark, label: isFr ? "Factures réglées" : "Paid invoices", value: formatNumber(summary.paidCount), detail: isFr ? "Entièrement couvertes par les paiements liés" : "Fully covered by linked payments" },
           { icon: Wallet, label: isFr ? "Facturé ce mois-ci" : "Invoiced this month", value: formatFinanceCurrency(summary.totalInvoicedThisMonth, invoices[0]?.currency ?? "USD"), detail: isFr ? "Montant total facturé ce mois-ci" : "Gross invoiced amount in current month" },
         ].map(({ icon: Icon, label, value, detail }) => (
-          <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
+          <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card">
             <CardContent className="px-5 py-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{label}</p>
+                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
                   <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</p>
                   <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
                 </div>
-                <div className="flex size-11 items-center justify-center rounded-2xl border border-border/70 bg-background/45">
+                <div className="flex size-11 items-center justify-center rounded-xl border border-border/70 bg-background/45">
                   <Icon className="size-5 text-primary" />
                 </div>
               </div>
@@ -177,7 +177,7 @@ export default async function FinanceInvoicesPage({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">{isFr ? "Registre des factures" : "Invoice ledger"}</p>
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Registre des factures" : "Invoice ledger"}</p>
             <h2 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Liste des factures" : "Invoices list"}</h2>
           </div>
           <div className="flex items-center gap-2">
@@ -216,7 +216,7 @@ export default async function FinanceInvoicesPage({
             </div>
           </>
         ) : (
-          <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
             {isFr ? "Aucune facture ne correspond aux filtres actuels." : "No invoices match the current filters."}
           </div>
         )}

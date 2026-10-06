@@ -100,15 +100,15 @@ export default async function DocumentsPage({
           { icon: FileClock, label: isFr ? "Fichiers récents" : "Recent files", value: formatNumber(recentDocuments.length), detail: isFr ? "Mis à jour le plus récemment" : "Updated most recently" },
           { icon: FolderArchive, label: isFr ? "Liés aux archives" : "Archive-linked", value: formatNumber(documents.filter((document) => document.related_type === "archive").length), detail: isFr ? "Enregistrements des archives générales de la société" : "General company archive records" },
         ].map(({ icon: Icon, label, value, detail }) => (
-          <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
+          <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card">
             <CardContent className="px-5 py-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{label}</p>
+                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
                   <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</p>
                   <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
                 </div>
-                <div className="flex size-11 items-center justify-center rounded-2xl border border-border/70 bg-background/45">
+                <div className="flex size-11 items-center justify-center rounded-xl border border-border/70 bg-background/45">
                   <Icon className="size-5 text-primary" />
                 </div>
               </div>
@@ -120,17 +120,17 @@ export default async function DocumentsPage({
       <DocumentFilters filters={filters} filterData={filterData} />
 
       <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardContent className="space-y-4 px-5 py-5">
             <div>
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Catégories" : "Categories"}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Catégories" : "Categories"}</p>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Vue type dossiers" : "Folder-like overview"}</h3>
             </div>
 
             <div className="grid gap-3">
               {categoryGroups.length ? (
                 categoryGroups.map(([key, count]) => (
-                  <div key={key} className="rounded-[22px] border border-border/65 bg-background/38 p-4">
+                  <div key={key} className="rounded-xl border border-border/65 bg-background/38 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium capitalize">{key.replaceAll("_", " ")}</p>
@@ -143,7 +143,7 @@ export default async function DocumentsPage({
                   </div>
                 ))
               ) : (
-                <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+                <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
                   {isFr ? "Aucun document actif ne correspond aux filtres actuels." : "No active documents match the current filters."}
                 </div>
               )}
@@ -151,10 +151,10 @@ export default async function DocumentsPage({
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardContent className="space-y-4 px-5 py-5">
             <div>
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Documents récents" : "Recent documents"}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Documents récents" : "Recent documents"}</p>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Derniers enregistrements et mises à jour" : "Latest records and updates"}</h3>
             </div>
             <div className="grid gap-3">
@@ -172,7 +172,7 @@ export default async function DocumentsPage({
                   />
                 ))
               ) : (
-                <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+                <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
                   {isFr ? "Aucun document récent n’est disponible dans le périmètre actuel." : "No recent documents are available in the current scope."}
                 </div>
               )}
@@ -184,7 +184,7 @@ export default async function DocumentsPage({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">{isFr ? "Bibliothèque" : "Library"}</p>
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Bibliothèque" : "Library"}</p>
             <h2 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Documents contrôlés" : "Controlled document records"}</h2>
           </div>
           <Badge variant="secondary" className="rounded-full px-3 py-1">
@@ -219,17 +219,17 @@ export default async function DocumentsPage({
               />
             ))
           ) : (
-            <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
+            <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-8 text-center text-sm text-muted-foreground">
               {isFr ? "Aucun document ne correspond aux filtres actuels." : "No documents match the current filters."}
             </div>
           )}
         </div>
       </div>
 
-      <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+      <Card className="border-border/70 bg-card">
         <CardContent className="space-y-4 px-5 py-5">
           <div>
-            <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Documents archivés" : "Archived documents"}</p>
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Documents archivés" : "Archived documents"}</p>
             <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Archives et conservation longue durée" : "Archive and long-term records"}</h3>
           </div>
           {archivedDocuments.length ? (
@@ -248,7 +248,7 @@ export default async function DocumentsPage({
               ))}
             </div>
           ) : (
-            <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+            <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
               {isFr ? "Aucun document archivé n’est visible dans le périmètre actuel." : "No archived documents are visible in the current scope."}
             </div>
           )}

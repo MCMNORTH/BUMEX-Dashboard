@@ -10,16 +10,16 @@ export default function FinancePaymentsLoading() {
       </div>
       <div className="grid gap-4 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <Skeleton key={index} className="h-36 rounded-[28px]" />
+          <Skeleton key={index} className="h-36 rounded-xl" />
         ))}
       </div>
-      <Skeleton className="h-28 rounded-[28px]" />
+      <Skeleton className="h-28 rounded-xl" />
       <div className="grid gap-4 xl:grid-cols-3">
         {Array.from({ length: 3 }).map((_, index) => (
-          <Skeleton key={index} className="h-44 rounded-[28px]" />
+          <Skeleton key={index} className="h-44 rounded-xl" />
         ))}
       </div>
-      <Skeleton className="h-[420px] rounded-[28px]" />
+      <Skeleton className="h-[420px] rounded-xl" />
     </div>
   );
 }

@@ -71,7 +71,7 @@ export function NotesPanel({
   }
 
   return (
-    <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+    <Card className="border-border/70 bg-card">
       <CardHeader>
         <div className="flex items-center gap-2">
           <StickyNote className="size-4 text-primary" />
@@ -89,7 +89,7 @@ export function NotesPanel({
             role={role}
           />
         ) : (
-          <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
             {role === "shareholder"
               ? "Shareholder access is limited to approved executive notes."
               : "Note creation is not enabled for this entity in your current role scope."}
@@ -148,7 +148,7 @@ export function NotesPanel({
             </div>
           </div>
         ) : (
-          <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
             {isFr ? "Aucune note active ne correspond aux filtres actuels pour cet élément." : "No active notes match the current filters for this entity."}
           </div>
         )}

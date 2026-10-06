@@ -68,7 +68,7 @@ export function NotificationItem({
 
   return (
     <div
-      className={`rounded-[22px] border p-4 transition-colors ${
+      className={`rounded-xl border p-4 transition-colors ${
         notification.is_read
           ? "border-border/65 bg-background/30"
           : "border-primary/25 bg-primary/8"
@@ -76,11 +76,11 @@ export function NotificationItem({
     >
       <div className="flex items-start gap-3">
         <div
-          className={`mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-2xl border ${
+          className={`mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border ${
             severity === "critical"
-              ? "border-rose-400/30 bg-rose-400/12 text-rose-100"
+              ? "border-rose-400/30 bg-rose-400/12 text-rose-700 dark:text-rose-100"
               : severity === "warning"
-                ? "border-amber-400/30 bg-amber-400/12 text-amber-100"
+                ? "border-amber-400/30 bg-amber-400/12 text-amber-700 dark:text-amber-100"
                 : "border-primary/30 bg-primary/12 text-primary"
           }`}
         >
@@ -92,7 +92,7 @@ export function NotificationItem({
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-medium">{notification.title}</p>
               {!notification.is_read ? <UnreadBadge count={1} /> : null}
-              <Badge variant="outline" className="rounded-full px-3 py-1 text-[10px] uppercase">
+              <Badge variant="outline">
                 {isFr
                   ? ({
                       mention: "mention",
@@ -109,11 +109,11 @@ export function NotificationItem({
               </Badge>
               {severity !== "info" ? (
                 <Badge
-                  className={`rounded-full px-3 py-1 text-[10px] uppercase ${
+                  className={
                     severity === "critical"
-                      ? "bg-rose-500/15 text-rose-100"
-                      : "bg-amber-500/15 text-amber-100"
-                  }`}
+                      ? "bg-rose-500/15 text-rose-700 dark:text-rose-100"
+                      : "bg-amber-500/15 text-amber-700 dark:text-amber-100"
+                  }
                 >
                   {isFr ? (severity === "critical" ? "critique" : "alerte") : severity}
                 </Badge>

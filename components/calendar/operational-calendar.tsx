@@ -61,7 +61,7 @@ function MonthGrid({
     <div className="overflow-x-auto pb-2">
       <div className="grid min-w-[62rem] gap-3 grid-cols-7">
         {(isFr ? ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]).map((label) => (
-          <div key={label} className="rounded-2xl border border-border/60 bg-background/35 px-3 py-2 text-center text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+          <div key={label} className="rounded-xl border border-border/60 bg-background/35 px-3 py-2 text-center text-xs font-semibold tracking-wider text-muted-foreground uppercase">
             {label}
           </div>
         ))}
@@ -74,11 +74,11 @@ function MonthGrid({
           const isBusy = dayEvents.length >= 4;
 
           return (
-            <div key={key} className={`relative min-h-36 rounded-[24px] border p-3 transition ${isToday ? "border-blue-400 bg-gradient-to-br from-blue-50 via-cyan-50/70 to-violet-50 ring-4 ring-blue-500/10 dark:border-blue-400/45 dark:from-blue-950/30 dark:via-cyan-950/15 dark:to-violet-950/20" : inMonth ? isWeekend ? "border-border/55 bg-muted/30" : "border-border/65 bg-background/40" : "border-border/45 bg-background/20 text-muted-foreground"} ${isBusy ? "shadow-[inset_0_-3px_0_rgba(139,92,246,.45)]" : ""}`}>
+            <div key={key} className={`relative min-h-36 rounded-xl border p-3 transition ${isToday ? "bg-card border-blue-400 ring-4 ring-blue-500/10 dark:border-blue-400/45" : inMonth ? isWeekend ? "border-border/55 bg-muted/30" : "border-border/65 bg-background/40" : "border-border/45 bg-background/20 text-muted-foreground"} ${isBusy ? "shadow-[var(--shadow-soft)]" : ""}`}>
               <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2"><p className={`grid size-7 place-items-center rounded-full text-sm font-semibold ${isToday ? "bg-blue-600 text-white shadow-md shadow-blue-500/25" : ""}`}>{day.getDate()}</p>{isToday ? <span className="text-[9px] font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300">{isFr ? "Aujourd’hui" : "Today"}</span> : null}</div>
+                <div className="flex items-center gap-2"><p className={`grid size-7 place-items-center rounded-full text-sm font-semibold ${isToday ? "bg-blue-600 text-white shadow-md shadow-blue-500/25" : ""}`}>{day.getDate()}</p>{isToday ? <span className="text-xs font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300">{isFr ? "Aujourd’hui" : "Today"}</span> : null}</div>
                 {dayEvents.length ? (
-                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${isBusy ? "border-violet-300 bg-violet-500/10 text-violet-700 dark:border-violet-500/30 dark:text-violet-300" : "border-primary/20 bg-primary/10 text-primary"}`}>
+                  <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${isBusy ? "border-violet-300 bg-violet-500/10 text-violet-700 dark:border-violet-500/30 dark:text-violet-300" : "border-primary/20 bg-primary/10 text-primary"}`}>
                     {dayEvents.length}
                   </span>
                 ) : null}
@@ -127,11 +127,11 @@ function WeekGrid({
           const isBusy = dayEvents.length >= 4;
 
           return (
-            <div key={key} className={`rounded-[24px] border p-4 transition ${isToday ? "border-blue-400 bg-gradient-to-b from-blue-50 to-cyan-50/60 ring-4 ring-blue-500/10 dark:border-blue-400/45 dark:from-blue-950/30 dark:to-cyan-950/15" : isWeekend ? "border-border/55 bg-muted/30" : "border-border/65 bg-background/40"} ${isBusy ? "shadow-[inset_0_-3px_0_rgba(139,92,246,.45)]" : ""}`}>
+            <div key={key} className={`rounded-xl border p-4 transition ${isToday ? "bg-card border-blue-400 ring-4 ring-blue-500/10 dark:border-blue-400/45" : isWeekend ? "border-border/55 bg-muted/30" : "border-border/65 bg-background/40"} ${isBusy ? "shadow-[var(--shadow-soft)]" : ""}`}>
               <div className="mb-4">
-                <div className="flex items-center justify-between gap-2"><p className={`text-xs font-semibold tracking-[0.16em] uppercase ${isToday ? "text-blue-700 dark:text-blue-300" : "text-muted-foreground"}`}>
+                <div className="flex items-center justify-between gap-2"><p className={`text-xs font-semibold tracking-wider uppercase ${isToday ? "text-blue-700 dark:text-blue-300" : "text-muted-foreground"}`}>
                   {new Intl.DateTimeFormat(isFr ? "fr-FR" : "en-US", { weekday: "short" }).format(day)}
-                </p>{isToday ? <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">{isFr ? "Aujourd’hui" : "Today"}</span> : null}</div>
+                </p>{isToday ? <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-white">{isFr ? "Aujourd’hui" : "Today"}</span> : null}</div>
                 <p className={`mt-1 text-lg font-semibold ${isToday ? "text-blue-700 dark:text-blue-200" : ""}`}>{day.getDate()}</p>
               </div>
               <div className="space-y-2">
@@ -172,7 +172,7 @@ export function OperationalCalendar({
 
   return (
     <>
-      <Card className="border-border/70 bg-card/72 shadow-[var(--shadow-soft)] backdrop-blur-xl">
+      <Card className="border-border/70 bg-card shadow-[var(--shadow-soft)]">
         <CardContent className="px-5 py-5">
           {view === "agenda" ? (
             <AgendaList events={sortedEvents} onSelect={setSelectedEvent} />

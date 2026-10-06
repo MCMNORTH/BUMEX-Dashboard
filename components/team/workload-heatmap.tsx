@@ -28,13 +28,13 @@ export function WorkloadHeatmap({
 }) {
   if (!workload.length) {
     return (
-      <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+      <Card className="border-border/70 bg-card">
         <CardHeader>
           <CardTitle>{title}</CardTitle>
           <p className="text-sm leading-6 text-muted-foreground">{description}</p>
         </CardHeader>
         <CardContent>
-          <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
             No workload distribution is visible in the current scope.
           </div>
         </CardContent>
@@ -50,7 +50,7 @@ export function WorkloadHeatmap({
   }));
 
   return (
-    <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+    <Card className="border-border/70 bg-card">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <p className="text-sm leading-6 text-muted-foreground">{description}</p>

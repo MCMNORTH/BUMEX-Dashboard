@@ -12,22 +12,22 @@ const config: Record<
 > = {
   internal: {
     label: "Internal",
-    className: "border-sky-400/30 bg-sky-400/12 text-sky-100",
+    className: "border-sky-400/30 bg-sky-400/12 text-sky-700 dark:text-sky-100",
     Icon: ShieldUser,
   },
   management: {
     label: "Management",
-    className: "border-indigo-400/30 bg-indigo-400/12 text-indigo-100",
+    className: "border-indigo-400/30 bg-indigo-400/12 text-indigo-700 dark:text-indigo-100",
     Icon: ShieldCheck,
   },
   shareholders: {
     label: "Shareholders",
-    className: "border-amber-400/30 bg-amber-400/12 text-amber-100",
+    className: "border-amber-400/30 bg-amber-400/12 text-amber-700 dark:text-amber-100",
     Icon: Users,
   },
   restricted: {
     label: "Restricted",
-    className: "border-rose-400/30 bg-rose-400/12 text-rose-100",
+    className: "border-rose-400/30 bg-rose-400/12 text-rose-700 dark:text-rose-100",
     Icon: ShieldEllipsis,
   },
 };

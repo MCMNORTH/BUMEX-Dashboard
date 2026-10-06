@@ -1,0 +1,40 @@
+# Firebase App Hosting configuration (backend: bumex-dashboard, europe-west4).
+# Secrets live in Cloud Secret Manager; set them with
+#   firebase apphosting:secrets:set <NAME> --data-file <file>
+
+runConfig:
+  minInstances: 0
+  maxInstances: 4
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 1024
+
+env:
+  - variable: FIREBASE_PROJECT_ID
+    value: bumex-one
+  - variable: FIREBASE_CLIENT_EMAIL
+    value: firebase-adminsdk-fbsvc@bumex-one.iam.gserviceaccount.com
+  - variable: FIREBASE_STORAGE_BUCKET
+    value: bumex-one.firebasestorage.app
+  - variable: FIREBASE_DATABASE_ID
+    value: bumex
+  - variable: FIREBASE_PRIVATE_KEY
+    secret: firebase-private-key
+    availability:
+      - RUNTIME
+  - variable: FIREBASE_API_KEY
+    secret: firebase-api-key
+    availability:
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_ENABLE_SELF_SIGNUP
+    value: "0"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: ENABLE_SELF_SIGNUP
+    value: "0"
+  - variable: ENABLE_ENTITY_SCOPING
+    value: "0"
+  - variable: ENABLE_LOCAL_PREVIEW_AUTH
+    value: "0"

@@ -29,13 +29,13 @@ export function PlanningDayColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex min-h-[22rem] flex-col rounded-[28px] border border-border/70 bg-card/72 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl transition-all",
+        "flex min-h-[22rem] flex-col rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] transition-all",
         isOver && "border-sky-300/16 bg-sky-500/[0.05]",
       )}
     >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{day.shortLabel}</p>
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{day.shortLabel}</p>
           <h3 className="mt-2 text-lg font-semibold tracking-tight">
             {day.label}
           </h3>
@@ -47,7 +47,7 @@ export function PlanningDayColumn({
 
       <div className="mt-4 flex-1 space-y-3">
         {summaryMode ? (
-          <div className="rounded-[20px] border border-border/65 bg-background/38 p-4">
+          <div className="rounded-xl border border-border/65 bg-background/38 p-4">
             <p className="text-sm font-medium">{tickets.length} scheduled items</p>
             <p className="mt-1 text-xs text-muted-foreground">High-level shareholder summary</p>
           </div>
@@ -58,7 +58,7 @@ export function PlanningDayColumn({
             <PlanningTaskCard key={ticket.id} ticket={ticket} />
           ))
         ) : (
-          <div className="flex min-h-32 items-center justify-center rounded-[22px] border border-dashed border-border/70 bg-background/30 px-4 text-center text-sm text-muted-foreground">
+          <div className="flex min-h-32 items-center justify-center rounded-xl border border-dashed border-border/70 bg-background/30 px-4 text-center text-sm text-muted-foreground">
             No tasks planned for this day
           </div>
         )}

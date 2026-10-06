@@ -22,7 +22,7 @@ export function RoadmapFilters({
   const isFr = locale === "fr";
 
   return (
-    <form className="grid gap-3 rounded-[28px] border border-border/70 bg-card/72 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl xl:grid-cols-[1.3fr_repeat(5,minmax(0,1fr))]">
+    <form className="grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[1.3fr_repeat(5,minmax(0,1fr))]">
       <input type="hidden" name="period" value={period} />
 
       <div className="relative">
@@ -31,7 +31,7 @@ export function RoadmapFilters({
           name="search"
           defaultValue={filters.search ?? ""}
           placeholder={isFr ? "Rechercher des projets" : "Search projects"}
-          className="h-11 rounded-2xl border-border/70 bg-background/45 pl-10"
+          className="h-11 rounded-xl border-border/70 bg-background/45 pl-10"
         />
       </div>
 
@@ -94,7 +94,7 @@ export function RoadmapFilters({
         />
         <button
           type="submit"
-          className="h-11 rounded-2xl border border-primary/30 bg-primary/12 px-4 text-sm font-medium text-primary transition-all hover:border-primary/40 hover:bg-primary/18"
+          className="h-11 rounded-xl border border-primary/30 bg-primary/12 px-4 text-sm font-medium text-primary transition-all hover:border-primary/40 hover:bg-primary/18"
         >
           {isFr ? "Appliquer" : "Apply"}
         </button>

@@ -42,10 +42,10 @@ export async function TicketWorkloadPreview({
   const isFr = locale === "fr";
 
   return (
-    <Card className="overflow-hidden border-cyan-200 bg-gradient-to-br from-cyan-50 via-white to-violet-50 shadow-[var(--shadow-soft)] dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-violet-950/70 dark:shadow-none">
+    <Card className="bg-card overflow-hidden border-cyan-200 shadow-[var(--shadow-soft)] dark:border-slate-700 dark:shadow-none">
       <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-cyan-100/80">
         <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Charge" : "Workload"}</p>
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Charge" : "Workload"}</p>
           <CardTitle className="mt-2 text-xl">{title}</CardTitle>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">{subtitle}</p>
         </div>
@@ -75,7 +75,7 @@ export async function TicketWorkloadPreview({
               <div>
                 <Badge
                   variant="outline"
-                  className={`rounded-full px-3 py-1 text-[11px] tracking-[0.16em] uppercase ${getWorkloadTone(member.activeTickets, member.overdueTickets)}`}
+                  className={getWorkloadTone(member.activeTickets, member.overdueTickets)}
                 >
                   {getWorkloadLabel(member.activeTickets, member.overdueTickets, isFr)}
                 </Badge>

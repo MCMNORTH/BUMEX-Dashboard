@@ -33,7 +33,7 @@ export function PinnedNotesSection({
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Pin className="size-4 text-primary" />
-        <p className="text-sm font-semibold tracking-[0.16em] text-muted-foreground uppercase">Pinned notes</p>
+        <p className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">Pinned notes</p>
       </div>
       <div className="space-y-3">
         {notes.map((note) => (

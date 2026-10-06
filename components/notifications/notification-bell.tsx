@@ -18,7 +18,7 @@ export function NotificationBell() {
         <Button variant="ghost" size="icon" className="relative rounded-xl" aria-label={locale === "fr" ? "Notifications" : "Notifications"}>
           <Bell className="size-4" />
           {unreadCount ? (
-            <span className="absolute top-1.5 right-1.5 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+            <span className="absolute top-1.5 right-1.5 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold text-primary-foreground">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           ) : null}

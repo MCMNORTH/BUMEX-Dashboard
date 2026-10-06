@@ -80,7 +80,7 @@ export function InvoiceDetailDrawer({
               </span>
             </div>
 
-            {isApproved && role === "admin" ? <form action={revokeInvoiceApprovalAction} className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100">
+            {isApproved && role === "admin" ? <form action={revokeInvoiceApprovalAction} className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100">
               <p className="text-sm font-semibold">{isFr ? "Retirer une validation accordée" : "Revoke an approval"}</p>
               <input type="hidden" name="invoice_id" value={invoice.id} />
               <input type="hidden" name="return_path" value={returnPath} />
@@ -88,7 +88,7 @@ export function InvoiceDetailDrawer({
               <Button type="submit" variant="secondary" className="rounded-full"><RotateCcw className="size-4" />{isFr ? "Retirer la validation" : "Revoke approval"}</Button>
             </form> : null}
 
-            {!isApproved ? <div className={`rounded-2xl border p-4 text-sm ${revisionRequest ? "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-100" : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100"}`}>
+            {!isApproved ? <div className={`rounded-xl border p-4 text-sm ${revisionRequest ? "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-100" : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-100"}`}>
               <p className="font-semibold">{revisionRequest ? (isFr ? "Corrections demandées" : "Changes requested") : (isFr ? "Diffusion verrouillée" : "Delivery locked")}</p>
               <p className="mt-1 opacity-80">{revisionRequest ?? (isFr ? "Le PDF ne peut être ni ouvert, ni téléchargé, ni envoyé avant la validation d’un administrateur." : "The PDF cannot be opened, downloaded, or sent until an administrator approves it.")}</p>
               {role === "admin" ? <div className="mt-3 space-y-3">
@@ -156,12 +156,12 @@ export function InvoiceDetailDrawer({
               <Metric label="Amount TTC" value={formatFinanceCurrency(invoice.amount_ttc, invoice.currency)} detail="Gross amount" />
             </div>
 
-            <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
+            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
               <p className="text-sm font-medium">Linked payments</p>
               {invoice.linkedPayments.length ? (
                 <div className="mt-4 space-y-3">
                   {invoice.linkedPayments.map((payment) => (
-                    <div key={payment.id} className="rounded-2xl border border-border/65 bg-background/35 p-4">
+                    <div key={payment.id} className="rounded-xl border border-border/65 bg-background/35 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-medium">{payment.reference ?? payment.client?.name ?? "Payment"}</p>
@@ -179,7 +179,7 @@ export function InvoiceDetailDrawer({
               )}
             </div>
 
-            <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
+            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-medium">Receipts</p>
                 {canManage && filterData && invoice.linkedPayments.length ? (
@@ -189,7 +189,7 @@ export function InvoiceDetailDrawer({
               {invoice.receipts.length ? (
                 <div className="mt-4 space-y-3">
                   {invoice.receipts.map((receipt) => (
-                    <div key={receipt.id} className="rounded-2xl border border-border/65 bg-background/35 p-4">
+                    <div key={receipt.id} className="rounded-xl border border-border/65 bg-background/35 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-medium">{receipt.receipt_number}</p>
@@ -207,7 +207,7 @@ export function InvoiceDetailDrawer({
               )}
             </div>
 
-            <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
+            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
               <div className="flex items-center gap-2">
                 <Link2 className="size-4 text-primary" />
                 <h3 className="text-base font-semibold">Linked records</h3>
@@ -225,7 +225,7 @@ export function InvoiceDetailDrawer({
               {invoice.supportingDocuments.length ? (
                 <div className="mt-4 space-y-3">
                   {invoice.supportingDocuments.map((document) => (
-                    <div key={document.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border/65 bg-background/35 p-4">
+                    <div key={document.id} className="flex items-center justify-between gap-3 rounded-xl border border-border/65 bg-background/35 p-4">
                       <div>
                         <p className="text-sm font-medium">{document.title}</p>
                         <p className="mt-1 text-xs text-muted-foreground">{document.file_name}</p>
@@ -274,7 +274,7 @@ export function InvoiceDetailDrawer({
                   description={`This will permanently delete invoice ${invoice.invoice_number}. This action cannot be undone.`}
                   confirmLabel="Delete invoice"
                   trigger={(
-                    <Button type="button" variant="ghost" className="rounded-2xl px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
+                    <Button type="button" variant="ghost" className="rounded-xl px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
                       <Trash2 className="size-4" />
                       Delete invoice
                     </Button>
@@ -290,7 +290,7 @@ export function InvoiceDetailDrawer({
               </div>
               {invoice.recentActivity.length ? (
                 invoice.recentActivity.map((activity) => (
-                  <div key={activity.id} className="rounded-2xl border border-border/65 bg-background/38 p-4">
+                  <div key={activity.id} className="rounded-xl border border-border/65 bg-background/38 p-4">
                     <p className="text-sm font-medium">{activity.action}</p>
                     <p className="mt-2 text-xs leading-5 text-muted-foreground">
                       {activity.metadata.summary
@@ -304,7 +304,7 @@ export function InvoiceDetailDrawer({
                   </div>
                 ))
               ) : (
-                <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+                <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
                   No invoice activity has been recorded yet.
                 </div>
               )}
@@ -334,8 +334,8 @@ function getActiveRevisionRequest(invoice: Pick<InvoiceRecord, "updated_at" | "r
 
 function Metric({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-      <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{label}</p>
+    <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+      <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
       <p className="mt-2 text-sm font-medium">{value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
     </div>
@@ -344,7 +344,7 @@ function Metric({ label, value, detail }: { label: string; value: string; detail
 
 function LinkButton({ href, label }: { href?: string; label: string }) {
   if (!href) {
-    return <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 px-4 py-3 text-sm text-muted-foreground">{label} unavailable</div>;
+    return <div className="rounded-xl border border-dashed border-border/70 bg-background/35 px-4 py-3 text-sm text-muted-foreground">{label} unavailable</div>;
   }
-  return <Button asChild variant="secondary" className="justify-start rounded-2xl px-4"><Link href={href}>{label}</Link></Button>;
+  return <Button asChild variant="secondary" className="justify-start rounded-xl px-4"><Link href={href}>{label}</Link></Button>;
 }

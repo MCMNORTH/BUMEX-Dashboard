@@ -39,7 +39,7 @@ function InvoiceStatusChartComponent({ data }: { data: InvoiceStatusPoint[] }) {
           </PieChart>
         </ResponsiveContainer>
       ) : (
-        <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-8 text-sm text-muted-foreground">
+        <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-8 text-sm text-muted-foreground">
           No invoice distribution is available in the current scope.
         </div>
       )}

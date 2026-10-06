@@ -1,7 +1,7 @@
 import "server-only";
 
 import { requireCurrentEntityContext } from "@/lib/entities/scope";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import { weekBounds } from "@/lib/timesheet/validation";
 import type { TimeEntry, TimeProject, TimeMission, TimeMissionFavorite, TimesheetProfile, TimesheetWeekEvent, TimesheetWeekStatus } from "@/types/timesheet";
 
@@ -32,11 +32,11 @@ export async function getTimesheet(week: string): Promise<{
   events: TimesheetWeekEvent[];
 }> {
   const { auth, entityCode } = await requireCurrentEntityContext();
-  const supabase = await createClient();
+  const db = await createClient();
   const bounds = weekBounds(week);
-  if (!supabase || !bounds) throw new Error("Timesheet unavailable");
+  if (!db || !bounds) throw new Error("Timesheet unavailable");
 
-  // Page through results: totals must not silently stop at Supabase's row limit.
+  // Page through results so totals never stop at a single page.
   const entries: TimeEntry[] = [];
   const projects: TimeProject[] = [];
   const missions: TimeMission[] = [];
@@ -46,7 +46,7 @@ export async function getTimesheet(week: string): Promise<{
   await Promise.all([
     (async () => {
       for (let offset = 0; ; offset += 500) {
-        const data = await readWithRetry<TimeEntry[]>("read", () => supabase.from("time_entries")
+        const data = await readWithRetry<TimeEntry[]>("read", () => db.from("time_entries")
           .select("id, project_id, work_date, duration_minutes, mission, note, updated_at, project:projects(name)")
           .eq("user_id", auth.user.id).eq("entity_code", entityCode)
           .gte("work_date", bounds.start).lt("work_date", bounds.end)
@@ -58,7 +58,7 @@ export async function getTimesheet(week: string): Promise<{
     })(),
     (async () => {
       for (let offset = 0; ; offset += 500) {
-        const data = await readWithRetry<TimeProject[]>("projects", () => supabase.from("timesheet_projects").select("id, name")
+        const data = await readWithRetry<TimeProject[]>("projects", () => db.from("timesheet_projects").select("id, name")
           .eq("entity_code", entityCode).order("name").order("id")
           .range(offset, offset + 499).returns<TimeProject[]>());
         projects.push(...(data ?? []));
@@ -67,7 +67,7 @@ export async function getTimesheet(week: string): Promise<{
     })(),
     (async () => {
       for (let offset = 0; ; offset += 500) {
-        const data = await readWithRetry<TimeMission[]>("missions", () => supabase.from("timesheet_missions").select("project_id, mission")
+        const data = await readWithRetry<TimeMission[]>("missions", () => db.from("timesheet_missions").select("project_id, mission")
           .eq("entity_code", entityCode).order("project_id").order("mission")
           .range(offset, offset + 499).returns<TimeMission[]>());
         missions.push(...(data ?? []));
@@ -76,7 +76,7 @@ export async function getTimesheet(week: string): Promise<{
     })(),
     (async () => {
       for (let offset = 0; ; offset += 500) {
-        const data = await readWithRetry<TimeMissionFavorite[]>("favorites", () => supabase.from("time_mission_favorites").select("project_id, mission")
+        const data = await readWithRetry<TimeMissionFavorite[]>("favorites", () => db.from("time_mission_favorites").select("project_id, mission")
           .eq("user_id", auth.user.id).eq("entity_code", entityCode)
           .order("created_at", { ascending: false })
           .range(offset, offset + 499).returns<TimeMissionFavorite[]>());
@@ -85,13 +85,13 @@ export async function getTimesheet(week: string): Promise<{
       }
     })(),
     (async () => {
-      const data = await readWithRetry<TimesheetWeekStatus>("week-status", () => supabase.from("timesheet_week_status")
+      const data = await readWithRetry<TimesheetWeekStatus>("week-status", () => db.from("timesheet_week_status")
         .select("user_id, week_start, entity_code, status, submitted_at, reviewed_at, reviewed_by, review_note")
         .eq("user_id", auth.user.id).eq("week_start", bounds.start).maybeSingle<TimesheetWeekStatus>());
       weekStatus = data;
     })(),
     (async () => {
-      const data = await readWithRetry<Array<Omit<TimesheetWeekEvent, "actor_name"> & { actor: { full_name: string } | null }>>("events", () => supabase.from("timesheet_week_events")
+      const data = await readWithRetry<Array<Omit<TimesheetWeekEvent, "actor_name"> & { actor: { full_name: string } | null }>>("events", () => db.from("timesheet_week_events")
         .select("id, user_id, week_start, entity_code, status, actor_id, note, created_at, actor:profiles!timesheet_week_events_actor_id_fkey(full_name)")
         .eq("user_id", auth.user.id).eq("week_start", bounds.start)
         .order("created_at", { ascending: false }).order("id") as unknown as PromiseLike<{ data: Array<Omit<TimesheetWeekEvent, "actor_name"> & { actor: { full_name: string } | null }> | null; error: QueryFailure | null }>);
@@ -105,9 +105,9 @@ export async function getTimesheet(week: string): Promise<{
 
 export async function getAdminTimesheetOverview(week: string) {
   const { auth, entityCode } = await requireCurrentEntityContext();
-  const supabase = await createClient();
+  const db = await createClient();
   const bounds = weekBounds(week);
-  if (!supabase || !bounds || (auth.role !== "admin" && auth.role !== "manager")) throw new Error("Timesheet unavailable");
+  if (!db || !bounds || (auth.role !== "admin" && auth.role !== "manager")) throw new Error("Timesheet unavailable");
   const acrossEntities = auth.role === "admin";
 
   const profiles: TimesheetProfile[] = [];
@@ -117,7 +117,7 @@ export async function getAdminTimesheetOverview(week: string) {
   await Promise.all([
     (async () => {
       for (let offset = 0; ; offset += 500) {
-        let query = supabase.from("profiles").select("id, full_name, role, entity_code, weekly_capacity_hours");
+        let query = db.from("profiles").select("id, full_name, role, entity_code, weekly_capacity_hours");
         if (!acrossEntities) query = query.eq("entity_code", entityCode);
         const { data, error } = await query.order("full_name").order("id")
           .range(offset, offset + 499).returns<TimesheetProfile[]>();
@@ -128,7 +128,7 @@ export async function getAdminTimesheetOverview(week: string) {
     })(),
     (async () => {
       for (let offset = 0; ; offset += 500) {
-        let query = supabase.from("time_entries")
+        let query = db.from("time_entries")
           .select("id, user_id, entity_code, project_id, work_date, duration_minutes, mission, note, updated_at, project:projects(name)")
           .gte("work_date", bounds.start).lt("work_date", bounds.end);
         if (!acrossEntities) query = query.eq("entity_code", entityCode);
@@ -141,7 +141,7 @@ export async function getAdminTimesheetOverview(week: string) {
     })(),
     (async () => {
       for (let offset = 0; ; offset += 500) {
-        let query = supabase.from("timesheet_week_status")
+        let query = db.from("timesheet_week_status")
           .select("user_id, week_start, entity_code, status, submitted_at, reviewed_at, reviewed_by, review_note")
           .eq("week_start", bounds.start);
         if (!acrossEntities) query = query.eq("entity_code", entityCode);
@@ -154,7 +154,7 @@ export async function getAdminTimesheetOverview(week: string) {
     })(),
     (async () => {
       for (let offset = 0; ; offset += 500) {
-        let query = supabase.from("timesheet_week_events")
+        let query = db.from("timesheet_week_events")
           .select("id, user_id, week_start, entity_code, status, actor_id, note, created_at, actor:profiles!timesheet_week_events_actor_id_fkey(full_name)")
           .eq("week_start", bounds.start);
         if (!acrossEntities) query = query.eq("entity_code", entityCode);

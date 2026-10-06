@@ -21,7 +21,7 @@ function CashFlowChartComponent({
         description="Financial movement will appear here once invoice, payment, and transfer records accumulate."
         badge="Finance"
       >
-        <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-8 text-sm text-muted-foreground">
+        <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-8 text-sm text-muted-foreground">
           No finance chart data is available in the current scope.
         </div>
       </ChartCard>

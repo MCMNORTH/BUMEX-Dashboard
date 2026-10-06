@@ -39,7 +39,7 @@ export function PaymentCard({
       mentionCandidates={mentionCandidates}
       trigger={
         <button type="button" className="w-full text-left">
-          <Card className="group cursor-pointer border-border/70 bg-card/72 transition-transform duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[var(--shadow-soft)]">
+          <Card className="group cursor-pointer border-border/70 bg-card transition-transform duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[var(--shadow-soft)]">
             <CardContent className="space-y-4 px-5 py-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -69,7 +69,7 @@ export function PaymentCard({
                 <Info icon={ReceiptText} label="Invoice" value={payment.invoice?.invoice_number ?? "Not linked"} />
               </div>
 
-              <div className="flex w-full items-center justify-between rounded-2xl border border-border/65 bg-background/30 px-4 py-2.5 text-sm font-medium text-foreground">
+              <div className="flex w-full items-center justify-between rounded-xl border border-border/65 bg-background/30 px-4 py-2.5 text-sm font-medium text-foreground">
                 Open payment detail
               </div>
             </CardContent>
@@ -90,8 +90,8 @@ function Info({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border/65 bg-background/35 p-3">
-      <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+    <div className="rounded-xl border border-border/65 bg-background/35 p-3">
+      <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
         <Icon className="size-3.5" />
         {label}
       </div>

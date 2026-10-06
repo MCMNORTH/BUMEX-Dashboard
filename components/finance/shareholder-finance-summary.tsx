@@ -29,7 +29,7 @@ export function ShareholderFinanceSummary({
           <CardContent className="min-h-32 px-5 py-4">
             <div className="flex h-full items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold tracking-[0.14em] text-slate-500 uppercase">{label}</p>
+                <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase">{label}</p>
                 <p className="mt-2 whitespace-nowrap text-2xl font-bold tracking-[-0.025em]">
                   {integer ? new Intl.NumberFormat("en-US").format(Number(value)) : formatFinanceCurrency(Number(value), "USD")}
                 </p>

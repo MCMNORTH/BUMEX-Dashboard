@@ -211,13 +211,13 @@ export function DocumentUploadForm({
           </div>
 
           {state.error ? (
-            <div className="sm:col-span-2 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-red-200">
+            <div className="sm:col-span-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
               {state.error}
             </div>
           ) : null}
 
           <div className="sm:col-span-2 flex justify-end">
-            <Button type="submit" className="rounded-2xl px-5">
+            <Button type="submit" className="rounded-xl px-5">
               {mode === "create" ? (isFr ? "Importer le document" : "Upload document") : (isFr ? "Enregistrer les métadonnées" : "Save metadata")}
             </Button>
           </div>

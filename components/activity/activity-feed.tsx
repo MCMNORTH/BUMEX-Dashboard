@@ -120,9 +120,9 @@ function ActivityRow({
   const kindClass = kind ? kindClasses[kind] : "border-border/70 bg-background/45 text-muted-foreground";
 
   const content = (
-    <div className="rounded-[22px] border border-border/65 bg-background/38 p-4 transition-transform hover:-translate-y-0.5">
+    <div className="rounded-xl border border-border/65 bg-background/38 p-4 transition-transform hover:-translate-y-0.5">
       <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-border/65 bg-background/45">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/65 bg-background/45">
           {iconNodes[activity.entity_type]}
         </div>
         <div className="min-w-0 flex-1 space-y-3">
@@ -239,7 +239,7 @@ export function ActivityFeed({
             ) : null,
           )
         ) : (
-          <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
             {localizedEmptyMessage}
           </div>
         )}
@@ -252,7 +252,7 @@ export function ActivityFeed({
   }
 
   return (
-    <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+    <Card className="border-border/70 bg-card">
       {content}
     </Card>
   );

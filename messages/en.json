@@ -9,9 +9,9 @@
       "profile": "Profile",
       "preferences": "Workspace preferences",
       "notifications": "Notifications",
-    "signOut": "Sign out",
-    "cancel": "Cancel",
-    "confirmSignOut": "Yes, sign out",
+      "signOut": "Sign out",
+      "cancel": "Cancel",
+      "confirmSignOut": "Yes, sign out",
       "create": "Create",
       "edit": "Edit",
       "apply": "Apply",
@@ -21,9 +21,12 @@
       "editTicket": "Edit ticket",
       "saving": "Saving...",
       "boardSummary": "Board summary",
-      "exportCsv": "Export CSV"
+      "exportCsv": "Export CSV",
+      "confirm": "Confirm",
+      "clearFilters": "Clear filters",
+      "archive": "Archive"
     },
-  "states": {
+    "states": {
       "loading": "Loading..."
     }
   },
@@ -117,7 +120,8 @@
         "description": "Mentions, assignments, and operational updates."
       }
     },
-    "liveShell": "Live shell"
+    "liveShell": "Live shell",
+    "switchEntity": "Switch entity"
   },
   "search": {
     "placeholder": "Search workspace",
@@ -168,200 +172,6 @@
       "defaultSubtitle": "Ticket, deadline, milestone, and workload risks derived from live planning data."
     }
   },
-  "overview": {
-    "eyebrow": "Executive overview",
-    "titles": {
-      "shareholder": "A simplified strategic view for BUMEX IT performance.",
-      "employee": "Your delivery workspace for the current operating cycle.",
-      "default": "A live command surface for BUMEX IT performance."
-    },
-    "subtitles": {
-      "shareholder": "High-level signals, risk visibility, and board-facing context without operational noise.",
-      "employee": "A focused view of personal execution, assigned work, and the most important delivery signals.",
-      "default": "An investor-grade dashboard composition with bold metrics, operational visibility, and forward-looking planning signals."
-    },
-    "hero": {
-      "badge": "High-visibility mode",
-      "titles": {
-        "shareholder": "Strategic performance remains stable, with two delivery areas requiring closer board visibility.",
-        "employee": "Your assigned delivery stream is moving well, but midweek workload concentration needs attention.",
-        "default": "Execution is trending ahead of plan, but delivery concentration needs attention."
-      },
-      "descriptions": {
-        "shareholder": "Core delivery indicators remain resilient. The main near-term pressure points are concentrated support load and a small set of approvals affecting forecast confidence.",
-        "employee": "Assigned work is progressing cleanly, ticket response has improved, and your main near-term pressure comes from concentrated support demand.",
-        "default": "Projects are moving quickly, ticket response has improved, and operational output is strong. The main near-term pressure is concentrated support load and two programs with approval drag."
-      },
-      "confidence": "Delivery confidence",
-      "focus": "Personal focus",
-      "riskReview": "Risk review",
-      "watchlist": "Board watchlist",
-      "programs": "2 programs",
-      "signalTitle": "Primary signal",
-      "signalDescription": "Support capacity requires attention before midweek escalation.",
-      "watchClosely": "Watch closely",
-      "signalFooter": "Strong execution offsetting current pressure points",
-      "healthScore": "Health score",
-      "healthDetail": "Composite delivery confidence",
-      "focusWindow": "Focus window",
-      "focusWindowValue": "7 Days",
-      "focusWindowDetail": "Deadlines and leadership actions"
-    },
-    "sections": {
-      "teamWorkload": "Team workload visualization",
-      "assignedWorkload": "Assigned team workload",
-      "workloadDescription": "Current effort allocation across operational units, with hover-driven emphasis for fast comparisons.",
-      "kpis": "KPIs",
-      "performancePulse": "Operational performance pulse",
-      "insights": "Insights",
-      "focusToday": "Focus today",
-      "strategicFocus": "Strategic focus",
-      "weeklyProgress": "Weekly progress chart",
-      "weeklyProgressDescription": "Completed work versus active load through the week.",
-      "projectHealth": "Project health indicators",
-      "projectHealthDescription": "Fast read on strategic delivery confidence.",
-      "taskDistribution": "Task distribution",
-      "taskDistributionDescription": "Share of work by delivery domain.",
-      "activityTimeline": "Activity timeline",
-      "activityTimelineDescription": "Recent movements across the operating system.",
-      "upcomingDeadlines": "Upcoming deadlines",
-      "upcomingDeadlinesDescription": "Events and commitments needing visibility.",
-      "atRiskProjects": "At risk projects",
-      "atRiskProjectsDescription": "Areas requiring executive attention before impact compounds.",
-      "next7Days": "Next 7 days planning",
-      "next7DaysDescription": "A preview of the upcoming operational rhythm."
-    },
-    "misc": {
-      "capacity": "Capacity",
-      "allStatuses": "All statuses",
-      "healthScore": "Health score",
-      "currentResilience": "Current resilience",
-      "planningReadiness": "Planning readiness",
-      "planningReadinessDetail": "Structured for future timeline modules",
-      "stable": "Stable",
-      "strong": "Strong",
-      "excellent": "Excellent",
-      "watch": "Watch",
-      "atRisk": "At risk",
-      "mix": "Mix",
-      "activity": "Activity",
-      "planning": "Planning",
-      "risks": "Risks",
-      "sevenDayView": "7-day view"
-    },
-    "datasets": {
-      "kpis": [
-        {
-          "title": "Active Projects",
-          "caption": "4 new launches this month"
-        },
-        {
-          "title": "Open Tickets",
-          "caption": "SLA response time improved"
-        },
-        {
-          "title": "Tasks Completed",
-          "caption": "Execution velocity is accelerating"
-        },
-        {
-          "title": "Pending Payments",
-          "caption": "2 invoices crossing target window"
-        }
-      ],
-      "workload": ["Infrastructure", "Product", "Support", "Security", "Data"],
-      "taskDistribution": ["Delivery", "Operations", "Compliance", "Finance"],
-      "projectHealth": [
-        { "name": "Atlas ERP Rollout", "status": "Strong", "owner": "Infrastructure" },
-        { "name": "Nimbus Client Portal", "status": "Watch", "owner": "Product" },
-        { "name": "Orion Security Audit", "status": "Excellent", "owner": "Security" },
-        { "name": "Vertex Data Hub", "status": "At risk", "owner": "Data" }
-      ],
-      "focusToday": [
-        {
-          "label": "Executive pulse",
-          "title": "Delivery velocity is outperforming the forecast",
-          "description": "Task completion is tracking 14% above the seven-day benchmark across core teams."
-        },
-        {
-          "label": "Team signal",
-          "title": "Support workload is nearing saturation",
-          "description": "Triage capacity remains healthy, but the current queue suggests staffing pressure later this week."
-        },
-        {
-          "label": "Commercial",
-          "title": "Two enterprise contracts are ready for approval routing",
-          "description": "Legal comments are resolved and finance sign-off can be triggered when the workspace is connected."
-        }
-      ],
-      "activityFeed": [
-        {
-          "title": "Security review cleared for Orion audit",
-          "description": "Risk controls were validated and the leadership note was published.",
-          "actor": "Security Office"
-        },
-        {
-          "title": "Client escalation received for Nimbus rollout",
-          "description": "Support and product leads aligned on mitigation and response timing.",
-          "actor": "Client Success"
-        },
-        {
-          "title": "Invoice pack generated for April finance cycle",
-          "description": "Pending payments queue refreshed with two new enterprise items.",
-          "actor": "Finance Ops"
-        },
-        {
-          "title": "Resource update submitted by infrastructure lead",
-          "description": "Capacity allocation changed for the Atlas migration stream.",
-          "actor": "PMO"
-        }
-      ],
-      "atRiskProjects": [
-        {
-          "title": "Vertex Data Hub",
-          "owner": "Data Platform",
-          "risk": "Scope expansion is outpacing integration capacity.",
-          "severity": "High"
-        },
-        {
-          "title": "Nimbus Client Portal",
-          "owner": "Product Delivery",
-          "risk": "Stakeholder approvals are lagging behind design freeze.",
-          "severity": "Medium"
-        }
-      ],
-      "upcomingDeadlines": [
-        {
-          "title": "Atlas migration readiness review",
-          "date": "Tomorrow",
-          "detail": "Executive checkpoint with infrastructure and finance sponsors."
-        },
-        {
-          "title": "Nimbus client steering memo",
-          "date": "In 2 days",
-          "detail": "Status package and revised launch recommendation due."
-        },
-        {
-          "title": "April contract approval window",
-          "date": "In 5 days",
-          "detail": "Two enterprise amendments require final confirmation."
-        },
-        {
-          "title": "Security evidence submission",
-          "date": "In 7 days",
-          "detail": "Audit artifacts scheduled for delivery to external reviewers."
-        }
-      ],
-      "nextSevenDays": [
-        { "day": "Mon", "title": "PMO sync", "theme": "Roadmap alignment and blockers" },
-        { "day": "Tue", "title": "Security checkpoint", "theme": "Audit evidence and approvals" },
-        { "day": "Wed", "title": "Client steering", "theme": "Nimbus escalation follow-up" },
-        { "day": "Thu", "title": "Finance close prep", "theme": "Invoice validation and approvals" },
-        { "day": "Fri", "title": "Leadership review", "theme": "Board-ready weekly summary" },
-        { "day": "Sat", "title": "Light operations", "theme": "Reduced monitoring coverage" },
-        { "day": "Sun", "title": "Planning reset", "theme": "Week-ahead sequencing and focus" }
-      ]
-    }
-  },
   "tickets": {
     "page": {
       "eyebrow": "Tickets module",
@@ -382,16 +192,30 @@
       "ticketList": "Ticket list",
       "results": "results",
       "stats": {
-        "visibleTickets": { "label": "Visible tickets", "detail": "Current scoped workload" },
-        "myTickets": { "label": "My tickets", "detail": "Assigned to current user" },
-        "urgent": { "label": "Urgent", "detail": "Highest priority pressure" },
-        "blocked": { "label": "Blocked", "detail": "Execution requiring attention" }
+        "visibleTickets": {
+          "label": "Visible tickets",
+          "detail": "Current scoped workload"
+        },
+        "myTickets": {
+          "label": "My tickets",
+          "detail": "Assigned to current user"
+        },
+        "urgent": {
+          "label": "Urgent",
+          "detail": "Highest priority pressure"
+        },
+        "blocked": {
+          "label": "Blocked",
+          "detail": "Execution requiring attention"
+        }
       }
     },
     "emptyState": {
-      "title": "No tickets matched the current view",
-      "description": "Refine the filters, broaden the search scope, or create a new ticket to start tracking operational work.",
-      "noAccess": "No create access"
+      "title": "No tickets yet",
+      "description": "Create a ticket to start tracking work.",
+      "noAccess": "No create access",
+      "filteredTitle": "No tickets match these filters",
+      "filteredDescription": "Try another quick filter or clear the filters to see every ticket."
     },
     "form": {
       "createTitle": "Create ticket",
@@ -415,7 +239,7 @@
         "githubIssueUrl": "GitHub issue URL"
       },
       "placeholders": {
-        "description": "Operational context, bug details, or expected delivery outcome",
+        "description": "What needs to be done, and why?",
         "optional": "Optional",
         "github": "https://github.com/..."
       },
@@ -447,11 +271,13 @@
           "client_request": "Client request",
           "internal": "Internal"
         }
-      }
+      },
+      "moreDetails": "More details",
+      "moreDetailsHint": "Type, status, reporter, time, GitHub link"
     },
     "filters": {
       "allStatuses": "All statuses",
-      "searchPlaceholder": "Search tickets, bugs, client requests, or support work",
+      "searchPlaceholder": "Search tickets by title",
       "allPriorities": "All priorities",
       "allAssignees": "All assignees",
       "allProjects": "All projects",
@@ -460,7 +286,9 @@
       "dueIn7Days": "Due in 7 days",
       "dueIn30Days": "Due in 30 days",
       "noDeadline": "No deadline",
-      "allTypes": "All types"
+      "allTypes": "All types",
+      "unassigned": "Unassigned",
+      "searchLabel": "Search tickets"
     }
   },
   "finance": {
@@ -543,7 +371,7 @@
       "titleEdit": "Update invoice",
       "description": "Build a clean billing record for incoming client revenue, keep the status visible, and attach any proof file directly.",
       "generatedAutomatically": "Generated automatically",
-      "noTaxHint": "Use `0` if this invoice has no tax.",
+      "noTaxHint": "Use 0 if this invoice has no tax.",
       "supportingFileHint": "Attach the finalized invoice PDF, signed client copy, or any supporting file.",
       "fields": {
         "invoiceNumber": "Invoice number",
@@ -697,8 +525,313 @@
       "next7Days": "Next 7 days",
       "next30Days": "Next 30 days"
     }
-  }
-  ,"confirmations": {
+  },
+  "confirmations": {
     "signOut": "Are you sure you want to sign out? Your current session will end immediately."
+  },
+  "overview": {
+    "title": "Overview",
+    "subtitle": "What needs attention today, and what is coming up.",
+    "actions": {
+      "newTicket": "New ticket",
+      "newProject": "New project",
+      "myWork": "My work"
+    },
+    "unavailable": "Some data could not be loaded ({sources}). The numbers below may be incomplete.",
+    "sources": {
+      "projects": "projects",
+      "tickets": "tickets",
+      "workload": "team workload",
+      "finance": "finance"
+    },
+    "kpis": {
+      "label": "Key numbers",
+      "activeProjects": "Active projects",
+      "openTickets": "Open tickets",
+      "thisMonth": "+{count} this month",
+      "needsAttention": "Tickets needing attention",
+      "needsAttentionCaption": "Blocked, overdue, urgent or unassigned",
+      "myAttentionCaption": "Your blocked, overdue or urgent tickets",
+      "completedThisMonth": "Completed this month",
+      "completedCaption": "Tickets moved to done",
+      "pendingInvoices": "Pending invoices",
+      "pendingInvoicesCaption": "{count} awaiting payment",
+      "atRiskProjects": "Projects at risk",
+      "atRiskCaption": "At risk or delayed",
+      "notAvailable": "Not available"
+    },
+    "attention": {
+      "title": "Needs attention",
+      "projects": "Projects at risk",
+      "projectsEmpty": "No project is at risk or delayed.",
+      "tickets": "Tickets",
+      "ticketsEmpty": "Nothing is blocked, overdue, urgent or unassigned.",
+      "seeAll": "See all ({count})",
+      "noOwner": "No owner",
+      "noProject": "No project",
+      "due": "Due {date}",
+      "reasons": {
+        "blocked": "Blocked",
+        "overdue": "Overdue",
+        "urgent": "Urgent",
+        "unassigned": "Unassigned"
+      }
+    },
+    "upcoming": {
+      "title": "Coming up",
+      "subtitle": "Deadlines in the next 14 days",
+      "empty": "No deadline in the next 14 days.",
+      "openCalendar": "Open calendar",
+      "kinds": {
+        "project": "Project",
+        "ticket": "Ticket",
+        "invoice": "Invoice",
+        "payment": "Payment"
+      }
+    },
+    "workload": {
+      "title": "Team workload",
+      "subtitle": "Most loaded people right now",
+      "empty": "No workload data yet. Assign tickets and set weekly capacity to see it here.",
+      "active": "{count} in progress",
+      "overdue": "{count} overdue",
+      "openTeam": "Open team"
+    },
+    "dates": {
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "inDays": "In {count} days"
+    }
+  },
+  "toasts": {
+    "client-created": {
+      "title": "Client created",
+      "description": "The client has been added."
+    },
+    "client-updated": {
+      "title": "Client updated",
+      "description": "Your changes have been saved."
+    },
+    "client-archived": {
+      "title": "Client archived",
+      "description": "The client has been archived."
+    },
+    "client-archive-error": {
+      "title": "Archive failed",
+      "description": "You don’t have permission to archive this client."
+    },
+    "contract-created": {
+      "title": "Contract created",
+      "description": "The contract has been added."
+    },
+    "contract-updated": {
+      "title": "Contract updated",
+      "description": "Your changes have been saved."
+    },
+    "contract-archived": {
+      "title": "Contract archived",
+      "description": "The contract has been archived."
+    },
+    "contract-archive-error": {
+      "title": "Archive failed",
+      "description": "You don’t have permission to archive this contract."
+    },
+    "document-uploaded": {
+      "title": "Document uploaded",
+      "description": "The file has been stored and linked."
+    },
+    "document-updated": {
+      "title": "Document updated",
+      "description": "Your changes have been saved."
+    },
+    "document-archived": {
+      "title": "Document archived",
+      "description": "The document has been moved to the archive."
+    },
+    "document-restored": {
+      "title": "Document restored",
+      "description": "The document is active again."
+    },
+    "document-deleted": {
+      "title": "Document deleted",
+      "description": "The document has been removed."
+    },
+    "document-action-error": {
+      "title": "Action failed",
+      "description": "The document action could not be completed."
+    },
+    "invoice-created": {
+      "title": "Invoice created",
+      "description": "The invoice has been added."
+    },
+    "invoice-updated": {
+      "title": "Invoice updated",
+      "description": "Your changes have been saved."
+    },
+    "invoice-deleted": {
+      "title": "Invoice deleted",
+      "description": "The invoice has been removed."
+    },
+    "invoice-delete-error": {
+      "title": "Delete failed",
+      "description": "You don’t have permission to delete this invoice."
+    },
+    "invoice-delete-approved-error": {
+      "title": "Deletion protected",
+      "description": "Only an administrator can delete an approved invoice."
+    },
+    "receipt-created": {
+      "title": "Receipt created",
+      "description": "The receipt has been linked."
+    },
+    "invoice-sent": {
+      "title": "Invoice sent",
+      "description": "The invoice email has been sent."
+    },
+    "invoice-approved": {
+      "title": "Invoice approved",
+      "description": "The PDF can now be downloaded and sent to the client."
+    },
+    "invoice-approval-error": {
+      "title": "Approval failed",
+      "description": "Only an administrator can approve this invoice."
+    },
+    "invoice-changes-requested": {
+      "title": "Changes requested",
+      "description": "The invoice creator has received your request and reason."
+    },
+    "invoice-changes-error": {
+      "title": "Request incomplete",
+      "description": "Add a clear reason of at least five characters."
+    },
+    "invoice-reminder-sent": {
+      "title": "Reminder sent",
+      "description": "Administrators have been reminded to approve."
+    },
+    "invoice-reminder-limited": {
+      "title": "Reminder already sent",
+      "description": "Only one reminder is allowed every 24 hours."
+    },
+    "invoice-reminder-error": {
+      "title": "Reminder failed",
+      "description": "You can’t send a reminder for this invoice."
+    },
+    "invoice-revoked": {
+      "title": "Approval withdrawn",
+      "description": "The invoice is locked again and its creator has been notified."
+    },
+    "invoice-revoke-error": {
+      "title": "Withdrawal failed",
+      "description": "Give a clear reason to withdraw this approval."
+    },
+    "payment-created": {
+      "title": "Payment created",
+      "description": "The payment has been added."
+    },
+    "payment-updated": {
+      "title": "Payment updated",
+      "description": "Your changes have been saved."
+    },
+    "payment-deleted": {
+      "title": "Payment deleted",
+      "description": "The payment has been removed."
+    },
+    "payment-delete-error": {
+      "title": "Delete failed",
+      "description": "You don’t have permission to delete this payment."
+    },
+    "project-created": {
+      "title": "Project created",
+      "description": "The project has been added."
+    },
+    "project-updated": {
+      "title": "Project updated",
+      "description": "Your changes have been saved."
+    },
+    "project-deleted": {
+      "title": "Project deleted",
+      "description": "The project has been removed."
+    },
+    "project-delete-error": {
+      "title": "Delete failed",
+      "description": "You don’t have permission to delete this project."
+    },
+    "milestone-created": {
+      "title": "Milestone created",
+      "description": "The milestone has been added to the roadmap."
+    },
+    "milestone-updated": {
+      "title": "Milestone updated",
+      "description": "Your changes have been saved."
+    },
+    "milestone-deleted": {
+      "title": "Milestone deleted",
+      "description": "The milestone has been removed from the roadmap."
+    },
+    "milestone-completed": {
+      "title": "Milestone completed",
+      "description": "The milestone has been marked as completed."
+    },
+    "milestone-delete-error": {
+      "title": "Delete failed",
+      "description": "You don’t have permission to delete this milestone."
+    },
+    "milestone-update-error": {
+      "title": "Update failed",
+      "description": "The milestone change could not be saved."
+    },
+    "team-updated": {
+      "title": "Profile updated",
+      "description": "Your changes have been saved."
+    },
+    "ticket-created": {
+      "title": "Ticket created",
+      "description": "The ticket has been added."
+    },
+    "ticket-updated": {
+      "title": "Ticket updated",
+      "description": "Your changes have been saved."
+    },
+    "ticket-deleted": {
+      "title": "Ticket deleted",
+      "description": "The ticket has been removed."
+    },
+    "ticket-delete-error": {
+      "title": "Delete failed",
+      "description": "You don’t have permission to delete this ticket."
+    },
+    "transfer-created": {
+      "title": "Transfer created",
+      "description": "The outgoing transfer has been added."
+    },
+    "transfer-updated": {
+      "title": "Transfer updated",
+      "description": "Your changes have been saved."
+    },
+    "transfer-deleted": {
+      "title": "Transfer deleted",
+      "description": "The transfer has been removed."
+    },
+    "transfer-delete-error": {
+      "title": "Delete failed",
+      "description": "You don’t have permission to delete this transfer."
+    },
+    "dismiss": "Dismiss"
+  },
+  "errors": {
+    "description": "Something went wrong while loading this page. Try again; if it keeps happening, contact an administrator.",
+    "reference": "Reference",
+    "retry": "Try again",
+    "modules": {
+      "section": "This page couldn’t be loaded",
+      "tickets": "Tickets couldn’t be loaded",
+      "projects": "Projects couldn’t be loaded",
+      "myWork": "My Work couldn’t be loaded",
+      "planning": "Planning couldn’t be loaded",
+      "calendar": "The calendar couldn’t be loaded",
+      "roadmap": "The roadmap couldn’t be loaded",
+      "staffing": "Staffing couldn’t be loaded",
+      "timesheet": "Your timesheet couldn’t be loaded"
+    }
   }
 }

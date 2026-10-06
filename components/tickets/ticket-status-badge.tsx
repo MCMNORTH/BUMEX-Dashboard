@@ -21,7 +21,7 @@ export function TicketStatusBadge({ status }: { status: TicketStatus }) {
   return (
     <Badge
       variant="outline"
-      className={`rounded-full px-3 py-1 text-[11px] tracking-[0.16em] uppercase ${statusClasses[status]}`}
+      className={statusClasses[status]}
     >
       {labels ? labels[status] : getTicketStatusLabel(status)}
     </Badge>

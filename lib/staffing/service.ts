@@ -3,7 +3,7 @@ import "server-only";
 import { logActivity } from "@/lib/activity/service";
 import { requireCurrentEntityContext } from "@/lib/entities/scope";
 import { createAssignmentNotification } from "@/lib/notifications/service";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import type { StaffingActivity, StaffingAssignment, StaffingPerson, StaffingProject, StaffingStatus } from "@/types/staffing";
 
 async function notifyStaffing(params: Parameters<typeof createAssignmentNotification>[0]) {
@@ -17,14 +17,14 @@ async function notifyStaffing(params: Parameters<typeof createAssignmentNotifica
 export async function getStaffingWorkspace() {
   const { auth, entityCode } = await requireCurrentEntityContext();
   if (auth.role !== "admin" && auth.role !== "manager") throw new Error("Staffing access denied.");
-  const supabase = await createClient();
-  if (!supabase) throw new Error("Staffing unavailable.");
+  const db = await createClient();
+  if (!db) throw new Error("Staffing unavailable.");
   const companyWide = auth.role === "admin";
 
-  let projectsQuery = supabase.from("projects").select("id, name, entity_code, status, start_date, end_date").in("status", ["draft", "active", "on_hold"]).order("name");
-  let peopleQuery = supabase.from("profiles").select("id, full_name, job_title, department, entity_code, availability_status, weekly_capacity_hours, skills").neq("role", "shareholder").order("full_name");
-  let assignmentsQuery = supabase.from("staffing_assignments").select("id, project_id, user_id, entity_code, project_role, start_date, end_date, allocation_percent, weekly_hours, status, note, created_at, project:projects(id, name), person:profiles!staffing_assignments_user_id_fkey(id, full_name, job_title, entity_code)").order("start_date", { ascending: false });
-  let activityQuery = supabase.from("activity_logs").select("id, action, entity_id, metadata, created_at, user:profiles(full_name)").eq("metadata->>related_type", "staffing").order("created_at", { ascending: false }).limit(8);
+  let projectsQuery = db.from("projects").select("id, name, entity_code, status, start_date, end_date").in("status", ["draft", "active", "on_hold"]).order("name");
+  let peopleQuery = db.from("profiles").select("id, full_name, job_title, department, entity_code, availability_status, weekly_capacity_hours, skills").neq("role", "shareholder").order("full_name");
+  let assignmentsQuery = db.from("staffing_assignments").select("id, project_id, user_id, entity_code, project_role, start_date, end_date, allocation_percent, weekly_hours, status, note, created_at, project:projects(id, name), person:profiles!staffing_assignments_user_id_fkey(id, full_name, job_title, entity_code)").order("start_date", { ascending: false });
+  let activityQuery = db.from("activity_logs").select("id, action, entity_id, metadata, created_at, user:profiles(full_name)").eq("metadata->>related_type", "staffing").order("created_at", { ascending: false }).limit(8);
   if (!companyWide) {
     projectsQuery = projectsQuery.eq("entity_code", entityCode);
     peopleQuery = peopleQuery.eq("entity_code", entityCode);
@@ -46,7 +46,7 @@ export async function getStaffingWorkspace() {
   const userIds = [...new Set(rawAssignments.map(item => item.user_id))];
   const firstDate = rawAssignments.reduce((value, item) => item.start_date < value ? item.start_date : value, rawAssignments[0].start_date);
   const lastDate = rawAssignments.reduce((value, item) => item.end_date > value ? item.end_date : value, rawAssignments[0].end_date);
-  let entriesQuery = supabase.from("time_entries").select("user_id, project_id, work_date, duration_minutes").in("user_id", userIds).gte("work_date", firstDate).lte("work_date", lastDate);
+  let entriesQuery = db.from("time_entries").select("user_id, project_id, work_date, duration_minutes").in("user_id", userIds).gte("work_date", firstDate).lte("work_date", lastDate);
   if (!companyWide) entriesQuery = entriesQuery.eq("entity_code", entityCode);
   const { data: entries, error: entriesError } = await entriesQuery.returns<Array<{ user_id: string; project_id: string; work_date: string; duration_minutes: number }>>();
   if (entriesError) throw new Error(entriesError.message);
@@ -70,19 +70,19 @@ export async function createStaffingAssignment(input: {
 }) {
   const { auth, entityCode } = await requireCurrentEntityContext();
   if (auth.role !== "admin" && auth.role !== "manager") throw new Error("Staffing access denied.");
-  const supabase = await createClient();
-  if (!supabase) throw new Error("Staffing unavailable.");
+  const db = await createClient();
+  if (!db) throw new Error("Staffing unavailable.");
 
   const [{ data: project }, { data: person }] = await Promise.all([
-    supabase.from("projects").select("id, name, entity_code").eq("id", input.projectId).maybeSingle<{ id: string; name: string; entity_code: string | null }>(),
-    supabase.from("profiles").select("id, full_name, entity_code, role, availability_status").eq("id", input.userId).maybeSingle<{ id: string; full_name: string; entity_code: string | null; role: string; availability_status: string }>(),
+    db.from("projects").select("id, name, entity_code").eq("id", input.projectId).maybeSingle<{ id: string; name: string; entity_code: string | null }>(),
+    db.from("profiles").select("id, full_name, entity_code, role, availability_status").eq("id", input.userId).maybeSingle<{ id: string; full_name: string; entity_code: string | null; role: string; availability_status: string }>(),
   ]);
   if (!project || !person) throw new Error("Project or person not found.");
   if (auth.role === "manager" && (project.entity_code !== entityCode || person.entity_code !== entityCode)) throw new Error("Selection outside your entity.");
   if (person.availability_status === "inactive") throw new Error("This person is inactive.");
 
   const assignmentEntity = project.entity_code ?? person.entity_code ?? entityCode;
-  const { data: assignment, error } = await supabase.from("staffing_assignments").insert({
+  const { data: assignment, error } = await db.from("staffing_assignments").insert({
     project_id: input.projectId,
     user_id: input.userId,
     entity_code: assignmentEntity,
@@ -98,9 +98,9 @@ export async function createStaffingAssignment(input: {
   if (error) throw new Error(error.message);
 
   if (input.status === "confirmed") {
-    const { error: membershipError } = await supabase.from("project_members").upsert({ project_id: input.projectId, user_id: input.userId, role: person.role }, { onConflict: "project_id,user_id" });
+    const { error: membershipError } = await db.from("project_members").upsert({ project_id: input.projectId, user_id: input.userId, role: person.role }, { onConflict: "project_id,user_id" });
     if (membershipError) {
-      await supabase.from("staffing_assignments").delete().eq("id", assignment.id);
+      await db.from("staffing_assignments").delete().eq("id", assignment.id);
       throw new Error(membershipError.message);
     }
   }
@@ -111,9 +111,9 @@ export async function createStaffingAssignment(input: {
 export async function updateStaffingAssignmentStatus(assignmentId: string, status: StaffingStatus) {
   const { auth, entityCode } = await requireCurrentEntityContext();
   if (auth.role !== "admin" && auth.role !== "manager") throw new Error("Staffing access denied.");
-  const supabase = await createClient();
-  if (!supabase) throw new Error("Staffing unavailable.");
-  const { data: assignment, error: readError } = await supabase
+  const db = await createClient();
+  if (!db) throw new Error("Staffing unavailable.");
+  const { data: assignment, error: readError } = await db
     .from("staffing_assignments")
     .select("id, project_id, user_id, entity_code, start_date, end_date, allocation_percent")
     .eq("id", assignmentId)
@@ -122,7 +122,7 @@ export async function updateStaffingAssignmentStatus(assignmentId: string, statu
   if (auth.role === "manager" && assignment.entity_code !== entityCode) throw new Error("Selection outside your entity.");
 
   if (status === "requested" || status === "confirmed") {
-    const { data: overlaps, error: overlapError } = await supabase.from("staffing_assignments").select("allocation_percent")
+    const { data: overlaps, error: overlapError } = await db.from("staffing_assignments").select("allocation_percent")
       .eq("user_id", assignment.user_id).neq("id", assignment.id).in("status", ["requested", "confirmed"])
       .lte("start_date", assignment.end_date).gte("end_date", assignment.start_date)
       .returns<Array<{ allocation_percent: number }>>();
@@ -130,47 +130,47 @@ export async function updateStaffingAssignmentStatus(assignmentId: string, statu
     if ((overlaps ?? []).reduce((sum, item) => sum + Number(item.allocation_percent), 0) + Number(assignment.allocation_percent) > 100) throw new Error("capacity");
   }
 
-  const { error } = await supabase.from("staffing_assignments").update({ status }).eq("id", assignment.id);
+  const { error } = await db.from("staffing_assignments").update({ status }).eq("id", assignment.id);
   if (error) throw new Error(error.message);
 
   if (status === "confirmed") {
-    const { data: person } = await supabase.from("profiles").select("role").eq("id", assignment.user_id).maybeSingle<{ role: string }>();
-    const { error: membershipError } = await supabase.from("project_members").upsert({ project_id: assignment.project_id, user_id: assignment.user_id, role: person?.role ?? "member" }, { onConflict: "project_id,user_id" });
+    const { data: person } = await db.from("profiles").select("role").eq("id", assignment.user_id).maybeSingle<{ role: string }>();
+    const { error: membershipError } = await db.from("project_members").upsert({ project_id: assignment.project_id, user_id: assignment.user_id, role: person?.role ?? "member" }, { onConflict: "project_id,user_id" });
     if (membershipError) throw new Error(membershipError.message);
   }
 
   if (status === "cancelled" || status === "completed") {
-    const { count } = await supabase.from("staffing_assignments").select("id", { count: "exact", head: true })
+    const { count } = await db.from("staffing_assignments").select("id", { count: "exact", head: true })
       .eq("project_id", assignment.project_id).eq("user_id", assignment.user_id).eq("status", "confirmed").neq("id", assignment.id);
-    if (!count) await supabase.from("project_members").delete().eq("project_id", assignment.project_id).eq("user_id", assignment.user_id);
+    if (!count) await db.from("project_members").delete().eq("project_id", assignment.project_id).eq("user_id", assignment.user_id);
   }
   await logActivity({ userId: auth.profile.id, action: `Changed staffing status to ${status}`, entityType: "project", entityId: assignment.project_id, metadata: { kind: "status_change", summary: `Staffing assignment is now ${status}`, related_type: "staffing", related_id: assignment.id, assignee_id: assignment.user_id, status } });
-  const { data: statusProject } = await supabase.from("projects").select("name").eq("id", assignment.project_id).maybeSingle<{ name: string }>();
+  const { data: statusProject } = await db.from("projects").select("name").eq("id", assignment.project_id).maybeSingle<{ name: string }>();
   await notifyStaffing({ userId: assignment.user_id, skipUserId: auth.profile.id, type: "status_change", title: `Staffing assignment ${status}`, body: `${statusProject?.name ?? "Project"}: your assignment is now ${status}.`, entityType: "project", entityId: assignment.project_id });
 }
 
 export async function updateStaffingAssignment(input: { assignmentId: string; projectRole: string; startDate: string; endDate: string; allocationPercent: number; weeklyHours: number; note: string }) {
   const { auth, entityCode } = await requireCurrentEntityContext();
   if (auth.role !== "admin" && auth.role !== "manager") throw new Error("Staffing access denied.");
-  const supabase = await createClient();
-  if (!supabase) throw new Error("Staffing unavailable.");
-  const { data: assignment, error: readError } = await supabase.from("staffing_assignments")
+  const db = await createClient();
+  if (!db) throw new Error("Staffing unavailable.");
+  const { data: assignment, error: readError } = await db.from("staffing_assignments")
     .select("id, project_id, user_id, entity_code, status").eq("id", input.assignmentId)
     .maybeSingle<{ id: string; project_id: string; user_id: string; entity_code: string; status: StaffingStatus }>();
   if (readError || !assignment) throw new Error(readError?.message ?? "Assignment not found.");
   if (auth.role === "manager" && assignment.entity_code !== entityCode) throw new Error("Selection outside your entity.");
   if (assignment.status === "cancelled" || assignment.status === "completed") throw new Error("Closed assignments cannot be edited.");
   if (assignment.status === "requested" || assignment.status === "confirmed") {
-    const { data: overlaps, error: overlapError } = await supabase.from("staffing_assignments").select("allocation_percent")
+    const { data: overlaps, error: overlapError } = await db.from("staffing_assignments").select("allocation_percent")
       .eq("user_id", assignment.user_id).neq("id", assignment.id).in("status", ["requested", "confirmed"])
       .lte("start_date", input.endDate).gte("end_date", input.startDate)
       .returns<Array<{ allocation_percent: number }>>();
     if (overlapError) throw new Error(overlapError.message);
     if ((overlaps ?? []).reduce((sum, item) => sum + Number(item.allocation_percent), 0) + input.allocationPercent > 100) throw new Error("capacity");
   }
-  const { error } = await supabase.from("staffing_assignments").update({ project_role: input.projectRole, start_date: input.startDate, end_date: input.endDate, allocation_percent: input.allocationPercent, weekly_hours: input.weeklyHours, note: input.note || null }).eq("id", assignment.id);
+  const { error } = await db.from("staffing_assignments").update({ project_role: input.projectRole, start_date: input.startDate, end_date: input.endDate, allocation_percent: input.allocationPercent, weekly_hours: input.weeklyHours, note: input.note || null }).eq("id", assignment.id);
   if (error) throw new Error(error.message);
   await logActivity({ userId: auth.profile.id, action: "Updated staffing assignment", entityType: "project", entityId: assignment.project_id, metadata: { kind: "assignment_change", summary: `Staffing assignment updated to ${input.allocationPercent}%`, related_type: "staffing", related_id: assignment.id, assignee_id: assignment.user_id, allocation_percent: input.allocationPercent } });
-  const { data: updatedProject } = await supabase.from("projects").select("name").eq("id", assignment.project_id).maybeSingle<{ name: string }>();
+  const { data: updatedProject } = await db.from("projects").select("name").eq("id", assignment.project_id).maybeSingle<{ name: string }>();
   await notifyStaffing({ userId: assignment.user_id, skipUserId: auth.profile.id, title: "Project assignment updated", body: `${updatedProject?.name ?? "Project"} · ${input.projectRole} · ${input.allocationPercent}% from ${input.startDate} to ${input.endDate}.`, entityType: "project", entityId: assignment.project_id });
 }

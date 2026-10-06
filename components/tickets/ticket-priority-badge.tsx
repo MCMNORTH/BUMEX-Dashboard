@@ -33,7 +33,7 @@ export function TicketPriorityBadge({ priority }: { priority: TicketPriority }) 
   return (
     <Badge
       variant="outline"
-      className={`rounded-full px-3 py-1 text-[11px] tracking-[0.16em] uppercase ${config[priority].className}`}
+      className={config[priority].className}
     >
       <Icon className="mr-1 size-3.5" />
       {locale === "fr" ? ({ low: "Faible", medium: "Moyenne", high: "Haute", urgent: "Urgente" } as const)[priority] : getTicketPriorityLabel(priority)}

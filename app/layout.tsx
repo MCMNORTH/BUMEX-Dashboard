@@ -7,7 +7,7 @@ import { getCurrentLocale } from "@/lib/i18n/server";
 
 export const metadata: Metadata = {
   title: "BUMEX IT Dashboard",
-  description: "Premium internal dashboard foundation for BUMEX IT.",
+  description: "Internal workspace for BUMEX teams.",
 };
 
 export default async function RootLayout({

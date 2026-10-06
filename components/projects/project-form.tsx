@@ -31,6 +31,7 @@ type ProjectFormProps = {
   filterData: ProjectFiltersData;
   defaults?: Partial<ProjectFormValues> & { project_id?: string };
   triggerLabel?: string;
+  openOnLoad?: boolean;
 };
 
 export function ProjectForm({
@@ -38,6 +39,7 @@ export function ProjectForm({
   filterData,
   defaults,
   triggerLabel,
+  openOnLoad = false,
 }: ProjectFormProps) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
@@ -50,15 +52,15 @@ export function ProjectForm({
   );
 
   return (
-    <Dialog>
+    <Dialog defaultOpen={openOnLoad}>
       <DialogTrigger asChild>
         {mode === "create" ? (
-          <Button className="rounded-full px-5">
+          <Button>
             <Plus className="size-4" />
             {triggerLabel ?? (isFr ? "Créer un projet" : "Create project")}
           </Button>
         ) : (
-          <Button variant="secondary" className="rounded-full px-5">
+          <Button variant="secondary">
             <SquarePen className="size-4" />
             {triggerLabel ?? (isFr ? "Modifier le projet" : "Edit project")}
           </Button>
@@ -119,7 +121,7 @@ export function ProjectForm({
           </div>
 
           {isInternalProject ? (
-            <div className="rounded-[18px] border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-400/20 dark:bg-blue-500/10">
+            <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-400/20 dark:bg-blue-500/10">
               <input type="hidden" name="client_id" value="" />
               <div className="flex gap-3">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
@@ -263,13 +265,13 @@ export function ProjectForm({
           </div>
 
           {state.error ? (
-            <div className="sm:col-span-2 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-red-200">
+            <div className="sm:col-span-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
               {state.error}
             </div>
           ) : null}
 
           <div className="sm:col-span-2 flex justify-end gap-2">
-            <Button type="submit" className="rounded-2xl px-5">
+            <Button type="submit" className="rounded-xl px-5">
               {mode === "create" ? (isFr ? "Créer le projet" : "Create project") : (isFr ? "Enregistrer" : "Save changes")}
             </Button>
           </div>

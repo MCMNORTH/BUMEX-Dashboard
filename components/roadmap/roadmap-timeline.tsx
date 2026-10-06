@@ -45,10 +45,10 @@ export function RoadmapTimeline({
   const groups = groupProjects(projects, view);
 
   return (
-    <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+    <Card className="border-border/70 bg-card">
       <CardHeader className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Chronologie de la roadmap" : "Roadmap timeline"}</p>
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Chronologie de la roadmap" : "Roadmap timeline"}</p>
           <CardTitle className="mt-2 text-2xl tracking-[-0.04em]">{isFr ? "Horizon des projets et suivi des jalons" : "Project horizon and milestone flow"}</CardTitle>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
             {isFr ? "Visualisez la durée des projets, les jalons et les indicateurs de santé dans une seule vue de pilotage." : "Delivery lanes surface project duration, checkpoint timing, and health signals in a single executive planning view."}
@@ -61,12 +61,12 @@ export function RoadmapTimeline({
         <div className="overflow-x-auto pb-2">
           <div className="min-w-[52rem] space-y-5">
             <div
-              className="grid gap-3 rounded-[24px] border border-border/65 bg-background/34 px-4 py-4"
+              className="grid gap-3 rounded-xl border border-border/65 bg-background/34 px-4 py-4"
               style={{ gridTemplateColumns: `repeat(${periods.length}, minmax(8rem, 1fr))` }}
             >
               {periods.map((period) => (
-                <div key={period.key} className="rounded-2xl border border-border/50 bg-background/38 px-3 py-3 text-center">
-                  <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">{period.label}</p>
+                <div key={period.key} className="rounded-xl border border-border/50 bg-background/38 px-3 py-3 text-center">
+                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{period.label}</p>
                 </div>
               ))}
             </div>
@@ -75,7 +75,7 @@ export function RoadmapTimeline({
               groups.map((group) => (
                 <div key={group.label} className="space-y-4">
                   {view === "client" ? (
-                    <div className="rounded-[22px] border border-border/60 bg-background/34 px-4 py-3">
+                    <div className="rounded-xl border border-border/60 bg-background/34 px-4 py-3">
                       <p className="text-sm font-semibold tracking-[-0.02em]">{group.label}</p>
                     </div>
                   ) : null}
@@ -94,7 +94,7 @@ export function RoadmapTimeline({
                 </div>
               ))
             ) : (
-              <div className="rounded-[28px] border border-dashed border-border/70 bg-background/35 p-8 text-center">
+              <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-8 text-center">
                 <p className="text-base font-medium">{isFr ? "Aucun élément de roadmap ne correspond aux filtres actuels." : "No roadmap items match the current filters."}</p>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {isFr ? "Modifiez la vue ou les filtres pour afficher les projets et jalons de cet horizon." : "Adjust the view or filters to surface projects and milestones in this planning horizon."}

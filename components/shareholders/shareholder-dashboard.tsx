@@ -159,9 +159,9 @@ export function ShareholderDashboard({
   return (
     <div className="space-y-6">
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <Card className="surface-highlight relative overflow-hidden border-border/70 bg-card/78 backdrop-blur-xl">
+        <Card className="surface-highlight relative overflow-hidden border-border/70 bg-card">
           <CardHeader className="space-y-4">
-            <Badge variant="secondary" className="w-fit rounded-full px-3 py-1 text-[11px] tracking-[0.16em] uppercase">
+            <Badge variant="secondary" className="w-fit">
               Portfolio summary
             </Badge>
             <div className="space-y-2">
@@ -186,7 +186,7 @@ export function ShareholderDashboard({
                 <Link
                   key={project.id}
                   href={`/projects/${project.id}`}
-                  className="rounded-[22px] border border-border/65 bg-background/35 p-4 transition-transform hover:-translate-y-0.5"
+                  className="rounded-xl border border-border/65 bg-background/35 p-4 transition-transform hover:-translate-y-0.5"
                 >
                   {/* Only executive-safe project posture is rendered here. Internal ticket/task detail stays out. */}
                   <div className="flex items-start justify-between gap-3">
@@ -201,7 +201,7 @@ export function ShareholderDashboard({
                   </div>
                   <div className="mt-4 flex items-end justify-between gap-4">
                     <div>
-                      <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Progress</p>
+                      <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Progress</p>
                       <p className="mt-2 text-2xl font-semibold tracking-[-0.04em]">{project.progress}%</p>
                     </div>
                     <div className="text-right text-sm text-muted-foreground">
@@ -218,9 +218,9 @@ export function ShareholderDashboard({
         <div className="space-y-4">
           <ShareholderFinanceSummary summary={financeSummary} />
 
-          <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+          <Card className="border-border/70 bg-card">
             <CardHeader className="space-y-3">
-              <Badge variant="secondary" className="w-fit rounded-full px-3 py-1 text-[11px] tracking-[0.16em] uppercase">
+              <Badge variant="secondary" className="w-fit">
                 Financial summary
               </Badge>
               <CardTitle className="text-xl">Near-term finance timing</CardTitle>
@@ -235,7 +235,7 @@ export function ShareholderDashboard({
 
               <div className="space-y-3">
                 {financeOverview.upcomingFinancialDeadlines.slice(0, 4).map((deadline) => (
-                  <div key={`${deadline.kind}-${deadline.label}-${deadline.dueDate}`} className="rounded-[20px] border border-border/65 bg-background/35 p-4">
+                  <div key={`${deadline.kind}-${deadline.label}-${deadline.dueDate}`} className="rounded-xl border border-border/65 bg-background/35 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium">{deadline.label}</p>
@@ -258,9 +258,9 @@ export function ShareholderDashboard({
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
         <CashFlowChart data={monthlyFinance} variant="flow" />
 
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardHeader className="space-y-3">
-            <Badge variant="secondary" className="w-fit rounded-full px-3 py-1 text-[11px] tracking-[0.16em] uppercase">
+            <Badge variant="secondary" className="w-fit">
               Roadmap summary
             </Badge>
             <CardTitle className="text-xl">Milestones, deadlines, and health posture</CardTitle>
@@ -280,7 +280,7 @@ export function ShareholderDashboard({
                 <Link
                   key={milestone.milestoneId}
                   href="/roadmap"
-                  className="flex items-start justify-between gap-3 rounded-[20px] border border-border/65 bg-background/35 p-4 transition-transform hover:-translate-y-0.5"
+                  className="flex items-start justify-between gap-3 rounded-xl border border-border/65 bg-background/35 p-4 transition-transform hover:-translate-y-0.5"
                 >
                   <div className="space-y-2">
                     <p className="text-sm font-medium">{milestone.milestoneTitle}</p>
@@ -304,7 +304,7 @@ export function ShareholderDashboard({
                 <Link
                   key={project.id}
                   href={`/projects/${project.id}`}
-                  className="rounded-[20px] border border-border/65 bg-background/35 p-4 transition-transform hover:-translate-y-0.5"
+                  className="rounded-xl border border-border/65 bg-background/35 p-4 transition-transform hover:-translate-y-0.5"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-2">
@@ -322,9 +322,9 @@ export function ShareholderDashboard({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardHeader className="space-y-3">
-            <Badge variant="secondary" className="w-fit rounded-full px-3 py-1 text-[11px] tracking-[0.16em] uppercase">
+            <Badge variant="secondary" className="w-fit">
               Client summary
             </Badge>
             <CardTitle className="text-xl">Relationship concentration and current momentum</CardTitle>
@@ -341,12 +341,12 @@ export function ShareholderDashboard({
                 <Link
                   key={client.id}
                   href={`/clients/${client.id}`}
-                  className="flex items-start justify-between gap-3 rounded-[20px] border border-border/65 bg-background/35 p-4 transition-transform hover:-translate-y-0.5"
+                  className="flex items-start justify-between gap-3 rounded-xl border border-border/65 bg-background/35 p-4 transition-transform hover:-translate-y-0.5"
                 >
                   <div className="space-y-2">
                     <p className="text-sm font-medium">{client.name}</p>
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline" className="rounded-full border-sky-400/20 bg-sky-400/8 text-[11px] uppercase">
+                      <Badge variant="outline" className="border-sky-400/20 bg-sky-400/8">
                         {client.status}
                       </Badge>
                       {client.activeProjectsCount >= 2 ? (
@@ -364,9 +364,9 @@ export function ShareholderDashboard({
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardHeader className="space-y-3">
-            <Badge variant="secondary" className="w-fit rounded-full px-3 py-1 text-[11px] tracking-[0.16em] uppercase">
+            <Badge variant="secondary" className="w-fit">
               Executive activity
             </Badge>
             <CardTitle className="text-xl">Recent board-level movement</CardTitle>
@@ -377,10 +377,10 @@ export function ShareholderDashboard({
                 <Link
                   key={item.id}
                   href={item.href}
-                  className="flex items-start justify-between gap-3 rounded-[20px] border border-border/65 bg-background/35 p-4 transition-transform hover:-translate-y-0.5"
+                  className="flex items-start justify-between gap-3 rounded-xl border border-border/65 bg-background/35 p-4 transition-transform hover:-translate-y-0.5"
                 >
                   <div className="space-y-2">
-                    <Badge variant="outline" className="rounded-full border-border/70 bg-background/45 text-[11px] uppercase">
+                    <Badge variant="outline" className="border-border/70 bg-background/45">
                       {item.label}
                     </Badge>
                     <p className="text-sm font-medium">{item.title}</p>
@@ -392,7 +392,7 @@ export function ShareholderDashboard({
                 </Link>
               ))
             ) : (
-              <div className="rounded-[24px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
                 No recent executive activity is visible in the current scope.
               </div>
             )}
@@ -401,9 +401,9 @@ export function ShareholderDashboard({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardHeader className="space-y-3">
-            <Badge variant="secondary" className="w-fit rounded-full px-3 py-1 text-[11px] tracking-[0.16em] uppercase">
+            <Badge variant="secondary" className="w-fit">
               Project risks
             </Badge>
             <CardTitle className="text-xl">Delivery posture needing attention</CardTitle>
@@ -414,7 +414,7 @@ export function ShareholderDashboard({
                 <Link
                   key={project.id}
                   href={`/projects/${project.id}`}
-                  className="block rounded-[20px] border border-border/65 bg-background/35 p-4 transition-transform hover:-translate-y-0.5"
+                  className="block rounded-xl border border-border/65 bg-background/35 p-4 transition-transform hover:-translate-y-0.5"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-2">
@@ -429,7 +429,7 @@ export function ShareholderDashboard({
                 </Link>
               ))
             ) : (
-              <div className="rounded-[24px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
                 No material project risk is visible in the current portfolio.
               </div>
             )}
@@ -438,9 +438,9 @@ export function ShareholderDashboard({
 
         <FinanceRiskPanel items={financeRisks.slice(0, 4)} />
 
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardHeader className="space-y-3">
-            <Badge variant="secondary" className="w-fit rounded-full px-3 py-1 text-[11px] tracking-[0.16em] uppercase">
+            <Badge variant="secondary" className="w-fit">
               Contract renewal risks
             </Badge>
             <CardTitle className="text-xl">Renewal timing to watch</CardTitle>
@@ -451,7 +451,7 @@ export function ShareholderDashboard({
                   <Link
                     key={contract.id}
                     href={`/contracts/${contract.id}`}
-                    className="block rounded-[20px] border border-border/65 bg-background/35 p-4 transition-transform hover:-translate-y-0.5"
+                    className="block rounded-xl border border-border/65 bg-background/35 p-4 transition-transform hover:-translate-y-0.5"
                   >
                     {/* Contract summaries deliberately exclude payment terms, references, bank details, and private notes. */}
                     <div className="flex items-start justify-between gap-3">
@@ -471,7 +471,7 @@ export function ShareholderDashboard({
                 </Link>
               ))
             ) : (
-              <div className="rounded-[24px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
                 No contract renewals are currently nearing the executive window.
               </div>
             )}
@@ -501,10 +501,10 @@ function SummaryMetric({
   } as const;
 
   return (
-    <div className="flex min-h-36 flex-col justify-between rounded-[22px] border border-border/70 bg-white/70 p-4 shadow-[0_14px_34px_rgba(15,23,42,0.04)] dark:bg-background/35 dark:shadow-none">
+    <div className="flex min-h-36 flex-col justify-between rounded-xl border border-border/70 bg-white/70 p-4 shadow-[0_14px_34px_rgba(15,23,42,0.04)] dark:bg-background/35 dark:shadow-none">
       <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 text-[11px] font-semibold leading-5 tracking-[0.12em] text-slate-600 uppercase dark:text-muted-foreground">{label}</p>
-        <div className={`flex size-9 shrink-0 items-center justify-center rounded-2xl border ${tones[tone]}`}>
+        <p className="min-w-0 text-xs font-semibold leading-5 tracking-wider text-slate-600 uppercase dark:text-muted-foreground">{label}</p>
+        <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl border ${tones[tone]}`}>
           <Icon className="size-4.5" />
         </div>
       </div>
@@ -521,8 +521,8 @@ function CompactFigure({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border/65 bg-background/35 p-4">
-      <p className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">{label}</p>
+    <div className="rounded-xl border border-border/65 bg-background/35 p-4">
+      <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
       <p className="mt-3 whitespace-nowrap text-lg font-semibold tracking-tight">{value}</p>
     </div>
   );

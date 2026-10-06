@@ -1,13 +1,22 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useUser } from "@/hooks/use-user";
-import { createClient } from "@/lib/supabase/client";
+import {
+  archiveNotificationAction,
+  listNotificationsAction,
+  markAllNotificationsAsReadAction,
+  markNotificationAsReadAction,
+} from "@/lib/notifications/actions";
 import type { NotificationFilters, NotificationRecord } from "@/types/notification";
 
 const OPERATIONAL_READ_STORAGE_KEY = "bumex-operational-notifications-read";
 const OPERATIONAL_ARCHIVED_STORAGE_KEY = "bumex-operational-notifications-archived";
+
+// Firestore is only reachable from the server, so the list is refreshed by
+// polling instead of a realtime subscription.
+const POLL_INTERVAL_MS = 30_000;
 
 function isOperationalNotification(notification: NotificationRecord) {
   return notification.id.startsWith("operational-");
@@ -31,64 +40,19 @@ export function useNotifications(limit = 8, filters: NotificationFilters = {}) {
   const { profile } = useUser();
   const currentUserId = profile?.id ?? null;
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
-  const [loading, setLoading] = useState(() => Boolean(createClient()) && Boolean(currentUserId));
-  const instanceId = useId().replaceAll(":", "");
+  const [loading, setLoading] = useState(() => Boolean(currentUserId));
   const { search = "", unreadOnly = false, type = "", date = "all" } = filters;
 
   useEffect(() => {
     let mounted = true;
-    const browserClient = createClient();
-
-    if (!browserClient) {
-      return;
-    }
 
     if (!currentUserId) {
       return;
     }
 
-    const supabase = browserClient;
-
     async function load() {
-      let query = supabase
-        .from("notifications")
-        .select("id, user_id, type, title, body, entity_type, entity_id, is_read, created_at, archived_at")
-        .eq("user_id", currentUserId)
-        .is("archived_at", null)
-        .order("created_at", { ascending: false });
-
-      if (search) {
-        query = query.or(`title.ilike.%${search}%,body.ilike.%${search}%`);
-      }
-
-      if (unreadOnly) {
-        query = query.eq("is_read", false);
-      }
-
-      if (type) {
-        query = query.eq("type", type);
-      }
-
-      if (date === "today") {
-        const today = new Date();
-        today.setUTCHours(0, 0, 0, 0);
-        query = query.gte("created_at", today.toISOString());
-      }
-
-      if (date === "week") {
-        const start = new Date();
-        start.setUTCDate(start.getUTCDate() - 7);
-        query = query.gte("created_at", start.toISOString());
-      }
-
-      if (date === "month") {
-        const start = new Date();
-        start.setUTCDate(start.getUTCDate() - 30);
-        query = query.gte("created_at", start.toISOString());
-      }
-
-      const [{ data }, operationalResponse] = await Promise.all([
-        query.limit(limit).returns<NotificationRecord[]>(),
+      const [stored, operationalResponse] = await Promise.all([
+        listNotificationsAction(limit, { search, unreadOnly, type, date }).catch(() => null),
         fetch("/api/notifications/operational", { cache: "no-store" }).catch(() => null),
       ]);
 
@@ -105,7 +69,12 @@ export function useNotifications(limit = 8, filters: NotificationFilters = {}) {
         .filter((notification) => !type || notification.type === type);
 
       if (mounted) {
-        setNotifications([...operationalNotifications, ...(data ?? [])].slice(0, limit));
+        // Keep the last known list when the stored notifications fail to load.
+        setNotifications((current) =>
+          stored === null
+            ? current
+            : [...operationalNotifications, ...stored].slice(0, limit),
+        );
         setLoading(false);
       }
     }
@@ -117,30 +86,22 @@ export function useNotifications(limit = 8, filters: NotificationFilters = {}) {
     }, 0);
     void load();
 
-    const channel = supabase
-      .channel(`notifications-${limit}-${instanceId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${currentUserId}` },
-        () => {
-          void load();
-        },
-      )
-      .subscribe();
+    const interval = window.setInterval(() => void load(), POLL_INTERVAL_MS);
+    const onFocus = () => void load();
+    window.addEventListener("focus", onFocus);
 
     return () => {
       mounted = false;
       window.clearTimeout(loadingTimer);
-      void supabase.removeChannel(channel);
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
     };
-  }, [currentUserId, date, instanceId, limit, search, type, unreadOnly]);
+  }, [currentUserId, date, limit, search, type, unreadOnly]);
 
   const unreadCount = notifications.filter((notification) => !notification.is_read).length;
 
   async function markAsRead(notificationId: string) {
-    const supabase = createClient();
-
-    if (!supabase || !currentUserId) {
+    if (!currentUserId) {
       return;
     }
 
@@ -156,16 +117,10 @@ export function useNotifications(limit = 8, filters: NotificationFilters = {}) {
       ),
     );
 
-    await supabase.from("notifications").update({ is_read: true }).eq("user_id", currentUserId).eq("id", notificationId);
+    await markNotificationAsReadAction(notificationId);
   }
 
   async function markAllAsRead() {
-    const supabase = createClient();
-
-    if (!supabase) {
-      return;
-    }
-
     const operationalIds = notifications.filter(isOperationalNotification).map((notification) => notification.id);
     operationalIds.forEach((id) => storeId(OPERATIONAL_READ_STORAGE_KEY, id));
     setNotifications((current) =>
@@ -176,16 +131,10 @@ export function useNotifications(limit = 8, filters: NotificationFilters = {}) {
       return;
     }
 
-    await supabase.from("notifications").update({ is_read: true }).eq("user_id", currentUserId).eq("is_read", false);
+    await markAllNotificationsAsReadAction();
   }
 
   async function archiveNotification(notificationId: string) {
-    const supabase = createClient();
-
-    if (!supabase) {
-      return;
-    }
-
     if (isOperationalNotification(notifications.find((notification) => notification.id === notificationId) ?? {} as NotificationRecord)) {
       storeId(OPERATIONAL_ARCHIVED_STORAGE_KEY, notificationId);
       setNotifications((current) => current.filter((notification) => notification.id !== notificationId));
@@ -200,11 +149,7 @@ export function useNotifications(limit = 8, filters: NotificationFilters = {}) {
       return;
     }
 
-    await supabase
-      .from("notifications")
-      .update({ archived_at: new Date().toISOString(), is_read: true })
-      .eq("user_id", currentUserId)
-      .eq("id", notificationId);
+    await archiveNotificationAction(notificationId);
   }
 
   return {

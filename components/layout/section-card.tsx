@@ -31,7 +31,7 @@ export function SectionCard({
           <div className="flex flex-col gap-2.5 xl:flex-row xl:items-start xl:justify-between">
             <div className="space-y-1.5">
               {eyebrow ? (
-                <p className="text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                   {eyebrow}
                 </p>
               ) : null}

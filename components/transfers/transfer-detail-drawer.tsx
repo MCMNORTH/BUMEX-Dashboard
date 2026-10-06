@@ -6,6 +6,7 @@ import { Download, History, Link2, Repeat2, ShieldAlert, Trash2 } from "lucide-r
 
 import { deleteTransferAction } from "@/app/(app)/finance/transfers/actions";
 import { CommentsPanel } from "@/components/comments/comments-panel";
+import { useI18n } from "@/components/layout/i18n-provider";
 import { TransferCategoryBadge } from "@/components/transfers/transfer-category-badge";
 import { TransferEntityBadge } from "@/components/transfers/transfer-entity-badge";
 import { TransferForm } from "@/components/transfers/transfer-form";
@@ -28,8 +29,9 @@ import type { CommentRecord } from "@/types/comment";
 import type { MentionCandidate } from "@/types/notification";
 import type { TransferFiltersData, TransferRecord } from "@/types/finance";
 
-function getRestrictedValue(value: string | null) {
-  return value ? "Restricted" : "Not set";
+function getRestrictedValue(value: string | null, isFr: boolean) {
+  if (value) return isFr ? "Restreint" : "Restricted";
+  return isFr ? "Non renseigné" : "Not set";
 }
 
 export function TransferDetailDrawer({
@@ -54,6 +56,9 @@ export function TransferDetailDrawer({
   returnPath?: string;
 }) {
   const isSummary = transfer.viewMode === "summary";
+  const { locale } = useI18n();
+  const isFr = locale === "fr";
+  const tr = (fr: string, en: string) => (isFr ? fr : en);
 
   return (
     <Dialog>
@@ -65,7 +70,7 @@ export function TransferDetailDrawer({
               {isSummary ? transfer.beneficiary_name : transfer.transfer_reference}
             </DialogTitle>
             <DialogDescription>
-              Outgoing transfer record with beneficiary, category, related scope, and activity history.
+              {tr("Virement sortant avec bénéficiaire, catégorie, éléments liés et historique.", "Outgoing transfer with beneficiary, category, linked records, and history.")}
             </DialogDescription>
           </DialogHeader>
 
@@ -77,66 +82,66 @@ export function TransferDetailDrawer({
             </div>
 
             {isSummary ? (
-              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-100">
                 <div className="flex items-center gap-2 font-medium">
                   <ShieldAlert className="size-4" />
-                  Sensitive transfer fields are hidden in summary mode.
+                  {tr("Les informations sensibles sont masquées en mode synthèse.", "Sensitive fields are hidden in summary mode.")}
                 </div>
               </div>
             ) : null}
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <Metric label="Beneficiary" value={transfer.beneficiary_name} detail="Transfer recipient" />
-              <Metric label="Amount" value={formatFinanceCurrency(transfer.amount, transfer.currency)} detail={transfer.currency} />
-              <Metric label="Transfer date" value={formatDate(transfer.transfer_date)} detail="Planned or executed date" />
-              <Metric label="Entity" value={getTransferEntityLabel(transfer.entity)} detail="Operating portfolio / company line" />
-              <Metric label="Client" value={transfer.relatedClient?.name ?? "No linked client"} detail={transfer.relatedClient?.contact_email ?? "No client context"} />
-              <Metric label="Project" value={transfer.relatedProject?.name ?? "No linked project"} detail={transfer.relatedProject?.status ?? "No project context"} />
+              <Metric label={tr("Bénéficiaire", "Beneficiary")} value={transfer.beneficiary_name} detail={tr("Destinataire du virement", "Transfer recipient")} />
+              <Metric label={tr("Montant", "Amount")} value={formatFinanceCurrency(transfer.amount, transfer.currency)} detail={transfer.currency} />
+              <Metric label={tr("Date du virement", "Transfer date")} value={formatDate(transfer.transfer_date)} detail={tr("Date prévue ou exécutée", "Planned or executed date")} />
+              <Metric label={tr("Entité", "Entity")} value={getTransferEntityLabel(transfer.entity)} detail={tr("Société concernée", "Company concerned")} />
+              <Metric label={tr("Client", "Client")} value={transfer.relatedClient?.name ?? tr("Aucun client lié", "No linked client")} detail={transfer.relatedClient?.contact_email ?? "—"} />
+              <Metric label={tr("Projet", "Project")} value={transfer.relatedProject?.name ?? tr("Aucun projet lié", "No linked project")} detail={transfer.relatedProject?.status ?? "—"} />
               <Metric
-                label="Reference"
-                value={isSummary ? getRestrictedValue(transfer.transfer_reference) : transfer.transfer_reference}
-                detail="Internal transfer reference"
+                label={tr("Référence", "Reference")}
+                value={isSummary ? getRestrictedValue(transfer.transfer_reference, isFr) : transfer.transfer_reference}
+                detail={tr("Référence interne du virement", "Internal transfer reference")}
               />
             </div>
 
             {transfer.renewal.enabled ? (
-              <div className="rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 dark:border-indigo-400/20 dark:bg-indigo-500/10">
-                <div className="flex items-center gap-2"><Repeat2 className="size-4 text-indigo-600 dark:text-indigo-200" /><p className="text-sm font-semibold text-indigo-800 dark:text-indigo-100">Renouvellement suivi</p></div>
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-4 dark:border-indigo-400/20 dark:bg-indigo-500/10">
+                <div className="flex items-center gap-2"><Repeat2 className="size-4 text-indigo-600 dark:text-indigo-200" /><p className="text-sm font-semibold text-indigo-800 dark:text-indigo-100">{tr("Renouvellement suivi", "Tracked renewal")}</p></div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <Metric label="Prochaine échéance" value={transfer.renewal.next_due_date ? formatDate(transfer.renewal.next_due_date) : "À définir"} detail="Date du prochain paiement" />
-                  <Metric label="Alerte" value={`${transfer.renewal.reminder_days} jours avant`} detail="Notification dans le logiciel" />
-                  <Metric label="Fréquence" value={`${transfer.renewal.interval_months} mois`} detail="Période de renouvellement" />
+                  <Metric label={tr("Prochaine échéance", "Next due date")} value={transfer.renewal.next_due_date ? formatDate(transfer.renewal.next_due_date) : tr("À définir", "Not set")} detail={tr("Date du prochain paiement", "Next payment date")} />
+                  <Metric label={tr("Alerte", "Reminder")} value={tr(`${transfer.renewal.reminder_days} jours avant`, `${transfer.renewal.reminder_days} days before`)} detail={tr("Notification dans le logiciel", "In-app notification")} />
+                  <Metric label={tr("Fréquence", "Frequency")} value={tr(`${transfer.renewal.interval_months} mois`, `Every ${transfer.renewal.interval_months} months`)} detail={tr("Période de renouvellement", "Renewal period")} />
                 </div>
               </div>
             ) : null}
 
-            <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-              <p className="text-sm font-medium">Bank details</p>
+            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+              <p className="text-sm font-medium">{tr("Coordonnées bancaires", "Bank details")}</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <Metric
-                  label="Bank"
-                  value={isSummary ? getRestrictedValue(transfer.beneficiary_bank) : (transfer.beneficiary_bank ?? "Not set")}
-                  detail="Beneficiary bank"
+                  label={tr("Banque", "Bank")}
+                  value={isSummary ? getRestrictedValue(transfer.beneficiary_bank, isFr) : (transfer.beneficiary_bank ?? tr("Non renseigné", "Not set"))}
+                  detail={tr("Banque du bénéficiaire", "Beneficiary bank")}
                 />
                 <Metric
-                  label="Account"
-                  value={isSummary ? getRestrictedValue(transfer.beneficiary_account) : (transfer.beneficiary_account ?? "Not set")}
-                  detail="Beneficiary account"
+                  label={tr("Compte", "Account")}
+                  value={isSummary ? getRestrictedValue(transfer.beneficiary_account, isFr) : (transfer.beneficiary_account ?? tr("Non renseigné", "Not set"))}
+                  detail={tr("Compte du bénéficiaire", "Beneficiary account")}
                 />
               </div>
             </div>
 
-            <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-              <p className="text-sm font-medium">Notes</p>
+            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+              <p className="text-sm font-medium">{tr("Notes", "Notes")}</p>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                {isSummary ? getRestrictedValue(transfer.notes) : (transfer.notes ?? "No transfer notes recorded.")}
+                {isSummary ? getRestrictedValue(transfer.notes, isFr) : (transfer.notes ?? tr("Aucune note.", "No notes."))}
               </p>
               <Separator className="my-4 bg-border/60" />
-              <p className="text-sm font-medium">Supporting documents</p>
+              <p className="text-sm font-medium">{tr("Justificatifs", "Supporting documents")}</p>
               {transfer.supportingDocuments.length ? (
                 <div className="mt-4 space-y-3">
                   {transfer.supportingDocuments.map((document) => (
-                    <div key={document.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border/65 bg-background/35 p-4">
+                    <div key={document.id} className="flex items-center justify-between gap-3 rounded-xl border border-border/65 bg-background/35 p-4">
                       <div>
                         <p className="text-sm font-medium">{document.title}</p>
                         <p className="mt-1 text-xs text-muted-foreground">{document.file_name}</p>
@@ -144,7 +149,7 @@ export function TransferDetailDrawer({
                       <Button asChild variant="secondary" className="rounded-full px-4">
                         <a href={`/api/documents/${document.id}/download`} target="_blank" rel="noreferrer">
                           <Download className="size-4" />
-                          Open
+                          {tr("Ouvrir", "Open")}
                         </a>
                       </Button>
                     </div>
@@ -152,19 +157,19 @@ export function TransferDetailDrawer({
                 </div>
               ) : (
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  No outgoing proof has been attached yet.
+                  {tr("Aucun justificatif joint.", "No proof attached yet.")}
                 </p>
               )}
             </div>
 
-            <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
+            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
               <div className="flex items-center gap-2">
                 <Link2 className="size-4 text-primary" />
-                <h3 className="text-base font-semibold">Linked records</h3>
+                <h3 className="text-base font-semibold">{tr("Éléments liés", "Linked records")}</h3>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <LinkButton href={transfer.relatedClient ? `/clients/${transfer.relatedClient.id}` : undefined} label="Client profile" />
-                <LinkButton href={transfer.relatedProject ? `/projects/${transfer.relatedProject.id}` : undefined} label="Project detail" />
+                <LinkButton href={transfer.relatedClient ? `/clients/${transfer.relatedClient.id}` : undefined} label={tr("Fiche client", "Client profile")} unavailableLabel={tr("Non disponible", "Not available")} />
+                <LinkButton href={transfer.relatedProject ? `/projects/${transfer.relatedProject.id}` : undefined} label={tr("Projet", "Project")} unavailableLabel={tr("Non disponible", "Not available")} />
               </div>
             </div>
 
@@ -197,13 +202,16 @@ export function TransferDetailDrawer({
                 <ConfirmActionForm
                   action={deleteTransferAction}
                   fields={{ transfer_id: transfer.id, return_path: returnPath }}
-                  title="Delete transfer?"
-                  description={`This will permanently delete transfer ${transfer.transfer_reference}. This action cannot be undone.`}
-                  confirmLabel="Delete transfer"
+                  title={tr("Supprimer ce virement ?", "Delete transfer?")}
+                  description={tr(
+                    `Le virement ${transfer.transfer_reference} sera définitivement supprimé. Cette action est irréversible.`,
+                    `This will permanently delete transfer ${transfer.transfer_reference}. This action cannot be undone.`,
+                  )}
+                  confirmLabel={tr("Supprimer le virement", "Delete transfer")}
                   trigger={(
-                    <Button type="button" variant="ghost" className="rounded-2xl px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
+                    <Button type="button" variant="ghost" className="rounded-xl px-5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-800 dark:text-rose-200 dark:hover:text-rose-100">
                       <Trash2 className="size-4" />
-                      Delete transfer
+                      {tr("Supprimer le virement", "Delete transfer")}
                     </Button>
                   )}
                 />
@@ -213,26 +221,29 @@ export function TransferDetailDrawer({
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <History className="size-4 text-primary" />
-                <h3 className="text-base font-semibold">Activity history</h3>
+                <h3 className="text-base font-semibold">{tr("Historique", "Activity history")}</h3>
               </div>
               {transfer.recentActivity.length ? (
                 transfer.recentActivity.map((activity) => (
-                  <div key={activity.id} className="rounded-2xl border border-border/65 bg-background/38 p-4">
+                  <div key={activity.id} className="rounded-xl border border-border/65 bg-background/38 p-4">
                     <p className="text-sm font-medium">{activity.action}</p>
                     <p className="mt-2 text-xs leading-5 text-muted-foreground">
                       {activity.metadata.summary
                         ?? (activity.metadata.field
-                          ? `${activity.metadata.field} changed from ${activity.metadata.from ?? "empty"} to ${activity.metadata.to ?? "empty"}`
-                          : "Transfer activity recorded.")}
+                          ? tr(
+                              `${activity.metadata.field} : ${activity.metadata.from ?? "vide"} → ${activity.metadata.to ?? "vide"}`,
+                              `${activity.metadata.field} changed from ${activity.metadata.from ?? "empty"} to ${activity.metadata.to ?? "empty"}`,
+                            )
+                          : tr("Activité enregistrée.", "Transfer activity recorded."))}
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      {activity.user?.full_name ?? "System"} / {formatDate(activity.created_at)}
+                      {activity.user?.full_name ?? tr("Système", "System")} / {formatDate(activity.created_at)}
                     </p>
                   </div>
                 ))
               ) : (
-                <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                  No transfer activity has been recorded yet.
+                <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+                  {tr("Aucune activité pour le moment.", "No activity yet.")}
                 </div>
               )}
             </div>
@@ -263,25 +274,25 @@ function Metric({
   detail: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-      <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{label}</p>
+    <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+      <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
       <p className="mt-2 text-sm font-medium">{value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
     </div>
   );
 }
 
-function LinkButton({ href, label }: { href?: string; label: string }) {
+function LinkButton({ href, label, unavailableLabel }: { href?: string; label: string; unavailableLabel: string }) {
   if (!href) {
     return (
-      <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 px-4 py-3 text-sm text-muted-foreground">
-        {label} unavailable
+      <div className="rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
+        {label} · {unavailableLabel}
       </div>
     );
   }
 
   return (
-    <Button asChild variant="secondary" className="justify-start rounded-2xl px-4">
+    <Button asChild variant="secondary" className="justify-start rounded-xl px-4">
       <Link href={href}>{label}</Link>
     </Button>
   );

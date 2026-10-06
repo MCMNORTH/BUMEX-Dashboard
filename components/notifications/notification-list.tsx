@@ -22,7 +22,7 @@ export function NotificationList({
 
   if (!notifications.length) {
     return (
-      <div className="rounded-[24px] border border-dashed border-border/70 bg-background/35 p-6 text-sm text-muted-foreground">
+      <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-6 text-sm text-muted-foreground">
         {emptyMessage === "No notifications yet." ? (isFr ? "Aucune notification pour le moment." : emptyMessage) : emptyMessage}
       </div>
     );

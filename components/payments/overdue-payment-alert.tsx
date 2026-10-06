@@ -29,14 +29,14 @@ export function OverduePaymentAlert({
   const { locale } = useI18n();
   const isFr = locale === "fr";
   return (
-    <Card className="border-rose-500/18 bg-card/72 backdrop-blur-xl">
+    <Card className="border-rose-500/18 bg-card">
       <CardContent className="space-y-4 px-5 py-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Encaissements en retard" : "Overdue payments"}</p>
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Encaissements en retard" : "Overdue payments"}</p>
             <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Encaissements à surveiller" : "Collections needing attention"}</h3>
           </div>
-          <div className="mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-500/12">
+          <div className="mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-xl border border-rose-500/20 bg-rose-500/12">
             <AlertTriangle className="size-5 text-rose-400" />
           </div>
         </div>
@@ -54,7 +54,7 @@ export function OverduePaymentAlert({
                 trigger={
                   <button
                     type="button"
-                    className="w-full rounded-[22px] border border-rose-500/16 bg-rose-500/6 px-4 py-3 text-left transition-colors hover:border-rose-400/28"
+                    className="w-full rounded-xl border border-rose-500/16 bg-rose-500/6 px-4 py-3 text-left transition-colors hover:border-rose-400/28"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -74,7 +74,7 @@ export function OverduePaymentAlert({
             ))}
           </div>
         ) : (
-          <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
             {isFr ? "Aucun encaissement en retard n’est actuellement visible dans votre périmètre financier." : "No overdue payments are currently visible in your finance scope."}
           </div>
         )}

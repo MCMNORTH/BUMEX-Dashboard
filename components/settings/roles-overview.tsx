@@ -152,7 +152,7 @@ export function RolesOverview() {
           const Icon = role.icon;
 
           return (
-            <Card key={role.role} className="border-border/70 bg-card/72 backdrop-blur-xl">
+            <Card key={role.role} className="border-border/70 bg-card">
               <CardHeader className="space-y-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-3">
@@ -164,7 +164,7 @@ export function RolesOverview() {
                       <CardDescription>{role.description}</CardDescription>
                     </div>
                   </div>
-                  <div className="rounded-2xl border border-border/65 bg-background/45 p-3">
+                  <div className="rounded-xl border border-border/65 bg-background/45 p-3">
                     <Icon className="size-5 text-primary" />
                   </div>
                 </div>
@@ -179,10 +179,10 @@ export function RolesOverview() {
         })}
       </div>
 
-      <div className="overflow-hidden rounded-[28px] border border-border/70 bg-card/72 shadow-[var(--shadow-soft)] backdrop-blur-xl">
+      <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-[var(--shadow-soft)]">
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-border/65 bg-background/35 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+            <thead className="border-b border-border/65 bg-background/35 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="px-5 py-4 font-medium">Permission area</th>
                 <th className="px-5 py-4 font-medium">Admin</th>
@@ -219,8 +219,8 @@ function RoleList({
   items: string[];
 }) {
   return (
-    <div className="space-y-3 rounded-[24px] border border-border/65 bg-background/35 p-4">
-      <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{title}</p>
+    <div className="space-y-3 rounded-xl border border-border/65 bg-background/35 p-4">
+      <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{title}</p>
       <div className="flex flex-wrap gap-2">
         {items.map((item) => (
           <Badge key={item} variant="secondary" className="rounded-full px-3 py-1">

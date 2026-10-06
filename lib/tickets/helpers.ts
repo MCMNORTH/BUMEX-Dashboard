@@ -140,6 +140,19 @@ export function getTicketDueLabel(dueDate: string | null) {
   return "Planned";
 }
 
+export const TICKET_DESCRIPTION_PREVIEW_LENGTH = 100;
+
+/** Shortens a description for cards and lists; the detail page shows it in full. */
+export function getTicketDescriptionPreview(description: string | null) {
+  const text = description?.replace(/\s+/g, " ").trim() ?? "";
+
+  if (text.length <= TICKET_DESCRIPTION_PREVIEW_LENGTH) {
+    return text;
+  }
+
+  return `${text.slice(0, TICKET_DESCRIPTION_PREVIEW_LENGTH - 1).trimEnd()}…`;
+}
+
 export function redactTicketDescription(description: string | null, role: AppRole) {
   if (role !== "shareholder") {
     return description;

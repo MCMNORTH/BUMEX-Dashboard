@@ -82,7 +82,7 @@ export function CommentsPanel({
   const canCreate = canCreateComment(role, entityType);
 
   return (
-    <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+    <Card className="border-border/70 bg-card">
       <CardHeader>
         <div className="flex items-center gap-2">
           <MessageSquareText className="size-4 text-primary" />
@@ -103,7 +103,7 @@ export function CommentsPanel({
             mentionCandidates={mentionCandidates}
           />
         ) : (
-          <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
             {role === "shareholder"
               ? "Shareholder access is limited to visible non-internal comments."
               : "Commenting is not enabled for this entity in your current role scope."}
@@ -115,7 +115,7 @@ export function CommentsPanel({
             const canManage = role === "admin" || comment.author_id === currentUserId;
 
             return (
-              <div key={comment.id} className="rounded-[24px] border border-border/65 bg-background/35 p-4">
+              <div key={comment.id} className="rounded-xl border border-border/65 bg-background/35 p-4">
                 <div className="flex items-start gap-3">
                   <Avatar className="size-10">
                     <AvatarFallback>{getInitials(comment.author?.full_name)}</AvatarFallback>
@@ -197,7 +197,7 @@ export function CommentsPanel({
             );
           })
         ) : (
-          <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
             {isFr ? "Aucun commentaire n’a encore été ajouté à cet élément." : "No comments have been added yet for this entity."}
           </div>
         )}

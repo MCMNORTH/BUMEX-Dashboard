@@ -16,7 +16,7 @@ function getInitials(name: string) {
 
 export function TeamMemberDetailHeader({ member, isFr = false }: { member: TeamMemberRecord; isFr?: boolean }) {
   return (
-    <Card className="surface-highlight overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
+    <Card className="surface-highlight overflow-hidden border-border/70 bg-card">
       <CardContent className="space-y-6 px-6 py-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div className="flex items-start gap-4">
@@ -30,7 +30,7 @@ export function TeamMemberDetailHeader({ member, isFr = false }: { member: TeamM
               </div>
               <div className="flex flex-wrap gap-2">
                 <AvailabilityBadge status={member.availability_status} isFr={isFr} />
-                <div className="rounded-full border border-border/65 bg-background/38 px-3 py-1 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                <div className="rounded-full border border-border/65 bg-background/38 px-3 py-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                   {member.role}
                 </div>
               </div>
@@ -51,7 +51,7 @@ export function TeamMemberDetailHeader({ member, isFr = false }: { member: TeamM
 
 function ContactLine({ icon: Icon, label }: { icon: typeof Mail; label: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-2xl border border-border/65 bg-background/38 px-4 py-3 text-sm text-muted-foreground">
+    <div className="flex items-center gap-2 rounded-xl border border-border/65 bg-background/38 px-4 py-3 text-sm text-muted-foreground">
       <Icon className="size-4 text-primary" />
       <span>{label}</span>
     </div>

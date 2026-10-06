@@ -8,7 +8,7 @@ import type { NavigationItemConfig } from "@/types/navigation";
 import { cn } from "@/lib/utils";
 
 const navigationItemVariants = cva(
-  "group relative flex w-full items-center gap-2.5 overflow-hidden rounded-[9px] border px-2.5 py-2 text-[13px] transition-[color,background-color,border-color,box-shadow] duration-200",
+  "group relative flex w-full items-center gap-2.5 overflow-hidden rounded-lg border px-2.5 py-2 text-sm transition-[color,background-color,border-color,box-shadow] duration-200",
   {
     variants: {
       active: {
@@ -34,7 +34,6 @@ type NavigationItemProps = {
   active: boolean;
   collapsed?: boolean;
   onNavigate?: (href: string) => void;
-  theme?: "workspace" | "business" | "system";
 };
 
 function NavigationItemComponent({
@@ -42,26 +41,13 @@ function NavigationItemComponent({
   active,
   collapsed = false,
   onNavigate,
-  theme = "workspace",
 }: NavigationItemProps) {
   const Icon = item.icon;
   const themeClasses = {
-    workspace: {
-      active: "border-[#0c66e4]/18 bg-[#e9f2ff] text-[#0c66e4] dark:border-[#579dff]/30 dark:bg-[#1c2b41] dark:text-[#9fc5ff]",
-      icon: "text-[#0c66e4] dark:text-[#9fc5ff]",
-      rail: "bg-[#0c66e4]",
-    },
-    business: {
-      active: "border-[#c25100]/18 bg-[#fff3eb] text-[#a54800] dark:border-[#f59e6b]/30 dark:bg-[#3c2617] dark:text-[#ffb689]",
-      icon: "text-[#a54800] dark:text-[#ffb689]",
-      rail: "bg-[#c25100]",
-    },
-    system: {
-      active: "border-[#7f56d9]/18 bg-[#f4efff] text-[#6941c6] dark:border-[#a78bfa]/30 dark:bg-[#2f234a] dark:text-[#d0bcff]",
-      icon: "text-[#6941c6] dark:text-[#d0bcff]",
-      rail: "bg-[#7f56d9]",
-    },
-  }[theme];
+    active: "border-primary/20 bg-accent text-accent-foreground",
+    icon: "text-primary",
+    rail: "bg-primary",
+  };
 
   function handleNavigate() {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
@@ -78,9 +64,8 @@ function NavigationItemComponent({
         active && themeClasses.active,
         collapsed
           && cn(
-            "mx-auto w-11 rounded-[16px] hover:border-transparent hover:bg-white/72 hover:shadow-[0_12px_24px_rgba(15,23,42,0.08)] dark:hover:bg-white/6",
-            active
-              && "border-transparent bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(240,247,255,0.96))] shadow-[0_18px_32px_rgba(12,102,228,0.12)] dark:bg-[linear-gradient(180deg,rgba(32,39,52,0.98),rgba(26,32,44,0.98))]",
+            "mx-auto w-11 rounded-lg hover:border-transparent hover:bg-muted",
+            active && "border-transparent bg-accent",
           ),
       )}
       aria-current={active ? "page" : undefined}
@@ -88,8 +73,8 @@ function NavigationItemComponent({
     >
       <span
         className={cn(
-          "relative z-[1] flex size-7 shrink-0 items-center justify-center rounded-[7px] border transition-[color,background-color,transform] duration-200",
-          collapsed && "mx-auto size-9 self-center rounded-[12px] border-transparent bg-transparent shadow-none",
+          "relative z-[1] flex size-7 shrink-0 items-center justify-center rounded-md border transition-[color,background-color,transform] duration-200",
+          collapsed && "mx-auto size-9 self-center rounded-lg border-transparent bg-transparent shadow-none",
           active
             ? cn("border-current/10 bg-card dark:bg-card", themeClasses.icon)
             : "border-transparent bg-transparent text-foreground group-hover:border-border group-hover:bg-card dark:group-hover:bg-card",
@@ -113,7 +98,7 @@ function NavigationItemComponent({
           collapsed && "pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0",
         )}
       >
-        <span className="block text-[12.5px] leading-4.5 font-medium tracking-[-0.01em] break-words">{item.label}</span>
+        <span className="block text-sm leading-5 font-medium break-words">{item.label}</span>
       </span>
       {active ? (
         <>
@@ -127,7 +112,7 @@ function NavigationItemComponent({
         </>
       ) : null}
       {collapsed ? (
-        <span className="pointer-events-none absolute left-[calc(100%+0.75rem)] top-1/2 z-[90] hidden -translate-y-1/2 whitespace-nowrap rounded-[9px] border border-border bg-card px-2.5 py-1.5 text-[11px] font-semibold tracking-[-0.01em] text-foreground shadow-[var(--shadow-elevated)] group-hover:flex">
+        <span className="pointer-events-none absolute left-[calc(100%+0.75rem)] top-1/2 z-[90] hidden -translate-y-1/2 whitespace-nowrap rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-[var(--shadow-elevated)] group-hover:flex">
           {item.label}
         </span>
       ) : null}

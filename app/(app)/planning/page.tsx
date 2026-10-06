@@ -52,7 +52,7 @@ export default async function PlanningPage({
     getWeeklyTasks(auth.role, week, filters, acrossEntities),
     getOverdueTasks(auth.role, filters),
     getTicketsFilterData(),
-    getPlanningAlerts(auth.role, auth.profile.id),
+    getPlanningAlerts(auth.role, auth.profile.id, locale),
     auth.role === "shareholder" ? Promise.resolve([]) : getTeamWorkload(auth.role, auth.profile.id, acrossEntities),
     auth.role === "shareholder" ? Promise.resolve([]) : getAvailableTeamMembers(auth.role, auth.profile.id),
     auth.role === "shareholder" ? Promise.resolve([]) : getOverloadedTeamMembers(auth.role, auth.profile.id),
@@ -169,15 +169,15 @@ export default async function PlanningPage({
             detail: isFr ? "Tickets sans date d'échéance" : "Tickets still missing a due date",
           },
         ].map(({ icon: Icon, label, value, detail }) => (
-          <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card/72 backdrop-blur-xl">
+          <Card key={label} className="surface-highlight relative overflow-hidden border-border/70 bg-card">
             <CardContent className="px-5 py-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{label}</p>
+                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
                   <p className="mt-3 text-3xl font-semibold tracking-[-0.05em]">{value}</p>
                   <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
                 </div>
-                <div className="flex size-11 items-center justify-center rounded-2xl border border-border/70 bg-background/45">
+                <div className="flex size-11 items-center justify-center rounded-xl border border-border/70 bg-background/45">
                   <Icon className="size-5 text-primary" />
                 </div>
               </div>
@@ -188,6 +188,7 @@ export default async function PlanningPage({
 
       <PlanningRiskPanel
         alerts={alerts}
+        emptyMessage={isFr ? "Aucune alerte pour le moment." : "No alerts right now."}
         title={isFr ? "Alertes de planification" : "Planning alerts"}
         subtitle={
           isFr
@@ -208,15 +209,15 @@ export default async function PlanningPage({
       <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
         <OverdueTasksPanel tickets={overdueTasks} summaryMode={summaryMode} />
 
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardContent className="space-y-4 px-5 py-5">
             <div>
-              <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Échéances à venir" : "Upcoming deadlines"}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Échéances à venir" : "Upcoming deadlines"}</p>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Prochain travail planifié" : "Next planned work"}</h3>
             </div>
             {upcomingDeadlines.length ? (
               summaryMode ? (
-                <div className="rounded-[22px] border border-border/65 bg-background/38 p-4">
+                <div className="rounded-xl border border-border/65 bg-background/38 p-4">
                   <p className="text-sm font-medium">{upcomingDeadlines.length} {isFr ? "échéances à venir" : "upcoming deadlines"}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{isFr ? "La visibilité détaillée des tâches est masquée en mode synthèse." : "Detailed task visibility is hidden in summary mode."}</p>
                 </div>
@@ -226,7 +227,7 @@ export default async function PlanningPage({
                 ))
               )
             ) : (
-              <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
                 {isFr ? "Aucune échéance à venir dans le périmètre actuel de planification." : "No upcoming deadlines in the current planning scope."}
               </div>
             )}

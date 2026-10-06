@@ -23,7 +23,7 @@ export function EmptyState({
   return (
     <SectionCard className="overflow-hidden animate-fade-up" contentClassName="px-6 py-8 sm:px-8 sm:py-10">
       <div className="flex flex-col gap-6">
-        <div className="flex size-14 items-center justify-center rounded-[24px] border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-slate-900/75 dark:shadow-none">
+        <div className="flex size-14 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-slate-900/75 dark:shadow-none">
           <Icon className="size-6 text-sky-600 dark:text-sky-300" />
         </div>
         <div className="space-y-3">

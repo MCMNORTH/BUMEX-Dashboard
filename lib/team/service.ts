@@ -4,7 +4,7 @@ import { logActivity } from "@/lib/activity/service";
 import { getCurrentEntityCode, getEntityScopedCacheKey, isEntityScopingEnabled } from "@/lib/entities/scope";
 import { getProjects } from "@/lib/projects/service";
 import { getCached } from "@/lib/server-cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import { getTickets, getTicketsAcrossEntities } from "@/lib/tickets/service";
 import type { ActivityLogRecord } from "@/types/activity";
 import type { AppRole, Profile } from "@/types/auth";
@@ -313,14 +313,14 @@ async function getTeamProfiles() {
 }
 
 async function getFreshTeamProfiles(entityCode?: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
   const shouldScopeByEntity = isEntityScopingEnabled() && Boolean(entityCode);
   const { data, error } = shouldScopeByEntity
-    ? await supabase
+    ? await db
         .from("profiles")
         .select(
           `
@@ -352,7 +352,7 @@ async function getFreshTeamProfiles(entityCode?: string) {
         .eq("entity_code", entityCode ?? "")
         .order("full_name", { ascending: true })
         .returns<TeamProfileRow[]>()
-    : await supabase
+    : await db
         .from("profiles")
         .select(
           `
@@ -392,13 +392,13 @@ async function getFreshTeamProfiles(entityCode?: string) {
 }
 
 async function getProfileActivitySummary(profileIds: string[]) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || !profileIds.length) {
+  if (!db || !profileIds.length) {
     return new Map<string, { count: number; lastActivityAt: string | null }>();
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("activity_logs")
     .select("entity_id, created_at")
     .eq("entity_type", "profile")
@@ -799,13 +799,13 @@ export async function getAssignmentHelperData(
 }
 
 export async function getTeamFiltersData(): Promise<TeamFiltersData> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("teams")
     .select("id, name")
     .order("name", { ascending: true })
@@ -834,13 +834,13 @@ export async function getTeamMemberTickets(userId: string, role: AppRole): Promi
 }
 
 export async function getTeamMemberActivity(userId: string): Promise<ActivityLogRecord[]> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("activity_logs")
     .select(
       `
@@ -1022,13 +1022,13 @@ export async function updateTeamMember(
   values: TeamMemberFormValues,
   actor: { id: string; role: AppRole },
 ) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data: existing, error: existingError } = await supabase
+  const { data: existing, error: existingError } = await db
     .from("profiles")
     .select("id, full_name, role, avatar_url, job_title, department, skills, phone, availability_status, weekly_capacity_hours")
     .eq("id", memberId)
@@ -1055,7 +1055,7 @@ export async function updateTeamMember(
     updated_at: new Date().toISOString(),
   };
 
-  const { error } = await supabase.from("profiles").update(payload).eq("id", memberId);
+  const { error } = await db.from("profiles").update(payload).eq("id", memberId);
 
   if (error) {
     throw new Error(error.message);

@@ -9,14 +9,14 @@ export function OverloadedPeoplePanel({ members }: { members: TeamWorkloadRecord
   const { locale } = useI18n();
   const isFr = locale === "fr";
   return (
-    <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+    <Card className="border-border/70 bg-card">
       <CardHeader>
         <CardTitle>{isFr ? "Forte utilisation de capacité" : "High capacity usage"}</CardTitle>
         <p className="text-sm leading-6 text-muted-foreground">{isFr ? "Personnes pouvant nécessiter un rééquilibrage selon la charge estimée et les éléments en retard." : "People who may need rebalance based on visible estimated work and overdue items."}</p>
       </CardHeader>
       <CardContent className="space-y-3">
         {members.length ? members.map((member) => (
-          <div key={member.id} className="rounded-[22px] border border-border/65 bg-background/38 p-4">
+          <div key={member.id} className="rounded-xl border border-border/65 bg-background/38 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium">{member.full_name}</p>
@@ -29,7 +29,7 @@ export function OverloadedPeoplePanel({ members }: { members: TeamWorkloadRecord
             </div>
           </div>
         )) : (
-          <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
             {isFr ? "Aucune forte utilisation de capacité n’est actuellement visible." : "No high-capacity usage is currently visible."}
           </div>
         )}

@@ -41,10 +41,10 @@ function InvoiceTableComponent({
   const { locale } = useI18n();
   const isFr = locale === "fr";
   return (
-    <div className="overflow-hidden rounded-[22px] border border-border/80 bg-white shadow-[var(--shadow-soft)] dark:bg-card/72">
+    <div className="overflow-hidden rounded-xl border border-border/80 bg-white shadow-[var(--shadow-soft)] dark:bg-card">
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="border-b border-border/65 bg-slate-50/80 text-[11px] uppercase tracking-[0.14em] text-slate-500 dark:bg-white/[0.03] dark:text-muted-foreground">
+          <thead className="border-b border-border/65 bg-slate-50/80 text-xs uppercase tracking-wider text-slate-500 dark:bg-white/[0.03] dark:text-muted-foreground">
             <tr>
               <th className="px-5 py-4 font-medium">{isFr ? "Facture" : "Invoice"}</th>
               <th className="px-5 py-4 font-medium">{isFr ? "Statut" : "Status"}</th>

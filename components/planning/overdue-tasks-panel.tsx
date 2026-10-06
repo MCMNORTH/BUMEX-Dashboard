@@ -16,7 +16,7 @@ export async function OverdueTasksPanel({
   const isFr = locale === "fr";
 
   return (
-    <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+    <Card className="border-border/70 bg-card">
       <CardHeader>
         <div className="flex items-center gap-2">
           <AlertTriangle className="size-4 text-primary" />
@@ -27,7 +27,7 @@ export async function OverdueTasksPanel({
       <CardContent className="space-y-3">
         {tickets.length ? (
           summaryMode ? (
-            <div className="rounded-[22px] border border-border/65 bg-background/38 p-4">
+            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
               <p className="text-sm font-medium">{tickets.length} {isFr ? "éléments en retard" : "overdue items"}</p>
               <p className="mt-1 text-xs text-muted-foreground">{isFr ? "La visibilité détaillée des tâches est masquée en mode synthèse." : "Detailed task visibility is hidden in summary mode."}</p>
             </div>
@@ -37,7 +37,7 @@ export async function OverdueTasksPanel({
             ))
           )
         ) : (
-          <div className="rounded-[22px] border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
             {isFr ? "Aucune tâche en retard dans le périmètre actuel de planification." : "No overdue tasks in the current planning scope."}
           </div>
         )}

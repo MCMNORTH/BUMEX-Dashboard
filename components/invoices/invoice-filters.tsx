@@ -18,7 +18,7 @@ export function InvoiceFilters({
 }) {
   const { t } = useI18n();
   return (
-    <form className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none xl:grid-cols-[1.2fr_repeat(6,minmax(0,1fr))_auto]">
+    <form className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none xl:grid-cols-[1.2fr_repeat(6,minmax(0,1fr))_auto]">
       <div className="relative">
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input name="search" placeholder={t("finance.invoiceFilters.searchPlaceholder", "Search invoice number or notes")} defaultValue={filters.search ?? ""} className="pl-11" />
@@ -94,8 +94,8 @@ export function InvoiceFilters({
       />
 
       <div className="flex gap-2">
-        <Button type="submit" className="rounded-2xl px-5">{t("common.actions.apply", "Apply")}</Button>
-        <Button asChild variant="secondary" className="rounded-2xl px-5">
+        <Button type="submit" className="rounded-xl px-5">{t("common.actions.apply", "Apply")}</Button>
+        <Button asChild variant="secondary" className="rounded-xl px-5">
           <Link href="/finance/invoices">{t("common.actions.reset", "Reset")}</Link>
         </Button>
       </div>

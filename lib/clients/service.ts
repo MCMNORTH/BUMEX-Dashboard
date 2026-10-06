@@ -2,7 +2,7 @@ import "server-only";
 
 import { logActivity } from "@/lib/activity/service";
 import { calculateProjectHealth, calculateProjectProgress } from "@/lib/projects/helpers";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import {
   applyEntityScope,
   extendWithEntityCode,
@@ -285,9 +285,9 @@ function getDaysUntil(value: string | null) {
 }
 
 async function getClientActivityMap(clientIds: string[], projectIds: string[]) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || (!clientIds.length && !projectIds.length)) {
+  if (!db || (!clientIds.length && !projectIds.length)) {
     return new Map<string, ActivityLogRecord[]>();
   }
 
@@ -299,7 +299,7 @@ async function getClientActivityMap(clientIds: string[], projectIds: string[]) {
     : "";
   const orFilter = [clientFilter, projectFilter].filter(Boolean).join(",");
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("activity_logs")
     .select(
       `
@@ -380,14 +380,14 @@ function mapClient(
 }
 
 export async function getClients(role: AppRole, filters: ClientFilters = {}) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("clients")
     .select(
       `
@@ -471,14 +471,14 @@ export async function getClients(role: AppRole, filters: ClientFilters = {}) {
 }
 
 export async function getClientsFilterData(): Promise<ClientFiltersData> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("profiles")
     .select("id, full_name, email, avatar_url, role")
     .in("role", ["admin", "manager"])
@@ -500,14 +500,14 @@ export async function getClientsFilterData(): Promise<ClientFiltersData> {
 }
 
 export async function getClientById(id: string, role: AppRole) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("clients")
     .select(
       `
@@ -576,14 +576,14 @@ export async function getClientById(id: string, role: AppRole) {
 }
 
 export async function getClientLinkedProjects(clientId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("projects")
     .select(
       `
@@ -677,10 +677,10 @@ export async function getClientLinkedDocuments(clientId: string, role: AppRole) 
 }
 
 export async function getClientLinkedTickets(clientId: string, role: AppRole) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const projects = await getClientLinkedProjects(clientId);
@@ -690,7 +690,7 @@ export async function getClientLinkedTickets(clientId: string, role: AppRole) {
     return [];
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("tasks")
     .select(
       `
@@ -803,10 +803,10 @@ export async function getClientTimeline(clientId: string, role: AppRole, filter:
     return [];
   }
 
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const projectIds = projects.map((project) => project.id);
@@ -826,7 +826,7 @@ export async function getClientTimeline(clientId: string, role: AppRole, filter:
     return [];
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("activity_logs")
     .select(
       `
@@ -955,15 +955,15 @@ function parseClientPayload(values: ClientFormValues) {
 }
 
 export async function createClientRecord(values: ClientFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
   const payload = extendWithEntityCode(parseClientPayload(values), entityCode);
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("clients")
     .insert(payload)
     .select("id")
@@ -988,14 +988,14 @@ export async function createClientRecord(values: ClientFormValues, actorUserId: 
 }
 
 export async function updateClient(id: string, values: ClientFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  const previousQuery = applyEntityScope(supabase
+  const previousQuery = applyEntityScope(db
     .from("clients")
     .select("name, status, account_manager_id, contact_email, type")
     .eq("id", id), entityCode);
@@ -1020,7 +1020,7 @@ export async function updateClient(id: string, values: ClientFormValues, actorUs
     updated_at: new Date().toISOString(),
   };
 
-  const { error } = await applyEntityScope(supabase.from("clients").update(payload).eq("id", id), entityCode);
+  const { error } = await applyEntityScope(db.from("clients").update(payload).eq("id", id), entityCode);
 
   if (error) {
     throw new Error(error.message);
@@ -1076,15 +1076,15 @@ export async function updateClient(id: string, values: ClientFormValues, actorUs
 }
 
 export async function archiveClient(id: string, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
   const { error } = await applyEntityScope(
-    supabase
+    db
       .from("clients")
       .update({
         status: "archived",

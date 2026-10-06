@@ -27,10 +27,19 @@
   --color-warning: var(--warning);
   --color-danger: var(--danger);
 
-  --radius-sm: calc(var(--radius) - 6px);
+  /* Type scale floor: the root is 14px, so the Tailwind defaults put text-xs at 10.5px. */
+  --text-xs: 0.8572rem;
+  --text-xs--line-height: 1.35;
+  --text-sm: 0.9286rem;
+  --text-sm--line-height: 1.45;
+
+  /* Two radii: lg for controls (buttons, inputs, chips), xl for surfaces (cards, panels, dialogs). */
+  --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 6px);
+  --radius-2xl: var(--radius-xl);
+  --radius-3xl: var(--radius-xl);
 
   --shadow-soft: var(--shadow-soft-token);
   --shadow-glow: var(--shadow-glow-token);
@@ -59,7 +68,9 @@
   --success: #22a06b;
   --warning: #f5cd47;
   --danger: #c9372c;
-  --radius: 12px;
+  --hero: linear-gradient(135deg, #0d2a57 0%, #13407f 100%);
+  --hero-border: rgba(12, 102, 228, 0.28);
+  --radius: 10px;
   --shadow-soft-token: 0 1px 2px rgba(9, 30, 66, 0.12);
   --shadow-glow-token: 0 0 0 1px rgba(12, 102, 228, 0.18), 0 8px 18px rgba(9, 30, 66, 0.08);
   --shadow-elevated-token: 0 4px 14px rgba(9, 30, 66, 0.12);
@@ -87,14 +98,12 @@
   --success: #4bce97;
   --warning: #e2b203;
   --danger: #f87168;
+  --hero: linear-gradient(135deg, #142a4d 0%, #1a3766 100%);
+  --hero-border: rgba(87, 157, 255, 0.2);
   --shadow-soft-token: 0 1px 2px rgba(0, 0, 0, 0.34);
   --shadow-glow-token: 0 0 0 1px rgba(87, 157, 255, 0.16), 0 10px 24px rgba(0, 0, 0, 0.26);
   --shadow-elevated-token: 0 10px 28px rgba(0, 0, 0, 0.28);
   --shadow-inner-token: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-}
-
-* {
-  @apply border-border;
 }
 
 html {
@@ -113,7 +122,6 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
-  background-color: #ffffff;
   background-image: none;
 }
 
@@ -201,14 +209,6 @@ body::after {
     linear-gradient(180deg, rgba(125, 211, 252, 0.72), rgba(99, 102, 241, 0.82)) padding-box;
 }
 
-button,
-a,
-input,
-select,
-[role="button"] {
-  @apply transition-[color,background-color,border-color,box-shadow,opacity] duration-200;
-}
-
 input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear {
   display: none;
@@ -249,13 +249,39 @@ select option {
   @apply rounded-xl border border-input/90 bg-background/72 shadow-[var(--shadow-inner)] focus-within:border-primary/35 focus-within:ring-4 focus-within:ring-ring/50;
 }
 
+/* The one banner style shared by every page that has a hero. */
+@utility surface-hero {
+  @apply relative overflow-hidden rounded-xl border border-[var(--hero-border)] text-white;
+  background: var(--hero);
+}
+
+/* The same fill without border or radius, for dialog headers and bars that sit flush to an edge. */
+@utility hero-fill {
+  @apply text-white;
+  background: var(--hero);
+}
+
 @utility glass-panel {
   @apply border border-white/50 bg-white/72 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/48;
 }
 
+/*
+ * These defaults live in the base layer so utility classes can override them.
+ * Unlayered rules beat every layered utility, which previously made border-color
+ * utilities (border-transparent, border-primary, border-danger/30...) and
+ * transition utilities on buttons and links silently ineffective.
+ */
 @layer base {
   * {
-    @apply box-border;
+    @apply box-border border-border;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  [role="button"] {
+    @apply transition-[color,background-color,border-color,box-shadow,opacity] duration-200;
   }
 
   body {
@@ -618,10 +644,6 @@ select option {
 .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
   background:
     linear-gradient(180deg, rgba(125, 211, 252, 0.86), rgba(99, 102, 241, 0.9)) padding-box;
-}
-
-.app-density {
-  zoom: 0.92;
 }
 
 .dark .sidebar-scrollbar {

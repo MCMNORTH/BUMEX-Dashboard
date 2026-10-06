@@ -61,50 +61,50 @@ export default async function ContractDetailPage({
       <ContractDetailHeader contract={contract} role={auth.role} canManage={canManage} filterData={filterData} />
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+        <Card className="border-border/70 bg-card">
           <CardHeader>
             <CardTitle>{isFr ? "Vue d’ensemble du contrat" : "Contract overview"}</CardTitle>
             <CardDescription>{isFr ? "Contexte commercial, responsabilité, échéances et conditions de l’accord." : "Commercial context, ownership, timing, and agreement details."}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Valeur" : "Value"}</p>
+              <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Valeur" : "Value"}</p>
                 <p className="mt-2 text-sm font-medium">{formatCurrency(contract.amount)}</p>
               </div>
-              <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Numéro du contrat" : "Contract number"}</p>
+              <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Numéro du contrat" : "Contract number"}</p>
                 <p className="mt-2 text-sm font-medium">{contract.contract_number ?? (isFr ? "Non renseigné" : "Not set")}</p>
               </div>
-              <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "État du renouvellement" : "Renewal state"}</p>
+              <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "État du renouvellement" : "Renewal state"}</p>
                 <p className="mt-2 text-sm font-medium">{renewalLabel(contract.renewalState, isFr)}</p>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
+            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
               <p className="text-sm font-medium">{isFr ? "Dates importantes" : "Key dates"}</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-border/65 bg-background/45 p-4">
+                <div className="rounded-xl border border-border/65 bg-background/45 p-4">
                   <p className="text-sm font-medium">{isFr ? "Date de début" : "Start date"}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{formatDate(contract.start_date)}</p>
                 </div>
-                <div className="rounded-2xl border border-border/65 bg-background/45 p-4">
+                <div className="rounded-xl border border-border/65 bg-background/45 p-4">
                   <p className="text-sm font-medium">{isFr ? "Date de fin" : "End date"}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{formatDate(contract.end_date)}</p>
                 </div>
-                <div className="rounded-2xl border border-border/65 bg-background/45 p-4">
+                <div className="rounded-xl border border-border/65 bg-background/45 p-4">
                   <p className="text-sm font-medium">{isFr ? "Date de signature" : "Signed date"}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{formatDate(contract.signed_date)}</p>
                 </div>
-                <div className="rounded-2xl border border-border/65 bg-background/45 p-4">
+                <div className="rounded-xl border border-border/65 bg-background/45 p-4">
                   <p className="text-sm font-medium">{isFr ? "Date de renouvellement" : "Renewal date"}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{formatDate(contract.renewal_date)}</p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
+            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
               <p className="text-sm font-medium">{isFr ? "Conditions de paiement" : "Payment terms"}</p>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">{contract.payment_terms ?? (isFr ? "Aucune condition de paiement enregistrée." : "No payment terms recorded.")}</p>
             </div>
@@ -112,33 +112,33 @@ export default async function ContractDetailPage({
         </Card>
 
         <div className="grid gap-4">
-          <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+          <Card className="border-border/70 bg-card">
             <CardHeader>
               <CardTitle>{isFr ? "Client associé" : "Linked client"}</CardTitle>
               <CardDescription>{isFr ? "Compte commercial auquel cet accord est rattaché." : "Commercial account attached to this agreement."}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {linkedClient ? <Link href={`/clients/${linkedClient.id}`} className="group flex items-center justify-between gap-3 rounded-2xl border border-border/65 bg-background/38 p-4 transition-colors hover:bg-accent/40">
+              {linkedClient ? <Link href={`/clients/${linkedClient.id}`} className="group flex items-center justify-between gap-3 rounded-xl border border-border/65 bg-background/38 p-4 transition-colors hover:bg-accent/40">
                 <div><p className="text-sm font-medium">{contract.client?.name}</p><p className="mt-1 text-sm text-muted-foreground">{contract.client?.contact_email ?? (isFr ? "Aucun e-mail de contact" : "No contact email")}</p></div>
                 <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
-              </Link> : <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 p-4 text-sm text-muted-foreground">{isFr ? "Aucun client associé" : "No client linked"}</div>}
+              </Link> : <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-4 text-sm text-muted-foreground">{isFr ? "Aucun client associé" : "No client linked"}</div>}
             </CardContent>
           </Card>
 
-          <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+          <Card className="border-border/70 bg-card">
             <CardHeader>
               <CardTitle>{isFr ? "Projet associé" : "Linked project"}</CardTitle>
               <CardDescription>{isFr ? "Projet de réalisation éventuellement couvert par ce contrat." : "Optional delivery stream associated with this contract."}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {linkedProject ? <Link href={`/projects/${linkedProject.id}`} className="group flex items-center justify-between gap-3 rounded-2xl border border-border/65 bg-background/38 p-4 transition-colors hover:bg-accent/40">
+              {linkedProject ? <Link href={`/projects/${linkedProject.id}`} className="group flex items-center justify-between gap-3 rounded-xl border border-border/65 bg-background/38 p-4 transition-colors hover:bg-accent/40">
                 <div><p className="text-sm font-medium">{contract.project?.name}</p><p className="mt-1 text-sm text-muted-foreground">{projectStatusLabel(contract.project?.status, isFr)}</p></div>
                 <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
-              </Link> : <div className="rounded-2xl border border-dashed border-border/70 bg-background/35 p-4 text-sm text-muted-foreground">{isFr ? "Aucun projet associé" : "No linked project"}</div>}
+              </Link> : <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-4 text-sm text-muted-foreground">{isFr ? "Aucun projet associé" : "No linked project"}</div>}
             </CardContent>
           </Card>
 
-          <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+          <Card className="border-border/70 bg-card">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <FileStack className="size-4 text-primary" />
@@ -147,13 +147,13 @@ export default async function ContractDetailPage({
               <CardDescription>{isFr ? "Consultez les fichiers, justificatifs et validations du contrat." : "Review contract files, evidence, and approvals."}</CardDescription>
             </CardHeader>
             <CardContent>
-              <Link href="/documents" className="group flex items-center justify-between gap-3 rounded-2xl border border-border/65 bg-background/38 p-4 text-sm font-medium transition-colors hover:bg-accent/40">
+              <Link href="/documents" className="group flex items-center justify-between gap-3 rounded-xl border border-border/65 bg-background/38 p-4 text-sm font-medium transition-colors hover:bg-accent/40">
                 {isFr ? "Ouvrir l’espace Documents" : "Open Documents"}<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
               </Link>
             </CardContent>
           </Card>
 
-          <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+          <Card className="border-border/70 bg-card">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <CircleDollarSign className="size-4 text-primary" />
@@ -162,7 +162,7 @@ export default async function ContractDetailPage({
               <CardDescription>{isFr ? "Accédez à la facturation et au suivi des règlements." : "Access billing and payment tracking."}</CardDescription>
             </CardHeader>
             <CardContent>
-              <Link href="/finance/payments" className="group flex items-center justify-between gap-3 rounded-2xl border border-border/65 bg-background/38 p-4 text-sm font-medium transition-colors hover:bg-accent/40">
+              <Link href="/finance/payments" className="group flex items-center justify-between gap-3 rounded-xl border border-border/65 bg-background/38 p-4 text-sm font-medium transition-colors hover:bg-accent/40">
                 {isFr ? "Ouvrir le suivi des paiements" : "Open payment tracking"}<ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
               </Link>
             </CardContent>
@@ -170,7 +170,7 @@ export default async function ContractDetailPage({
         </div>
       </div>
 
-      <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+      <Card className="border-border/70 bg-card">
         <CardHeader>
           <div className="flex items-center gap-2">
             <ReceiptText className="size-4 text-primary" />
@@ -179,7 +179,7 @@ export default async function ContractDetailPage({
           <CardDescription>{isFr ? "Synthèse de l’échéance et de l’état actuel de l’accord." : "Summary of renewal timing and current agreement state."}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
+          <div className="rounded-xl border border-border/65 bg-background/38 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-medium">{renewalLabel(contract.renewalState, isFr)}</p>
               <Badge variant="outline" className="rounded-full px-3 py-1">

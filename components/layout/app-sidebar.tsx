@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { BriefcaseBusiness, Blocks, PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
+import { BriefcaseBusiness, Blocks, ChevronsUpDown, PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { EntityLogo } from "@/components/entities/entity-logo";
+import { useEntitySwitch } from "@/components/entities/entity-switch-dialog";
 import { useI18n } from "@/components/layout/i18n-provider";
 import { navigationGroups } from "@/data/navigation";
 import { useEntity } from "@/hooks/use-entity";
@@ -25,9 +26,6 @@ const sectionConfig: Record<
     shortLabel: string;
     icon: typeof Blocks;
     description: string;
-    tabClassName: string;
-    panelClassName: string;
-    accentClassName: string;
   }
 > = {
   workspace: {
@@ -35,33 +33,18 @@ const sectionConfig: Record<
     shortLabel: "Work",
     icon: Blocks,
     description: "Delivery, planning, execution, and team operations.",
-    tabClassName:
-      "border-[#0c66e4]/18 bg-[linear-gradient(135deg,rgba(12,102,228,0.14),rgba(51,132,255,0.04))] text-[#0c66e4] shadow-[0_10px_24px_rgba(12,102,228,0.16)] dark:border-[#579dff]/26 dark:bg-[linear-gradient(135deg,rgba(87,157,255,0.2),rgba(87,157,255,0.08))] dark:text-[#9fc5ff]",
-    panelClassName:
-      "border-[#0c66e4]/12 bg-[radial-gradient(circle_at_top_left,rgba(12,102,228,0.08),transparent_56%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,250,255,0.98))] dark:border-[#579dff]/20 dark:bg-[radial-gradient(circle_at_top_left,rgba(87,157,255,0.14),transparent_54%),linear-gradient(180deg,rgba(29,33,43,0.98),rgba(29,33,43,0.98))]",
-    accentClassName: "bg-[#0c66e4]",
   },
   business: {
     title: "Business",
     shortLabel: "Biz",
     icon: BriefcaseBusiness,
     description: "Clients, contracts, documents, finance, and governance.",
-    tabClassName:
-      "border-[#c25100]/18 bg-[linear-gradient(135deg,rgba(194,81,0,0.13),rgba(255,183,77,0.05))] text-[#a54800] shadow-[0_10px_24px_rgba(194,81,0,0.14)] dark:border-[#ffb689]/24 dark:bg-[linear-gradient(135deg,rgba(255,182,137,0.16),rgba(255,182,137,0.06))] dark:text-[#ffb689]",
-    panelClassName:
-      "border-[#c25100]/12 bg-[radial-gradient(circle_at_top_left,rgba(194,81,0,0.08),transparent_56%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(255,250,246,0.98))] dark:border-[#ffb689]/16 dark:bg-[radial-gradient(circle_at_top_left,rgba(255,182,137,0.12),transparent_54%),linear-gradient(180deg,rgba(29,33,43,0.98),rgba(29,33,43,0.98))]",
-    accentClassName: "bg-[#c25100]",
   },
   system: {
     title: "System",
     shortLabel: "Sys",
     icon: Settings,
     description: "Configuration, notifications, and platform controls.",
-    tabClassName:
-      "border-[#7f56d9]/18 bg-[linear-gradient(135deg,rgba(127,86,217,0.12),rgba(185,128,255,0.05))] text-[#6941c6] shadow-[0_10px_24px_rgba(127,86,217,0.14)] dark:border-[#d0bcff]/20 dark:bg-[linear-gradient(135deg,rgba(208,188,255,0.16),rgba(208,188,255,0.06))] dark:text-[#d0bcff]",
-    panelClassName:
-      "border-[#7f56d9]/12 bg-[radial-gradient(circle_at_top_left,rgba(127,86,217,0.08),transparent_56%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(251,248,255,0.98))] dark:border-[#d0bcff]/16 dark:bg-[radial-gradient(circle_at_top_left,rgba(208,188,255,0.12),transparent_54%),linear-gradient(180deg,rgba(29,33,43,0.98),rgba(29,33,43,0.98))]",
-    accentClassName: "bg-[#7f56d9]",
   },
 };
 
@@ -90,6 +73,7 @@ function SidebarContent({
   const { role } = usePermissions();
   const { t } = useI18n();
   const { activeEntity, activeEntityCode } = useEntity();
+  const { canSwitchEntities, openEntitySwitcher } = useEntitySwitch();
   const fallbackEntity = getBumexEntity("bumex_it");
   const [pendingNavigation, setPendingNavigation] = useState<{ href: string; from: string } | null>(null);
   const [entityPulse, setEntityPulse] = useState(false);
@@ -123,7 +107,6 @@ function SidebarContent({
     selectedSection && selectedSection.pathname === pathname && sectionEntries.some(({ key }) => key === selectedSection.key)
       ? selectedSection.key
       : detectedSection;
-  const currentSection = sectionConfig[activeSection];
   const currentGroup = sectionEntries.find(({ key }) => key === activeSection)?.group ?? visibleGroups[0];
 
   const handleNavigate = useCallback(
@@ -171,10 +154,16 @@ function SidebarContent({
           collapsed && "flex-col justify-center gap-3 px-0",
         )}
       >
-        <div
+        <button
+          type="button"
+          onClick={openEntitySwitcher}
+          disabled={!canSwitchEntities}
+          title={canSwitchEntities ? t("navigation.switchEntity", "Switch entity") : undefined}
+          aria-label={canSwitchEntities ? t("navigation.switchEntity", "Switch entity") : undefined}
           className={cn(
-            "flex min-w-0 items-center gap-2.5 rounded-2xl transition-all duration-500",
-            entityPulse && "scale-[1.02] bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.14),transparent_70%)] shadow-[0_14px_34px_rgba(59,130,246,0.14)]",
+            "flex min-w-0 items-center gap-2.5 rounded-lg p-1 text-left transition-all duration-500 disabled:cursor-default",
+            canSwitchEntities && "hover:bg-muted",
+            entityPulse && "scale-[1.02] bg-accent",
             collapsed && "flex-col gap-3",
           )}
         >
@@ -195,19 +184,22 @@ function SidebarContent({
               collapsed && "pointer-events-none h-0 w-0 -translate-y-2 opacity-0",
             )}
           >
-            <p className="text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+            <p className="text-xs font-medium text-muted-foreground">
               {siteConfig.company}
             </p>
             <p
               className={cn(
-                "max-w-[10rem] text-[0.95rem] leading-[1.15] font-semibold tracking-[-0.02em] text-foreground sm:max-w-none",
+                "max-w-[10rem] text-sm leading-tight font-semibold text-foreground sm:max-w-none",
                 entityPulse && "animate-pulse",
               )}
             >
               {activeEntity?.name ?? siteConfig.name}
             </p>
           </div>
-        </div>
+          {canSwitchEntities && !collapsed ? (
+            <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
+          ) : null}
+        </button>
         <Button
           variant="ghost"
           size="icon"
@@ -239,7 +231,7 @@ function SidebarContent({
       <div ref={scrollRef} className="sidebar-scrollbar min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain px-2.5 py-3">
         <div
           className={cn(
-            "grid gap-1.5 rounded-[15px] border border-border/80 bg-card/90 p-1.5 shadow-[var(--shadow-soft)]",
+            "grid gap-1 rounded-xl border border-border bg-card p-1",
             collapsed ? "grid-cols-1" : "grid-cols-3",
           )}
         >
@@ -255,19 +247,20 @@ function SidebarContent({
                 type="button"
                 onClick={() => setSelectedSection({ key, pathname })}
                 className={cn(
-                  "group flex min-w-0 items-center justify-center gap-1 rounded-[10px] border border-transparent px-1 py-1.5 text-left transition-[border-color,background-color,box-shadow,transform,color] duration-200",
+                  "group flex min-w-0 items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-left transition-colors duration-200",
                   selected
-                    ? section.tabClassName
-                    : "bg-transparent text-muted-foreground hover:border-border hover:bg-muted/85 hover:text-foreground",
+                    ? "bg-accent text-accent-foreground"
+                    : "bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
                   collapsed && "px-0",
                 )}
                 aria-pressed={selected}
                 title={sectionTitle}
               >
-                <Icon className="size-3.5 shrink-0" strokeWidth={1.9} />
-                <span className={cn("text-[9px] leading-none font-semibold text-current", collapsed && "hidden")}>
-                  {collapsed ? section.shortLabel : sectionTitle}
-                </span>
+                {collapsed ? (
+                  <Icon className="size-4 shrink-0" strokeWidth={1.9} />
+                ) : (
+                  <span className="truncate text-xs leading-none font-medium text-current">{sectionTitle}</span>
+                )}
               </button>
             );
           })}
@@ -275,9 +268,9 @@ function SidebarContent({
 
         {managementItems.length > 0 ? (
           <nav aria-label={t("navigation.management", "Management")} className="shrink-0 border-b border-border pb-3">
-            <div className={cn("rounded-[15px] border border-primary/15 bg-accent/50 p-2", collapsed && "border-0 bg-transparent p-0")}>
+            <div className={cn("rounded-xl border border-border bg-card p-2", collapsed && "border-0 bg-transparent p-0")}>
               {!collapsed ? (
-                <p className="px-2.5 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+                <p className="px-2.5 pb-2 pt-1 text-xs font-medium text-muted-foreground">
                   {t("navigation.management", "Management")}
                 </p>
               ) : null}
@@ -300,21 +293,19 @@ function SidebarContent({
         {currentGroup ? (
           <div
             className={cn(
-              "rounded-[15px] border p-2.5 shadow-[var(--shadow-soft)]",
-              currentSection.panelClassName,
+              "rounded-xl border border-border bg-card p-2.5",
               collapsed && "border-transparent bg-transparent p-0 shadow-none",
             )}
           >
-            <div className={cn("mb-2.5 flex items-start gap-2.5", collapsed && "justify-center")}>
-              <div className={cn("mt-0.5 h-8 w-1.5 rounded-full", currentSection.accentClassName, collapsed && "hidden")} />
+            <div className={cn("mb-2.5 flex items-start gap-2.5 px-1", collapsed && "justify-center")}>
               <div className={cn("min-w-0", collapsed && "hidden")}>
                 <div className="min-w-0">
-                  <p className="max-w-full text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase break-words">
+                  <p className="max-w-full text-xs font-semibold text-foreground break-words">
                     {t(`navigation.groups.${currentGroup.title.toLowerCase()}`, currentGroup.title)}
                   </p>
                 </div>
-                <p className="mt-1 text-[13px] leading-5 font-medium tracking-[-0.02em] text-foreground">
-                  {t(`navigation.groupDescriptions.${activeSection}`, currentSection.description)}
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {t(`navigation.groupDescriptions.${activeSection}`, sectionConfig[activeSection].description)}
                 </p>
               </div>
             </div>
@@ -336,7 +327,6 @@ function SidebarContent({
                     }
                     collapsed={collapsed}
                     onNavigate={handleNavigate}
-                    theme={activeSection}
                   />
                 );
               })}
@@ -367,7 +357,7 @@ export function AppSidebar({
 
       <div
         className={cn(
-          "fixed inset-0 z-50 bg-slate-950/48 transition-opacity duration-200 md:hidden",
+          "fixed inset-0 z-50 bg-slate-950/48 transition-opacity duration-200 lg:hidden",
           mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
         )}
         onClick={onCloseMobile}

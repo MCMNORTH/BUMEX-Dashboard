@@ -19,7 +19,7 @@ export function CalendarFilters({
   const isFr = locale === "fr";
 
   return (
-    <form className="grid gap-3 rounded-[28px] border border-border/70 bg-card/72 p-4 shadow-[var(--shadow-soft)] backdrop-blur-xl xl:grid-cols-6">
+    <form className="grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-6">
       <input type="hidden" name="view" value={view} />
       <input type="hidden" name="period" value={period} />
 
@@ -114,7 +114,7 @@ export function CalendarFilters({
         />
         <button
           type="submit"
-          className="h-11 rounded-2xl border border-primary/30 bg-primary/12 px-4 text-sm font-medium text-primary transition-all hover:border-primary/40 hover:bg-primary/18"
+          className="h-11 rounded-xl border border-primary/30 bg-primary/12 px-4 text-sm font-medium text-primary transition-all hover:border-primary/40 hover:bg-primary/18"
         >
           {isFr ? "Appliquer" : "Apply"}
         </button>

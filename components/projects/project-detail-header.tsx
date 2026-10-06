@@ -42,7 +42,7 @@ export function ProjectDetailHeader({
   const isFr = locale === "fr";
   const internalEntityName = getBumexEntity(project.entity_code)?.name ?? (isFr ? "Entité BUMEX" : "BUMEX entity");
   return (
-    <div className="grid gap-5 overflow-hidden rounded-[28px] border border-blue-200 bg-gradient-to-br from-blue-50 via-white to-violet-50 p-5 shadow-[var(--shadow-soft)] dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-violet-950/70 dark:shadow-none xl:grid-cols-[1.1fr_0.9fr]">
+    <div className="bg-card grid gap-5 overflow-hidden rounded-xl border border-blue-200 p-5 shadow-[var(--shadow-soft)] dark:border-slate-700 dark:shadow-none xl:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <ProjectStatusBadge status={project.status} />
@@ -110,23 +110,23 @@ export function ProjectDetailHeader({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{project.project_kind.startsWith("internal_") ? (isFr ? "Périmètre" : "Scope") : (isFr ? "Entité / rattachement" : "Entity / relationship")}</p>
+        <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{project.project_kind.startsWith("internal_") ? (isFr ? "Périmètre" : "Scope") : (isFr ? "Entité / rattachement" : "Entity / relationship")}</p>
           <p className="mt-2 text-sm font-medium">{project.project_kind.startsWith("internal_") ? `${internalEntityName} · ${isFr ? "interne" : "internal"}` : (project.client?.name ?? (isFr ? "Non lié" : "Not linked"))}</p>
           <p className="mt-1 text-xs text-muted-foreground">{project.project_kind.startsWith("internal_") ? (isFr ? "Rattaché à l’entité active du créateur, sans client ni partenaire externe" : "Attached to the creator’s active entity, with no external client or partner") : (project.client?.contact_email ?? (isFr ? "Aucun e-mail de contact" : "No contact email"))}</p>
         </div>
-        <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Responsable" : "Owner"}</p>
+        <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Responsable" : "Owner"}</p>
           <p className="mt-2 text-sm font-medium">{project.owner?.full_name ?? (isFr ? "Non assigné" : "Unassigned")}</p>
           <p className="mt-1 text-xs text-muted-foreground">{project.owner?.email ?? (isFr ? "Aucun e-mail" : "No email")}</p>
         </div>
-        <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">{isFr ? "Calendrier" : "Timeline"}</p>
+        <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Calendrier" : "Timeline"}</p>
           <p className="mt-2 text-sm font-medium">{formatDate(project.start_date)}</p>
           <p className="mt-1 text-xs text-muted-foreground">{isFr ? "au" : "to"} {formatDate(project.end_date)}</p>
         </div>
-        <div className="rounded-2xl border border-border/65 bg-background/38 p-4">
-          <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">Budget</p>
+        <div className="rounded-xl border border-border/65 bg-background/38 p-4">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Budget</p>
           <p className="mt-2 text-sm font-medium">{formatCurrency(project.budget_amount)}</p>
           <p className="mt-1 text-xs text-muted-foreground">{isFr ? "La synthèse financière sera disponible ici." : "Financial summary placeholder ready"}</p>
         </div>

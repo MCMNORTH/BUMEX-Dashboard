@@ -6,7 +6,7 @@ export function RoadmapSkeleton() {
     <div className="space-y-6">
       <div className="grid gap-4 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <Card key={index} className="border-border/70 bg-card/72 backdrop-blur-xl">
+          <Card key={index} className="border-border/70 bg-card">
             <CardContent className="space-y-4 px-5 py-5">
               <Skeleton className="h-4 w-28" />
               <Skeleton className="h-10 w-18" />
@@ -15,11 +15,11 @@ export function RoadmapSkeleton() {
           </Card>
         ))}
       </div>
-      <Card className="border-border/70 bg-card/72 backdrop-blur-xl">
+      <Card className="border-border/70 bg-card">
         <CardContent className="space-y-5 px-5 py-5">
-          <Skeleton className="h-12 w-full rounded-3xl" />
+          <Skeleton className="h-12 w-full rounded-xl" />
           {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-32 w-full rounded-[28px]" />
+            <Skeleton key={index} className="h-32 w-full rounded-xl" />
           ))}
         </CardContent>
       </Card>

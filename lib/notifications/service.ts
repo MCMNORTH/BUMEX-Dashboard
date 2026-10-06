@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { after } from "next/server";
 
 import { dispatchNotificationEmails } from "@/lib/notifications/email-delivery";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import { requireAuthenticatedUser } from "@/lib/auth/server";
 import type { CommentEntityType, CommentRecord } from "@/types/comment";
 import type {
@@ -28,13 +28,13 @@ async function getProfilesByIds(ids: string[]) {
     return [];
   }
 
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("profiles")
     .select("id, full_name, email, avatar_url, role")
     .in("id", ids)
@@ -49,13 +49,13 @@ async function getProfilesByIds(ids: string[]) {
 }
 
 export async function getMentionCandidates(): Promise<MentionCandidate[]> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("profiles")
     .select("id, full_name, email, avatar_url, role")
     .order("full_name", { ascending: true })
@@ -105,10 +105,10 @@ async function createNotifications(
     return;
   }
 
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const rows = notifications.map((notification) => ({
@@ -118,7 +118,7 @@ async function createNotifications(
     archived_at: null,
   }));
 
-  const { error } = await supabase.from("notifications").insert(rows);
+  const { error } = await db.from("notifications").insert(rows);
 
   if (error) {
     throw new Error(error.message);
@@ -201,13 +201,13 @@ export async function createMentionNotifications({
     return;
   }
 
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { error: mentionError } = await supabase.from("mentions").insert(
+  const { error: mentionError } = await db.from("mentions").insert(
     mentions.map((mention) => ({
       comment_id: comment.id,
       mentioned_user_id: mention.id,
@@ -294,13 +294,13 @@ export async function createStatusChangeNotification({
 
 export async function getRecentNotifications(limit = 8) {
   const userId = await getCurrentNotificationUserId();
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("notifications")
     .select("id, user_id, type, title, body, entity_type, entity_id, is_read, created_at, archived_at")
     .eq("user_id", userId)
@@ -318,13 +318,13 @@ export async function getRecentNotifications(limit = 8) {
 
 export async function getUnreadNotificationCount() {
   const userId = await getCurrentNotificationUserId();
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { count, error } = await supabase
+  const { count, error } = await db
     .from("notifications")
     .select("*", { count: "exact", head: true })
     .eq("user_id", userId)
@@ -339,19 +339,19 @@ export async function getUnreadNotificationCount() {
 }
 
 export async function getNotificationRecipientsForProject(projectId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const [{ data: project }, { data: members }] = await Promise.all([
-    supabase
+    db
       .from("projects")
       .select("owner_id")
       .eq("id", projectId)
       .maybeSingle<{ owner_id: string }>(),
-    supabase
+    db
       .from("project_members")
       .select("user_id")
       .eq("project_id", projectId)
@@ -368,13 +368,13 @@ export async function getNotificationRecipientsForProject(projectId: string) {
 
 export async function markNotificationAsRead(notificationId: string) {
   const userId = await getCurrentNotificationUserId();
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from("notifications")
     .update({ is_read: true })
     .eq("user_id", userId)
@@ -388,13 +388,13 @@ export async function markNotificationAsRead(notificationId: string) {
 
 export async function markAllNotificationsAsRead() {
   const userId = await getCurrentNotificationUserId();
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from("notifications")
     .update({ is_read: true })
     .eq("user_id", userId)
@@ -408,13 +408,13 @@ export async function markAllNotificationsAsRead() {
 
 export async function getUserNotifications(filters: NotificationFilters = {}) {
   const userId = await getCurrentNotificationUserId();
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  let query = supabase
+  let query = db
     .from("notifications")
     .select("id, user_id, type, title, body, entity_type, entity_id, is_read, created_at, archived_at")
     .eq("user_id", userId)
@@ -462,13 +462,13 @@ export async function getUserNotifications(filters: NotificationFilters = {}) {
 
 export async function archiveNotification(notificationId: string) {
   const userId = await getCurrentNotificationUserId();
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from("notifications")
     .update({ archived_at: new Date().toISOString(), is_read: true })
     .eq("user_id", userId)

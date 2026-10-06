@@ -59,7 +59,7 @@ export function PaymentForm({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-[min(94vw,1200px)] rounded-[28px]">
+      <DialogContent className="max-w-[min(94vw,1200px)] rounded-xl">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? t("finance.paymentForm.titleCreate", "Create payment") : t("finance.paymentForm.titleEdit", "Edit payment")}</DialogTitle>
           <DialogDescription>
@@ -199,13 +199,13 @@ export function PaymentForm({
           </div>
 
           {state.error ? (
-            <div className="sm:col-span-2 rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-red-200">
+            <div className="sm:col-span-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
               {state.error}
             </div>
           ) : null}
 
           <div className="sm:col-span-2 flex justify-end gap-2">
-            <Button type="submit" className="rounded-2xl px-5">
+            <Button type="submit" className="rounded-xl px-5">
               {mode === "create" ? t("finance.paymentForm.actions.create", "Create payment") : t("finance.paymentForm.actions.save", "Save changes")}
             </Button>
           </div>

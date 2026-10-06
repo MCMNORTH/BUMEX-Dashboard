@@ -3,7 +3,7 @@ import "server-only";
 import { logActivity } from "@/lib/activity/service";
 import { createAssignmentNotification } from "@/lib/notifications/service";
 import { getTeamWorkloadPreview, getTickets, getTicketsAcrossEntities } from "@/lib/tickets/service";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import { requireCurrentEntityContext } from "@/lib/entities/scope";
 import { getWeekDays, getWeekStart } from "@/lib/planning/helpers";
 import type { AppRole } from "@/types/auth";
@@ -64,14 +64,14 @@ export async function getWeeklyTasks(
 
 export async function getPlanningActualTime(anchor: string): Promise<PlanningActualTime[]> {
   const { auth, entityCode } = await requireCurrentEntityContext();
-  const supabase = await createClient();
-  if (!supabase) throw new Error("Supabase is not configured.");
+  const db = await createClient();
+  if (!db) throw new Error("Firebase is not configured.");
   const start = new Date(`${anchor}T00:00:00Z`);
   const end = new Date(start);
   end.setUTCDate(end.getUTCDate() + 190);
   const rows: PlanningActualTime[] = [];
   for (let offset = 0; ; offset += 500) {
-    let query = supabase.from("time_entries").select("user_id, work_date, duration_minutes")
+    let query = db.from("time_entries").select("user_id, work_date, duration_minutes")
       .gte("work_date", start.toISOString().slice(0, 10)).lt("work_date", end.toISOString().slice(0, 10));
     if (auth.role === "manager") query = query.eq("entity_code", entityCode);
     if (auth.role !== "admin" && auth.role !== "manager") query = query.eq("user_id", auth.user.id);
@@ -100,13 +100,13 @@ export async function updateTaskDueDate(
   dueDate: string | null,
   actorUserId: string,
 ) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data: previousTask, error: previousError } = await supabase
+  const { data: previousTask, error: previousError } = await db
     .from("tasks")
     .select("title, due_date")
     .eq("id", ticketId)
@@ -116,7 +116,7 @@ export async function updateTaskDueDate(
     throw new Error(previousError.message);
   }
 
-  const { error } = await supabase.from("tasks").update({ due_date: dueDate }).eq("id", ticketId);
+  const { error } = await db.from("tasks").update({ due_date: dueDate }).eq("id", ticketId);
 
   if (error) {
     throw new Error(error.message);
@@ -142,16 +142,16 @@ export async function updateTaskPlanning(
   assigneeId: string,
   actorUserId: string,
 ) {
-  const supabase = await createClient();
-  if (!supabase) throw new Error("Supabase is not configured.");
+  const db = await createClient();
+  if (!db) throw new Error("Firebase is not configured.");
 
-  const { data: previousTask, error: previousError } = await supabase.from("tasks")
+  const { data: previousTask, error: previousError } = await db.from("tasks")
     .select("title, due_date, assignee_id")
     .eq("id", ticketId)
     .maybeSingle<{ title: string; due_date: string | null; assignee_id: string | null }>();
   if (previousError || !previousTask) throw new Error(previousError?.message ?? "Task not found.");
 
-  const { error } = await supabase.from("tasks").update({ due_date: dueDate, assignee_id: assigneeId }).eq("id", ticketId);
+  const { error } = await db.from("tasks").update({ due_date: dueDate, assignee_id: assigneeId }).eq("id", ticketId);
   if (error) throw new Error(error.message);
 
   const activity = [logActivity({

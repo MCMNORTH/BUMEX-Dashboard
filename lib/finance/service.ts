@@ -2,7 +2,7 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DataClient } from "@/lib/firebase/server";
 
 import { logActivity } from "@/lib/activity/service";
 import { getContracts } from "@/lib/contracts/service";
@@ -14,7 +14,7 @@ import {
 } from "@/lib/entities/scope";
 import { buildTransferNotes, getDueWindowDates, parseTransferNotesMetadata } from "@/lib/finance/helpers";
 import { parseFormattedNumber } from "@/lib/formatters";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import type { AppRole } from "@/types/auth";
 import type { ActivityLogRecord } from "@/types/activity";
 import type {
@@ -241,14 +241,14 @@ function mapTransferRow(
 }
 
 async function getActivityMap(entityType: ActivityLogRecord["entity_type"], ids: string[]) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || !ids.length) {
+  if (!db || !ids.length) {
     return new Map<string, ActivityLogRecord[]>();
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("activity_logs")
     .select(
       `
@@ -276,7 +276,7 @@ async function getActivityMap(entityType: ActivityLogRecord["entity_type"], ids:
   let { data, error } = await query.returns<ActivityRow[]>();
 
   if (error && isMissingActivityEntityCodeError(error)) {
-    ({ data, error } = await supabase
+    ({ data, error } = await db
       .from("activity_logs")
       .select(
         `
@@ -320,14 +320,14 @@ async function getSupportingDocumentsMap(
   relatedType: SupportingDocumentRow["related_type"],
   relatedIds: string[],
 ) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || !relatedIds.length) {
+  if (!db || !relatedIds.length) {
     return new Map<string, FinanceSupportingDocument[]>();
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("documents")
     .select("id, title, file_name, document_type, created_at, related_type, related_id")
     .eq("related_type", relatedType)
@@ -381,14 +381,14 @@ function mapBankStatementLine(row: BankStatementLineRow): BankStatementLineRecor
 }
 
 async function getReceiptsByPaymentMap(paymentIds: string[], role: AppRole) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || !paymentIds.length) {
+  if (!db || !paymentIds.length) {
     return new Map<string, ReceiptRecord[]>();
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("receipts")
     .select(
       `
@@ -447,9 +447,9 @@ async function getReceiptsByPaymentMap(paymentIds: string[], role: AppRole) {
 }
 
 async function getPaymentsByInvoiceMap(invoiceIds: string[], role: AppRole) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase || !invoiceIds.length) {
+  if (!db || !invoiceIds.length) {
     return {
       paymentMap: new Map<string, PaymentRecord[]>(),
       receiptMap: new Map<string, ReceiptRecord[]>(),
@@ -457,7 +457,7 @@ async function getPaymentsByInvoiceMap(invoiceIds: string[], role: AppRole) {
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("payments")
     .select(
       `
@@ -672,8 +672,8 @@ function parseInvoicePayload(values: InvoiceFormValues) {
   };
 }
 
-async function generateInvoiceNumber(supabase: SupabaseClient) {
-  void supabase;
+async function generateInvoiceNumber(db: DataClient) {
+  void db;
 
   const raw = randomBytes(8).toString("base64url").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
   const token = raw.slice(0, 10).padEnd(10, "X");
@@ -762,14 +762,14 @@ function buildInvoicePaymentSummary(invoice: {
 }
 
 export async function getInvoices(role: AppRole, filters: InvoiceFilters = {}) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("invoices")
     .select(
       `
@@ -915,14 +915,14 @@ export async function getInvoices(role: AppRole, filters: InvoiceFilters = {}) {
 }
 
 export async function getInvoiceById(id: string, role: AppRole) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("invoices")
     .select(
       `
@@ -1029,17 +1029,17 @@ export async function getInvoiceById(id: string, role: AppRole) {
 }
 
 export async function getInvoiceFiltersData(): Promise<InvoiceFiltersData> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let clientsQuery = supabase.from("clients").select("id, name, status, contact_email");
-  let projectsQuery = supabase.from("projects").select("id, name, status, end_date");
-  let contractsQuery = supabase.from("contracts").select("id, title, status, renewal_date, end_date");
-  let documentsQuery = supabase.from("documents").select("id, title, document_type");
+  let clientsQuery = db.from("clients").select("id, name, status, contact_email");
+  let projectsQuery = db.from("projects").select("id, name, status, end_date");
+  let contractsQuery = db.from("contracts").select("id, title, status, renewal_date, end_date");
+  let documentsQuery = db.from("documents").select("id, title, document_type");
 
   if (isEntityScopingEnabled()) {
     clientsQuery = clientsQuery.eq("entity_code", entityCode);
@@ -1074,14 +1074,14 @@ export async function getInvoicePayments(invoiceId: string, role: AppRole) {
 }
 
 export async function getPayments(role: AppRole, filters: FinanceFilters = {}) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("payments")
     .select(
       `
@@ -1160,13 +1160,13 @@ export async function getPayments(role: AppRole, filters: FinanceFilters = {}) {
 }
 
 export async function getPaymentById(id: string, role: AppRole) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("payments")
     .select(
       `
@@ -1241,18 +1241,18 @@ export async function getPaymentById(id: string, role: AppRole) {
 }
 
 export async function getPaymentsFilterData(): Promise<PaymentFiltersData> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let clientsQuery = supabase.from("clients").select("id, name, status, contact_email");
-  let projectsQuery = supabase.from("projects").select("id, name, status, end_date");
-  let contractsQuery = supabase.from("contracts").select("id, title, status, renewal_date, end_date");
-  let invoicesQuery = supabase.from("invoices").select("id, invoice_number, status, due_date, amount_ttc");
-  let usersQuery = supabase.from("profiles").select("id, full_name, email, avatar_url, role");
+  let clientsQuery = db.from("clients").select("id, name, status, contact_email");
+  let projectsQuery = db.from("projects").select("id, name, status, end_date");
+  let contractsQuery = db.from("contracts").select("id, title, status, renewal_date, end_date");
+  let invoicesQuery = db.from("invoices").select("id, invoice_number, status, due_date, amount_ttc");
+  let usersQuery = db.from("profiles").select("id, full_name, email, avatar_url, role");
 
   if (isEntityScopingEnabled()) {
     clientsQuery = clientsQuery.eq("entity_code", entityCode);
@@ -1286,14 +1286,14 @@ export async function getPaymentsFilterData(): Promise<PaymentFiltersData> {
 }
 
 async function syncInvoiceStatus(invoiceId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let invoiceQuery = supabase
+  let invoiceQuery = db
     .from("invoices")
     .select("id, due_date, amount_ttc, status")
     .eq("id", invoiceId);
@@ -1316,7 +1316,7 @@ async function syncInvoiceStatus(invoiceId: string) {
     return;
   }
 
-  let paymentsQuery = supabase
+  let paymentsQuery = db
     .from("payments")
     .select("amount, status")
     .eq("invoice_id", invoiceId);
@@ -1343,7 +1343,7 @@ async function syncInvoiceStatus(invoiceId: string) {
   });
 
   if (suggestedStatus !== invoice.status) {
-    let invoiceUpdateQuery = supabase
+    let invoiceUpdateQuery = db
       .from("invoices")
       .update({
         status: suggestedStatus,
@@ -1364,10 +1364,10 @@ async function syncInvoiceStatus(invoiceId: string) {
 }
 
 export async function createInvoice(values: InvoiceFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
@@ -1383,9 +1383,9 @@ export async function createInvoice(values: InvoiceFormValues, actorUserId: stri
   });
 
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    const invoiceNumber = payload.invoice_number || await generateInvoiceNumber(supabase);
+    const invoiceNumber = payload.invoice_number || await generateInvoiceNumber(db);
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("invoices")
       .insert({
         ...payload,
@@ -1415,14 +1415,14 @@ export async function createInvoice(values: InvoiceFormValues, actorUserId: stri
 }
 
 export async function updateInvoice(id: string, values: InvoiceFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let previousInvoiceQuery = supabase
+  let previousInvoiceQuery = db
     .from("invoices")
     .select("invoice_number, due_date, amount_ht, tax_amount, amount_ttc, status, client_id, project_id, contract_id, notes")
     .eq("id", id);
@@ -1461,7 +1461,7 @@ export async function updateInvoice(id: string, values: InvoiceFormValues, actor
     linkedPayments,
   });
 
-  let invoiceUpdateQuery = supabase
+  let invoiceUpdateQuery = db
     .from("invoices")
     .update({
       ...payload,
@@ -1530,14 +1530,14 @@ export async function updateInvoice(id: string, values: InvoiceFormValues, actor
 }
 
 export async function approveInvoice(id: string, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("invoices")
     .update({
       approval_status: "approved",
@@ -1567,11 +1567,11 @@ export async function approveInvoice(id: string, actorUserId: string) {
 }
 
 export async function revokeInvoiceApproval(id: string, actorUserId: string, reason: string) {
-  const supabase = await createClient();
-  if (!supabase) throw new Error("Supabase is not configured.");
+  const db = await createClient();
+  if (!db) throw new Error("Firebase is not configured.");
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("invoices")
     .update({
       approval_status: "pending",
@@ -1596,14 +1596,14 @@ export async function revokeInvoiceApproval(id: string, actorUserId: string, rea
 }
 
 export async function deleteInvoice(id: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let deleteInvoiceQuery = supabase.from("invoices").delete().eq("id", id);
+  let deleteInvoiceQuery = db.from("invoices").delete().eq("id", id);
 
   if (isEntityScopingEnabled()) {
     deleteInvoiceQuery = deleteInvoiceQuery.eq("entity_code", entityCode);
@@ -1617,16 +1617,16 @@ export async function deleteInvoice(id: string) {
 }
 
 export async function createReceipt(values: ReceiptFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
   const payload = extendWithEntityCode(parseReceiptPayload(values), entityCode);
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("receipts")
     .insert({
       ...payload,
@@ -1654,10 +1654,10 @@ export async function createReceipt(values: ReceiptFormValues, actorUserId: stri
 }
 
 export async function createPayment(values: PaymentFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
@@ -1666,7 +1666,7 @@ export async function createPayment(values: PaymentFormValues, actorUserId: stri
     created_by: actorUserId,
   }, entityCode);
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("payments")
     .insert(payload)
     .select("id, status")
@@ -1714,14 +1714,14 @@ export async function createPayment(values: PaymentFormValues, actorUserId: stri
 }
 
 export async function updatePayment(id: string, values: PaymentFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let previousPaymentQuery = supabase
+  let previousPaymentQuery = db
     .from("payments")
     .select("invoice_id, status, due_date, payment_date, amount, method, reference, notes")
     .eq("id", id);
@@ -1754,7 +1754,7 @@ export async function updatePayment(id: string, values: PaymentFormValues, actor
     updated_at: new Date().toISOString(),
   };
 
-  let updatePaymentQuery = supabase.from("payments").update(payload).eq("id", id);
+  let updatePaymentQuery = db.from("payments").update(payload).eq("id", id);
 
   if (isEntityScopingEnabled()) {
     updatePaymentQuery = updatePaymentQuery.eq("entity_code", entityCode);
@@ -1875,14 +1875,14 @@ export async function updatePayment(id: string, values: PaymentFormValues, actor
 }
 
 export async function deletePayment(id: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let existingPaymentQuery = supabase
+  let existingPaymentQuery = db
     .from("payments")
     .select("invoice_id")
     .eq("id", id);
@@ -1901,7 +1901,7 @@ export async function deletePayment(id: string) {
     throw new Error(existingError.message);
   }
 
-  let deletePaymentQuery = supabase.from("payments").delete().eq("id", id);
+  let deletePaymentQuery = db.from("payments").delete().eq("id", id);
 
   if (isEntityScopingEnabled()) {
     deletePaymentQuery = deletePaymentQuery.eq("entity_code", entityCode);
@@ -1946,14 +1946,14 @@ export function getPaymentSummary(payments: PaymentRecord[]): PaymentSummary {
 }
 
 export async function getTransfers(role: AppRole, filters: TransferFilters = {}) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("transfers")
     .select(
       `
@@ -2104,14 +2104,14 @@ function applyTransferFilters<T extends ScopedFinanceQuery<T> & { ilike: (column
 }
 
 export async function getTransferById(id: string, role: AppRole) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let query = supabase
+  let query = db
     .from("transfers")
     .select(
       `
@@ -2175,15 +2175,15 @@ export async function getTransferById(id: string, role: AppRole) {
 }
 
 export async function getTransfersFilterData(): Promise<TransferFiltersData> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let clientsQuery = supabase.from("clients").select("id, name, status, contact_email");
-  let projectsQuery = supabase.from("projects").select("id, name, status, end_date");
+  let clientsQuery = db.from("clients").select("id, name, status, contact_email");
+  let projectsQuery = db.from("projects").select("id, name, status, end_date");
 
   if (isEntityScopingEnabled()) {
     clientsQuery = clientsQuery.eq("entity_code", entityCode);
@@ -2205,10 +2205,10 @@ export async function getTransfersFilterData(): Promise<TransferFiltersData> {
 }
 
 export async function createTransfer(values: TransferFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
@@ -2217,7 +2217,7 @@ export async function createTransfer(values: TransferFormValues, actorUserId: st
     created_by: actorUserId,
   }, entityCode);
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("transfers")
     .insert(payload)
     .select("id, transfer_reference, status")
@@ -2252,14 +2252,14 @@ export async function createTransfer(values: TransferFormValues, actorUserId: st
 }
 
 export async function updateTransfer(id: string, values: TransferFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let previousTransferQuery = supabase
+  let previousTransferQuery = db
     .from("transfers")
     .select("status, transfer_date, amount, category, beneficiary_name, related_project_id, related_client_id, notes")
     .eq("id", id);
@@ -2292,7 +2292,7 @@ export async function updateTransfer(id: string, values: TransferFormValues, act
     updated_at: new Date().toISOString(),
   };
 
-  let updateTransferQuery = supabase.from("transfers").update(payload).eq("id", id);
+  let updateTransferQuery = db.from("transfers").update(payload).eq("id", id);
 
   if (isEntityScopingEnabled()) {
     updateTransferQuery = updateTransferQuery.eq("entity_code", entityCode);
@@ -2365,14 +2365,14 @@ export async function updateTransfer(id: string, values: TransferFormValues, act
 }
 
 export async function deleteTransfer(id: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let deleteTransferQuery = supabase.from("transfers").delete().eq("id", id);
+  let deleteTransferQuery = db.from("transfers").delete().eq("id", id);
 
   if (isEntityScopingEnabled()) {
     deleteTransferQuery = deleteTransferQuery.eq("entity_code", entityCode);
@@ -2575,18 +2575,18 @@ function getTransferMatchScore(
 }
 
 async function ensureReconciledPaymentForInvoice(params: {
-  supabase: SupabaseClient;
+  db: DataClient;
   invoice: InvoiceRecord;
   amount: number;
   paymentDate: string;
   reference: string | null;
   actorUserId: string;
 }) {
-  const { supabase, invoice, amount, paymentDate, reference, actorUserId } = params;
+  const { db, invoice, amount, paymentDate, reference, actorUserId } = params;
   const normalizedReference = reference?.trim() || `BANK-${invoice.invoice_number}`;
   const entityCode = await getCurrentEntityCode();
 
-  let existingQuery = supabase
+  let existingQuery = db
     .from("payments")
     .select("id")
     .eq("invoice_id", invoice.id)
@@ -2636,14 +2636,14 @@ async function ensureReconciledPaymentForInvoice(params: {
 }
 
 export async function getBankStatements(role: AppRole): Promise<BankStatementRecord[]> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
-  let statementsQuery = supabase
+  let statementsQuery = db
     .from("bank_statements")
     .select(
       `
@@ -2690,7 +2690,7 @@ export async function getBankStatements(role: AppRole): Promise<BankStatementRec
   let linesMap = new Map<string, BankStatementLineRecord[]>();
 
   if (statementIds.length) {
-    let linesQuery = supabase
+    let linesQuery = db
       .from("bank_statement_lines")
       .select(
         "id, statement_id, line_date, description, reference, credit_amount, debit_amount, currency, match_status, matched_entity_type, matched_entity_id, match_confidence, match_reason, created_at",
@@ -2762,10 +2762,10 @@ export function getBankStatementSummary(statements: BankStatementRecord[]): Bank
 }
 
 export async function createBankStatement(values: BankStatementFormValues, actorUserId: string) {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const entityCode = await getCurrentEntityCode();
@@ -2774,7 +2774,7 @@ export async function createBankStatement(values: BankStatementFormValues, actor
     throw new Error("Add at least one readable bank line in the statement.");
   }
 
-  const { data: statement, error: statementError } = await supabase
+  const { data: statement, error: statementError } = await db
     .from("bank_statements")
     .insert({
       account_label: values.account_label.trim(),
@@ -2793,7 +2793,7 @@ export async function createBankStatement(values: BankStatementFormValues, actor
     throw new Error(statementError.message);
   }
 
-  const { data: insertedLines, error: linesError } = await supabase
+  const { data: insertedLines, error: linesError } = await db
     .from("bank_statement_lines")
     .insert(
       parsedLines.map((line) => ({
@@ -2837,7 +2837,7 @@ export async function createBankStatement(values: BankStatementFormValues, actor
 
     if ((bestInvoice?.score ?? 0) >= 85 && (bestInvoice?.score ?? 0) >= (bestTransfer?.score ?? 0)) {
       const paymentId = await ensureReconciledPaymentForInvoice({
-        supabase,
+        db,
         invoice: bestInvoice.invoice,
         amount: line.amount,
         paymentDate: line.line_date,
@@ -2845,7 +2845,7 @@ export async function createBankStatement(values: BankStatementFormValues, actor
         actorUserId,
       });
 
-      await supabase
+      await db
         .from("bank_statement_lines")
         .update({
           match_status: "matched",
@@ -2885,7 +2885,7 @@ export async function createBankStatement(values: BankStatementFormValues, actor
         actorUserId,
       );
 
-      await supabase
+      await db
         .from("bank_statement_lines")
         .update({
           match_status: "matched",
@@ -2920,7 +2920,7 @@ export async function createBankStatement(values: BankStatementFormValues, actor
           : null;
 
     if (reviewCandidate && reviewCandidate.score >= 60) {
-      await supabase
+      await db
         .from("bank_statement_lines")
         .update({
           match_status: "review",
@@ -3073,13 +3073,13 @@ export async function getMonthlyOutgoing(role: AppRole) {
 
 export async function getInvoiceStatusSummary(role: AppRole): Promise<InvoiceStatusPoint[]> {
   if (role === "shareholder") {
-    const supabase = await createClient();
+    const db = await createClient();
 
-    if (!supabase) {
-      throw new Error("Supabase is not configured.");
+    if (!db) {
+      throw new Error("Firebase is not configured.");
     }
 
-    const { data, error } = await supabase.rpc("get_shareholder_invoice_status_summary");
+    const { data, error } = await db.rpc("get_shareholder_invoice_status_summary");
 
     if (error) {
       throw new Error(error.message);
@@ -3225,10 +3225,10 @@ export async function getOverdueFinanceItems(role: AppRole) {
 }
 
 export async function getShareholderFinanceSummary(): Promise<ShareholderFinanceSummary> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
   const emptySummary: ShareholderFinanceSummary = {
@@ -3249,15 +3249,15 @@ export async function getShareholderFinanceSummary(): Promise<ShareholderFinance
       { data: payments, error: paymentsError },
       { data: transfers, error: transfersError },
     ] = await Promise.all([
-      supabase
+      db
         .from("invoices")
         .select("amount_ttc, due_date, status")
         .returns<Array<{ amount_ttc: number; due_date: string; status: InvoiceStatus }>>(),
-      supabase
+      db
         .from("payments")
         .select("amount, due_date, payment_date, status")
         .returns<Array<{ amount: number; due_date: string | null; payment_date: string | null; status: PaymentRecord["status"] }>>(),
-      supabase
+      db
         .from("transfers")
         .select("amount, status")
         .returns<Array<{ amount: number; status: TransferRecord["status"] }>>(),
@@ -3322,13 +3322,13 @@ export async function getShareholderFinanceSummary(): Promise<ShareholderFinance
 }
 
 async function getShareholderMonthlyFinance(): Promise<MonthlyFinancePoint[]> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase.rpc("get_shareholder_monthly_finance");
+  const { data, error } = await db.rpc("get_shareholder_monthly_finance");
 
   if (error) {
     throw new Error(error.message);
@@ -3344,13 +3344,13 @@ async function getShareholderMonthlyFinance(): Promise<MonthlyFinancePoint[]> {
 }
 
 async function getShareholderOverdueClients(): Promise<OverdueClientPoint[]> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase.rpc("get_shareholder_overdue_clients");
+  const { data, error } = await db.rpc("get_shareholder_overdue_clients");
 
   if (error) {
     throw new Error(error.message);
@@ -3396,13 +3396,13 @@ export async function getOverdueClientsSummary(role: AppRole): Promise<OverdueCl
 }
 
 async function getShareholderFinanceDeadlines(): Promise<UpcomingFinanceDeadline[]> {
-  const supabase = await createClient();
+  const db = await createClient();
 
-  if (!supabase) {
-    throw new Error("Supabase is not configured.");
+  if (!db) {
+    throw new Error("Firebase is not configured.");
   }
 
-  const { data, error } = await supabase.rpc("get_shareholder_finance_deadlines");
+  const { data, error } = await db.rpc("get_shareholder_finance_deadlines");
 
   if (error) {
     throw new Error(error.message);
