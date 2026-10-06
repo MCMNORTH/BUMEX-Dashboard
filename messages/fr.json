@@ -121,7 +121,9 @@
       }
     },
     "liveShell": "Shell actif",
-    "switchEntity": "Changer d’entité"
+    "switchEntity": "Changer d’entité",
+    "collapse": "Réduire la barre latérale",
+    "expand": "Déployer la barre latérale"
   },
   "search": {
     "placeholder": "Rechercher dans l’espace de travail",

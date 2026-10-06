@@ -33,6 +33,13 @@
   --color-brand-sand: #d9c5b1;
   --color-brand-orange: #eea442;
 
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-indicator: var(--sidebar-indicator);
+
   /* Type scale floor: the root is 14px, so the Tailwind defaults put text-xs at 10.5px. */
   --text-xs: 0.8572rem;
   --text-xs--line-height: 1.35;
@@ -79,6 +86,13 @@
   --hero: #2b4669;
   --hero-border: rgba(43, 70, 105, 0.6);
   /* Chart series, in order of use: navy, steel, orange, sand, slate. */
+  /* Sidebar: deep logo navy, white text, the logo orange marks the current page. */
+  --sidebar: #1c3150;
+  --sidebar-foreground: #ffffff;
+  --sidebar-muted: rgba(255, 255, 255, 0.68);
+  --sidebar-accent: rgba(255, 255, 255, 0.1);
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-indicator: #eea442;
   --chart-1: #2b4669;
   --chart-2: #6088c0;
   --chart-3: #eea442;
@@ -114,6 +128,13 @@
   --danger: #f2766b;
   --hero: #1f3553;
   --hero-border: rgba(134, 166, 214, 0.18);
+  /* Darker than the page so the sidebar still reads as its own surface. */
+  --sidebar: #0c1522;
+  --sidebar-foreground: #f1f4f8;
+  --sidebar-muted: rgba(241, 244, 248, 0.62);
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+  --sidebar-indicator: #eea442;
   --chart-1: #86a6d6;
   --chart-2: #b9cde8;
   --chart-3: #eea442;
@@ -662,49 +683,26 @@ select option {
 
 .sidebar-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.72) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
 }
 
 .sidebar-scrollbar::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
 }
 
 .sidebar-scrollbar::-webkit-scrollbar-track {
   margin-block: 10px;
-  border-radius: 999px;
   background: transparent;
 }
 
 .sidebar-scrollbar::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background:
-    linear-gradient(180deg, rgba(148, 163, 184, 0.7), rgba(100, 116, 139, 0.9)) padding-box;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 8px 18px rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.22) padding-box;
 }
 
 .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
-  background:
-    linear-gradient(180deg, rgba(96, 136, 192, 0.85), rgba(96, 136, 192, 0.85)) padding-box;
-}
-
-.dark .sidebar-scrollbar {
-  scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
-}
-
-.dark .sidebar-scrollbar::-webkit-scrollbar-thumb {
-  background:
-    linear-gradient(180deg, rgba(148, 163, 184, 0.5), rgba(71, 85, 105, 0.82)) padding-box;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 10px 22px rgba(2, 8, 23, 0.34);
-}
-
-.dark .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
-  background:
-    linear-gradient(180deg, rgba(96, 136, 192, 0.85), rgba(96, 136, 192, 0.85)) padding-box;
+  background: rgba(255, 255, 255, 0.35) padding-box;
 }
 
 @media (prefers-reduced-motion: reduce) {

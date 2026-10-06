@@ -121,7 +121,9 @@
       }
     },
     "liveShell": "Live shell",
-    "switchEntity": "Switch entity"
+    "switchEntity": "Switch entity",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar"
   },
   "search": {
     "placeholder": "Search workspace",

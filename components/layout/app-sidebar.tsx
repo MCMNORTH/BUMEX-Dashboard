@@ -14,7 +14,6 @@ import { getBumexEntity } from "@/lib/entities/config";
 import { siteConfig } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/use-permissions";
-import { Button } from "@/components/ui/button";
 import { NavigationItem } from "@/components/layout/navigation-item";
 
 type SectionKey = "workspace" | "business" | "system";
@@ -146,12 +145,19 @@ function SidebarContent({
     };
   }, [activeEntityCode]);
 
+  const isActive = (href: string) =>
+    matchesNavigationPath(pathname, href) || (pendingNavigation?.href === href && pendingNavigation.from === pathname);
+  const groupItems = currentGroup
+    ? currentGroup.items.filter((item) => !managementItems.some((shortcut) => shortcut.href === item.href))
+    : [];
+
   return (
     <div className="flex h-full flex-col overflow-x-hidden">
+      {/* Same height as the page header (57px) so both bottom borders line up. */}
       <div
         className={cn(
-          "flex items-center justify-between gap-2.5 border-b border-border px-3 py-3",
-          collapsed && "flex-col justify-center gap-3 px-0",
+          "flex h-[57px] shrink-0 items-center justify-between gap-2 border-b border-sidebar-border px-3",
+          collapsed && "justify-center px-0",
         )}
       >
         <button
@@ -161,77 +167,59 @@ function SidebarContent({
           title={canSwitchEntities ? t("navigation.switchEntity", "Switch entity") : undefined}
           aria-label={canSwitchEntities ? t("navigation.switchEntity", "Switch entity") : undefined}
           className={cn(
-            "flex min-w-0 items-center gap-2.5 rounded-lg p-1 text-left transition-all duration-500 disabled:cursor-default",
-            canSwitchEntities && "hover:bg-muted",
-            entityPulse && "scale-[1.02] bg-accent",
-            collapsed && "flex-col gap-3",
+            "flex min-w-0 items-center gap-2.5 rounded-lg p-1 text-left transition-colors disabled:cursor-default",
+            canSwitchEntities && "hover:bg-sidebar-accent",
+            entityPulse && "bg-sidebar-accent",
           )}
         >
           {activeEntity || fallbackEntity ? (
             <EntityLogo
               entity={(activeEntity ?? fallbackEntity)!}
-              size="md"
-              className={cn(
-                "shrink-0 transition-transform duration-500",
-                entityPulse && "translate-y-[-1px] scale-105",
-              )}
+              size="sm"
+              className="size-10 shrink-0 rounded-lg border-transparent p-0.5 shadow-none ring-1 ring-white/25"
             />
           ) : null}
-          <div
-            className={cn(
-              "min-w-0 transition-all duration-500",
-              entityPulse && "translate-x-1",
-              collapsed && "pointer-events-none h-0 w-0 -translate-y-2 opacity-0",
-            )}
-          >
-            <p className="text-xs font-medium text-muted-foreground">
-              {siteConfig.company}
-            </p>
-            <p
-              className={cn(
-                "max-w-[10rem] text-sm leading-tight font-semibold text-foreground sm:max-w-none",
-                entityPulse && "animate-pulse",
-              )}
-            >
-              {activeEntity?.name ?? siteConfig.name}
-            </p>
-          </div>
+          {!collapsed ? (
+            <div className="min-w-0">
+              <p className="text-xs font-medium tracking-wide text-sidebar-muted">{siteConfig.company}</p>
+              <p className="truncate text-sm leading-tight font-semibold text-sidebar-foreground">
+                {activeEntity?.name ?? siteConfig.name}
+              </p>
+            </div>
+          ) : null}
           {canSwitchEntities && !collapsed ? (
-            <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
+            <ChevronsUpDown className="size-4 shrink-0 text-sidebar-muted" />
           ) : null}
         </button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "border border-border bg-card shadow-none hover:bg-muted dark:bg-secondary dark:hover:bg-muted",
-            collapsed && "hidden",
-          )}
-          onClick={onToggleCollapsed}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-        </Button>
+        {!collapsed ? (
+          <button
+            type="button"
+            className="grid size-8 shrink-0 place-items-center rounded-lg text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            onClick={onToggleCollapsed}
+            aria-label={t("navigation.collapse", "Collapse sidebar")}
+          >
+            <PanelLeftClose className="size-4" />
+          </button>
+        ) : null}
       </div>
 
       {collapsed ? (
-        <div className="flex justify-center border-b border-border px-0 py-2.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="border border-border bg-card shadow-none hover:bg-muted dark:bg-secondary dark:hover:bg-muted"
+        <div className="flex justify-center border-b border-sidebar-border py-2">
+          <button
+            type="button"
+            className="grid size-10 place-items-center rounded-lg text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
             onClick={onToggleCollapsed}
-            aria-label="Expand sidebar"
+            aria-label={t("navigation.expand", "Expand sidebar")}
           >
-            <PanelLeftOpen className="size-4.5" />
-          </Button>
+            <PanelLeftOpen className="size-[1.15rem]" />
+          </button>
         </div>
       ) : null}
 
-      <div ref={scrollRef} className="sidebar-scrollbar min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain px-2.5 py-3">
+      <div ref={scrollRef} className="sidebar-scrollbar min-h-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-3">
         <div
           className={cn(
-            "grid gap-1 rounded-xl border border-border bg-card p-1",
+            "grid gap-1 rounded-lg border border-sidebar-border bg-black/10 p-1",
             collapsed ? "grid-cols-1" : "grid-cols-3",
           )}
         >
@@ -247,11 +235,10 @@ function SidebarContent({
                 type="button"
                 onClick={() => setSelectedSection({ key, pathname })}
                 className={cn(
-                  "group flex min-w-0 items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-left transition-colors duration-200",
+                  "flex min-w-0 items-center justify-center rounded-md px-1 py-1.5 transition-colors duration-150",
                   selected
-                    ? "bg-accent text-accent-foreground"
-                    : "bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
-                  collapsed && "px-0",
+                    ? "bg-sidebar-accent text-sidebar-foreground shadow-[inset_0_0_0_1px_var(--sidebar-border)]"
+                    : "text-sidebar-muted hover:text-sidebar-foreground",
                 )}
                 aria-pressed={selected}
                 title={sectionTitle}
@@ -259,7 +246,7 @@ function SidebarContent({
                 {collapsed ? (
                   <Icon className="size-4 shrink-0" strokeWidth={1.9} />
                 ) : (
-                  <span className="truncate text-xs leading-none font-medium text-current">{sectionTitle}</span>
+                  <span className="truncate text-xs leading-none font-medium">{sectionTitle}</span>
                 )}
               </button>
             );
@@ -267,71 +254,48 @@ function SidebarContent({
         </div>
 
         {managementItems.length > 0 ? (
-          <nav aria-label={t("navigation.management", "Management")} className="shrink-0 border-b border-border pb-3">
-            <div className={cn("rounded-xl border border-border bg-card p-2", collapsed && "border-0 bg-transparent p-0")}>
-              {!collapsed ? (
-                <p className="px-2.5 pb-2 pt-1 text-xs font-medium text-muted-foreground">
-                  {t("navigation.management", "Management")}
-                </p>
-              ) : null}
-              <div className="space-y-1">
-                {managementItems.map((item) => (
-                  <NavigationItem
-                    key={item.href}
-                    item={{ ...item, label: t(`navigation.items.${item.href.slice(1)}.label`, item.label) }}
-                    active={matchesNavigationPath(pathname, item.href)
-                      || (pendingNavigation?.href === item.href && pendingNavigation.from === pathname)}
-                    collapsed={collapsed}
-                    onNavigate={handleNavigate}
-                  />
-                ))}
-              </div>
-            </div>
+          <nav aria-label={t("navigation.management", "Management")} className="space-y-1 border-b border-sidebar-border pb-4">
+            {!collapsed ? (
+              <p className="px-3 pb-1 text-xs font-medium tracking-wide text-sidebar-muted uppercase">
+                {t("navigation.management", "Management")}
+              </p>
+            ) : null}
+            {managementItems.map((item) => (
+              <NavigationItem
+                key={item.href}
+                item={{ ...item, label: t(`navigation.items.${item.href.slice(1)}.label`, item.label) }}
+                active={isActive(item.href)}
+                collapsed={collapsed}
+                onNavigate={handleNavigate}
+              />
+            ))}
           </nav>
         ) : null}
 
         {currentGroup ? (
-          <div
-            className={cn(
-              "rounded-xl border border-border bg-card p-2.5",
-              collapsed && "border-transparent bg-transparent p-0 shadow-none",
-            )}
-          >
-            <div className={cn("mb-2.5 flex items-start gap-2.5 px-1", collapsed && "justify-center")}>
-              <div className={cn("min-w-0", collapsed && "hidden")}>
-                <div className="min-w-0">
-                  <p className="max-w-full text-xs font-semibold text-foreground break-words">
-                    {t(`navigation.groups.${currentGroup.title.toLowerCase()}`, currentGroup.title)}
-                  </p>
-                </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {t(`navigation.groupDescriptions.${activeSection}`, sectionConfig[activeSection].description)}
-                </p>
-              </div>
-            </div>
-
-            <div className={cn("space-y-1", collapsed && "space-y-2")}>
-              {currentGroup.items.filter((item) => !managementItems.some((shortcut) => shortcut.href === item.href)).map((item) => {
-                const itemKey = item.href.replace("/", "");
-                return (
-                  <NavigationItem
-                    key={item.href}
-                    item={{
-                      ...item,
-                      label: t(`navigation.items.${itemKey}.label`, item.label),
-                      description: t(`navigation.items.${itemKey}.description`, item.description),
-                    }}
-                    active={
-                      matchesNavigationPath(pathname, item.href)
-                      || (pendingNavigation?.href === item.href && pendingNavigation.from === pathname)
-                    }
-                    collapsed={collapsed}
-                    onNavigate={handleNavigate}
-                  />
-                );
-              })}
-            </div>
-          </div>
+          <nav aria-label={t(`navigation.groups.${activeSection}`, currentGroup.title)} className="space-y-1">
+            {!collapsed ? (
+              <p className="px-3 pb-1 text-xs font-medium tracking-wide text-sidebar-muted uppercase">
+                {t(`navigation.groups.${activeSection}`, currentGroup.title)}
+              </p>
+            ) : null}
+            {groupItems.map((item) => {
+              const itemKey = item.href.replace("/", "");
+              return (
+                <NavigationItem
+                  key={item.href}
+                  item={{
+                    ...item,
+                    label: t(`navigation.items.${itemKey}.label`, item.label),
+                    description: t(`navigation.items.${itemKey}.description`, item.description),
+                  }}
+                  active={isActive(item.href)}
+                  collapsed={collapsed}
+                  onNavigate={handleNavigate}
+                />
+              );
+            })}
+          </nav>
         ) : null}
       </div>
     </div>
@@ -348,7 +312,7 @@ export function AppSidebar({
     <>
       <aside
         className={cn(
-          "surface-aurora fixed inset-y-0 left-0 z-30 hidden h-screen overflow-hidden border-r border-border bg-muted/55 shadow-none dark:bg-card lg:block",
+          "fixed inset-y-0 left-0 z-30 hidden h-screen overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:block",
           collapsed ? "w-20" : "w-72",
         )}
       >
@@ -364,7 +328,7 @@ export function AppSidebar({
       />
       <aside
         className={cn(
-          "surface-aurora fixed inset-y-0 left-0 z-50 h-screen w-[min(92vw,22rem)] overflow-x-hidden border-r border-border bg-muted shadow-[var(--shadow-elevated)] transition-transform duration-200 dark:bg-card lg:hidden",
+          "fixed inset-y-0 left-0 z-50 h-screen w-[min(92vw,22rem)] overflow-x-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-[var(--shadow-elevated)] transition-transform duration-200 lg:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-[110%]",
         )}
       >
