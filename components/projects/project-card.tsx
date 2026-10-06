@@ -56,7 +56,7 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
               <div className="flex flex-wrap items-center gap-2">
                 <ProjectStatusBadge status={project.status} />
                 <ProjectHealthBadge health={project.health} />
-                <Badge variant={project.project_kind.startsWith("internal_") ? "secondary" : "outline"} className="rounded-full border-slate-200 bg-white/55 px-2.5 py-1 text-xs text-slate-700 shadow-none dark:border-slate-600 dark:bg-slate-900/30 dark:text-slate-200">
+                <Badge variant={project.project_kind.startsWith("internal_") ? "secondary" : "outline"} className="rounded-full border-border bg-card px-2.5 py-1 text-xs text-foreground shadow-none">
                   {projectKindLabels[project.project_kind][isFr ? "fr" : "en"]}
                 </Badge>
               </div>
@@ -66,13 +66,13 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
                 </h3>
                 <div className="max-w-2xl rounded-xl border border-primary/90 bg-white/45 px-3.5 py-2.5 dark:border-slate-600/80 dark:bg-slate-950/20">
                   <p className="text-xs font-semibold tracking-wider text-primary uppercase">{isFr ? "Objectif du projet" : "Project purpose"}</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
                     {project.description || (isFr ? "Aucune description renseignée pour ce projet." : "No description provided for this project.")}
                   </p>
                 </div>
               </div>
             </div>
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-primary/80 bg-white/60 shadow-sm dark:border-slate-600 dark:bg-slate-950/30">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-primary/80 bg-card shadow-sm">
               <FolderGit2 className="size-[18px] text-primary" />
             </div>
           </div>
@@ -80,12 +80,12 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
           <div className="grid gap-2.5 sm:grid-cols-3">
             <div className="rounded-xl border border-primary/80 bg-primary/72 p-3 dark:border-primary/20 dark:bg-primary/10">
               <p className="text-xs font-semibold tracking-wider text-primary uppercase">{project.project_kind.startsWith("internal_") ? (isFr ? "Périmètre" : "Scope") : (isFr ? "Entité" : "Entity")}</p>
-              <p className="mt-1.5 text-xs font-medium text-slate-800 dark:text-slate-100">{project.project_kind.startsWith("internal_") ? `${internalEntityName} · ${isFr ? "interne" : "internal"}` : (project.client?.name ?? (isFr ? "Non lié" : "Not linked"))}</p>
+              <p className="mt-1.5 text-xs font-medium text-foreground">{project.project_kind.startsWith("internal_") ? `${internalEntityName} · ${isFr ? "interne" : "internal"}` : (project.client?.name ?? (isFr ? "Non lié" : "Not linked"))}</p>
             </div>
             <div className="rounded-xl border border-warning/90 bg-warning/82 p-3 dark:border-warning/20 dark:bg-warning/10">
               <p className="text-xs font-semibold tracking-wider text-warning uppercase">{isFr ? "Échéance" : "Deadline"}</p>
-              <p className="mt-1.5 text-xs font-medium text-slate-800 dark:text-slate-100">{formatDate(project.end_date)}</p>
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-300">{isFr ? ({
+              <p className="mt-1.5 text-xs font-medium text-foreground">{formatDate(project.end_date)}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{isFr ? ({
                 "on-track": "Dans les temps",
                 "due-soon": "Bientôt dû",
                 overdue: "En retard",
@@ -94,7 +94,7 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
             </div>
             <div className="rounded-xl border border-primary/90 bg-primary/72 p-3 dark:border-primary/20 dark:bg-primary/10">
               <p className="text-xs font-semibold tracking-wider text-primary uppercase">{isFr ? "Progression" : "Progress"}</p>
-              <p className="mt-1.5 text-xs font-medium text-slate-800 dark:text-slate-100">{project.progress}% {isFr ? "complété" : "complete"}</p>
+              <p className="mt-1.5 text-xs font-medium text-foreground">{project.progress}% {isFr ? "complété" : "complete"}</p>
               <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-primary/70 ring-1 ring-primary/50 dark:bg-slate-950/40 dark:ring-white/10">
                 <div
                   className="bg-primary h-full rounded-full shadow-[var(--shadow-soft)]"
@@ -105,7 +105,7 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-300">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-2">
                 <UsersRound className="size-3.5" />
                 {formatNumber(project.members.length)} {isFr ? "membres" : "members"}
@@ -117,11 +117,11 @@ export function ProjectCard({ project }: { project: ProjectRecord }) {
             </div>
 
             <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white/55 px-2.5 py-1 dark:border-slate-600 dark:bg-slate-950/20">
+              <div className="flex items-center gap-2 rounded-full border border-border bg-card px-2.5 py-1">
                 <Avatar className="size-6">
                   <AvatarFallback>{getInitials(project.owner?.full_name)}</AvatarFallback>
                 </Avatar>
-                <span className="text-xs text-slate-700 dark:text-slate-100">
+                <span className="text-xs text-foreground">
                   {project.owner?.full_name ?? (isFr ? "Non assigné" : "Unassigned")}
                 </span>
               </div>

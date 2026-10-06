@@ -112,7 +112,7 @@ export function TransferForm({
             <p className="text-xs text-muted-foreground">Ex. Kapen, OVH, Google, Microsoft ou un prestataire.</p>
           </div>
 
-          <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50/75 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="sm:col-span-2 rounded-xl border border-border bg-muted/75 px-4 py-3">
             <button type="button" onClick={() => setShowBankDetails((current) => !current)} className="flex w-full items-center justify-between gap-3 text-left text-sm font-medium">
               <span className="flex items-center gap-2"><Landmark className="size-4 text-primary" /> Informations bancaires <span className="text-xs font-normal text-muted-foreground">(uniquement pour un virement)</span></span>
               <ChevronDown className={`size-4 text-muted-foreground transition-transform ${showBankDetails ? "rotate-180" : ""}`} />
@@ -189,7 +189,7 @@ export function TransferForm({
 
           <div className="bg-card sm:col-span-2 rounded-xl border border-primary/25 p-4 dark:border-primary/20 dark:bg-primary/10">
             <label className="flex cursor-pointer items-start gap-3">
-              <input name="renewal_enabled" type="checkbox" checked={renewalEnabled} onChange={(event) => setRenewalEnabled(event.target.checked)} className="mt-1 size-4 rounded border-slate-300 text-primary focus:ring-primary" />
+              <input name="renewal_enabled" type="checkbox" checked={renewalEnabled} onChange={(event) => setRenewalEnabled(event.target.checked)} className="mt-1 size-4 rounded border-border text-primary focus:ring-primary" />
               <span><span className="flex items-center gap-2 text-sm font-semibold"><Repeat2 className="size-4 text-primary" /> Paiement récurrent ou renouvellement</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Activez cette option pour un domaine, un hébergement, un abonnement ou tout service à payer à nouveau.</span></span>
             </label>
             {renewalEnabled ? (

@@ -135,7 +135,7 @@ export function BankStatementForm() {
           {isFr ? "Importer un relevé" : "Import statement"}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[94vh] max-w-[min(96vw,1380px)] overflow-y-auto rounded-xl border-slate-200 p-0">
+      <DialogContent className="max-h-[94vh] max-w-[min(96vw,1380px)] overflow-y-auto rounded-xl border-border p-0">
         <div className="grid gap-0 xl:grid-cols-[0.92fr_1.08fr]">
           <div className="hero-fill space-y-5 px-6 py-6 text-white">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wider uppercase">
@@ -176,7 +176,7 @@ export function BankStatementForm() {
             </div>
           </div>
 
-          <div className="bg-white px-6 py-6">
+          <div className="bg-card px-6 py-6">
             <DialogHeader className="space-y-3 text-left">
               <DialogTitle className="text-2xl font-semibold tracking-tight">
                 {isFr ? "Importer un relevé bancaire" : "Import a bank statement"}
@@ -194,16 +194,16 @@ export function BankStatementForm() {
                   <label className="text-sm font-medium" htmlFor="bank-statement-file">
                     {isFr ? "Fichier du relevé" : "Statement file"}
                   </label>
-                  <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-4">
+                  <div className="rounded-xl border border-dashed border-border bg-muted/70 p-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex size-11 items-center justify-center rounded-xl border border-slate-200 bg-white">
+                      <div className="flex size-11 items-center justify-center rounded-xl border border-border bg-card">
                         <Upload className="size-5 text-primary" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-950">
+                        <p className="text-sm font-medium text-foreground">
                           {selectedFileName || (isFr ? "Choisir un relevé bancaire" : "Choose a bank statement")}
                         </p>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-muted-foreground">
                           {isFr ? "Formats `.txt` ou `.csv`" : "Formats `.txt` or `.csv`"}
                         </p>
                       </div>
@@ -273,13 +273,13 @@ export function BankStatementForm() {
                 />
               </div>
 
-              <div className="bg-card rounded-xl border border-slate-200 p-5">
+              <div className="bg-card rounded-xl border border-border p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+                    <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                       {isFr ? "Aperçu des transactions" : "Transaction preview"}
                     </p>
-                    <p className="mt-2 text-sm text-slate-600">
+                    <p className="mt-2 text-sm text-muted-foreground">
                       {previewLines.length
                         ? isFr
                           ? `${previewLines.length} ligne(s) reconnue(s)`
@@ -294,11 +294,11 @@ export function BankStatementForm() {
                 {previewLines.length ? (
                   <div className="mt-4 grid gap-3">
                     {previewLines.slice(0, 8).map((line, index) => (
-                      <div key={`${line.line_date}-${line.description}-${index}`} className="rounded-xl border border-slate-200 bg-white p-4">
+                      <div key={`${line.line_date}-${line.description}-${index}`} className="rounded-xl border border-border bg-card p-4">
                         <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
                           <div>
-                            <p className="text-sm font-semibold text-slate-950">{line.description}</p>
-                            <p className="mt-1 text-xs text-slate-500">
+                            <p className="text-sm font-semibold text-foreground">{line.description}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
                               {line.line_date}
                               {line.reference ? ` • ${line.reference}` : ""}
                             </p>
@@ -311,7 +311,7 @@ export function BankStatementForm() {
                     ))}
                   </div>
                 ) : (
-                  <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/80 p-5 text-sm text-slate-500">
+                  <div className="mt-4 rounded-xl border border-dashed border-border bg-muted/80 p-5 text-sm text-muted-foreground">
                     {isFr
                       ? "Sélectionnez un fichier lisible pour voir chaque transaction avant l'import."
                       : "Select a readable file to preview each transaction before import."}

@@ -35,7 +35,7 @@ const kindClasses = {
   update: "border-primary/25 bg-primary/10 text-primary dark:border-primary/20",
   delete: "border-danger/25 bg-danger/10 text-danger dark:border-danger/20",
   archive: "border-danger/25 bg-danger/10 text-danger dark:border-danger/20",
-  view: "border-slate-500/25 bg-slate-500/10 text-slate-700 dark:border-slate-400/20 dark:bg-slate-400/10 dark:text-slate-100",
+  view: "border-slate-500/25 bg-slate-500/10 text-foreground",
   pin: "border-warning/25 bg-warning/10 text-warning dark:border-warning/20",
   status_change: "border-primary/25 bg-primary/10 text-primary dark:border-primary/20",
   assignment_change: "border-primary/25 bg-primary/10 text-primary dark:border-primary/20",

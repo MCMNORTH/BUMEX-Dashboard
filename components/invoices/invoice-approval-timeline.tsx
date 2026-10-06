@@ -95,7 +95,7 @@ export function InvoiceApprovalTimeline({ invoice, locale }: { invoice: InvoiceR
           return (
             <div key={event.key} className={`rounded-xl border p-4 ${toneClasses[event.tone]}`}>
               <div className="flex items-start gap-3">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white/75 shadow-sm dark:bg-black/15"><Icon className="size-4" /></div>
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-card shadow-sm"><Icon className="size-4" /></div>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold">{event.title}</p>
                   <p className="mt-1 text-xs leading-5 opacity-80">{event.detail}</p>
@@ -111,7 +111,7 @@ export function InvoiceApprovalTimeline({ invoice, locale }: { invoice: InvoiceR
 }
 
 const toneClasses = {
-  slate: "border-slate-200 bg-slate-50 text-slate-800 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100",
+  slate: "border-border bg-muted text-foreground",
   amber: "border-warning/25 bg-warning/10 text-warning dark:border-warning/20",
   rose: "border-danger/25 bg-danger/10 text-danger dark:border-danger/20",
   emerald: "border-success/25 bg-success/10 text-success dark:border-success/20",

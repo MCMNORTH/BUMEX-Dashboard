@@ -39,7 +39,7 @@ export function EntitySelectionShell({ error = "" }: { error?: string }) {
               <h1 className="text-2xl font-semibold tracking-tight">
                 {locale === "fr" ? "Choisissez votre entité active." : "Choose your active entity."}
               </h1>
-              <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-300">
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 {locale === "fr"
                   ? "Choisissez une entité."
                   : "Choose one entity."}

@@ -12,7 +12,7 @@ export function OverdueClientsList({
   showLinks?: boolean;
 }) {
   return (
-    <Card className="border-slate-200 bg-white shadow-[var(--shadow-soft)]">
+    <Card className="border-border bg-card shadow-[var(--shadow-soft)]">
       <CardContent className="space-y-4 px-5 py-5">
         <div>
           <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Overdue by client</p>

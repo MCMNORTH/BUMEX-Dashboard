@@ -23,15 +23,15 @@ export function EmptyState({
   return (
     <SectionCard className="overflow-hidden animate-fade-up" contentClassName="px-6 py-8 sm:px-8 sm:py-10">
       <div className="flex flex-col gap-6">
-        <div className="flex size-14 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-slate-900/75 dark:shadow-none">
+        <div className="flex size-14 items-center justify-center rounded-xl border border-border bg-card shadow-[0_12px_28px_rgba(15,23,42,0.08)]">
           <Icon className="size-6 text-primary" />
         </div>
         <div className="space-y-3">
-          <Badge variant="outline" className="w-fit rounded-full border-slate-300 bg-slate-50 px-3 py-1 text-slate-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-200">
+          <Badge variant="outline" className="w-fit rounded-full border-border bg-muted px-3 py-1 text-foreground">
             {label}
           </Badge>
-          <h2 className="text-2xl font-semibold tracking-[-0.03em] text-slate-950 dark:text-slate-50 sm:text-[2rem]">{title}</h2>
-          <p className="max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300 sm:text-base">
+          <h2 className="text-2xl font-semibold tracking-[-0.03em] text-foreground sm:text-[2rem]">{title}</h2>
+          <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
             {description}
           </p>
         </div>

@@ -210,7 +210,7 @@ export default async function FinanceTransfersPage({
         {structuredGroups.length ? (
           <div className="grid gap-4">
             {structuredGroups.map((group) => (
-              <Card key={group.entity} className="bg-card border-slate-200 shadow-[var(--shadow-soft)]">
+              <Card key={group.entity} className="bg-card border-border shadow-[var(--shadow-soft)]">
                 <CardContent className="space-y-4 px-5 py-5">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
@@ -223,8 +223,8 @@ export default async function FinanceTransfersPage({
 
                   <div className="grid gap-4">
                     {group.months.map((monthGroup) => (
-                      <div key={`${group.entity}-${monthGroup.month}`} className="rounded-xl border border-slate-200 bg-white p-4">
-                        <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div key={`${group.entity}-${monthGroup.month}`} className="rounded-xl border border-border bg-card p-4">
+                        <div className="flex flex-col gap-2 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <p className="text-sm font-semibold">{monthGroup.month}</p>
                             <p className="mt-1 text-xs text-muted-foreground">{isFr ? `${monthGroup.items.length} élément${monthGroup.items.length === 1 ? " réglé" : "s réglés"}` : `${monthGroup.items.length} paid item(s)`}</p>
@@ -234,7 +234,7 @@ export default async function FinanceTransfersPage({
 
                         <div className="mt-4 space-y-3">
                           {monthGroup.items.map((transfer) => (
-                            <div key={transfer.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                            <div key={transfer.id} className="rounded-xl border border-border bg-muted/70 p-4">
                               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                 <div>
                                   <p className="text-sm font-semibold">{transfer.beneficiary_name}</p>

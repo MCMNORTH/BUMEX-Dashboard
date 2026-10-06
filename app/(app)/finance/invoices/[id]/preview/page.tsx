@@ -46,7 +46,7 @@ export default async function InvoicePreviewPage({
           <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
             {locale === "fr" ? "Aperçu de facture" : "Invoice preview"}
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-slate-950">{invoice.invoice_number}</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-foreground">{invoice.invoice_number}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {locale === "fr"
               ? "Vérifiez la mise en page finale, ouvrez le PDF généré ou envoyez-le directement au client."
@@ -108,10 +108,10 @@ export default async function InvoicePreviewPage({
               trigger={<Button type="button" className="rounded-full px-5"><ShieldCheck className="size-4" />{locale === "fr" ? "Valider la facture" : "Approve invoice"}</Button>}
             />
           </div>
-          <form action={requestInvoiceChangesAction} className="space-y-2 rounded-xl border border-current/15 bg-white/55 p-3 dark:bg-black/10">
+          <form action={requestInvoiceChangesAction} className="space-y-2 rounded-xl border border-current/15 bg-card p-3">
             <input type="hidden" name="invoice_id" value={invoice.id} />
             <input type="hidden" name="return_path" value={`/finance/invoices/${invoice.id}/preview`} />
-            <Textarea name="reason" required minLength={5} placeholder={locale === "fr" ? "Expliquez clairement ce qui doit être corrigé…" : "Explain clearly what needs to be corrected…"} className="min-h-20 bg-white/80 dark:bg-black/15" />
+            <Textarea name="reason" required minLength={5} placeholder={locale === "fr" ? "Expliquez clairement ce qui doit être corrigé…" : "Explain clearly what needs to be corrected…"} className="min-h-20 bg-card" />
             <Button type="submit" variant="secondary" className="w-full rounded-full"><RotateCcw className="size-4" />{locale === "fr" ? "Demander des corrections" : "Request changes"}</Button>
           </form>
         </div> : null}
@@ -120,10 +120,10 @@ export default async function InvoicePreviewPage({
           <input type="hidden" name="return_path" value={`/finance/invoices/${invoice.id}/preview`} />
           <Button type="submit" variant="secondary" className="rounded-full px-5"><BellRing className="size-4" />{locale === "fr" ? "Relancer les administrateurs" : "Remind administrators"}</Button>
         </form> : null}
-        {isApproved && isAdmin ? <form action={revokeInvoiceApprovalAction} className="w-full max-w-md space-y-2 rounded-xl border border-success/15 bg-white/55 p-3 dark:bg-black/10">
+        {isApproved && isAdmin ? <form action={revokeInvoiceApprovalAction} className="w-full max-w-md space-y-2 rounded-xl border border-success/15 bg-card p-3">
           <input type="hidden" name="invoice_id" value={invoice.id} />
           <input type="hidden" name="return_path" value={`/finance/invoices/${invoice.id}/preview`} />
-          <Textarea name="reason" required minLength={5} placeholder={locale === "fr" ? "Motif du retrait de validation…" : "Reason for revoking approval…"} className="min-h-20 bg-white/80 dark:bg-black/15" />
+          <Textarea name="reason" required minLength={5} placeholder={locale === "fr" ? "Motif du retrait de validation…" : "Reason for revoking approval…"} className="min-h-20 bg-card" />
           <Button type="submit" variant="secondary" className="w-full rounded-full"><RotateCcw className="size-4" />{locale === "fr" ? "Retirer la validation" : "Revoke approval"}</Button>
         </form> : null}
       </div>

@@ -22,14 +22,14 @@ export function FinanceOverviewCards({ overview }: { overview: FinanceOverview }
         return (
           <Card
             key={card.label}
-            className={`relative overflow-hidden border-slate-200 bg-white shadow-[var(--shadow-soft)] border-t-2 dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none ${
+            className={`relative overflow-hidden border-border bg-card shadow-[var(--shadow-soft)] border-t-2 ${
               critical ? "border-t-danger" : "border-t-primary"
             }`}
           >
             <CardContent className="px-5 py-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-300/80">{card.label}</p>
+                  <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{card.label}</p>
                   <p className="mt-2 text-2xl font-bold tracking-[-0.025em] dark:text-white">{value}</p>
                   <p className="mt-2 text-sm text-muted-foreground">{card.detail}</p>
                 </div>

@@ -106,7 +106,7 @@ export default async function FinanceInvoicesPage({
               </div>
               <div>
                 <p className="font-semibold text-slate-950 dark:text-white">{isFr ? "File de validation administrative" : "Administrative approval queue"}</p>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                <p className="mt-1 text-sm text-muted-foreground">
                   {viewingCorrections
                     ? (isFr ? `${changesRequestedCount} facture${changesRequestedCount > 1 ? "s" : ""} attend${changesRequestedCount > 1 ? "ent" : ""} les corrections de leur créateur.` : `${changesRequestedCount} invoice${changesRequestedCount > 1 ? "s" : ""} waiting for creator changes.`)
                     : pendingApprovalCount

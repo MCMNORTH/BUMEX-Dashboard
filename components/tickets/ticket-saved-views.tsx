@@ -45,7 +45,7 @@ export function TicketSavedViews({
   }));
 
   return (
-    <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
+    <div className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Saved views</p>
@@ -67,7 +67,7 @@ export function TicketSavedViews({
             <Link
               key={view.key}
               href={href}
-              className="group rounded-xl border border-slate-200 bg-slate-50/70 p-3 transition-colors hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-white/16 dark:hover:bg-white/[0.06]"
+              className="group rounded-xl border border-border bg-muted/70 p-3 transition-colors hover:border-border hover:bg-card"
             >
               <div className="flex size-10 items-center justify-center rounded-xl border border-border/65 bg-background/50 text-primary">
                 <Icon className="size-4.5" />

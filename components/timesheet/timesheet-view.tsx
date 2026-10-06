@@ -128,7 +128,7 @@ export function TimesheetView({ entries, projects, missions, favorites, weekStat
       <div className="overflow-x-auto" tabIndex={0} role="region" aria-label={fr ? "Calendrier hebdomadaire, défilement horizontal" : "Weekly calendar, scroll horizontally"}>
         <table className="w-full min-w-[1000px] table-fixed border-collapse text-sm">
           <caption className="sr-only">{weekTitle} — {fr ? "durées par mission et jour" : "duration by mission and day"}</caption>
-          <thead><tr className="border-b border-border bg-slate-50/80 dark:bg-slate-900/50">
+          <thead><tr className="border-b border-border bg-muted/80">
             <th scope="col" className="sticky left-0 z-10 w-56 bg-card p-4 text-left">{fr ? "Mission / tâche" : "Mission / task"}</th>
             {days.map((date, index) => <th scope="col" key={date} className={cn("border-l border-border px-1 py-4 text-center font-medium", index >= 5 && "bg-muted/40", date === today && "bg-primary/10 text-primary")}><span className="block text-xs capitalize">{dateLabel(date, { weekday: "short" })}</span><span className={cn("mx-auto mt-1 flex size-8 items-center justify-center rounded-full text-base", date === today && "bg-primary text-primary-foreground")}>{dateLabel(date, { day: "numeric" })}</span></th>)}
             <th scope="col" className="w-24 border-l border-border bg-primary/5 px-2 py-4 text-center">Total</th><th scope="col" className="w-16 px-1 py-4 text-center">{fr ? "Jours" : "Days"}</th>

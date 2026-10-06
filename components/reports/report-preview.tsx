@@ -30,7 +30,7 @@ export function ReportPreview({ report, isFr = false }: { report: ReportDocument
   const scopeLabel = localizeReportText(report.scopeLabel, isFr);
   const summary = localizeReportText(report.summary, isFr);
   return (
-    <SectionCard className="printable-surface print:border-0 print:bg-white print:shadow-none" contentClassName="space-y-5 px-6 py-6 print:px-0 print:py-0">
+    <SectionCard className="printable-surface print:border-0 print:bg-card print:shadow-none" contentClassName="space-y-5 px-6 py-6 print:px-0 print:py-0">
         <PrintableReportWrapper
           title={title}
           subtitle={`${scopeLabel} / ${subtitle}`}

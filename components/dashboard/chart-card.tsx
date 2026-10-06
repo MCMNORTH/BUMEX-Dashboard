@@ -22,7 +22,7 @@ export function ChartCard({
   contentClassName,
 }: ChartCardProps) {
   return (
-    <Card className={cn("relative min-w-0 overflow-hidden border-slate-200 bg-white shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none", className)}>
+    <Card className={cn("relative min-w-0 overflow-hidden border-border bg-card shadow-[var(--shadow-soft)]", className)}>
       <CardHeader className="relative space-y-1.5 p-4">
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-lg tracking-[-0.01em]">{title}</CardTitle>

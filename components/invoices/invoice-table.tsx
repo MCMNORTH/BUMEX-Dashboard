@@ -41,10 +41,10 @@ function InvoiceTableComponent({
   const { locale } = useI18n();
   const isFr = locale === "fr";
   return (
-    <div className="overflow-hidden rounded-xl border border-border/80 bg-white shadow-[var(--shadow-soft)] dark:bg-card">
+    <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-[var(--shadow-soft)] dark:bg-card">
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="border-b border-border/65 bg-slate-50/80 text-xs uppercase tracking-wider text-slate-500 dark:bg-white/[0.03] dark:text-muted-foreground">
+          <thead className="border-b border-border/65 bg-muted/80 text-xs uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
             <tr>
               <th className="px-5 py-4 font-medium">{isFr ? "Facture" : "Invoice"}</th>
               <th className="px-5 py-4 font-medium">{isFr ? "Statut" : "Status"}</th>
@@ -59,7 +59,7 @@ function InvoiceTableComponent({
           </thead>
           <tbody>
             {invoices.map((invoice) => (
-              <tr key={invoice.id} className="border-b border-border/50 transition-colors last:border-b-0 hover:bg-slate-50 dark:hover:bg-white/[0.03]">
+              <tr key={invoice.id} className="border-b border-border/50 transition-colors last:border-b-0 hover:bg-muted">
                 <td className="px-5 py-4">
                   <p className="font-medium">{invoice.invoice_number}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{invoice.project?.name ?? (isFr ? "Aucun projet lié" : "No linked project")}</p>

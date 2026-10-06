@@ -49,7 +49,7 @@ export async function TicketWorkloadPreview({
           <CardTitle className="mt-2 text-xl">{title}</CardTitle>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">{subtitle}</p>
         </div>
-        <div className="flex size-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.05]">
+        <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-muted">
           <UsersRound className="size-5 text-primary" />
         </div>
       </CardHeader>
@@ -58,7 +58,7 @@ export async function TicketWorkloadPreview({
           workload.slice(0, 6).map((member) => (
             <div
               key={member.id}
-              className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 md:grid-cols-[1.2fr_0.7fr_0.7fr_0.8fr] dark:border-white/10 dark:bg-white/[0.04]"
+              className="grid gap-3 rounded-xl border border-border bg-muted/70 p-3 md:grid-cols-[1.2fr_0.7fr_0.7fr_0.8fr]"
             >
               <div>
                 <p className="text-sm font-medium">{member.full_name}</p>
@@ -83,7 +83,7 @@ export async function TicketWorkloadPreview({
             </div>
           ))
         ) : (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-4 text-sm text-muted-foreground dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="rounded-xl border border-dashed border-border bg-muted/70 p-4 text-sm text-muted-foreground">
             {isFr ? "Aucune charge assignée n'est encore visible dans le périmètre actuel." : "No assignee workload is visible yet for the current scope."}
           </div>
         )}

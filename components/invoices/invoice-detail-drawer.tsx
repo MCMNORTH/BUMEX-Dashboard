@@ -84,7 +84,7 @@ export function InvoiceDetailDrawer({
               <p className="text-sm font-semibold">{isFr ? "Retirer une validation accordée" : "Revoke an approval"}</p>
               <input type="hidden" name="invoice_id" value={invoice.id} />
               <input type="hidden" name="return_path" value={returnPath} />
-              <Textarea name="reason" required minLength={5} placeholder={isFr ? "Motif du retrait…" : "Reason for revocation…"} className="min-h-20 bg-white/80 dark:bg-black/15" />
+              <Textarea name="reason" required minLength={5} placeholder={isFr ? "Motif du retrait…" : "Reason for revocation…"} className="min-h-20 bg-card" />
               <Button type="submit" variant="secondary" className="rounded-full"><RotateCcw className="size-4" />{isFr ? "Retirer la validation" : "Revoke approval"}</Button>
             </form> : null}
 
@@ -102,10 +102,10 @@ export function InvoiceDetailDrawer({
                   tone="success"
                   trigger={<Button type="button" className="rounded-full px-4"><ShieldCheck className="size-4" />{isFr ? "Valider la facture" : "Approve invoice"}</Button>}
                 />
-                <form action={requestInvoiceChangesAction} className="space-y-2 rounded-xl border border-current/15 bg-white/60 p-3 dark:bg-black/10">
+                <form action={requestInvoiceChangesAction} className="space-y-2 rounded-xl border border-current/15 bg-card p-3">
                   <input type="hidden" name="invoice_id" value={invoice.id} />
                   <input type="hidden" name="return_path" value={returnPath} />
-                  <Textarea name="reason" required minLength={5} placeholder={isFr ? "Corrections à effectuer…" : "Changes to make…"} className="min-h-20 bg-white/80 dark:bg-black/15" />
+                  <Textarea name="reason" required minLength={5} placeholder={isFr ? "Corrections à effectuer…" : "Changes to make…"} className="min-h-20 bg-card" />
                   <Button type="submit" variant="secondary" className="rounded-full"><RotateCcw className="size-4" />{isFr ? "Demander des corrections" : "Request changes"}</Button>
                 </form>
               </div> : canManage && !revisionRequest ? <form action={remindInvoiceApproversAction} className="mt-3">

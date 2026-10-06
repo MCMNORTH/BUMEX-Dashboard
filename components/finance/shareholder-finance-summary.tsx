@@ -22,14 +22,14 @@ export function ShareholderFinanceSummary({
         return (
         <Card
           key={label}
-          className={`relative overflow-hidden border-slate-200 bg-white shadow-[var(--shadow-soft)] border-t-2 ${
+          className={`relative overflow-hidden border-border bg-card shadow-[var(--shadow-soft)] border-t-2 ${
             critical ? "border-t-danger" : "border-t-primary"
           }`}
         >
           <CardContent className="min-h-32 px-5 py-4">
             <div className="flex h-full items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase">{label}</p>
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
                 <p className="mt-2 whitespace-nowrap text-2xl font-bold tracking-[-0.025em]">
                   {integer ? new Intl.NumberFormat("en-US").format(Number(value)) : formatFinanceCurrency(Number(value), "USD")}
                 </p>

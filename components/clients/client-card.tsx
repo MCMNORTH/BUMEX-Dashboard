@@ -34,7 +34,7 @@ export function ClientCard({ client }: { client: ClientRecord }) {
                 </p>
               </div>
             </div>
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-white/70 bg-white/84 shadow-[0_16px_30px_-24px_rgba(15,23,42,0.42)] dark:border-white/10 dark:bg-white/5 dark:shadow-none"><Building2 className="size-5 text-primary" /></div>
+            <div className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-border bg-card shadow-[0_16px_30px_-24px_rgba(15,23,42,0.42)]"><Building2 className="size-5 text-primary" /></div>
           </div>
 
           {isOpportunity ? (
@@ -59,7 +59,7 @@ export function ClientCard({ client }: { client: ClientRecord }) {
               <span className="flex items-center gap-2"><UserRound className="size-4" />{client.contact_email ?? (isFr ? "Aucun e-mail de contact" : "No contact email")}</span>
               {isOpportunity ? <span className="flex items-center gap-2"><CalendarClock className="size-4" />{isFr ? "Relance" : "Follow-up"} : {formatDate(client.next_follow_up_at)}</span> : null}
             </div>
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 transition-colors group-hover:text-primary dark:text-slate-200">{isFr ? "Voir le détail" : "View detail"}<span className="flex size-8 items-center justify-center rounded-full border border-border/70 bg-white/75 dark:border-white/10 dark:bg-white/5"><ArrowRight className="size-4" /></span></div>
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors group-hover:text-primary">{isFr ? "Voir le détail" : "View detail"}<span className="flex size-8 items-center justify-center rounded-full border border-border/70 bg-card"><ArrowRight className="size-4" /></span></div>
           </div>
         </CardContent>
       </Card>
@@ -68,7 +68,7 @@ export function ClientCard({ client }: { client: ClientRecord }) {
 }
 
 function OwnerCard({ client, isFr }: { client: ClientRecord; isFr: boolean }) {
-  return <div className="rounded-xl border border-white/70 bg-white/84 p-4 shadow-[var(--shadow-soft)] dark:border-white/8 dark:bg-white/4 dark:shadow-none"><p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Responsable" : "Owner"}</p><p className="mt-3 text-base font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">{client.accountManager?.full_name ?? (isFr ? "À attribuer" : "To assign")}</p><p className="mt-1 text-sm text-muted-foreground">{isFr ? "Personne chargée du suivi." : "Person in charge of follow-up."}</p></div>;
+  return <div className="rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]"><p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Responsable" : "Owner"}</p><p className="mt-3 text-base font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">{client.accountManager?.full_name ?? (isFr ? "À attribuer" : "To assign")}</p><p className="mt-1 text-sm text-muted-foreground">{isFr ? "Personne chargée du suivi." : "Person in charge of follow-up."}</p></div>;
 }
 
 function stageLabel(stage: ClientRecord["prospect_stage"], isFr: boolean) {
@@ -77,6 +77,6 @@ function stageLabel(stage: ClientRecord["prospect_stage"], isFr: boolean) {
 }
 
 function InsightPill({ label, value, tone }: { label: string; value: string; tone: "sky" | "violet" | "slate" }) {
-  const toneClass = tone === "sky" ? "border-primary/80 bg-primary/70 dark:border-primary/15 dark:bg-primary/8" : tone === "violet" ? "border-primary/80 bg-primary/70 dark:border-primary/15 dark:bg-primary/8" : "border-slate-200/80 bg-slate-100/76 dark:border-white/8 dark:bg-white/3";
+  const toneClass = tone === "sky" ? "border-primary/80 bg-primary/70 dark:border-primary/15 dark:bg-primary/8" : tone === "violet" ? "border-primary/80 bg-primary/70 dark:border-primary/15 dark:bg-primary/8" : "border-border bg-muted/76";
   return <div className={`rounded-xl border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:shadow-none ${toneClass}`}><p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p><p className="mt-3 text-base font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">{value}</p></div>;
 }

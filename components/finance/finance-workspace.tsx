@@ -187,7 +187,7 @@ export function FinanceWorkspace({
         </section>
       ) : null}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
+      <section className="rounded-xl border border-border bg-card p-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)]">
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap gap-2">
             <TabButton active={activeTab === "client"} onClick={() => setActiveTab("client")} icon={ReceiptText} label={isFr ? "Clients" : "Clients"} />
@@ -317,10 +317,10 @@ function ClientPanel({
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-semibold tracking-wider text-primary uppercase">{isFr ? "Clients" : "Clients"}</p>
-              <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-slate-50">
+              <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">
                 {isFr ? "Factures envoyées aux clients" : "Invoices sent to clients"}
               </h3>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
                 {isFr
                   ? "Ici, vous créez les factures clients, suivez leur statut manuel et comparez ensuite avec encaissements."
                   : "Create client invoices here, track their manual status, then compare them with collected payments."}
@@ -362,8 +362,8 @@ function ClientPanel({
             />
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white/75 p-5 dark:border-white/10 dark:bg-white/[0.05]">
-            <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm font-semibold text-foreground">
               {isFr ? "Différence entre facture et règlement" : "Difference between invoice and payment"}
             </p>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -391,25 +391,25 @@ function ClientPanel({
               <Link
                 key={invoice.id}
                 href={`/finance/invoices/${invoice.id}/preview`}
-                className="animate-fade-up rounded-xl border border-white/70 bg-white/88 p-4 shadow-[0_12px_30px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-slate-900/70 dark:shadow-none"
+                className="animate-fade-up rounded-xl border border-border bg-card p-4 shadow-[0_12px_30px_rgba(15,23,42,0.06)]"
                 style={{ animationDelay: `${index * 60}ms` }}
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">{invoice.invoice_number}</p>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                    <p className="text-sm font-semibold text-foreground">{invoice.invoice_number}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {invoice.client?.name ?? (isFr ? "Client non renseigné" : "Client not specified")} {" • "} {isFr ? "échéance" : "due"} {formatDate(invoice.due_date)}
                     </p>
-                    <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-300">
+                    <p className="mt-3 text-xs leading-5 text-muted-foreground">
                       {invoice.project?.name ?? invoice.contract?.title ?? (isFr ? "Facture générale" : "General invoice")}
                     </p>
                   </div>
                   <div className="text-right">
                     <StatusChip label={getClientSettlementLabel(invoice, locale)} tone={getClientSettlementTone(invoice)} />
-                    <p className="mt-3 text-lg font-semibold tracking-[-0.03em] text-slate-950 dark:text-slate-50">
+                    <p className="mt-3 text-lg font-semibold tracking-[-0.03em] text-foreground">
                       {formatFinanceCurrency(invoice.amount_ttc, invoice.currency)}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {isFr ? "Reste" : "Remaining"} {formatFinanceCurrency(invoice.remainingBalance, invoice.currency)}
                     </p>
                   </div>
@@ -420,11 +420,11 @@ function ClientPanel({
         </CardContent>
       </Card>
 
-      <Card className="rounded-xl border-slate-200 bg-white shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
+      <Card className="rounded-xl border-border bg-card shadow-[var(--shadow-soft)]">
         <CardContent className="space-y-5 px-6 py-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-300">{isFr ? "Règlements" : "Payments"}</p>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Règlements" : "Payments"}</p>
               <h3 className="mt-2 text-xl font-semibold tracking-tight">
                 {isFr ? "Lecture simple des encaissements" : "Simple collections view"}
               </h3>
@@ -454,15 +454,15 @@ function ClientPanel({
               <Link
                 key={payment.id}
                 href="/finance/payments"
-                className="animate-fade-up rounded-xl border border-slate-200 bg-slate-50/85 p-4 dark:border-white/10 dark:bg-white/[0.04]"
+                className="animate-fade-up rounded-xl border border-border bg-muted/85 p-4"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-slate-950">
+                    <p className="text-sm font-semibold text-foreground">
                       {payment.reference ?? payment.client?.name ?? (isFr ? "Encaissement" : "Collection")}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {payment.invoice?.invoice_number ?? (isFr ? "Sans facture liée" : "No linked invoice")} {" • "}
                       {payment.payment_date ? formatDate(payment.payment_date) : isFr ? "Date non renseignée" : "No date set"}
                     </p>
@@ -472,7 +472,7 @@ function ClientPanel({
                       label={getPaymentStatusLabel(payment.status, locale)}
                       tone={payment.status === "reconciled" ? "emerald" : payment.status === "received" ? "amber" : payment.status === "late" ? "rose" : "slate"}
                     />
-                    <p className="mt-3 text-sm font-semibold text-slate-950">{formatFinanceCurrency(payment.amount, payment.currency)}</p>
+                    <p className="mt-3 text-sm font-semibold text-foreground">{formatFinanceCurrency(payment.amount, payment.currency)}</p>
                   </div>
                 </div>
               </Link>
@@ -508,10 +508,10 @@ function SupplierPanel({
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-semibold tracking-wider text-warning uppercase">{isFr ? "Fournisseurs" : "Suppliers"}</p>
-              <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-slate-50">
+              <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">
                 {isFr ? "Factures fournisseurs et sorties" : "Supplier invoices and outgoing payments"}
               </h3>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
                 {isFr
                   ? "Cette section centralise ce que vous devez payer, avez marqué comme payé, puis la banque a réellement confirmé."
                   : "This section centralizes what you owe, marked as paid, and the bank actually confirmed."}
@@ -543,22 +543,22 @@ function SupplierPanel({
               <Link
                 key={transfer.id}
                 href="/finance/transfers"
-                className="animate-fade-up rounded-xl border border-white/70 bg-white/88 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-slate-900/70 dark:shadow-none"
+                className="animate-fade-up rounded-xl border border-border bg-card p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
                 style={{ animationDelay: `${index * 55}ms` }}
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">{transfer.transfer_reference}</p>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                    <p className="text-sm font-semibold text-foreground">{transfer.transfer_reference}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {transfer.beneficiary_name} {" • "} {formatDate(transfer.transfer_date)}
                     </p>
-                    <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-300">
+                    <p className="mt-3 text-xs leading-5 text-muted-foreground">
                       {transfer.notes ?? (isFr ? "Facture fournisseur sans note" : "Supplier invoice without note")}
                     </p>
                   </div>
                   <div className="text-right">
                     <StatusChip label={getSupplierSettlementLabel(transfer, locale)} tone={getSupplierSettlementTone(transfer)} />
-                    <p className="mt-3 text-lg font-semibold tracking-[-0.03em] text-slate-950 dark:text-slate-50">{formatFinanceCurrency(transfer.amount, transfer.currency)}</p>
+                    <p className="mt-3 text-lg font-semibold tracking-[-0.03em] text-foreground">{formatFinanceCurrency(transfer.amount, transfer.currency)}</p>
                   </div>
                 </div>
               </Link>
@@ -567,10 +567,10 @@ function SupplierPanel({
         </CardContent>
       </Card>
 
-      <Card className="rounded-xl border-slate-200 bg-white shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
+      <Card className="rounded-xl border-border bg-card shadow-[var(--shadow-soft)]">
         <CardContent className="space-y-5 px-6 py-6">
           <div>
-            <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-300">{isFr ? "Lecture fournisseurs" : "Supplier reading"}</p>
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Lecture fournisseurs" : "Supplier reading"}</p>
             <h3 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Statut simple et lisible" : "Simple readable status"}</h3>
           </div>
 
@@ -579,9 +579,9 @@ function SupplierPanel({
             <MiniMetric label={isFr ? "Confirmées" : "Confirmed"} value={String(transferSummary.confirmedCount)} />
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.04]">
-            <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">{isFr ? "Logique de suivi" : "Tracking logic"}</p>
-            <div className="mt-4 space-y-3 text-sm text-slate-600">
+          <div className="rounded-xl border border-border bg-muted/80 p-5">
+            <p className="text-sm font-semibold text-foreground">{isFr ? "Logique de suivi" : "Tracking logic"}</p>
+            <div className="mt-4 space-y-3 text-sm text-muted-foreground">
               <StatusLegend tone="amber" label={isFr ? "À payer" : "To pay"} detail={isFr ? "Facture fournisseur créée mais non réglée." : "Supplier invoice created but not yet paid."} />
               <StatusLegend tone="slate" label={isFr ? "(Payé)" : "(Paid)"} detail={isFr ? "Vous avez marqué la sortie comme faite, mais banque ne l'a pas encore confirmée." : "You marked the outflow as done, but bank has not confirmed it yet."} />
               <StatusLegend tone="emerald" label={isFr ? "Validé banque" : "Bank validated"} detail={isFr ? "Le relevé bancaire a retrouvé la ligne et confirmé sortie." : "The bank statement matched the line and confirmed outflow."} />
@@ -613,8 +613,8 @@ function BankPanel({
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-semibold tracking-wider text-primary uppercase">{isFr ? "Banques" : "Banks"}</p>
-              <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-slate-50">{isFr ? "Relevés et rapprochement" : "Statements and reconciliation"}</h3>
-              <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+              <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-foreground">{isFr ? "Relevés et rapprochement" : "Statements and reconciliation"}</h3>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
                 {isFr
                   ? "Cette section lit les crédits et débits du compte, puis tente de valider factures clients fournisseurs."
                   : "This section reads account credits and debits, then tries to validate client supplier invoices."}
@@ -630,9 +630,9 @@ function BankPanel({
             <MetricTile label={isFr ? "Non reconnues" : "Unrecognized"} value={String(bankSummary?.unmatchedLines ?? 0)} detail={isFr ? "Lignes sans correspondance" : "Lines without a match"} tone="slate" />
           </div>
 
-          <div className="rounded-xl border border-white/70 bg-white/88 p-5 dark:border-white/10 dark:bg-slate-900/70">
-            <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">{isFr ? "Rapprochement automatique" : "Automatic reconciliation"}</p>
-            <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+          <div className="rounded-xl border border-border bg-card p-5">
+            <p className="text-sm font-semibold text-foreground">{isFr ? "Rapprochement automatique" : "Automatic reconciliation"}</p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
               {isFr
                 ? "Crédits = encaissements clients. Débits paiements fournisseurs. Si le montant et la référence correspondent, ligne est validée automatiquement."
                 : "Credits = client collections. Debits supplier payments. If amount and reference match, the line is validated automatically."}
@@ -641,10 +641,10 @@ function BankPanel({
         </CardContent>
       </Card>
 
-      <Card className="rounded-xl border-slate-200 bg-white shadow-[var(--shadow-soft)] dark:border-white/10 dark:bg-slate-950/48 dark:shadow-none">
+      <Card className="rounded-xl border-border bg-card shadow-[var(--shadow-soft)]">
         <CardContent className="space-y-5 px-6 py-6">
           <div>
-            <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-300">{isFr ? "Derniers relevés" : "Latest statements"}</p>
+            <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Derniers relevés" : "Latest statements"}</p>
             <h3 className="mt-2 text-xl font-semibold tracking-tight">{isFr ? "Lignes lues et validation" : "Read lines and validation"}</h3>
           </div>
 
@@ -653,13 +653,13 @@ function BankPanel({
               {bankStatements.slice(0, 4).map((statement, index) => (
                 <div
                   key={statement.id}
-                  className="animate-fade-up rounded-xl border border-slate-200 bg-slate-50/75 p-4 dark:border-white/10 dark:bg-white/[0.04]"
+                  className="animate-fade-up rounded-xl border border-border bg-muted/75 p-4"
                   style={{ animationDelay: `${index * 70}ms` }}
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">{statement.statement_label}</p>
-                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                      <p className="text-sm font-semibold text-foreground">{statement.statement_label}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
                         {statement.account_label} {" • "} {formatDate(statement.statement_date)}
                       </p>
                     </div>
@@ -671,16 +671,16 @@ function BankPanel({
 
                   <div className="mt-4 grid gap-3">
                     {statement.lines.slice(0, 4).map((line) => (
-                      <div key={line.id} className="rounded-xl border border-white bg-white p-4 dark:border-white/10 dark:bg-slate-900/70">
+                      <div key={line.id} className="rounded-xl border border-border bg-card p-4">
                         <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
                           <div>
-                            <p className="text-sm font-medium text-slate-950 dark:text-slate-50">{line.description}</p>
-                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                            <p className="text-sm font-medium text-foreground">{line.description}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
                               {formatDate(line.line_date)}
                               {line.reference ? ` • ${line.reference}` : ""}
                             </p>
                             {canManageBankFinance && line.match_reason ? (
-                              <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-300">{line.match_reason}</p>
+                              <p className="mt-2 text-xs leading-5 text-muted-foreground">{line.match_reason}</p>
                             ) : null}
                           </div>
                           <div className="text-right">
@@ -688,7 +688,7 @@ function BankPanel({
                               label={getBankMatchLabel(line.match_status, locale)}
                               tone={line.match_status === "matched" ? "emerald" : line.match_status === "review" ? "amber" : "slate"}
                             />
-                            <p className="mt-3 text-sm font-semibold text-slate-950 dark:text-slate-50">{formatFinanceCurrency(line.amount, line.currency)}</p>
+                            <p className="mt-3 text-sm font-semibold text-foreground">{formatFinanceCurrency(line.amount, line.currency)}</p>
                           </div>
                         </div>
                       </div>
@@ -698,7 +698,7 @@ function BankPanel({
               ))}
             </div>
           ) : (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-6 text-sm text-slate-500 dark:border-white/12 dark:bg-white/[0.04] dark:text-slate-300">
+            <div className="rounded-xl border border-dashed border-border bg-muted/70 p-6 text-sm text-muted-foreground">
               {isFr ? "Aucun relevé importé pour le moment." : "No statement imported yet."}
             </div>
           )}
@@ -789,7 +789,7 @@ function TabButton({
         "inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200",
         active
           ? "bg-slate-950 text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] dark:bg-primary/16 dark:text-primary dark:shadow-none"
-          : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/[0.08]",
+          : "border border-border bg-muted text-foreground hover:bg-muted",
       ].join(" ")}
     >
       <Icon className="size-4" />
@@ -840,7 +840,7 @@ function OverviewCard({
             <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-1" />
           </p>
         </div>
-        <div className="flex size-11 items-center justify-center rounded-xl border border-current/10 bg-white/60 dark:bg-white/[0.08]">
+        <div className="flex size-11 items-center justify-center rounded-xl border border-current/10 bg-card">
           <Icon className="size-4" />
         </div>
       </div>
@@ -864,7 +864,7 @@ function MetricTile({
     amber: "border-warning/25 bg-warning/10 text-warning dark:border-warning/20 dark:bg-warning/12",
     emerald: "border-success/25 bg-success/10 text-success dark:border-success/20 dark:bg-success/12",
     rose: "border-danger/25 bg-danger/10 text-danger dark:border-danger/20 dark:bg-danger/12",
-    slate: "border-slate-200 bg-slate-50 text-slate-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-200",
+    slate: "border-border bg-muted text-foreground",
   }[tone];
 
   return (
@@ -878,9 +878,9 @@ function MetricTile({
 
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.04]">
-      <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-300">{label}</p>
-      <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-slate-50">{value}</p>
+    <div className="rounded-xl border border-border bg-muted/80 p-4">
+      <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>
+      <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-foreground">{value}</p>
     </div>
   );
 }
@@ -896,7 +896,7 @@ function StatusChip({
     emerald: "border-success/25 bg-success/10 text-success dark:border-success/20 dark:bg-success/12",
     amber: "border-warning/25 bg-warning/10 text-warning dark:border-warning/20 dark:bg-warning/12",
     rose: "border-danger/25 bg-danger/10 text-danger dark:border-danger/20 dark:bg-danger/12",
-    slate: "border-slate-200 bg-slate-50 text-slate-700 dark:border-white/10 dark:bg-white/[0.05] dark:text-slate-200",
+    slate: "border-border bg-muted text-foreground",
   }[tone];
 
   return (
@@ -919,16 +919,16 @@ function StatusLegend({
   return (
     <div className="flex items-start gap-3">
       <StatusChip label={label} tone={tone} />
-      <p className="pt-1 text-sm text-slate-600 dark:text-slate-300">{detail}</p>
+      <p className="pt-1 text-sm text-muted-foreground">{detail}</p>
     </div>
   );
 }
 
 function InfoLine({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.04]">
-      <p className="text-sm font-semibold text-slate-950 dark:text-slate-50">{title}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{text}</p>
+    <div className="rounded-xl border border-border bg-muted/70 p-4">
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">{text}</p>
     </div>
   );
 }

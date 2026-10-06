@@ -501,9 +501,9 @@ function SummaryMetric({
   } as const;
 
   return (
-    <div className="flex min-h-36 flex-col justify-between rounded-xl border border-border/70 bg-white/70 p-4 shadow-[0_14px_34px_rgba(15,23,42,0.04)] dark:bg-background/35 dark:shadow-none">
+    <div className="flex min-h-36 flex-col justify-between rounded-xl border border-border/70 bg-card p-4 shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
       <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 text-xs font-semibold leading-5 tracking-wider text-slate-600 uppercase dark:text-muted-foreground">{label}</p>
+        <p className="min-w-0 text-xs font-semibold leading-5 tracking-wider text-muted-foreground uppercase dark:text-muted-foreground">{label}</p>
         <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl border ${tones[tone]}`}>
           <Icon className="size-4.5" />
         </div>

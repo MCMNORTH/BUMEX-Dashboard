@@ -43,7 +43,7 @@ export function InvoiceCard({
       returnPath={returnPath}
       trigger={
         <button type="button" className="w-full text-left">
-          <Card className="group cursor-pointer border-slate-200 bg-white transition-[border-color,box-shadow] duration-200 hover:border-primary/25 hover:shadow-[var(--shadow-soft)]">
+          <Card className="group cursor-pointer border-border bg-card transition-[border-color,box-shadow] duration-200 hover:border-primary/25 hover:shadow-[var(--shadow-soft)]">
             <CardContent className="space-y-4 px-5 py-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -89,7 +89,7 @@ function hasActiveRevisionRequest(invoice: Pick<InvoiceRecord, "updated_at" | "r
 
 function Info({ icon: Icon, label, value }: { icon: typeof CalendarClock; label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+    <div className="rounded-xl border border-border bg-muted/70 p-3">
       <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
         <Icon className="size-3.5" />
         {label}

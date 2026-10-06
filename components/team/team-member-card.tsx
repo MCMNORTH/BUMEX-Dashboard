@@ -56,8 +56,8 @@ export function TeamMemberCard({ member }: { member: TeamMemberRecord }) {
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <Avatar className="size-11 border border-white/70 bg-white/80 shadow-[0_12px_24px_-20px_rgba(15,23,42,0.4)] dark:border-white/10 dark:bg-slate-900/90 dark:shadow-none">
-              <AvatarFallback className="bg-transparent text-xs font-semibold tracking-wider text-slate-700 dark:text-slate-100">
+            <Avatar className="size-11 border border-border bg-card shadow-[0_12px_24px_-20px_rgba(15,23,42,0.4)]">
+              <AvatarFallback className="bg-transparent text-xs font-semibold tracking-wider text-foreground">
                 {getInitials(member.full_name)}
               </AvatarFallback>
             </Avatar>
@@ -65,7 +65,7 @@ export function TeamMemberCard({ member }: { member: TeamMemberRecord }) {
               <p className="truncate text-[1.1rem] font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">
                 {member.full_name}
               </p>
-              <p className="truncate text-sm text-slate-500 dark:text-slate-400">{member.job_title ?? (isFr ? "Membre de l'équipe" : "Team member")}</p>
+              <p className="truncate text-sm text-muted-foreground">{member.job_title ?? (isFr ? "Membre de l'équipe" : "Team member")}</p>
             </div>
           </div>
 
@@ -89,16 +89,16 @@ export function TeamMemberCard({ member }: { member: TeamMemberRecord }) {
         </div>
 
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)_auto] xl:items-center">
-          <div className="rounded-xl border border-white/70 bg-white/88 px-4 py-3 shadow-[var(--shadow-soft)] dark:border-white/8 dark:bg-white/4 dark:shadow-none">
+          <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-[var(--shadow-soft)]">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                   {isFr ? "Focus actuel" : "Current focus"}
                 </p>
                 <p className="mt-2 truncate text-sm font-semibold tracking-[-0.03em] text-slate-950 dark:text-white">
                   {currentFocus?.title ?? (isFr ? "Aucune tâche active" : "No active task")}
                 </p>
-                <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-1 truncate text-xs text-muted-foreground">
                   {currentFocus?.project_name ?? (isFr ? "Aucun projet assigné" : "No project assigned")}
                 </p>
               </div>
@@ -114,9 +114,9 @@ export function TeamMemberCard({ member }: { member: TeamMemberRecord }) {
             <Metric icon={CircleAlert} label={isFr ? "Risque" : "Risk"} value={formatNumber(pressureCount)} accent={pressureCount ? "rose" : "slate"} />
           </div>
 
-          <div className="inline-flex items-center justify-end gap-2 text-sm font-medium text-slate-700 transition-colors group-hover:text-primary dark:text-slate-200">
+          <div className="inline-flex items-center justify-end gap-2 text-sm font-medium text-foreground transition-colors group-hover:text-primary">
             {isFr ? "Voir le profil" : "View profile"}
-            <span className="flex size-8 items-center justify-center rounded-full border border-border/70 bg-white/75 dark:border-white/10 dark:bg-white/5">
+            <span className="flex size-8 items-center justify-center rounded-full border border-border/70 bg-card">
               <ArrowRight className="size-4" />
             </span>
           </div>
@@ -144,10 +144,10 @@ function Metric({
         ? "border-primary/80 bg-primary/80 text-primary dark:border-primary/15 dark:bg-primary/10"
         : accent === "rose"
           ? "border-danger/80 bg-danger/80 text-danger dark:border-danger/15 dark:bg-danger/10"
-          : "border-slate-200/80 bg-slate-100/80 text-slate-700 dark:border-slate-700/70 dark:bg-slate-800/60 dark:text-slate-200";
+          : "border-border bg-muted/80 text-foreground";
 
   return (
-    <div className="rounded-xl border border-white/70 bg-white/82 px-3 py-3 shadow-[var(--shadow-soft)] dark:border-white/8 dark:bg-white/4 dark:shadow-none">
+    <div className="rounded-xl border border-border bg-card px-3 py-3 shadow-[var(--shadow-soft)]">
       <div className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold tracking-wider uppercase ${accentTone}`}>
         <Icon className="size-3" />
         {label}

@@ -32,7 +32,7 @@ export function ContractCard({ contract }: { contract: ContractRecord }) {
                 </p>
               </div>
             </div>
-            <div className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-white/70 bg-white/84 shadow-[0_16px_30px_-24px_rgba(15,23,42,0.42)] dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+            <div className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-border bg-card shadow-[0_16px_30px_-24px_rgba(15,23,42,0.42)]">
               <FileText className="size-5 text-primary" />
             </div>
           </div>
@@ -55,9 +55,9 @@ export function ContractCard({ contract }: { contract: ContractRecord }) {
                 {contract.renewalState.replaceAll("_", " ")}
               </span>
             </div>
-            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 transition-colors group-hover:text-primary dark:text-slate-200">
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors group-hover:text-primary">
               {isFr ? "Voir le détail" : "View detail"}
-              <span className="flex size-8 items-center justify-center rounded-full border border-border/70 bg-white/75 dark:border-white/10 dark:bg-white/5">
+              <span className="flex size-8 items-center justify-center rounded-full border border-border/70 bg-card">
                 <ArrowRight className="size-4" />
               </span>
             </div>
@@ -84,7 +84,7 @@ function InsightPanel({
         ? "border-primary/80 bg-primary/70 dark:border-primary/15 dark:bg-primary/8"
         : tone === "amber"
           ? "border-warning/80 bg-warning/70 dark:border-warning/15 dark:bg-warning/8"
-          : "border-slate-200/80 bg-slate-100/76 dark:border-white/8 dark:bg-white/3";
+          : "border-border bg-muted/76";
 
   return (
     <div className={`rounded-xl border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:shadow-none ${toneClass}`}>
