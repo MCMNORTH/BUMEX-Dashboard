@@ -1,3 +1,4 @@
+import type { Tone } from "@/components/ui/tone";
 import type { AppRole } from "@/types/auth";
 import type {
   TicketPriority,
@@ -6,6 +7,17 @@ import type {
   TicketTableColumnKey,
   TicketType,
 } from "@/types/ticket";
+
+/** Which tone each ticket status uses, everywhere a status is shown. */
+export const ticketStatusTone: Record<TicketStatus, Tone> = {
+  backlog: "neutral",
+  todo: "neutral",
+  in_progress: "brand",
+  review: "brand",
+  blocked: "danger",
+  done: "success",
+  archived: "neutral",
+};
 
 export const ticketKanbanStatuses: TicketStatus[] = [
   "backlog",

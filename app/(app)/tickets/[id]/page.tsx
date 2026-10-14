@@ -12,6 +12,7 @@ import { getAvailableTeamMembers, getTeamWorkload } from "@/lib/team/service";
 import { formatTicketDate, getTicketDueState } from "@/lib/tickets/helpers";
 import { getTicketById, getTicketsFilterData } from "@/lib/tickets/service";
 import { getTicketSubtasks } from "@/lib/tickets/subtasks";
+import { evaluateTransition, getCompletedStage, getSignOffStage } from "@/lib/tickets/workflow";
 import { getBoardWorkflows } from "@/lib/tickets/workflow-service";
 import { ActivityFeed } from "@/components/activity/activity-feed";
 import { Button } from "@/components/ui/button";
@@ -62,8 +63,23 @@ export default async function TicketDetailPage({
   const subtasksTotal = isShareholder ? ticket.subtasks_total ?? 0 : subtasks.length;
   const subtasksDone = isShareholder ? ticket.subtasks_done ?? 0 : subtasks.filter((subtask) => subtask.is_done).length;
   const subtasksComplete = subtasksTotal > 0 && subtasksDone === subtasksTotal;
+  // Finished work waits in the stage before the completed one, for the reporter's sign-off.
+  const workflow = workflows[ticket.project_id];
+  const isOpen = ticket.status !== "done" && ticket.status !== "archived";
+  const completedStage = workflow ? getCompletedStage(workflow) : undefined;
+  const awaitingSignOff = Boolean(isOpen && workflow && getSignOffStage(workflow)?.id === ticket.stage_id);
+  const isReporter = !isShareholder && ticket.reporter_id === auth.profile.id;
+  const signOff = isReporter && isOpen && completedStage
+    && evaluateTransition(workflow, ticket.stage_id, completedStage.id, null, { canComplete: true }).ok
+    ? { stageId: completedStage.id, stageName: completedStage.name }
+    : null;
+  const completedName = completedStage?.name ?? tr("Terminé", "Done");
   const nextAction = !ticket.assignee_id
     ? { tone: "violet", title: tr("Désigner un responsable", "Assign an owner"), description: tr("Ce ticket ne peut pas être piloté clairement tant qu’aucun responsable n’est désigné.", "This ticket cannot be managed clearly until an owner is assigned.") }
+    : awaitingSignOff && isReporter
+      ? { tone: "emerald", title: tr("Valider le travail", "Sign off the work"), description: tr(`Ce ticket attend votre validation. Vérifiez le travail, puis passez-le à « ${completedName} ».`, `This ticket is waiting for your sign-off. Check the work, then move it to ${completedName}.`) }
+    : awaitingSignOff
+      ? { tone: "violet", title: tr("En attente de validation", "Waiting for sign-off"), description: ticket.reporter ? tr(`Seul le rapporteur, ${ticket.reporter.full_name}, peut passer ce ticket à « ${completedName} ».`, `Only the reporter, ${ticket.reporter.full_name}, can move this ticket to ${completedName}.`) : tr(`Aucun rapporteur : un responsable du projet autre que l’assigné peut le passer à « ${completedName} ».`, `No reporter is set: a project lead other than the assignee can move it to ${completedName}.`) }
     : ticket.status === "blocked"
       ? { tone: "rose", title: tr("Documenter et lever le blocage", "Document and remove the blocker"), description: tr("Ajoutez le contexte manquant dans les commentaires, puis mettez à jour statut.", "Add the missing context in comments, then update status.") }
       : dueState === "overdue"
@@ -85,6 +101,7 @@ export default async function TicketDetailPage({
         role={auth.role}
         canManage={canManage}
         canUpdate={canUpdate}
+        signOff={signOff}
         filterData={filterData}
         workflows={workflows}
         assigneeWorkloads={assigneeWorkloads}

@@ -583,6 +583,22 @@
         "unassigned": "Unassigned"
       }
     },
+    "mine": {
+      "title": "My tickets",
+      "assigned": "Assigned to me",
+      "assignedSubtitle": "Open tickets, most pressing first",
+      "assignedEmpty": "No open ticket is assigned to you.",
+      "priority": {
+        "urgent": "Urgent",
+        "high": "High"
+      }
+    },
+    "signOff": {
+      "title": "To sign off",
+      "subtitle": "Tickets you reported, waiting for you to complete them",
+      "empty": "Nothing is waiting for your sign-off.",
+      "more": "+{count} more"
+    },
     "upcoming": {
       "title": "Coming up",
       "subtitle": "Deadlines in the next 14 days",

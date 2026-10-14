@@ -11,6 +11,7 @@ import { ConfirmActionForm } from "@/components/shared/confirm-action-form";
 import { TicketForm } from "@/components/tickets/ticket-form";
 import type { TeamWorkloadRecord } from "@/types/team";
 import { TicketPriorityBadge } from "@/components/tickets/ticket-priority-badge";
+import { TicketSignOffButton } from "@/components/tickets/ticket-sign-off-button";
 import { TicketStatusBadge } from "@/components/tickets/ticket-status-badge";
 import { TicketTypeBadge } from "@/components/tickets/ticket-type-badge";
 import { toneBadge } from "@/components/ui/tone";
@@ -23,6 +24,8 @@ type TicketDetailHeaderProps = {
   role: AppRole;
   canManage: boolean;
   canUpdate: boolean;
+  /** Set when the viewer is the reporter and may complete the ticket now. */
+  signOff?: { stageId: string; stageName: string } | null;
   filterData: TicketFiltersData;
   workflows: Record<string, BoardWorkflow>;
   assigneeWorkloads: TeamWorkloadRecord[];
@@ -51,6 +54,7 @@ export function TicketDetailHeader({
   role,
   canManage,
   canUpdate,
+  signOff,
   filterData,
   workflows,
   assigneeWorkloads,
@@ -88,7 +92,9 @@ export function TicketDetailHeader({
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-start gap-3">
+          {signOff ? <TicketSignOffButton ticketId={ticket.id} stageId={signOff.stageId} stageName={signOff.stageName} /> : null}
+
           {canUpdate ? (
             <TicketForm
               mode="edit"

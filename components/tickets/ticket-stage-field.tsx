@@ -15,7 +15,7 @@ import {
   getLegacyWorkflow,
   MOVE_REASON_MAX_LENGTH,
 } from "@/lib/tickets/workflow";
-import type { BoardWorkflow } from "@/types/workflow";
+import type { BoardWorkflow, TransitionOptions } from "@/types/workflow";
 
 type TicketStageFieldProps = {
   mode: "create" | "edit";
@@ -27,6 +27,10 @@ type TicketStageFieldProps = {
   originalProjectId?: string;
   originalStageId?: string;
   archived?: boolean;
+  /** Edit mode: the ticket is done now, so moving it between boards does not complete it. */
+  wasCompleted?: boolean;
+  /** Edit mode: whether the viewer may move this ticket to a completed stage. */
+  completionRule?: TransitionOptions;
 };
 
 /**
@@ -41,6 +45,8 @@ export function TicketStageField({
   originalProjectId,
   originalStageId,
   archived = false,
+  wasCompleted = false,
+  completionRule = {},
 }: TicketStageFieldProps) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
@@ -86,7 +92,12 @@ export function TicketStageField({
   const sameBoard = projectId === originalProjectId;
   const stageId = selection.stageId;
   const check = sameBoard && originalStageId && stageId && stageId !== ARCHIVED_STAGE_VALUE && stageId !== originalStageId
-    ? evaluateTransition(workflow, originalStageId, stageId, reason)
+    ? evaluateTransition(workflow, originalStageId, stageId, reason, completionRule)
+    : null;
+  const pickedStage = findStage(workflow, stageId);
+  // A move to another board skips the board's rules, but not the reporter's sign-off.
+  const crossBoardRefusal = !sameBoard && pickedStage?.is_completed && !wasCompleted && completionRule.canComplete === false
+    ? describeTransitionError({ code: "reporter_only", from: "", to: pickedStage.name, noReporter: completionRule.hasReporter === false }, locale)
     : null;
   const needsReason = Boolean(
     check
@@ -95,7 +106,7 @@ export function TicketStageField({
   );
   const refusal = check && !check.ok && check.error.code !== "reason_required"
     ? describeTransitionError(check.error, locale)
-    : null;
+    : crossBoardRefusal;
   const currentName = findStage(workflow, originalStageId)?.name;
 
   return (

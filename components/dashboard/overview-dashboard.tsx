@@ -11,12 +11,17 @@ import {
 } from "lucide-react";
 
 import { ProjectHealthBadge } from "@/components/projects/project-health-badge";
+import { TicketDue } from "@/components/tickets/ticket-meta";
+import { TicketSignOffButton } from "@/components/tickets/ticket-sign-off-button";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { toneDot } from "@/components/ui/tone";
 import { getDictionary, getMessage } from "@/lib/i18n/server";
 import { formatMessage } from "@/lib/i18n/format";
 import type { Locale } from "@/lib/i18n/config";
 import { formatNumber } from "@/lib/formatters";
+import { ticketStatusTone } from "@/lib/tickets/helpers";
+import { getStageCategoryLabel } from "@/lib/tickets/workflow";
 import { cn } from "@/lib/utils";
 import type { OverviewAttentionReason, OverviewDashboardData, OverviewUpcomingItem } from "@/lib/overview/service";
 import type { AppRole } from "@/types/auth";
@@ -158,6 +163,8 @@ export function OverviewDashboard({
   const isShareholder = role === "shareholder";
   const canCreate = role === "admin" || role === "manager" || role === "supervisor";
   const canSeeTeamWorkload = canCreate;
+  // An employee's attention tickets are their own, already listed under "Assigned to me".
+  const showAttentionTickets = !isShareholder && !isEmployee;
   const { kpis } = data;
 
   const attentionTicketsHref = isEmployee ? "/my-work" : "/tickets?attention=1";
@@ -225,6 +232,8 @@ export function OverviewDashboard({
   const unavailableMessage = t("overview.kpis.notAvailable", "Not available");
   const attentionTicketCount = kpis.attentionTickets ?? 0;
   const atRiskProjectCount = kpis.atRiskProjects ?? 0;
+  const { myTickets, signOff } = data;
+  const signOffHidden = signOff.total - signOff.items.length;
 
   return (
     <div className="space-y-4">
@@ -277,12 +286,97 @@ export function OverviewDashboard({
         ))}
       </section>
 
+      {isShareholder ? null : (
+        <section className="space-y-3">
+          <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <ListTodo className="size-4 text-muted-foreground" />
+            {t("overview.mine.title", "My tickets")}
+          </h2>
+          <div className="grid gap-3 xl:grid-cols-2">
+            <SectionCard
+              title={t("overview.mine.assigned", "Assigned to me")}
+              subtitle={t("overview.mine.assignedSubtitle", "Open tickets, most pressing first")}
+              action={
+                <SectionLink
+                  href="/my-work"
+                  label={myTickets.total > myTickets.items.length
+                    ? t("overview.attention.seeAll", "See all ({count})", { count: myTickets.total })
+                    : t("overview.actions.myWork", "My work")}
+                />
+              }
+            >
+              {myTickets.items.length ? (
+                <ul>
+                  {myTickets.items.map((ticket) => (
+                    <li key={ticket.id}>
+                      <Link href={`/tickets/${ticket.id}`} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted">
+                        <span className={cn("size-2 shrink-0 rounded-full", toneDot[ticketStatusTone[ticket.status]])} aria-hidden="true" />
+                        <span className="min-w-0 flex-1 truncate text-sm">
+                          <span className="font-medium">{ticket.title}</span>
+                          {ticket.projectName ? <span className="text-xs text-muted-foreground"> · {ticket.projectName}</span> : null}
+                        </span>
+                        {ticket.priority === "urgent" || ticket.priority === "high" ? (
+                          <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-xs font-medium", ticket.priority === "urgent" ? "bg-danger/10 text-danger" : "bg-warning/12 text-warning")}>
+                            {t(`overview.mine.priority.${ticket.priority}`, ticket.priority === "urgent" ? "Urgent" : "High")}
+                          </span>
+                        ) : null}
+                        <span className="hidden max-w-32 shrink-0 truncate rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground sm:inline">
+                          {ticket.stageName ?? getStageCategoryLabel(ticket.status, locale)}
+                        </span>
+                        <TicketDue ticket={{ due_date: ticket.dueDate, status: ticket.status }} locale={locale} className="w-14 shrink-0 text-right text-xs" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyRow>{isUnavailable("tickets") ? unavailableMessage : t("overview.mine.assignedEmpty", "No open ticket is assigned to you.")}</EmptyRow>
+              )}
+            </SectionCard>
+
+            <SectionCard
+              title={t("overview.signOff.title", "To sign off")}
+              subtitle={t("overview.signOff.subtitle", "Tickets you reported, waiting for you to complete them")}
+            >
+              {signOff.items.length ? (
+                <>
+                  <ul>
+                    {signOff.items.map((ticket) => (
+                      <li key={ticket.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-muted">
+                        <Link href={`/tickets/${ticket.id}`} className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium">{ticket.title}</span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {/* A reporter outside the project cannot read its name. */}
+                            {ticket.projectName ? `${ticket.projectName} · ` : null}
+                            {ticket.assigneeName ?? t("overview.attention.reasons.unassigned", "Unassigned")}
+                          </span>
+                        </Link>
+                        <TicketSignOffButton
+                          ticketId={ticket.id}
+                          stageId={ticket.completedStageId}
+                          stageName={ticket.completedStageName}
+                          size="sm"
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                  {signOffHidden > 0 ? (
+                    <p className="px-2 pt-1 text-xs text-muted-foreground">{t("overview.signOff.more", "+{count} more", { count: signOffHidden })}</p>
+                  ) : null}
+                </>
+              ) : (
+                <EmptyRow>{isUnavailable("tickets") ? unavailableMessage : t("overview.signOff.empty", "Nothing is waiting for your sign-off.")}</EmptyRow>
+              )}
+            </SectionCard>
+          </div>
+        </section>
+      )}
+
       <section className="space-y-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
           <AlertTriangle className={cn("size-4", attentionTicketCount + atRiskProjectCount > 0 ? "text-danger" : "text-muted-foreground")} />
           {t("overview.attention.title", "Needs attention")}
         </h2>
-        <div className={cn("grid gap-3", !isShareholder && "xl:grid-cols-2")}>
+        <div className={cn("grid gap-3", showAttentionTickets && "xl:grid-cols-2")}>
           <SectionCard
             title={t("overview.attention.projects", "Projects at risk")}
             action={atRiskProjectCount > data.attentionProjects.length ? (
@@ -311,7 +405,7 @@ export function OverviewDashboard({
             )}
           </SectionCard>
 
-          {isShareholder ? null : (
+          {showAttentionTickets ? (
             <SectionCard
               title={t("overview.attention.tickets", "Tickets")}
               action={attentionTicketCount > 0 ? (
@@ -340,7 +434,7 @@ export function OverviewDashboard({
                 <EmptyRow>{isUnavailable("tickets") ? unavailableMessage : t("overview.attention.ticketsEmpty", "Nothing is blocked, overdue, urgent or unassigned.")}</EmptyRow>
               )}
             </SectionCard>
-          )}
+          ) : null}
         </div>
       </section>
 

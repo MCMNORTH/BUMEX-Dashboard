@@ -26,6 +26,7 @@ import { ModernSelect } from "@/components/ui/modern-select";
 import { SubtaskDraftList } from "@/components/tickets/subtask-draft-list";
 import { Textarea } from "@/components/ui/textarea";
 import { TicketStageField } from "@/components/tickets/ticket-stage-field";
+import { getCompletionRule } from "@/lib/tickets/workflow";
 import type { AppRole } from "@/types/auth";
 import type { TicketFiltersData, TicketFormValues } from "@/types/ticket";
 import type { AssignmentHelperRecord, TeamWorkloadRecord } from "@/types/team";
@@ -88,6 +89,11 @@ export function TicketForm({
   const [selectedProjectId, setSelectedProjectId] = useState(defaults?.project_id ?? "");
   // Whoever creates a ticket is its reporter unless they pick someone else.
   const defaultReporterId = defaults?.reporter_id ?? (mode === "create" ? profile?.id ?? "" : "");
+  // Judged on the saved reporter: picking another one in this form changes nothing until saved.
+  const completionRule = getCompletionRule(
+    { reporter_id: defaults?.reporter_id || null, assignee_id: defaults?.assignee_id || null },
+    profile?.id ?? "",
+  );
 
   const triggerIconName = triggerIcon ?? (mode === "create" ? "plus" : "edit");
   const employeeRestricted = role === "employee" && mode === "edit";
@@ -273,6 +279,8 @@ export function TicketForm({
                 originalProjectId={defaults?.project_id}
                 originalStageId={defaults?.stage_id}
                 archived={defaults?.status === "archived"}
+                wasCompleted={defaults?.status === "done"}
+                completionRule={completionRule}
               />
 
               <div className="space-y-2">

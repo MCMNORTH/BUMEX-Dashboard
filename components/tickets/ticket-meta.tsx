@@ -3,20 +3,10 @@
 import { ListChecks } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import type { Tone } from "@/components/ui/tone";
 import { cn } from "@/lib/utils";
-import type { TicketRecord, TicketStatus } from "@/types/ticket";
+import type { TicketRecord } from "@/types/ticket";
 
-/** Which tone each ticket status uses, everywhere a status is shown. */
-export const ticketStatusTone: Record<TicketStatus, Tone> = {
-  backlog: "neutral",
-  todo: "neutral",
-  in_progress: "brand",
-  review: "brand",
-  blocked: "danger",
-  done: "success",
-  archived: "neutral",
-};
+export { ticketStatusTone } from "@/lib/tickets/helpers";
 
 export function getInitials(name: string | undefined) {
   return name?.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "—";

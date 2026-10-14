@@ -8,6 +8,7 @@ import type {
   StageCategory,
   TransitionCheck,
   TransitionError,
+  TransitionOptions,
   WorkflowSettings,
   WorkflowStage,
 } from "@/types/workflow";
@@ -161,22 +162,57 @@ export function resolveTicketStageId(
     ?? getDefaultStage(workflow).id;
 }
 
+/** The first active completed stage: where a reporter's sign-off puts a ticket. */
+export function getCompletedStage(workflow: BoardWorkflow) {
+  return getActiveStages(workflow).find((stage) => stage.is_completed);
+}
+
+/**
+ * Where finished work waits for the reporter: the last active stage before the completed
+ * one. Blocked stages are skipped, since the built-in board puts Blocked between Review
+ * and Done.
+ */
+export function getSignOffStage(workflow: BoardWorkflow) {
+  const active = getActiveStages(workflow);
+  const completedIndex = active.findIndex((stage) => stage.is_completed);
+
+  return completedIndex > 0
+    ? active.slice(0, completedIndex).reverse().find((stage) => stage.category !== "blocked")
+    : undefined;
+}
+
 // ---- movement rules ----------------------------------------------------------
+
+/**
+ * Moving a ticket into a completed stage is its reporter's sign-off, so the assignee
+ * cannot close their own work. A ticket without a reporter may be completed by anyone
+ * else who may move it.
+ */
+export function getCompletionRule(
+  ticket: { reporter_id: string | null; assignee_id: string | null },
+  userId: string,
+): TransitionOptions {
+  return {
+    canComplete: ticket.reporter_id ? ticket.reporter_id === userId : ticket.assignee_id !== userId,
+    hasReporter: Boolean(ticket.reporter_id),
+  };
+}
 
 function fail(error: TransitionError): TransitionCheck {
   return { ok: false, error };
 }
 
 /**
- * Whether a card may move from one stage to another. Board-level settings are checked
- * first, then the custom transition list (when enabled), then the reason requirement:
- * a move has to satisfy every one of them.
+ * Whether a card may move from one stage to another. Who may complete it is checked
+ * before the board-level settings, then the custom transition list (when enabled), then
+ * the reason requirement: a move has to satisfy every one of them.
  */
 export function evaluateTransition(
   workflow: BoardWorkflow,
   fromStageId: string,
   toStageId: string,
   reason?: string | null,
+  options: TransitionOptions = {},
 ): TransitionCheck {
   const from = findStage(workflow, fromStageId);
   const to = findStage(workflow, toStageId);
@@ -191,6 +227,11 @@ export function evaluateTransition(
 
   if (to.archived_at) {
     return fail({ code: "archived_stage", from: from?.name ?? fromStageId, to: to.name });
+  }
+
+  // Checked before the stranded-card escape below, so no route around the reporter exists.
+  if (to.is_completed && !from?.is_completed && options.canComplete === false) {
+    return fail({ code: "reporter_only", from: from?.name ?? fromStageId, to: to.name, noReporter: options.hasReporter === false });
   }
 
   // A card whose stage is gone or archived is outside the workflow: it may be put back
@@ -246,6 +287,7 @@ export function resolveCategoryTarget(
   category: TicketStatus,
   locale: Locale,
   reason?: string | null,
+  options: TransitionOptions = {},
 ): CategoryTarget {
   const candidates = getActiveStages(workflow).filter((stage) => stageStatus(stage) === category);
 
@@ -264,7 +306,7 @@ export function resolveCategoryTarget(
     };
   }
 
-  const checks = candidates.map((stage) => ({ stage, check: evaluateTransition(workflow, fromStageId, stage.id, reason) }));
+  const checks = candidates.map((stage) => ({ stage, check: evaluateTransition(workflow, fromStageId, stage.id, reason, options) }));
   const allowed = checks.find((entry) => entry.check.ok);
 
   if (allowed) {
@@ -305,6 +347,16 @@ export function describeTransitionError(error: TransitionError, locale: Locale) 
       return error.needsReasonFor === "reopen"
         ? (fr ? "Indiquez une raison pour rouvrir une carte terminée." : "A reason is required to reopen a completed card.")
         : (fr ? "Indiquez une raison pour ramener une carte à une étape précédente." : "A reason is required to move a card backward.");
+    case "reporter_only":
+      if (error.noReporter) {
+        return fr
+          ? `Ce ticket n’a pas de rapporteur, et son assigné ne peut pas le passer à « ${error.to} ».`
+          : `This ticket has no reporter, and its assignee cannot move it to ${error.to}.`;
+      }
+
+      return fr
+        ? `Seul le rapporteur du ticket peut le passer à « ${error.to} ».`
+        : `Only the ticket's reporter can move it to ${error.to}.`;
   }
 }
 

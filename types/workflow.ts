@@ -45,7 +45,8 @@ export type TransitionErrorCode =
   | "reopen"
   | "not_listed"
   | "no_matching_stage"
-  | "reason_required";
+  | "reason_required"
+  | "reporter_only";
 
 export type TransitionError = {
   code: TransitionErrorCode;
@@ -56,6 +57,15 @@ export type TransitionError = {
   via?: string;
   /** For "reason_required": what made the move need a reason. */
   needsReasonFor?: "backward" | "reopen";
+  /** For "reporter_only": the ticket has no reporter, and the mover is its assignee. */
+  noReporter?: boolean;
+};
+
+/** What a move depends on besides the board: who is making it (see getCompletionRule). */
+export type TransitionOptions = {
+  /** False when the mover may not move this ticket to a completed stage. */
+  canComplete?: boolean;
+  hasReporter?: boolean;
 };
 
 export type TransitionCheck =

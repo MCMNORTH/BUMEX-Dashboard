@@ -23,6 +23,7 @@ import {
   describeTransitionError,
   evaluateTransition,
   findStage,
+  getCompletionRule,
   getLegacyWorkflow,
   MOVE_REASON_MAX_LENGTH,
   resolveCategoryTarget,
@@ -756,8 +757,9 @@ export function normalizeMoveReason(reason: string | null | undefined) {
 /**
  * Moves a ticket to another stage of its board. Every way of changing a card's stage
  * goes through here (or checks the same evaluateTransition rules first, like the edit
- * form), so the board's rules hold however the move is attempted. Permissions are
- * checked by the caller, as for any other ticket update. A rejected move writes nothing.
+ * form), so the board's rules hold however the move is attempted. Only the reporter may
+ * complete a ticket; other permissions are checked by the caller, as for any other
+ * ticket update. A rejected move writes nothing.
  */
 export async function moveTicketToStage(
   ticket: TicketRecord,
@@ -767,10 +769,11 @@ export async function moveTicketToStage(
   const workflow = await getBoardWorkflow(ticket.project_id);
   const fromId = resolveTicketStageId(workflow, ticket);
   const reason = normalizeMoveReason(options.reason);
+  const rules = getCompletionRule(ticket, options.actorUserId);
   let toId: string;
 
   if ("stageId" in target) {
-    const check = evaluateTransition(workflow, fromId, target.stageId, reason);
+    const check = evaluateTransition(workflow, fromId, target.stageId, reason, rules);
 
     if (!check.ok) {
       return { ok: false, code: check.error.code, message: describeTransitionError(check.error, options.locale), stageId: target.stageId };
@@ -782,7 +785,7 @@ export async function moveTicketToStage(
 
     toId = target.stageId;
   } else {
-    const resolved = resolveCategoryTarget(workflow, fromId, target.status, options.locale, reason);
+    const resolved = resolveCategoryTarget(workflow, fromId, target.status, options.locale, reason, rules);
 
     if (!resolved.ok) {
       return { ok: false, code: resolved.error.code, message: describeTransitionError(resolved.error, options.locale), stageId: resolved.stageId };

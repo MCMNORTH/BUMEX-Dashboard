@@ -583,6 +583,22 @@
         "unassigned": "Sans responsable"
       }
     },
+    "mine": {
+      "title": "Mes tickets",
+      "assigned": "Assignés à moi",
+      "assignedSubtitle": "Tickets ouverts, les plus pressants d’abord",
+      "assignedEmpty": "Aucun ticket ouvert ne vous est assigné.",
+      "priority": {
+        "urgent": "Urgente",
+        "high": "Haute"
+      }
+    },
+    "signOff": {
+      "title": "À valider",
+      "subtitle": "Tickets que vous avez rapportés, en attente de votre validation",
+      "empty": "Aucun ticket n’attend votre validation.",
+      "more": "+{count} autre(s)"
+    },
     "upcoming": {
       "title": "À venir",
       "subtitle": "Échéances des 14 prochains jours",

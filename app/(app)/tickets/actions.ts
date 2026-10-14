@@ -21,6 +21,7 @@ import {
   describeTransitionError,
   evaluateTransition,
   findStage,
+  getCompletionRule,
   getDefaultStage,
   stageStatus,
 } from "@/lib/tickets/workflow";
@@ -248,7 +249,7 @@ export async function updateTicketAction(
     return { error: permissionError };
   }
 
-  const stage = await applyFormStage(currentTicket, values, await getCurrentLocale());
+  const stage = await applyFormStage(currentTicket, values, await getCurrentLocale(), auth.profile.id);
 
   if ("error" in stage) {
     return { error: stage.error };
@@ -257,6 +258,7 @@ export async function updateTicketAction(
   await updateTicket(ticketId, values, auth.profile.id, stage.change);
   revalidatePath("/tickets");
   revalidatePath("/my-work");
+  revalidatePath("/overview");
   revalidatePath(`/tickets/${ticketId}`);
   revalidatePath(`/projects/${currentTicket.project_id}`);
   redirect(`/tickets/${ticketId}?toast=ticket-updated`);
@@ -297,15 +299,18 @@ export async function deleteTicketAction(formData: FormData) {
 /**
  * Applies the stage picked in the edit form to `values`, under the same board rules as
  * drag and drop. Moving a ticket to another project puts it on that board's stage
- * directly: that is not a move on either board.
+ * directly: that is not a move on either board, but it still takes the reporter to
+ * complete the ticket. The reporter is the one saved before this edit.
  */
 async function applyFormStage(
   ticket: TicketRecord,
   values: TicketFormValues,
   locale: "en" | "fr",
+  actorUserId: string,
 ): Promise<{ error: string } | { change?: TicketStageChange }> {
   const sameBoard = values.project_id === ticket.project_id;
   const workflow = await getBoardWorkflow(values.project_id);
+  const rules = getCompletionRule(ticket, actorUserId);
   const requested = values.stage_id || (sameBoard ? ticket.stage_id : getDefaultStage(workflow).id);
 
   if (requested === ARCHIVED_STAGE_VALUE) {
@@ -325,13 +330,22 @@ async function applyFormStage(
       };
     }
 
+    if (stage.is_completed && ticket.status !== "done" && !rules.canComplete) {
+      return {
+        error: describeTransitionError(
+          { code: "reporter_only", from: ticket.stage_name ?? ticket.stage_id, to: stage.name, noReporter: !rules.hasReporter },
+          locale,
+        ),
+      };
+    }
+
     values.stage_id = stage.id;
     values.status = stageStatus(stage);
     return {};
   }
 
   const reason = normalizeMoveReason(values.stage_reason);
-  const check = evaluateTransition(workflow, ticket.stage_id, requested, reason);
+  const check = evaluateTransition(workflow, ticket.stage_id, requested, reason, rules);
 
   if (!check.ok) {
     return { error: describeTransitionError(check.error, locale) };
@@ -378,7 +392,9 @@ export async function moveTicketStageAction(
     return { error: locale === "fr" ? "Ticket introuvable." : "The ticket could not be found." };
   }
 
-  const permissionError = await assertCanMutateTicket(ticket, auth.profile.id, auth.role);
+  // The reporter signs work off, so they may move their ticket without other edit rights on it.
+  const isReporter = auth.role !== "shareholder" && ticket.reporter_id === auth.profile.id;
+  const permissionError = isReporter ? null : await assertCanMutateTicket(ticket, auth.profile.id, auth.role);
 
   if (permissionError) {
     return { error: permissionError };
@@ -407,6 +423,7 @@ export async function moveTicketStageAction(
   if (result.changed) {
     revalidatePath("/tickets");
     revalidatePath("/my-work");
+    revalidatePath("/overview");
     revalidatePath(`/tickets/${ticket.id}`);
     revalidatePath(`/projects/${ticket.project_id}`);
   }

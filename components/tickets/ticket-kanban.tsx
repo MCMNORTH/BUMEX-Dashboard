@@ -23,12 +23,14 @@ import { CSS } from "@dnd-kit/utilities";
 import { LoaderCircle } from "lucide-react";
 
 import { moveTicketStageAction } from "@/app/(app)/tickets/actions";
+import { useUser } from "@/hooks/use-user";
 import { ticketKanbanStatuses } from "@/lib/tickets/helpers";
 import {
   describeTransitionError,
   evaluateTransition,
   findStage,
   getActiveStages,
+  getCompletionRule,
   getLegacyWorkflow,
   getStageCategoryLabel,
   MOVE_REASON_MAX_LENGTH,
@@ -254,6 +256,7 @@ function KanbanColumn({
 
 export function TicketKanban({ tickets, canDrag, workflows, boardProjectId }: TicketKanbanProps) {
   const { locale } = useI18n();
+  const { profile } = useUser();
   const isFr = locale === "fr";
   const boardWorkflow = useMemo(
     () => (boardProjectId ? workflows[boardProjectId] ?? getLegacyWorkflow(boardProjectId, locale) : null),
@@ -337,15 +340,16 @@ export function TicketKanban({ tickets, canDrag, workflows, boardProjectId }: Ti
   // The same rules the server applies, so a refused move is explained without a round trip.
   function checkMove(ticket: TicketRecord, columnId: string, moveReason?: string): MoveCheck {
     const workflow = workflowFor(ticket);
+    const rules = getCompletionRule(ticket, profile?.id ?? "");
 
     if (boardWorkflow) {
-      const check = evaluateTransition(workflow, ticket.stage_id, columnId, moveReason);
+      const check = evaluateTransition(workflow, ticket.stage_id, columnId, moveReason, rules);
       return check.ok
         ? { ok: true, stageId: columnId, noop: check.noop }
         : { ok: false, code: check.error.code, message: describeTransitionError(check.error, locale), stageId: columnId };
     }
 
-    const target = resolveCategoryTarget(workflow, ticket.stage_id, columnId as TicketStatus, locale, moveReason);
+    const target = resolveCategoryTarget(workflow, ticket.stage_id, columnId as TicketStatus, locale, moveReason, rules);
     return target.ok
       ? target
       : { ok: false, code: target.error.code, message: describeTransitionError(target.error, locale), stageId: target.stageId };
@@ -368,7 +372,7 @@ export function TicketKanban({ tickets, canDrag, workflows, boardProjectId }: Ti
     );
     // checkMove and columnIdFor only read props already listed here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTicket, columns, workflows, boardWorkflow, locale]);
+  }, [activeTicket, columns, workflows, boardWorkflow, locale, profile?.id]);
 
   function stageLabelFor(ticket: TicketRecord, column: KanbanColumnDef) {
     if (boardWorkflow || !ticket.stage_name) {

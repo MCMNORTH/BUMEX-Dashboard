@@ -250,9 +250,10 @@ export class AccessPolicy {
     );
   }
 
+  // A ticket's reporter signs it off, so they may read it (not its project).
   private canReadTaskRow(task: Row | undefined) {
     if (this.isAdmin || this.isShareholder) return true;
-    return Boolean(task && (this.worksOnTask(task) || this.canManageProject(task.project_id)));
+    return Boolean(task && (this.worksOnTask(task) || this.is(task.reporter_id) || this.canManageProject(task.project_id)));
   }
 
   canReadTask(taskId: unknown) {
@@ -727,8 +728,10 @@ export class AccessPolicy {
     tasks: {
       select: (row) => this.canReadTaskRow(row),
       insert: (row) => this.isAdmin || this.canManageProject(row.project_id),
+      // The app lets a reporter who has no other rights on a ticket only move its stage.
       update: {
-        using: (row) => this.isAdmin || this.canManageProject(row.project_id) || this.is(row.assignee_id),
+        using: (row) =>
+          this.isAdmin || this.canManageProject(row.project_id) || this.is(row.assignee_id) || this.is(row.reporter_id),
       },
       delete: (row) => this.isAdmin || this.canManageProject(row.project_id),
     },
