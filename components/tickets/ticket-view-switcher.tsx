@@ -37,8 +37,8 @@ export function TicketViewSwitcher({
     icon: typeof LayoutList;
     hidden?: boolean;
   }> = [
-    { key: "table", label: labels?.table ?? "Table", icon: LayoutList },
     { key: "kanban", label: labels?.kanban ?? "Kanban", icon: Rows3, hidden: !canUseKanban },
+    { key: "table", label: labels?.table ?? "Table", icon: LayoutList },
   ];
 
   return (

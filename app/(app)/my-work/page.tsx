@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MyWorkViewPanel } from "@/components/tickets/my-work-view-panel";
+import { getBoardWorkflows } from "@/lib/tickets/workflow-service";
 import { MySubtasksCard } from "@/components/tickets/my-subtasks-card";
 import { TicketWorkloadPreview } from "@/components/tickets/ticket-workload-preview";
 import { ProgressRing } from "@/components/ui/progress-ring";
@@ -69,8 +70,8 @@ async function MyWorkContent({
   const isFr = locale === "fr";
   const auth = await requireRouteAccess("my-work");
   const params = (await searchParams) ?? {};
-  const requestedView = (getString(params.view) as TicketWorkspaceView) ?? "table";
-  const initialView: TicketWorkspaceView = requestedView === "kanban" ? "kanban" : "table";
+  // The board is the default view; the list is one click away.
+  const initialView: TicketWorkspaceView = getString(params.view) === "table" ? "table" : "kanban";
 
   const today = new Date().toISOString().slice(0, 10);
   const currentWeek = weekBounds(today)!;
@@ -79,6 +80,7 @@ async function MyWorkContent({
     auth.role === "admin" || isManagerLikeRole(auth.role) ? getTickets(auth.role) : Promise.resolve([]),
     auth.role !== "shareholder" ? getTimesheet(currentWeek.start).catch(() => null) : Promise.resolve(null),
   ]);
+  const workflows = await getBoardWorkflows(myTickets.map((ticket) => ticket.project_id));
 
   const overdueTickets = myTickets.filter((ticket) => getTicketDueState(ticket.due_date) === "overdue" && ticket.status !== "done" && ticket.status !== "archived");
   const dueThisWeek = myTickets.filter((ticket) => getTicketDueState(ticket.due_date) === "soon" && ticket.status !== "done" && ticket.status !== "archived");
@@ -174,120 +176,119 @@ async function MyWorkContent({
         ))}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+      {/* The board gets the full width; the focus lists sit underneath it. */}
+      <Card className="border-border/70 bg-card shadow-[var(--shadow-soft)]">
+        <CardContent className="space-y-4 px-5 py-5">
+          <MyWorkViewPanel initialView={initialView} locale={locale} tickets={myTickets} workflows={workflows} />
+        </CardContent>
+      </Card>
+
+      <div className="grid items-start gap-4 md:grid-cols-2 2xl:grid-cols-4">
         <Card className="border-border/70 bg-card shadow-[var(--shadow-soft)]">
           <CardContent className="space-y-4 px-5 py-5">
-            <MyWorkViewPanel initialView={initialView} locale={locale} tickets={myTickets} />
+            <div>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Tickets en retard" : "Overdue tickets"}</p>
+              <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Action immédiate" : "Immediate action"}</h3>
+            </div>
+            {overdueTickets.length ? (
+              overdueTickets.slice(0, 5).map((ticket) => (
+                <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-danger/35 hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-danger/30 dark:hover:bg-danger/5">
+                  <p className="flex items-center justify-between gap-3 text-sm font-medium"><span>{ticket.title}</span><ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
+                  <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <Badge variant="outline" className="rounded-full border-danger/25 bg-danger/10 px-3 py-1 text-danger dark:border-danger/10 dark:bg-danger/12">
+                      {isFr ? "En retard" : "Overdue"}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">{ticket.due_date ?? (isFr ? "Aucune date" : "No date")}</span>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+                {isFr ? "Aucun ticket en retard ne vous est assigné." : "No overdue tickets are assigned to you."}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        <div className="grid gap-4">
-          <Card className="border-border/70 bg-card shadow-[var(--shadow-soft)]">
-            <CardContent className="space-y-4 px-5 py-5">
-              <div>
-                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Tickets en retard" : "Overdue tickets"}</p>
-                <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Action immédiate" : "Immediate action"}</h3>
+        <Card className="border-border/70 bg-card shadow-[var(--shadow-soft)]">
+          <CardContent className="space-y-4 px-5 py-5">
+            <div>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "À traiter cette semaine" : "Due this week"}</p>
+              <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Focus à court terme" : "Near-term focus"}</h3>
+            </div>
+            {dueThisWeek.length ? (
+              dueThisWeek.slice(0, 5).map((ticket) => (
+                <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-warning/35 hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-warning/30 dark:hover:bg-warning/5">
+                  <p className="flex items-center justify-between gap-3 text-sm font-medium"><span>{ticket.title}</span><ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
+                  <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <Badge variant="outline" className="rounded-full border-warning/25 bg-warning/10 px-3 py-1 text-warning dark:border-warning/10 dark:bg-warning/12">
+                      {isFr ? "Bientôt dû" : "Due soon"}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">{ticket.due_date ?? (isFr ? "Aucune date" : "No date")}</span>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+                {isFr
+                  ? "Rien n'est à échéance cette semaine dans votre file actuelle."
+                  : "Nothing is due this week in your current queue."}
               </div>
-              {overdueTickets.length ? (
-                overdueTickets.slice(0, 5).map((ticket) => (
-                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-danger/35 hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-danger/30 dark:hover:bg-danger/5">
-                    <p className="flex items-center justify-between gap-3 text-sm font-medium"><span>{ticket.title}</span><ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
-                    <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="rounded-full border-danger/25 bg-danger/10 px-3 py-1 text-danger dark:border-danger/10 dark:bg-danger/12">
-                        {isFr ? "En retard" : "Overdue"}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">{ticket.due_date ?? (isFr ? "Aucune date" : "No date")}</span>
-                    </div>
-                  </Link>
-                ))
-              ) : (
-                <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                  {isFr ? "Aucun ticket en retard ne vous est assigné." : "No overdue tickets are assigned to you."}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            )}
+          </CardContent>
+        </Card>
 
-          <Card className="border-border/70 bg-card shadow-[var(--shadow-soft)]">
-            <CardContent className="space-y-4 px-5 py-5">
-              <div>
-                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "À traiter cette semaine" : "Due this week"}</p>
-                <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Focus à court terme" : "Near-term focus"}</h3>
+        <Card className="border-border/70 bg-card shadow-[var(--shadow-soft)]">
+          <CardContent className="space-y-4 px-5 py-5">
+            <div>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Récemment mis à jour" : "Recently updated"}</p>
+              <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Derniers mouvements" : "Latest movement"}</h3>
+            </div>
+            {recentlyUpdated.length ? (
+              recentlyUpdated.map((ticket) => (
+                <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary/30 dark:hover:bg-primary/5">
+                  <p className="flex items-center justify-between gap-3 text-sm font-medium"><span>{ticket.title}</span><ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
+                  <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <Badge variant="secondary" className="rounded-full px-3 py-1">
+                      {ticket.status.replace("_", " ")}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">{ticket.updated_at.slice(0, 10)}</span>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+                {isFr ? "Aucune mise à jour récente n'est encore visible." : "No recent updates are visible yet."}
               </div>
-              {dueThisWeek.length ? (
-                dueThisWeek.slice(0, 5).map((ticket) => (
-                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-warning/35 hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-warning/30 dark:hover:bg-warning/5">
-                    <p className="flex items-center justify-between gap-3 text-sm font-medium"><span>{ticket.title}</span><ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
-                    <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="rounded-full border-warning/25 bg-warning/10 px-3 py-1 text-warning dark:border-warning/10 dark:bg-warning/12">
-                        {isFr ? "Bientôt dû" : "Due soon"}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">{ticket.due_date ?? (isFr ? "Aucune date" : "No date")}</span>
-                    </div>
-                  </Link>
-                ))
-              ) : (
-                <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                  {isFr
-                    ? "Rien n'est à échéance cette semaine dans votre file actuelle."
-                    : "Nothing is due this week in your current queue."}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            )}
+          </CardContent>
+        </Card>
 
-          <Card className="border-border/70 bg-card shadow-[var(--shadow-soft)]">
-            <CardContent className="space-y-4 px-5 py-5">
-              <div>
-                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Récemment mis à jour" : "Recently updated"}</p>
-                <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Derniers mouvements" : "Latest movement"}</h3>
+        <Card className="border-border/70 bg-card shadow-[var(--shadow-soft)]">
+          <CardContent className="space-y-4 px-5 py-5">
+            <div>
+              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Travail terminé" : "Completed work"}</p>
+              <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Récemment clôturés" : "Recently closed"}</h3>
+            </div>
+            {completedWork.slice(0, 5).length ? (
+              completedWork.slice(0, 5).map((ticket) => (
+                <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-success/35 hover:bg-success/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-success/30 dark:hover:bg-success/5">
+                  <p className="flex items-center justify-between gap-3 text-sm font-medium"><span>{ticket.title}</span><ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
+                  <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
+                </Link>
+              ))
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
+                {isFr
+                  ? "Le travail terminé apparaîtra ici une fois que les tickets passeront à l'état terminé."
+                  : "Completed work will appear here once tickets move to done."}
               </div>
-              {recentlyUpdated.length ? (
-                recentlyUpdated.map((ticket) => (
-                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-primary/30 dark:hover:bg-primary/5">
-                    <p className="flex items-center justify-between gap-3 text-sm font-medium"><span>{ticket.title}</span><ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
-                    <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <Badge variant="secondary" className="rounded-full px-3 py-1">
-                        {ticket.status.replace("_", " ")}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">{ticket.updated_at.slice(0, 10)}</span>
-                    </div>
-                  </Link>
-                ))
-              ) : (
-                <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                  {isFr ? "Aucune mise à jour récente n'est encore visible." : "No recent updates are visible yet."}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/70 bg-card shadow-[var(--shadow-soft)]">
-            <CardContent className="space-y-4 px-5 py-5">
-              <div>
-                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Travail terminé" : "Completed work"}</p>
-                <h3 className="mt-2 text-lg font-semibold tracking-tight">{isFr ? "Récemment clôturés" : "Recently closed"}</h3>
-              </div>
-              {completedWork.slice(0, 5).length ? (
-                completedWork.slice(0, 5).map((ticket) => (
-                  <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="group block rounded-xl border border-border/65 bg-background/38 p-4 transition hover:-translate-y-0.5 hover:border-success/35 hover:bg-success/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-success/30 dark:hover:bg-success/5">
-                    <p className="flex items-center justify-between gap-3 text-sm font-medium"><span>{ticket.title}</span><ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></p>
-                    <p className="mt-1 text-xs text-muted-foreground">{ticket.project?.name ?? (isFr ? "Aucun projet lié" : "No project linked")}</p>
-                  </Link>
-                ))
-              ) : (
-                <div className="rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                  {isFr
-                    ? "Le travail terminé apparaîtra ici une fois que les tickets passeront à l'état terminé."
-                    : "Completed work will appear here once tickets move to done."}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {(auth.role === "admin" || isManagerLikeRole(auth.role)) && workload.length ? (

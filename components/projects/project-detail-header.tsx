@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Trash2, UserRoundPlus } from "lucide-react";
+import { Settings2, Trash2, UserRoundPlus } from "lucide-react";
 
 import { deleteProjectAction } from "@/app/(app)/projects/actions";
 import { formatCurrency, formatDate, normalizePriority } from "@/lib/projects/helpers";
@@ -28,6 +28,8 @@ type ProjectDetailHeaderProps = {
   role: AppRole;
   canManage: boolean;
   canStaff: boolean;
+  /** May configure this project's board: its stages and movement rules. */
+  canConfigureBoard: boolean;
   filterData: ProjectFiltersData;
 };
 
@@ -36,6 +38,7 @@ export function ProjectDetailHeader({
   role,
   canManage,
   canStaff,
+  canConfigureBoard,
   filterData,
 }: ProjectDetailHeaderProps) {
   const { locale } = useI18n();
@@ -64,6 +67,11 @@ export function ProjectDetailHeader({
           {canStaff ? (
             <Button asChild className="rounded-full px-5 shadow-lg ">
               <Link href={`/staffing?project=${project.id}`}><UserRoundPlus className="size-4" />{isFr ? "Staffer ce projet" : "Staff this project"}</Link>
+            </Button>
+          ) : null}
+          {canConfigureBoard ? (
+            <Button asChild variant="secondary" className="rounded-full px-5">
+              <Link href={`/projects/${project.id}/workflow`}><Settings2 className="size-4" />{isFr ? "Workflow du tableau" : "Board workflow"}</Link>
             </Button>
           ) : null}
           {canManage ? (

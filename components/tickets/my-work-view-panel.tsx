@@ -7,11 +7,13 @@ import { TicketTable } from "@/components/tickets/ticket-table";
 import { TicketKanban } from "@/components/tickets/ticket-kanban";
 import { cn } from "@/lib/utils";
 import type { TicketRecord, TicketWorkspaceView } from "@/types/ticket";
+import type { BoardWorkflow } from "@/types/workflow";
 
 type MyWorkViewPanelProps = {
   initialView: TicketWorkspaceView;
   locale: "en" | "fr";
   tickets: TicketRecord[];
+  workflows: Record<string, BoardWorkflow>;
 };
 
 function buildUrl(view: TicketWorkspaceView) {
@@ -25,6 +27,7 @@ export function MyWorkViewPanel({
   initialView,
   locale,
   tickets,
+  workflows,
 }: MyWorkViewPanelProps) {
   const isFr = locale === "fr";
   const [activeView, setActiveView] = useState<TicketWorkspaceView>(initialView);
@@ -47,7 +50,7 @@ export function MyWorkViewPanel({
             <TicketTable tickets={tickets} />
           </Activity>
           <Activity mode={activeView === "kanban" ? "visible" : "hidden"}>
-            <TicketKanban tickets={visibleTickets} canDrag />
+            <TicketKanban tickets={visibleTickets} canDrag workflows={workflows} />
           </Activity>
         </>
       ) : (
@@ -79,8 +82,8 @@ function CardShell({
     label: string;
     icon: typeof LayoutList;
   }> = [
-    { key: "table", label: isFr ? "Liste" : "List", icon: LayoutList },
     { key: "kanban", label: "Kanban", icon: Rows3 },
+    { key: "table", label: isFr ? "Liste" : "List", icon: LayoutList },
   ];
 
   return (

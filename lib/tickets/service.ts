@@ -19,8 +19,20 @@ import {
 import { getCached, invalidateCached } from "@/lib/server-cache";
 import { createClient } from "@/lib/firebase/server";
 import { getTicketDueState, redactTicketDescription, normalizeTicketPriority, normalizeTicketStatus } from "@/lib/tickets/helpers";
+import {
+  describeTransitionError,
+  evaluateTransition,
+  findStage,
+  getLegacyWorkflow,
+  MOVE_REASON_MAX_LENGTH,
+  resolveCategoryTarget,
+  resolveTicketStageId,
+  stageStatus,
+} from "@/lib/tickets/workflow";
+import { getBoardWorkflow, getConfiguredWorkflows } from "@/lib/tickets/workflow-service";
 import type { AppRole } from "@/types/auth";
-import type { TicketActivity, TicketAssignee, TicketFilters, TicketFiltersData, TicketFormValues, TicketProject, TicketRecord, TicketReporter, TicketStats, TicketWorkloadRecord } from "@/types/ticket";
+import type { TicketActivity, TicketAssignee, TicketFilters, TicketFiltersData, TicketFormValues, TicketProject, TicketRecord, TicketReporter, TicketStats, TicketStatus, TicketWorkloadRecord } from "@/types/ticket";
+import type { BoardWorkflow, TransitionErrorCode } from "@/types/workflow";
 
 type TicketRow = {
   id: string;
@@ -30,6 +42,7 @@ type TicketRow = {
   assignee_id: string | null;
   reporter_id: string | null;
   status: string;
+  stage_id?: string | null;
   priority: string | null;
   type: TicketRecord["type"];
   due_date: string | null;
@@ -64,6 +77,9 @@ function mapTicket(row: TicketRow, role: AppRole, activity: TicketActivity[] = [
     assignee_id: row.assignee_id,
     reporter_id: row.reporter_id,
     status: normalizeTicketStatus(row.status),
+    // The stored value; attachStages() resolves it against the ticket's board.
+    stage_id: row.stage_id ?? "",
+    stage_name: null,
     priority: normalizeTicketPriority(row.priority),
     type: row.type,
     due_date: row.due_date,
@@ -82,6 +98,27 @@ function mapTicket(row: TicketRow, role: AppRole, activity: TicketActivity[] = [
   };
 }
 
+function withStage(ticket: TicketRecord, workflow: BoardWorkflow | undefined): TicketRecord {
+  // Boards nothing was saved for use the built-in stages; their labels follow the viewer's language.
+  const board = workflow ?? getLegacyWorkflow(ticket.project_id);
+  const stageId = resolveTicketStageId(board, ticket);
+
+  return {
+    ...ticket,
+    stage_id: stageId,
+    stage_name: workflow ? findStage(board, stageId)?.name ?? null : null,
+  };
+}
+
+async function attachStages(tickets: TicketRecord[]) {
+  if (!tickets.length) {
+    return tickets;
+  }
+
+  const workflows = await getConfiguredWorkflows(tickets.map((ticket) => ticket.project_id));
+  return tickets.map((ticket) => withStage(ticket, workflows.get(ticket.project_id)));
+}
+
 function getBaseTicketQuery(db: AppDataClient) {
   return db
     .from("tasks")
@@ -94,6 +131,7 @@ function getBaseTicketQuery(db: AppDataClient) {
         assignee_id,
         reporter_id,
         status,
+        stage_id,
         priority,
         type,
         due_date,
@@ -244,7 +282,7 @@ async function getFreshTickets(role: AppRole, filters: TicketFilters = {}, entit
     throw new Error(error.message);
   }
 
-  const tickets = (data ?? []).map((row) => mapTicket(row, role));
+  const tickets = await attachStages((data ?? []).map((row) => mapTicket(row, role)));
 
   // These filters need OR logic or a status exclusion, which the query layer cannot express.
   if (filters.attention) {
@@ -305,7 +343,7 @@ async function getFreshMyTickets(userId: string, role: AppRole, entityCode?: str
     throw new Error(error.message);
   }
 
-  return (data ?? []).map((row) => mapTicket(row, role));
+  return attachStages((data ?? []).map((row) => mapTicket(row, role)));
 }
 
 export async function getTicketById(id: string, role: AppRole) {
@@ -327,6 +365,7 @@ export async function getTicketById(id: string, role: AppRole) {
         assignee_id,
         reporter_id,
         status,
+        stage_id,
         priority,
         type,
         due_date,
@@ -379,8 +418,9 @@ export async function getTicketById(id: string, role: AppRole) {
   }
 
   const normalizedActivity = await getTicketActivity(id, data.project_id, 10);
+  const [ticket] = await attachStages([mapTicket(data, role, normalizedActivity)]);
 
-  return mapTicket(data, role, normalizedActivity);
+  return ticket;
 }
 
 export async function getTicketsFilterData(): Promise<TicketFiltersData> {
@@ -458,6 +498,7 @@ function parseTicketPayload(values: TicketFormValues) {
     assignee_id: values.assignee_id || null,
     reporter_id: values.reporter_id || null,
     status: normalizedStatus,
+    stage_id: values.stage_id,
     priority: normalizedPriority,
     type: values.type,
     due_date: values.due_date || null,
@@ -523,7 +564,21 @@ export async function createTicket(values: TicketFormValues, actorUserId: string
   return data.id;
 }
 
-export async function updateTicket(id: string, values: TicketFormValues, actorUserId: string) {
+/** A stage change that already passed the board's rules, for the ticket's history. */
+export type TicketStageChange = {
+  fromStageId: string;
+  toStageId: string;
+  fromName: string;
+  toName: string;
+  reason: string | null;
+};
+
+export async function updateTicket(
+  id: string,
+  values: TicketFormValues,
+  actorUserId: string,
+  stageChange?: TicketStageChange,
+) {
   const db = await createClient();
 
   if (!db) {
@@ -576,7 +631,8 @@ export async function updateTicket(id: string, values: TicketFormValues, actorUs
     );
   } else {
     const changes = [
-      ["status", previousTicket.status, payload.status, `Moved ticket to ${payload.status}`, "status_change"],
+      // A stage change is logged on its own below, with the stage names and the reason.
+      ["status", previousTicket.status, stageChange ? previousTicket.status : payload.status, `Moved ticket to ${payload.status}`, "status_change"],
       ["assignee_id", previousTicket.assignee_id, payload.assignee_id, "Changed ticket assignee", "assignment_change"],
       ["priority", previousTicket.priority, payload.priority, `Changed priority to ${payload.priority}`, "priority_change"],
       ["due_date", previousTicket.due_date, payload.due_date, "Updated due date", "due_date_change"],
@@ -603,6 +659,10 @@ export async function updateTicket(id: string, values: TicketFormValues, actorUs
       }
     }
 
+    if (stageChange) {
+      activityTasks.push(logStageChange(id, stageChange, actorUserId));
+    }
+
     if (previousTicket.assignee_id !== payload.assignee_id) {
       activityTasks.push(
         createAssignmentNotification({
@@ -616,13 +676,13 @@ export async function updateTicket(id: string, values: TicketFormValues, actorUs
       );
     }
 
-    if (previousTicket.status !== payload.status) {
+    if (stageChange || previousTicket.status !== payload.status) {
       activityTasks.push(
         getNotificationRecipientsForProject(payload.project_id).then((recipients) =>
           createStatusChangeNotification({
             userIds: recipients.map((recipient) => recipient.id),
             title: "Ticket status updated",
-            body: `${payload.title} moved to ${payload.status.replaceAll("_", " ")}.`,
+            body: `${payload.title} moved to ${stageChange?.toName ?? payload.status.replaceAll("_", " ")}.`,
             entityType: "ticket",
             entityId: id,
             skipUserId: actorUserId,
@@ -661,17 +721,90 @@ export async function updateTicket(id: string, values: TicketFormValues, actorUs
   return id;
 }
 
-export async function updateTicketStatus(id: string, status: TicketRecord["status"], actorUserId: string) {
+function logStageChange(ticketId: string, change: TicketStageChange, actorUserId: string) {
+  return logActivity({
+    userId: actorUserId,
+    action: `Moved ticket from ${change.fromName} to ${change.toName}`,
+    entityType: "task",
+    entityId: ticketId,
+    metadata: {
+      kind: "status_change",
+      field: "stage",
+      from: change.fromName,
+      to: change.toName,
+      from_stage_id: change.fromStageId,
+      to_stage_id: change.toStageId,
+      reason: change.reason,
+      summary: change.reason
+        ? `${change.fromName} → ${change.toName}. Reason: ${change.reason}`
+        : `${change.fromName} → ${change.toName}`,
+    },
+  });
+}
+
+export type StageMoveTarget = { stageId: string } | { status: TicketStatus };
+
+export type StageMoveResult =
+  | { ok: true; changed: boolean }
+  | { ok: false; code: TransitionErrorCode | "write_failed"; message: string; stageId?: string };
+
+export function normalizeMoveReason(reason: string | null | undefined) {
+  return (reason ?? "").trim().slice(0, MOVE_REASON_MAX_LENGTH);
+}
+
+/**
+ * Moves a ticket to another stage of its board. Every way of changing a card's stage
+ * goes through here (or checks the same evaluateTransition rules first, like the edit
+ * form), so the board's rules hold however the move is attempted. Permissions are
+ * checked by the caller, as for any other ticket update. A rejected move writes nothing.
+ */
+export async function moveTicketToStage(
+  ticket: TicketRecord,
+  target: StageMoveTarget,
+  options: { reason?: string | null; actorUserId: string; locale: "en" | "fr" },
+): Promise<StageMoveResult> {
+  const workflow = await getBoardWorkflow(ticket.project_id);
+  const fromId = resolveTicketStageId(workflow, ticket);
+  const reason = normalizeMoveReason(options.reason);
+  let toId: string;
+
+  if ("stageId" in target) {
+    const check = evaluateTransition(workflow, fromId, target.stageId, reason);
+
+    if (!check.ok) {
+      return { ok: false, code: check.error.code, message: describeTransitionError(check.error, options.locale), stageId: target.stageId };
+    }
+
+    if (check.noop) {
+      return { ok: true, changed: false };
+    }
+
+    toId = target.stageId;
+  } else {
+    const resolved = resolveCategoryTarget(workflow, fromId, target.status, options.locale, reason);
+
+    if (!resolved.ok) {
+      return { ok: false, code: resolved.error.code, message: describeTransitionError(resolved.error, options.locale), stageId: resolved.stageId };
+    }
+
+    if (resolved.noop) {
+      return { ok: true, changed: false };
+    }
+
+    toId = resolved.stageId;
+  }
+
   const db = await createClient();
 
   if (!db) {
     throw new Error("Firebase is not configured.");
   }
 
-  const payloadStatus = status === "review" ? "review" : status;
+  const to = findStage(workflow, toId)!;
+  const fromName = findStage(workflow, fromId)?.name ?? fromId;
   const entityCode = await getCurrentEntityCode();
-  const { error } = await applyEntityScope(
-    db.from("tasks").update({ status: payloadStatus }).eq("id", id),
+  const { data, error } = await applyEntityScope(
+    db.from("tasks").update({ stage_id: to.id, status: stageStatus(to) }).eq("id", ticket.id).select("id"),
     entityCode,
   );
 
@@ -679,44 +812,119 @@ export async function updateTicketStatus(id: string, status: TicketRecord["statu
     throw new Error(error.message);
   }
 
-  await logActivity({
-    userId: actorUserId,
-    action: `Moved ticket to ${status.replace("_", " ")}`,
-    entityType: "task",
-    entityId: id,
-    metadata: {
-      kind: "status_change",
-      field: "status",
-      to: status,
-    },
-  });
-
-  const ticketQuery = applyEntityScope(db
-    .from("tasks")
-    .select("title, project_id")
-    .eq("id", id), entityCode);
-  const ticketResponse = await ticketQuery.maybeSingle();
-  const { data: ticket } = ticketResponse as {
-    data: { title: string; project_id: string } | null;
-    error: { message: string } | null;
-  };
-
-  if (ticket) {
-    const recipients = await getNotificationRecipientsForProject(ticket.project_id);
-
-    await createStatusChangeNotification({
-      userIds: recipients.map((recipient) => recipient.id),
-      title: "Ticket status updated",
-      body: `${ticket.title} moved to ${status.replaceAll("_", " ")}.`,
-      entityType: "ticket",
-      entityId: id,
-      skipUserId: actorUserId,
-    });
+  // Row policies skip rows the caller may not update instead of failing.
+  if (!data?.length) {
+    return {
+      ok: false,
+      code: "write_failed",
+      message: options.locale === "fr" ? "Vous ne pouvez pas déplacer ce ticket." : "You cannot move this ticket.",
+    };
   }
+
+  await logStageChange(ticket.id, { fromStageId: fromId, toStageId: to.id, fromName, toName: to.name, reason: reason || null }, options.actorUserId);
+
+  const recipients = await getNotificationRecipientsForProject(ticket.project_id);
+
+  await createStatusChangeNotification({
+    userIds: recipients.map((recipient) => recipient.id),
+    title: "Ticket status updated",
+    body: `${ticket.title} moved to ${to.name}.`,
+    entityType: "ticket",
+    entityId: ticket.id,
+    skipUserId: options.actorUserId,
+  });
 
   invalidateTicketReadCache();
 
-  return id;
+  return { ok: true, changed: true };
+}
+
+type ProjectTicketStageRow = { id: string; status: string; stage_id?: string | null };
+
+/** Every ticket of a board with just what stage bookkeeping needs, archived ones included. */
+export async function getProjectTicketStages(projectId: string) {
+  const db = await createClient();
+
+  if (!db) {
+    throw new Error("Firebase is not configured.");
+  }
+
+  const { data, error } = await db
+    .from("tasks")
+    .select("id, status, stage_id")
+    .eq("project_id", projectId)
+    .returns<ProjectTicketStageRow[]>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ?? [];
+}
+
+/** Cards on the board per stage id. Archived tickets are off the board and not counted. */
+export function countCardsByStage(rows: ProjectTicketStageRow[], workflow: BoardWorkflow) {
+  const counts: Record<string, number> = {};
+
+  for (const row of rows) {
+    const status = normalizeTicketStatus(row.status);
+
+    if (status === "archived") continue;
+
+    const stageId = resolveTicketStageId(workflow, { stage_id: row.stage_id, status });
+    counts[stageId] = (counts[stageId] ?? 0) + 1;
+  }
+
+  return counts;
+}
+
+/**
+ * After a workflow is saved: pins every ticket of the board to the stage it was already
+ * in (tickets from before workflows only had a status) and refreshes the status a stage
+ * reports as, in case its category or completed flag changed. No ticket changes stage.
+ */
+export async function syncTicketsToWorkflow(
+  rows: ProjectTicketStageRow[],
+  previous: BoardWorkflow,
+  next: BoardWorkflow,
+) {
+  const db = await createClient();
+
+  if (!db) {
+    throw new Error("Firebase is not configured.");
+  }
+
+  const updates = rows.flatMap((row) => {
+    const status = normalizeTicketStatus(row.status);
+    const stageId = resolveTicketStageId(previous, { stage_id: row.stage_id, status });
+    const stage = findStage(next, stageId);
+    const nextStatus = status === "archived" || !stage ? status : stageStatus(stage);
+
+    return row.stage_id === stageId && row.status === nextStatus
+      ? []
+      : [{ id: row.id, stage_id: stageId, status: nextStatus }];
+  });
+
+  for (let index = 0; index < updates.length; index += 20) {
+    await Promise.all(
+      updates.slice(index, index + 20).map(async (update) => {
+        const { error } = await db
+          .from("tasks")
+          .update({ stage_id: update.stage_id, status: update.status })
+          .eq("id", update.id);
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      }),
+    );
+  }
+
+  if (updates.length) {
+    invalidateTicketReadCache();
+  }
+
+  return updates.length;
 }
 
 export async function deleteTicket(id: string) {

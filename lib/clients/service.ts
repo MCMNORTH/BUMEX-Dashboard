@@ -762,7 +762,8 @@ export async function getClientLinkedTickets(clientId: string, role: AppRole) {
   });
 }
 
-function mapTicketForClient(row: TicketRow, role: AppRole): TicketRecord {
+// Client pages only list a ticket's status, so the board stage is not resolved here.
+function mapTicketForClient(row: TicketRow, role: AppRole): Omit<TicketRecord, "stage_id" | "stage_name"> {
   const normalizeStatus = row.status === "in_review" ? "review" : (row.status as TicketRecord["status"]);
   const normalizePriority = row.priority === "critical" ? "urgent" : ((row.priority ?? "medium") as TicketRecord["priority"]);
 

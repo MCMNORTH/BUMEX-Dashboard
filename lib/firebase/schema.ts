@@ -79,6 +79,22 @@ export const TABLES: Record<string, TableSchema> = {
     },
     touchUpdatedAt: true,
   },
+  // One document per project (board), keyed by the project id. See lib/tickets/workflow.ts.
+  project_workflows: {
+    defaults: {
+      ...timestamps,
+      stages: () => [],
+      transitions: () => ({}),
+      allow_backward: false,
+      allow_skip_forward: false,
+      allow_reopen: false,
+      require_reason: false,
+      custom_transitions_enabled: false,
+      updated_by: null,
+    },
+    unique: { project_workflows_project_id_key: ["project_id"] },
+    touchUpdatedAt: true,
+  },
   milestones: {
     defaults: { ...timestamps, status: "planned" },
   },
@@ -243,6 +259,7 @@ export const INBOUND_REFERENCES: Record<string, InboundReference[]> = {
     { table: "time_mission_favorites", column: "project_id", onDelete: "cascade" },
     { table: "tasks", column: "project_id", onDelete: "cascade" },
     { table: "milestones", column: "project_id", onDelete: "cascade" },
+    { table: "project_workflows", column: "project_id", onDelete: "cascade" },
     { table: "contracts", column: "project_id", onDelete: "set null" },
     { table: "invoices", column: "project_id", onDelete: "set null" },
     { table: "payments", column: "project_id", onDelete: "set null" },

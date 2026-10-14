@@ -25,9 +25,11 @@ import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
 import { SubtaskDraftList } from "@/components/tickets/subtask-draft-list";
 import { Textarea } from "@/components/ui/textarea";
+import { TicketStageField } from "@/components/tickets/ticket-stage-field";
 import type { AppRole } from "@/types/auth";
 import type { TicketFiltersData, TicketFormValues } from "@/types/ticket";
 import type { AssignmentHelperRecord, TeamWorkloadRecord } from "@/types/team";
+import type { BoardWorkflow } from "@/types/workflow";
 
 const initialState: TicketActionState = {};
 
@@ -36,6 +38,8 @@ type TicketFormProps = {
   role: AppRole;
   filterData: TicketFiltersData;
   defaults?: Partial<TicketFormValues> & { ticket_id?: string };
+  /** Workflow of each project's board, for the stage picker. Missing boards use the built-in stages. */
+  workflows?: Record<string, BoardWorkflow>;
   triggerLabel?: string;
   triggerIcon?: "plus" | "edit";
   openOnLoad?: boolean;
@@ -67,6 +71,7 @@ export function TicketForm({
   role,
   filterData,
   defaults,
+  workflows = {},
   triggerLabel,
   triggerIcon,
   openOnLoad = false,
@@ -80,6 +85,7 @@ export function TicketForm({
   const { t } = useI18n();
   const { profile } = useUser();
   const [selectedAssigneeId, setSelectedAssigneeId] = useState(defaults?.assignee_id ?? "");
+  const [selectedProjectId, setSelectedProjectId] = useState(defaults?.project_id ?? "");
   // Whoever creates a ticket is its reporter unless they pick someone else.
   const defaultReporterId = defaults?.reporter_id ?? (mode === "create" ? profile?.id ?? "" : "");
 
@@ -165,6 +171,7 @@ export function TicketForm({
                 id={`${mode}-project`}
                 name="project_id"
                 defaultValue={defaults?.project_id ?? ""}
+                onValueChange={setSelectedProjectId}
                 placeholder={t("tickets.form.select.selectProject", "Select project")}
                 options={[
                   { value: "", label: t("tickets.form.select.selectProject", "Select project") },
@@ -256,25 +263,15 @@ export function TicketForm({
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor={`${mode}-status`}>
-                  {t("tickets.form.fields.status", "Status")}
-                </label>
-                <ModernSelect
-                  id={`${mode}-status`}
-                  name="status"
-                  defaultValue={defaults?.status ?? "todo"}
-                  options={[
-                    { value: "backlog", label: t("tickets.form.select.statuses.backlog", "Backlog") },
-                    { value: "todo", label: t("tickets.form.select.statuses.todo", "To do") },
-                    { value: "in_progress", label: t("tickets.form.select.statuses.in_progress", "In progress") },
-                    { value: "review", label: t("tickets.form.select.statuses.review", "Review") },
-                    { value: "blocked", label: t("tickets.form.select.statuses.blocked", "Blocked") },
-                    { value: "done", label: t("tickets.form.select.statuses.done", "Done") },
-                    { value: "archived", label: t("tickets.form.select.statuses.archived", "Archived") },
-                  ]}
-                />
-              </div>
+              <TicketStageField
+                mode={mode}
+                id={`${mode}-stage`}
+                projectId={selectedProjectId}
+                workflows={workflows}
+                originalProjectId={defaults?.project_id}
+                originalStageId={defaults?.stage_id}
+                archived={defaults?.status === "archived"}
+              />
 
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor={`${mode}-reporter`}>

@@ -8,16 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { TicketFiltersData } from "@/types/ticket";
 import type { AppRole } from "@/types/auth";
+import type { BoardWorkflow } from "@/types/workflow";
 import { TicketForm } from "@/components/tickets/ticket-form";
 
 type TicketEmptyStateProps = {
   role: AppRole;
   filterData: TicketFiltersData;
+  workflows?: Record<string, BoardWorkflow>;
   /** When filters are active, the useful next step is clearing them rather than creating a ticket. */
   clearFiltersHref?: string;
 };
 
-export function TicketEmptyState({ role, filterData, clearFiltersHref }: TicketEmptyStateProps) {
+export function TicketEmptyState({ role, filterData, workflows, clearFiltersHref }: TicketEmptyStateProps) {
   const canCreate = role === "admin" || role === "manager" || role === "supervisor";
   const { t } = useI18n();
 
@@ -48,6 +50,7 @@ export function TicketEmptyState({ role, filterData, clearFiltersHref }: TicketE
             mode="create"
             role={role}
             filterData={filterData}
+            workflows={workflows}
             triggerLabel={t("common.actions.createTicket", "Create ticket")}
             triggerIcon="plus"
           />

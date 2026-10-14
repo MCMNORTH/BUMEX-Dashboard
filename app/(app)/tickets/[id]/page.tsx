@@ -12,6 +12,7 @@ import { getAvailableTeamMembers, getTeamWorkload } from "@/lib/team/service";
 import { formatTicketDate, getTicketDueState } from "@/lib/tickets/helpers";
 import { getTicketById, getTicketsFilterData } from "@/lib/tickets/service";
 import { getTicketSubtasks } from "@/lib/tickets/subtasks";
+import { getBoardWorkflows } from "@/lib/tickets/workflow-service";
 import { ActivityFeed } from "@/components/activity/activity-feed";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +46,9 @@ export default async function TicketDetailPage({
   if (!ticket) {
     notFound();
   }
+
+  // Every board the edit form can move the ticket to.
+  const workflows = await getBoardWorkflows([ticket.project_id, ...filterData.projects.map((project) => project.id)]);
 
   const canManage = auth.role === "admin" || isManagerLikeRole(auth.role);
   const canUpdate =
@@ -82,6 +86,7 @@ export default async function TicketDetailPage({
         canManage={canManage}
         canUpdate={canUpdate}
         filterData={filterData}
+        workflows={workflows}
         assigneeWorkloads={assigneeWorkloads}
         suggestedAssignees={suggestedAssignees}
       />
@@ -90,7 +95,7 @@ export default async function TicketDetailPage({
         <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6"><div className="flex items-start gap-3"><div className="grid size-11 shrink-0 place-items-center rounded-xl bg-card shadow-sm">{nextAction.tone === "emerald" ? <CheckCircle2 className="size-5 text-success" /> : nextAction.tone === "rose" ? <AlertTriangle className="size-5 text-danger" /> : <Sparkles className="size-5 text-primary" />}</div><div><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{tr("Prochaine action recommandée", "Recommended next action")}</p><h2 className="mt-1 text-lg font-semibold">{nextAction.title}</h2><p className="mt-1 text-sm text-muted-foreground">{nextAction.description}</p></div></div><div className="flex flex-wrap gap-2"><Button asChild variant="secondary"><a href="#ticket-collaboration">{tr("Ajouter une mise à jour", "Add an update")}</a></Button>{timesheetHref ? <Button asChild variant="secondary"><Link href={timesheetHref}><Clock3 className="size-4" />{tr("Déclarer du temps", "Log time")}</Link></Button> : null}{ticket.project ? <Button asChild><Link href={`/projects/${ticket.project.id}`}>{tr("Voir le projet", "View project")}<ArrowRight className="size-4" /></Link></Button> : null}</div></CardContent>
       </Card>
 
-      <TicketJourney status={ticket.status} isFr={isFr} />
+      <TicketJourney ticket={ticket} workflow={workflows[ticket.project_id]} isFr={isFr} />
 
       {!isShareholder || subtasksTotal > 0 ? (
         <TicketSubtasks

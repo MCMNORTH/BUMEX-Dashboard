@@ -6,7 +6,25 @@ import { redirect } from "next/navigation";
 import { requireRouteAccess } from "@/lib/auth/server";
 import { isManagerLikeRole } from "@/lib/auth/permissions";
 import { getProjectById } from "@/lib/projects/service";
-import { getTicketById, createTicket, deleteTicket, updateTicket, updateTicketStatus } from "@/lib/tickets/service";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import {
+  getTicketById,
+  createTicket,
+  deleteTicket,
+  moveTicketToStage,
+  normalizeMoveReason,
+  updateTicket,
+  type TicketStageChange,
+} from "@/lib/tickets/service";
+import {
+  ARCHIVED_STAGE_VALUE,
+  describeTransitionError,
+  evaluateTransition,
+  findStage,
+  getDefaultStage,
+  stageStatus,
+} from "@/lib/tickets/workflow";
+import { getBoardWorkflow } from "@/lib/tickets/workflow-service";
 import {
   createSubtasks,
   deleteSubtask,
@@ -32,9 +50,12 @@ export type TicketActionState = {
   error?: string;
 };
 
-export type TicketStatusActionState = {
+export type TicketMoveActionState = {
   error?: string;
   success?: boolean;
+  /** Why the board refused the move; "reason_required" means it may be retried with a reason. */
+  code?: string;
+  stageId?: string;
 };
 
 function getString(formData: FormData, key: string) {
@@ -49,7 +70,11 @@ function parseTicketFormData(formData: FormData): TicketFormValues {
     project_id: getString(formData, "project_id"),
     assignee_id: getString(formData, "assignee_id"),
     reporter_id: getString(formData, "reporter_id"),
-    status: getString(formData, "status") as TicketStatus,
+    // Derived from the stage before saving.
+    status: "todo",
+    // Older forms posted a status; on built-in boards the status is the stage id.
+    stage_id: getString(formData, "stage_id") || getString(formData, "status"),
+    stage_reason: getString(formData, "stage_reason"),
     priority: getString(formData, "priority") as TicketPriority,
     type: getString(formData, "type") as TicketType,
     due_date: getString(formData, "due_date"),
@@ -60,8 +85,8 @@ function parseTicketFormData(formData: FormData): TicketFormValues {
 }
 
 function validate(values: TicketFormValues) {
-  if (!values.title || !values.project_id || !values.status || !values.priority || !values.type) {
-    return "Title, project, status, priority, and type are required.";
+  if (!values.title || !values.project_id || !values.priority || !values.type) {
+    return "Title, project, priority, and type are required.";
   }
 
   if (values.estimated_hours && (Number.isNaN(Number(values.estimated_hours)) || Number(values.estimated_hours) < 0)) {
@@ -174,6 +199,11 @@ export async function createTicketAction(
     }
   }
 
+  // New tickets always start in the board's default stage.
+  const defaultStage = getDefaultStage(await getBoardWorkflow(values.project_id));
+  values.stage_id = defaultStage.id;
+  values.status = stageStatus(defaultStage);
+
   const ticketId = await createTicket(values, auth.profile.id);
   await createSubtasks(ticketId, subtaskTitles.titles, auth.profile.id);
   revalidatePath("/tickets");
@@ -218,8 +248,15 @@ export async function updateTicketAction(
     return { error: permissionError };
   }
 
-  await updateTicket(ticketId, values, auth.profile.id);
+  const stage = await applyFormStage(currentTicket, values, await getCurrentLocale());
+
+  if ("error" in stage) {
+    return { error: stage.error };
+  }
+
+  await updateTicket(ticketId, values, auth.profile.id, stage.change);
   revalidatePath("/tickets");
+  revalidatePath("/my-work");
   revalidatePath(`/tickets/${ticketId}`);
   revalidatePath(`/projects/${currentTicket.project_id}`);
   redirect(`/tickets/${ticketId}?toast=ticket-updated`);
@@ -257,15 +294,88 @@ export async function deleteTicketAction(formData: FormData) {
   redirect("/tickets?toast=ticket-deleted");
 }
 
-export async function updateTicketStatusAction(
+/**
+ * Applies the stage picked in the edit form to `values`, under the same board rules as
+ * drag and drop. Moving a ticket to another project puts it on that board's stage
+ * directly: that is not a move on either board.
+ */
+async function applyFormStage(
+  ticket: TicketRecord,
+  values: TicketFormValues,
+  locale: "en" | "fr",
+): Promise<{ error: string } | { change?: TicketStageChange }> {
+  const sameBoard = values.project_id === ticket.project_id;
+  const workflow = await getBoardWorkflow(values.project_id);
+  const requested = values.stage_id || (sameBoard ? ticket.stage_id : getDefaultStage(workflow).id);
+
+  if (requested === ARCHIVED_STAGE_VALUE) {
+    values.status = "archived";
+    values.stage_id = sameBoard ? ticket.stage_id : getDefaultStage(workflow).id;
+    return {};
+  }
+
+  const stage = findStage(workflow, requested);
+
+  if (!sameBoard) {
+    if (!stage || stage.archived_at) {
+      return {
+        error: locale === "fr"
+          ? "Choisissez une étape active du tableau du nouveau projet."
+          : "Choose an active stage of the new project's board.",
+      };
+    }
+
+    values.stage_id = stage.id;
+    values.status = stageStatus(stage);
+    return {};
+  }
+
+  const reason = normalizeMoveReason(values.stage_reason);
+  const check = evaluateTransition(workflow, ticket.stage_id, requested, reason);
+
+  if (!check.ok) {
+    return { error: describeTransitionError(check.error, locale) };
+  }
+
+  // Restoring an archived ticket into a stage that was archived since would hide it.
+  if (stage!.archived_at) {
+    return { error: describeTransitionError({ code: "archived_stage", from: stage!.name, to: stage!.name }, locale) };
+  }
+
+  values.stage_id = stage!.id;
+  values.status = stageStatus(stage!);
+
+  if (check.noop) {
+    return {};
+  }
+
+  return {
+    change: {
+      fromStageId: ticket.stage_id,
+      toStageId: stage!.id,
+      fromName: findStage(workflow, ticket.stage_id)?.name ?? ticket.stage_id,
+      toName: stage!.name,
+      reason: reason || null,
+    },
+  };
+}
+
+/**
+ * Board drag and drop. `stageId` targets a stage of the ticket's board; `status` targets
+ * a column of a board mixing several projects. The server reads the ticket's current
+ * stage itself and applies the board's rules, whatever the browser decided.
+ */
+export async function moveTicketStageAction(
   ticketId: string,
-  nextStatus: TicketStatus,
-): Promise<TicketStatusActionState> {
+  target: { stageId?: string; status?: TicketStatus },
+  reason?: string,
+): Promise<TicketMoveActionState> {
   const auth = await requireRouteAccess("tickets");
-  const ticket = await getTicketById(ticketId, auth.role);
+  const locale = await getCurrentLocale();
+  const ticket = await getTicketById(String(ticketId), auth.role);
 
   if (!ticket) {
-    return { error: "The ticket could not be found." };
+    return { error: locale === "fr" ? "Ticket introuvable." : "The ticket could not be found." };
   }
 
   const permissionError = await assertCanMutateTicket(ticket, auth.profile.id, auth.role);
@@ -274,11 +384,32 @@ export async function updateTicketStatusAction(
     return { error: permissionError };
   }
 
-  await updateTicketStatus(ticketId, nextStatus, auth.profile.id);
-  revalidatePath("/tickets");
-  revalidatePath("/my-work");
-  revalidatePath(`/tickets/${ticketId}`);
-  revalidatePath(`/projects/${ticket.project_id}`);
+  const moveTarget = target?.stageId
+    ? { stageId: String(target.stageId) }
+    : target?.status
+      ? { status: String(target.status) as TicketStatus }
+      : null;
+
+  if (!moveTarget) {
+    return { error: locale === "fr" ? "Étape de destination manquante." : "Missing destination stage." };
+  }
+
+  const result = await moveTicketToStage(ticket, moveTarget, {
+    reason: typeof reason === "string" ? reason : "",
+    actorUserId: auth.profile.id,
+    locale,
+  });
+
+  if (!result.ok) {
+    return { error: result.message, code: result.code, stageId: result.stageId };
+  }
+
+  if (result.changed) {
+    revalidatePath("/tickets");
+    revalidatePath("/my-work");
+    revalidatePath(`/tickets/${ticket.id}`);
+    revalidatePath(`/projects/${ticket.project_id}`);
+  }
 
   return { success: true };
 }

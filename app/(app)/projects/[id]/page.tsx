@@ -13,6 +13,7 @@ import { getNotesForEntity } from "@/lib/notes/service";
 import { getMentionCandidates } from "@/lib/notifications/service";
 import { formatCurrency, formatDate } from "@/lib/projects/helpers";
 import { getProjectById, getProjectsFilterData } from "@/lib/projects/service";
+import { canManageBoard } from "@/lib/tickets/board-access";
 import { ActivityFeed } from "@/components/activity/activity-feed";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,7 +43,10 @@ export default async function ProjectDetailPage({
     notFound();
   }
 
-  const projectAlerts = await getProjectRisks(project.id, isFr ? "fr" : "en");
+  const [projectAlerts, canConfigureBoard] = await Promise.all([
+    getProjectRisks(project.id, isFr ? "fr" : "en"),
+    canManageBoard(auth.role, auth.profile.id, project.id),
+  ]);
 
   const canManage =
     auth.role === "admin" || (isManagerLikeRole(auth.role) && project.owner_id === auth.profile.id);
@@ -56,6 +60,7 @@ export default async function ProjectDetailPage({
         role={auth.role}
         canManage={canManage}
         canStaff={canStaff}
+        canConfigureBoard={canConfigureBoard}
         filterData={filterData}
       />
 

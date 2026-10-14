@@ -16,6 +16,7 @@ import { TicketTypeBadge } from "@/components/tickets/ticket-type-badge";
 import { toneBadge } from "@/components/ui/tone";
 import type { AppRole } from "@/types/auth";
 import type { TicketFiltersData, TicketRecord } from "@/types/ticket";
+import type { BoardWorkflow } from "@/types/workflow";
 
 type TicketDetailHeaderProps = {
   ticket: TicketRecord;
@@ -23,6 +24,7 @@ type TicketDetailHeaderProps = {
   canManage: boolean;
   canUpdate: boolean;
   filterData: TicketFiltersData;
+  workflows: Record<string, BoardWorkflow>;
   assigneeWorkloads: TeamWorkloadRecord[];
   suggestedAssignees: TeamWorkloadRecord[];
 };
@@ -50,6 +52,7 @@ export function TicketDetailHeader({
   canManage,
   canUpdate,
   filterData,
+  workflows,
   assigneeWorkloads,
   suggestedAssignees,
 }: TicketDetailHeaderProps) {
@@ -70,7 +73,7 @@ export function TicketDetailHeader({
     <div className="grid gap-5 rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-soft)] xl:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <TicketStatusBadge status={ticket.status} />
+          <TicketStatusBadge status={ticket.status} label={ticket.status === "archived" ? undefined : ticket.stage_name ?? undefined} />
           <TicketPriorityBadge priority={ticket.priority} />
           <TicketTypeBadge type={ticket.type} />
           <Badge variant="outline" className={dueTone[dueState]}>
@@ -91,6 +94,7 @@ export function TicketDetailHeader({
               mode="edit"
               role={role}
               filterData={filterData}
+              workflows={workflows}
               defaults={{
                 ticket_id: ticket.id,
                 title: ticket.title,
@@ -99,6 +103,7 @@ export function TicketDetailHeader({
                 assignee_id: ticket.assignee_id ?? "",
                 reporter_id: ticket.reporter_id ?? "",
                 status: ticket.status,
+                stage_id: ticket.stage_id,
                 priority: ticket.priority,
                 type: ticket.type,
                 due_date: ticket.due_date ?? "",

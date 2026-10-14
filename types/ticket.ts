@@ -56,7 +56,12 @@ export type TicketRecord = {
   project_id: string;
   assignee_id: string | null;
   reporter_id: string | null;
+  /** Derived from the stage (see lib/tickets/workflow.ts); kept on the ticket for filters and reports. */
   status: TicketStatus;
+  /** The ticket's stage on its project's board, resolved for tickets saved before boards had stages. */
+  stage_id: string;
+  /** Null on boards still using the built-in stages, whose labels follow the viewer's language. */
+  stage_name: string | null;
   priority: TicketPriority;
   type: TicketType;
   due_date: string | null;
@@ -118,7 +123,12 @@ export type TicketFormValues = {
   project_id: string;
   assignee_id: string;
   reporter_id: string;
+  /** Derived on the server from the chosen stage. */
   status: TicketStatus;
+  /** A stage id of the ticket's board, or "archived" (ARCHIVED_STAGE_VALUE). */
+  stage_id: string;
+  /** Required by some boards for backward moves and reopening. */
+  stage_reason: string;
   priority: TicketPriority;
   type: TicketType;
   due_date: string;

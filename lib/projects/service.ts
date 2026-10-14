@@ -8,6 +8,7 @@ import {
 } from "@/lib/notifications/service";
 import { getCached, invalidateCached } from "@/lib/server-cache";
 import { createClient } from "@/lib/firebase/server";
+import { createDefaultBoardWorkflow } from "@/lib/tickets/workflow-service";
 import {
   applyEntityScope,
   extendWithEntityCode,
@@ -288,7 +289,7 @@ function projectFiltersKey(filters: ProjectFilters = {}) {
   });
 }
 
-function invalidateProjectReadCache() {
+export function invalidateProjectReadCache() {
   invalidateCached(
     (key) =>
       key.startsWith("projects:")
@@ -573,6 +574,14 @@ export async function createProject(values: ProjectFormValues, actorUserId: stri
 
   if (!data) {
     throw new Error("Project creation did not return an id.");
+  }
+
+  // Boards created from now on start with the restrictive default workflow. If this
+  // fails the board simply keeps the built-in, unrestricted one.
+  try {
+    await createDefaultBoardWorkflow(data.id, actorUserId);
+  } catch (workflowError) {
+    console.error("[projects:create] default workflow not saved", workflowError);
   }
 
   await logActivity({

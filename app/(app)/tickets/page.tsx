@@ -1,10 +1,15 @@
 import { Suspense } from "react";
+import Link from "next/link";
+import { Settings2 } from "lucide-react";
 
 import { requireRouteAccess } from "@/lib/auth/server";
 import { isManagerLikeRole } from "@/lib/auth/permissions";
 import { getCurrentLocale, getDictionary, getMessage } from "@/lib/i18n/server";
 import { getTeamWorkload } from "@/lib/team/service";
+import { canManageBoard } from "@/lib/tickets/board-access";
 import { getTeamWorkloadPreview, getTicketQuickCounts, getTickets, getTicketsFilterData } from "@/lib/tickets/service";
+import { getBoardWorkflows } from "@/lib/tickets/workflow-service";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { QuickFilters } from "@/components/shared/quick-filters";
 import { TicketEmptyState } from "@/components/tickets/ticket-empty-state";
@@ -83,9 +88,10 @@ async function TicketsContent({
     projectId: filters.projectId,
     type: filters.type,
   };
-  const requestedView = (getString(params.view) as TicketWorkspaceView) ?? "table";
+  // The board is the default view; the list is one click away.
+  const requestedView = getString(params.view) as TicketWorkspaceView | undefined;
   const canUseKanban = auth.role !== "shareholder";
-  const activeView: TicketWorkspaceView = requestedView === "kanban" && canUseKanban ? "kanban" : "table";
+  const activeView: TicketWorkspaceView = requestedView === "table" || !canUseKanban ? "table" : "kanban";
   const canCreate = auth.role === "admin" || isManagerLikeRole(auth.role);
 
   const [tickets, scopeTickets, filterData, assigneeWorkloads] = await Promise.all([
@@ -93,6 +99,15 @@ async function TicketsContent({
     getTickets(auth.role, baseFilters),
     getTicketsFilterData(),
     canCreate ? getTeamWorkload(auth.role, auth.profile.id) : Promise.resolve([]),
+  ]);
+  // Filtering on one project shows that project's board, with its own stages.
+  const boardProject = filters.projectId ? filterData.projects.find((project) => project.id === filters.projectId) ?? null : null;
+  const [workflows, canConfigureBoard] = await Promise.all([
+    getBoardWorkflows([
+      ...tickets.map((ticket) => ticket.project_id),
+      ...filterData.projects.map((project) => project.id),
+    ]),
+    boardProject ? canManageBoard(auth.role, auth.profile.id, boardProject.id) : Promise.resolve(false),
   ]);
   const suggestedAssignees = assigneeWorkloads
     .filter((member) => member.availability_status === "available" || member.availability_status === "busy")
@@ -148,6 +163,7 @@ async function TicketsContent({
               role={auth.role}
               filterData={filterData}
               defaults={initialProjectId ? { project_id: initialProjectId } : undefined}
+              workflows={workflows}
               openOnLoad={openCreateForm}
               assigneeWorkloads={assigneeWorkloads}
               suggestedAssignees={suggestedAssignees}
@@ -176,24 +192,49 @@ async function TicketsContent({
           <div className="flex items-baseline gap-2">
             <h2 id="ticket-queue-heading" className="text-lg font-semibold tracking-tight">
               {activeView === "kanban"
-                ? getMessage(dictionary, "tickets.page.kanbanBoard", "Kanban board")
+                ? boardProject
+                  ? `${getMessage(dictionary, "tickets.page.kanbanBoard", "Kanban board")} · ${boardProject.name}`
+                  : getMessage(dictionary, "tickets.page.kanbanBoard", "Kanban board")
                 : getMessage(dictionary, "tickets.page.ticketList", "Ticket list")}
             </h2>
             <span className="text-sm text-muted-foreground">
               {formatNumber(tickets.length)} {getMessage(dictionary, "tickets.page.results", "results")}
             </span>
           </div>
-          <TicketViewSwitcher
-            activeView={activeView}
-            canUseKanban={canUseKanban}
-            queryString={queryString}
-            labels={{ table: isFr ? "Liste" : "List", kanban: "Kanban" }}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            {activeView === "kanban" && boardProject && canConfigureBoard ? (
+              <Button asChild variant="secondary">
+                <Link href={`/projects/${boardProject.id}/workflow`}>
+                  <Settings2 className="size-4" />
+                  {isFr ? "Paramètres du workflow" : "Workflow settings"}
+                </Link>
+              </Button>
+            ) : null}
+            <TicketViewSwitcher
+              activeView={activeView}
+              canUseKanban={canUseKanban}
+              queryString={queryString}
+              labels={{ table: isFr ? "Liste" : "List", kanban: "Kanban" }}
+            />
+          </div>
         </div>
 
-        {tickets.length ? (
+        {activeView === "kanban" && !boardProject ? (
+          <p className="text-xs text-muted-foreground">
+            {isFr
+              ? "Ce tableau regroupe plusieurs projets, par statut. Filtrez sur un projet pour voir les étapes de son propre tableau."
+              : "This board mixes projects, grouped by status. Filter on one project to see its board's own stages."}
+          </p>
+        ) : null}
+
+        {tickets.length || (activeView === "kanban" && boardProject) ? (
           activeView === "kanban" ? (
-            <TicketKanban tickets={tickets.filter((ticket) => ticket.status !== "archived")} canDrag={canUseKanban} />
+            <TicketKanban
+              tickets={tickets.filter((ticket) => ticket.status !== "archived")}
+              canDrag={canUseKanban}
+              workflows={workflows}
+              boardProjectId={boardProject?.id}
+            />
           ) : (
             <TicketTable tickets={tickets} />
           )
@@ -201,7 +242,8 @@ async function TicketsContent({
           <TicketEmptyState
             role={auth.role}
             filterData={filterData}
-            clearFiltersHref={hasActiveFilters ? `/tickets${activeView === "kanban" ? "?view=kanban" : ""}` : undefined}
+            workflows={workflows}
+            clearFiltersHref={hasActiveFilters ? `/tickets${activeView === "table" ? "?view=table" : ""}` : undefined}
           />
         )}
       </section>

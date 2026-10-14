@@ -43,7 +43,7 @@ function TicketRow({ ticket, locale }: { ticket: TicketRecord; locale: "en" | "f
 
         {/* On small screens the remaining fields share one wrapped line under the title. */}
         <span className="flex min-w-0 flex-wrap items-center gap-2 pl-6.5 md:contents">
-          <span className="md:block"><TicketStatusBadge status={ticket.status} /></span>
+          <span className="md:block"><TicketStatusBadge status={ticket.status} label={ticket.status === "archived" ? undefined : ticket.stage_name ?? undefined} /></span>
           <span className="md:block"><TicketPriorityBadge priority={ticket.priority} /></span>
           <span className="min-w-0 md:block"><TicketAssignee name={ticket.assignee?.full_name} locale={locale} /></span>
           <TicketDue ticket={ticket} locale={locale} className="text-sm md:text-right" />

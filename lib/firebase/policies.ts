@@ -35,6 +35,7 @@ const DEPENDENCIES: Record<string, string[]> = {
   tasks: CORE,
   task_dependencies: CORE,
   subtasks: CORE,
+  project_workflows: CORE,
   milestones: CORE,
   contracts: [...CORE, "contracts"],
   invoices: [...CORE, "contracts", "invoices"],
@@ -750,6 +751,14 @@ export class AccessPolicy {
       // ticket editor cannot hand their sub-task to someone else.
       update: { using: (row) => this.canEditSubtasksOf(row.task_id) || this.is(row.assignee_id) },
       delete: (row) => this.canEditSubtasksOf(row.task_id),
+    },
+    // A board's workflow is readable by anyone who can see the project and
+    // editable by whoever manages it.
+    project_workflows: {
+      select: (row) => this.canReadProject(row.project_id),
+      insert: (row) => this.canManageProject(row.project_id),
+      update: { using: (row) => this.canManageProject(row.project_id) },
+      delete: (row) => this.canManageProject(row.project_id),
     },
     milestones: {
       select: (row) => this.canReadProject(row.project_id),
