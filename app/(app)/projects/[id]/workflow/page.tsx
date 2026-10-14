@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, SquareKanban } from "lucide-react";
+import { SquareKanban } from "lucide-react";
 
 import { requireRouteAccess } from "@/lib/auth/server";
 import { getCurrentLocale } from "@/lib/i18n/server";
@@ -35,10 +35,6 @@ export default async function ProjectWorkflowPage({
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
-          <Link href={`/projects/${project.id}`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="size-4" />
-            {project.name}
-          </Link>
           <h1 className="text-2xl font-semibold tracking-tight">{isFr ? "Paramètres du workflow" : "Workflow settings"}</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
             {isFr

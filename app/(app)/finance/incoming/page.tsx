@@ -52,9 +52,6 @@ export default async function FinanceIncomingPage() {
 
       <div className="flex flex-wrap gap-2">
         <Button asChild variant="secondary" className="rounded-full px-4">
-          <Link href="/finance">{getMessage(dictionary, "finance.incoming.actions.backToFinance", "Back to finance")}</Link>
-        </Button>
-        <Button asChild variant="secondary" className="rounded-full px-4">
           <Link href="/finance/invoices">{getMessage(dictionary, "finance.incoming.actions.fullInvoices", "Full invoices list")}</Link>
         </Button>
         <Button asChild variant="secondary" className="rounded-full px-4">

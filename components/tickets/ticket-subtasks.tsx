@@ -34,6 +34,7 @@ import { useI18n } from "@/components/layout/i18n-provider";
 import { getInitials, TicketDue } from "@/components/tickets/ticket-meta";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { ModernSelect } from "@/components/ui/modern-select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -487,16 +488,17 @@ function SubtaskRow({
           <label className="grid gap-1 text-xs font-medium text-muted-foreground">
             {isFr ? "Responsable" : "Owner"}
             {canAssign ? (
-              <select
+              <ModernSelect
+                name={`subtask-owner-${subtask.id}`}
+                searchable
                 value={subtask.assignee_id ?? ""}
-                onChange={(event) => handlers.setOwner(subtask, event.target.value || null)}
-                className="h-8 min-w-48 rounded-lg border border-input bg-background px-2 text-sm text-foreground outline-none focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-ring/60 dark:bg-muted/65"
-              >
-                <option value="">{isFr ? "Aucun responsable" : "No owner"}</option>
-                {ownerOptions.map((person) => (
-                  <option key={person.id} value={person.id}>{person.full_name}</option>
-                ))}
-              </select>
+                onValueChange={(value) => handlers.setOwner(subtask, value || null)}
+                className="h-8 min-w-48"
+                options={[
+                  { value: "", label: isFr ? "Aucun responsable" : "No owner" },
+                  ...ownerOptions.map((person) => ({ value: person.id, label: person.full_name })),
+                ]}
+              />
             ) : (
               <span className="flex h-8 items-center text-sm text-foreground">
                 {subtask.assignee?.full_name ?? (isFr ? "Aucun responsable" : "No owner")}

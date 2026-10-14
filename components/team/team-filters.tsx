@@ -1,13 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { Search } from "lucide-react";
+import { X } from "lucide-react";
 
 import { useI18n } from "@/components/layout/i18n-provider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
+import { FilterSearchInput } from "@/components/shared/filter-search-input";
+import { useFilterParams } from "@/hooks/use-filter-params";
+import { cn } from "@/lib/utils";
 import type { TeamFilters as TeamFiltersType, TeamFiltersData } from "@/types/team";
+
+const filterKeys = ["search", "role", "team", "availability", "workload", "assignment"] as const;
 
 export function TeamFilters({
   filters,
@@ -18,22 +21,27 @@ export function TeamFilters({
 }) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
+  const { applyFilter, clearFilters, hasActiveFilters, isPending } = useFilterParams(filterKeys);
 
   return (
-    <form className="grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[1.4fr_repeat(5,minmax(0,1fr))_auto] dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
-      <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          name="search"
-          defaultValue={filters.search ?? ""}
-          placeholder={isFr ? "Rechercher une personne, un projet, un client ou une tâche active" : "Search a person, project, client, or active task"}
-          className="border-border/70 bg-background/55 pl-11 dark:border-white/10 dark:bg-slate-950/45"
-        />
-      </div>
+    <div
+      className={cn(
+        "grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[1.4fr_repeat(5,minmax(0,1fr))_auto] dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none transition-opacity",
+        isPending && "opacity-70",
+      )}
+      aria-busy={isPending}
+    >
+      <FilterSearchInput
+        value={filters.search ?? ""}
+        onSearch={(value) => applyFilter("search", value, { history: "replace" })}
+        placeholder={isFr ? "Rechercher une personne, un projet, un client ou une tâche active" : "Search a person, project, client, or active task"}
+        inputClassName="border-border/70 bg-background/55 dark:border-white/10 dark:bg-slate-950/45"
+      />
 
       <ModernSelect
         name="role"
-        defaultValue={filters.role ?? ""}
+        value={filters.role ?? ""}
+        onValueChange={(value) => applyFilter("role", value)}
         placeholder={isFr ? "Tous les rôles" : "All roles"}
         options={[
           { value: "", label: isFr ? "Tous les rôles" : "All roles" },
@@ -47,7 +55,9 @@ export function TeamFilters({
 
       <ModernSelect
         name="team"
-        defaultValue={filters.teamId ?? ""}
+        searchable
+        value={filters.teamId ?? ""}
+        onValueChange={(value) => applyFilter("team", value)}
         placeholder={isFr ? "Toutes les équipes" : "All teams"}
         options={[
           { value: "", label: isFr ? "Toutes les équipes" : "All teams" },
@@ -57,7 +67,8 @@ export function TeamFilters({
 
       <ModernSelect
         name="availability"
-        defaultValue={filters.availability ?? ""}
+        value={filters.availability ?? ""}
+        onValueChange={(value) => applyFilter("availability", value)}
         placeholder={isFr ? "Toute disponibilité" : "Any availability"}
         options={[
           { value: "", label: isFr ? "Toute disponibilité" : "Any availability" },
@@ -71,7 +82,8 @@ export function TeamFilters({
 
       <ModernSelect
         name="workload"
-        defaultValue={filters.workload ?? ""}
+        value={filters.workload ?? ""}
+        onValueChange={(value) => applyFilter("workload", value)}
         placeholder={isFr ? "Toute charge" : "Any workload"}
         options={[
           { value: "", label: isFr ? "Toute charge" : "Any workload" },
@@ -84,7 +96,8 @@ export function TeamFilters({
 
       <ModernSelect
         name="assignment"
-        defaultValue={filters.assignment ?? ""}
+        value={filters.assignment ?? ""}
+        onValueChange={(value) => applyFilter("assignment", value)}
         placeholder={isFr ? "Tout état" : "Any state"}
         options={[
           { value: "", label: isFr ? "Tout état d’affectation" : "Any assignment state" },
@@ -96,14 +109,16 @@ export function TeamFilters({
         ]}
       />
 
-      <div className="flex gap-2">
-        <Button type="submit" className="rounded-xl px-5">
-          {isFr ? "Appliquer" : "Apply"}
-        </Button>
-        <Button asChild variant="secondary" className="rounded-xl px-5">
-          <Link href="/team">{isFr ? "Réinitialiser" : "Reset"}</Link>
-        </Button>
-      </div>
-    </form>
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={clearFilters}
+        disabled={!hasActiveFilters || isPending}
+        className="text-muted-foreground"
+      >
+        <X />
+        {isFr ? "Effacer les filtres" : "Clear filters"}
+      </Button>
+    </div>
   );
 }

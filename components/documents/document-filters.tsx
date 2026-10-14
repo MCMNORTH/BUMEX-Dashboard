@@ -1,12 +1,16 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { X } from "lucide-react";
 
 import { useI18n } from "@/components/layout/i18n-provider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
+import { FilterSearchInput } from "@/components/shared/filter-search-input";
+import { useFilterParams } from "@/hooks/use-filter-params";
+import { cn } from "@/lib/utils";
 import type { DocumentFilters, DocumentFiltersData } from "@/types/document";
+
+const filterKeys = ["search", "documentType", "relatedType", "client", "project", "contract", "archive", "visibility", "uploadedBy", "date"] as const;
 
 export function DocumentFilters({
   filters,
@@ -17,22 +21,28 @@ export function DocumentFilters({
 }) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
+  const { applyFilter, clearFilters, hasActiveFilters, isPending } = useFilterParams(filterKeys);
 
   return (
-    <form className="grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] lg:grid-cols-[1.2fr_repeat(6,minmax(0,1fr))]">
-      <div className="relative lg:col-span-2">
-        <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          name="search"
-          defaultValue={filters.search ?? ""}
-          placeholder={isFr ? "Rechercher un titre, fichier ou une description" : "Search title, file, or description"}
-          className="h-11 rounded-xl pl-10"
-        />
-      </div>
+    <div
+      className={cn(
+        "grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] lg:grid-cols-[1.2fr_repeat(6,minmax(0,1fr))] transition-opacity",
+        isPending && "opacity-70",
+      )}
+      aria-busy={isPending}
+    >
+      <FilterSearchInput
+        className="lg:col-span-2"
+        value={filters.search ?? ""}
+        onSearch={(value) => applyFilter("search", value, { history: "replace" })}
+        placeholder={isFr ? "Rechercher un titre, fichier ou une description" : "Search title, file, or description"}
+        inputClassName="h-11 rounded-xl"
+      />
 
       <ModernSelect
         name="documentType"
-        defaultValue={filters.documentType ?? ""}
+        value={filters.documentType ?? ""}
+        onValueChange={(value) => applyFilter("documentType", value)}
         placeholder={isFr ? "Tous les types" : "All types"}
         options={[
           { value: "", label: isFr ? "Tous les types" : "All types" },
@@ -51,7 +61,8 @@ export function DocumentFilters({
 
       <ModernSelect
         name="relatedType"
-        defaultValue={filters.relatedType ?? ""}
+        value={filters.relatedType ?? ""}
+        onValueChange={(value) => applyFilter("relatedType", value)}
         placeholder={isFr ? "Tous les liens" : "All links"}
         options={[
           { value: "", label: isFr ? "Tous les liens" : "All links" },
@@ -68,7 +79,9 @@ export function DocumentFilters({
 
       <ModernSelect
         name="client"
-        defaultValue={filters.clientId ?? ""}
+        searchable
+        value={filters.clientId ?? ""}
+        onValueChange={(value) => applyFilter("client", value)}
         placeholder={isFr ? "Tous les clients" : "All clients"}
         options={[
           { value: "", label: isFr ? "Tous les clients" : "All clients" },
@@ -78,7 +91,9 @@ export function DocumentFilters({
 
       <ModernSelect
         name="project"
-        defaultValue={filters.projectId ?? ""}
+        searchable
+        value={filters.projectId ?? ""}
+        onValueChange={(value) => applyFilter("project", value)}
         placeholder={isFr ? "Tous les projets" : "All projects"}
         options={[
           { value: "", label: isFr ? "Tous les projets" : "All projects" },
@@ -88,7 +103,9 @@ export function DocumentFilters({
 
       <ModernSelect
         name="contract"
-        defaultValue={filters.contractId ?? ""}
+        searchable
+        value={filters.contractId ?? ""}
+        onValueChange={(value) => applyFilter("contract", value)}
         placeholder={isFr ? "Tous les contrats" : "All contracts"}
         options={[
           { value: "", label: isFr ? "Tous les contrats" : "All contracts" },
@@ -98,7 +115,8 @@ export function DocumentFilters({
 
       <ModernSelect
         name="archive"
-        defaultValue={filters.archiveState ?? "active"}
+        value={filters.archiveState ?? "active"}
+        onValueChange={(value) => applyFilter("archive", value)}
         options={[
           { value: "active", label: isFr ? "Actifs" : "Active" },
           { value: "archived", label: isFr ? "Archivés" : "Archived" },
@@ -108,7 +126,8 @@ export function DocumentFilters({
 
       <ModernSelect
         name="visibility"
-        defaultValue={filters.visibility ?? ""}
+        value={filters.visibility ?? ""}
+        onValueChange={(value) => applyFilter("visibility", value)}
         placeholder={isFr ? "Toute visibilité" : "All visibility"}
         options={[
           { value: "", label: isFr ? "Toute visibilité" : "All visibility" },
@@ -121,7 +140,9 @@ export function DocumentFilters({
 
       <ModernSelect
         name="uploadedBy"
-        defaultValue={filters.uploadedBy ?? ""}
+        searchable
+        value={filters.uploadedBy ?? ""}
+        onValueChange={(value) => applyFilter("uploadedBy", value)}
         placeholder={isFr ? "Tous les importeurs" : "All uploaders"}
         options={[
           { value: "", label: isFr ? "Tous les importeurs" : "All uploaders" },
@@ -134,7 +155,8 @@ export function DocumentFilters({
 
       <ModernSelect
         name="date"
-        defaultValue={filters.date ?? "all"}
+        value={filters.date ?? "all"}
+        onValueChange={(value) => applyFilter("date", value)}
         options={[
           { value: "all", label: isFr ? "Toutes les dates" : "All dates" },
           { value: "recent_7d", label: isFr ? "7 derniers jours" : "Last 7 days" },
@@ -143,14 +165,16 @@ export function DocumentFilters({
         ]}
       />
 
-      <div className="flex gap-2 lg:col-span-2 lg:justify-end">
-        <Button type="submit" variant="secondary" className="rounded-xl px-5">
-          {isFr ? "Appliquer les filtres" : "Apply filters"}
-        </Button>
-        <Button asChild variant="ghost" className="rounded-xl px-4">
-          <a href="/documents">{isFr ? "Réinitialiser" : "Reset"}</a>
-        </Button>
-      </div>
-    </form>
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={clearFilters}
+        disabled={!hasActiveFilters || isPending}
+        className="text-muted-foreground"
+      >
+        <X />
+        {isFr ? "Effacer les filtres" : "Clear filters"}
+      </Button>
+    </div>
   );
 }

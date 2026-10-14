@@ -8,6 +8,7 @@ import {
   sanitizeSearchResultForRole,
 } from "@/lib/search/permissions";
 import { createClient } from "@/lib/firebase/server";
+import { normalizeSearchText, searchTerms } from "@/lib/search/text";
 import type { AppRole } from "@/types/auth";
 import type { GlobalSearchEntityType, GlobalSearchResult } from "@/types/search";
 
@@ -18,23 +19,18 @@ type SearchViewer = {
   role: AppRole;
 };
 
-function withWildcards(query: string) {
-  return `%${query.trim()}%`;
-}
-
-function normalizeSearchValue(value: string | null | undefined) {
-  return (value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLocaleLowerCase();
+// Each entity returns its best matches, so fetch a wider pool by recency and rank it here.
+function candidateLimit(limit: number) {
+  return Math.max(limit * 5, 25);
 }
 
 function searchScore(result: GlobalSearchResult, query: string) {
-  const normalizedQuery = normalizeSearchValue(query);
-  const terms = normalizedQuery.split(/\s+/).filter(Boolean);
-  const title = normalizeSearchValue(result.title);
-  const description = normalizeSearchValue(result.description);
-  const relatedLabel = normalizeSearchValue(result.relatedLabel);
+  const normalizedQuery = normalizeSearchText(query);
+  const terms = searchTerms(query);
+  const title = normalizeSearchText(result.title);
+  const titleWords = title.split(/[^a-z0-9]+/).filter(Boolean);
+  const description = normalizeSearchText(result.description);
+  const relatedLabel = normalizeSearchText(result.relatedLabel);
   const allText = `${title} ${description} ${relatedLabel}`;
 
   let score = 0;
@@ -42,9 +38,14 @@ function searchScore(result: GlobalSearchResult, query: string) {
   if (title === normalizedQuery) score += 1_000;
   else if (title.startsWith(normalizedQuery)) score += 600;
   else if (title.includes(normalizedQuery)) score += 350;
+  else if (terms.every((term) => title.includes(term))) score += 250;
   else if (description.includes(normalizedQuery) || relatedLabel.includes(normalizedQuery)) score += 160;
 
-  score += terms.reduce((total, term) => total + (title.includes(term) ? 60 : allText.includes(term) ? 20 : 0), 0);
+  score += terms.reduce((total, term) => {
+    if (titleWords.some((word) => word.startsWith(term))) return total + 80;
+    if (title.includes(term)) return total + 60;
+    return total + (allText.includes(term) ? 20 : 0);
+  }, 0);
 
   if (result.updatedAt) {
     const ageInDays = (Date.now() - new Date(result.updatedAt).getTime()) / 86_400_000;
@@ -53,6 +54,21 @@ function searchScore(result: GlobalSearchResult, query: string) {
   }
 
   return score;
+}
+
+function compareResults(left: GlobalSearchResult, right: GlobalSearchResult, query: string) {
+  const scoreDifference = searchScore(right, query) - searchScore(left, query);
+  if (scoreDifference !== 0) return scoreDifference;
+
+  const leftUpdatedAt = left.updatedAt ? new Date(left.updatedAt).getTime() : 0;
+  const rightUpdatedAt = right.updatedAt ? new Date(right.updatedAt).getTime() : 0;
+  if (rightUpdatedAt !== leftUpdatedAt) return rightUpdatedAt - leftUpdatedAt;
+
+  return entityLabel(left.entityType).localeCompare(entityLabel(right.entityType));
+}
+
+function topResults<T extends GlobalSearchResult>(results: T[], query: string, limit: number) {
+  return [...results].sort((left, right) => compareResults(left, right, query)).slice(0, limit);
 }
 
 function entityLabel(entityType: GlobalSearchEntityType) {
@@ -70,16 +86,16 @@ function entityLabel(entityType: GlobalSearchEntityType) {
   return labels[entityType];
 }
 
-async function safeSearch<T>(callback: () => Promise<T[]>) {
+async function safeSearch<T extends GlobalSearchResult>(query: string, limit: number, callback: () => Promise<T[]>) {
   try {
-    return await callback();
+    return topResults(await callback(), query, limit);
   } catch {
     return [];
   }
 }
 
 export async function searchProjects(query: string, limit = RESULT_LIMIT) {
-  return safeSearch(async () => {
+  return safeSearch(query, limit, async () => {
     const db = await createClient();
     if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
@@ -98,7 +114,7 @@ export async function searchProjects(query: string, limit = RESULT_LIMIT) {
           )
         `,
       )
-      .or(`name.ilike.${withWildcards(query)},description.ilike.${withWildcards(query)}`)
+      .matchText(["name", "description"], query)
       .order("created_at", { ascending: false });
 
     if (entityCode) {
@@ -106,7 +122,7 @@ export async function searchProjects(query: string, limit = RESULT_LIMIT) {
     }
 
     const { data, error } = await queryBuilder
-      .limit(limit)
+      .limit(candidateLimit(limit))
       .returns<Array<{
         id: string;
         name: string;
@@ -132,7 +148,7 @@ export async function searchProjects(query: string, limit = RESULT_LIMIT) {
 }
 
 export async function searchTickets(query: string, limit = RESULT_LIMIT) {
-  return safeSearch(async () => {
+  return safeSearch(query, limit, async () => {
     const db = await createClient();
     if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
@@ -155,7 +171,7 @@ export async function searchTickets(query: string, limit = RESULT_LIMIT) {
           )
         `,
       )
-      .or(`title.ilike.${withWildcards(query)},type.ilike.${withWildcards(query)}`)
+      .matchText(["title", "description", "type"], query)
       .order("updated_at", { ascending: false });
 
     if (entityCode) {
@@ -163,7 +179,7 @@ export async function searchTickets(query: string, limit = RESULT_LIMIT) {
     }
 
     const { data, error } = await queryBuilder
-      .limit(limit)
+      .limit(candidateLimit(limit))
       .returns<Array<{
         id: string;
         title: string;
@@ -205,7 +221,7 @@ export async function searchTickets(query: string, limit = RESULT_LIMIT) {
 }
 
 export async function searchClients(query: string, limit = RESULT_LIMIT) {
-  return safeSearch(async () => {
+  return safeSearch(query, limit, async () => {
     const db = await createClient();
     if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
@@ -224,7 +240,7 @@ export async function searchClients(query: string, limit = RESULT_LIMIT) {
           )
         `,
       )
-      .or(`name.ilike.${withWildcards(query)},industry.ilike.${withWildcards(query)}`)
+      .matchText(["name", "legal_name", "industry", "contact_email", "city", "country"], query)
       .order("updated_at", { ascending: false });
 
     if (entityCode) {
@@ -232,7 +248,7 @@ export async function searchClients(query: string, limit = RESULT_LIMIT) {
     }
 
     const { data, error } = await queryBuilder
-      .limit(limit)
+      .limit(candidateLimit(limit))
       .returns<Array<{
         id: string;
         name: string;
@@ -260,7 +276,7 @@ export async function searchClients(query: string, limit = RESULT_LIMIT) {
 }
 
 export async function searchContracts(query: string, limit = RESULT_LIMIT) {
-  return safeSearch(async () => {
+  return safeSearch(query, limit, async () => {
     const db = await createClient();
     if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
@@ -279,7 +295,7 @@ export async function searchContracts(query: string, limit = RESULT_LIMIT) {
           )
         `,
       )
-      .or(`title.ilike.${withWildcards(query)},contract_type.ilike.${withWildcards(query)}`)
+      .matchText(["title", "contract_number", "contract_type"], query)
       .order("updated_at", { ascending: false });
 
     if (entityCode) {
@@ -287,7 +303,7 @@ export async function searchContracts(query: string, limit = RESULT_LIMIT) {
     }
 
     const { data, error } = await queryBuilder
-      .limit(limit)
+      .limit(candidateLimit(limit))
       .returns<Array<{
         id: string;
         title: string;
@@ -313,7 +329,7 @@ export async function searchContracts(query: string, limit = RESULT_LIMIT) {
 }
 
 export async function searchDocuments(query: string, limit = RESULT_LIMIT, role?: AppRole) {
-  return safeSearch(async () => {
+  return safeSearch(query, limit, async () => {
     const db = await createClient();
     if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
@@ -330,7 +346,7 @@ export async function searchDocuments(query: string, limit = RESULT_LIMIT, role?
           updated_at
         `,
       )
-      .or(`title.ilike.${withWildcards(query)},document_type.ilike.${withWildcards(query)}`)
+      .matchText(["title", "file_name", "description", "document_type"], query)
       .order("updated_at", { ascending: false });
 
     if (role === "shareholder") {
@@ -346,7 +362,7 @@ export async function searchDocuments(query: string, limit = RESULT_LIMIT, role?
     }
 
     const { data, error } = await queryBuilder
-      .limit(limit)
+      .limit(candidateLimit(limit))
       .returns<Array<{
         id: string;
         title: string;
@@ -372,7 +388,7 @@ export async function searchDocuments(query: string, limit = RESULT_LIMIT, role?
 }
 
 export async function searchInvoices(query: string, limit = RESULT_LIMIT) {
-  return safeSearch(async () => {
+  return safeSearch(query, limit, async () => {
     const db = await createClient();
     if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
@@ -392,7 +408,7 @@ export async function searchInvoices(query: string, limit = RESULT_LIMIT) {
           )
         `,
       )
-      .or(`invoice_number.ilike.${withWildcards(query)},status.ilike.${withWildcards(query)}`)
+      .matchText(["invoice_number", "notes", "status"], query)
       .order("updated_at", { ascending: false });
 
     if (entityCode) {
@@ -400,7 +416,7 @@ export async function searchInvoices(query: string, limit = RESULT_LIMIT) {
     }
 
     const { data, error } = await queryBuilder
-      .limit(limit)
+      .limit(candidateLimit(limit))
       .returns<Array<{
         id: string;
         invoice_number: string;
@@ -431,7 +447,7 @@ export async function searchInvoices(query: string, limit = RESULT_LIMIT) {
 }
 
 export async function searchPayments(query: string, limit = RESULT_LIMIT) {
-  return safeSearch(async () => {
+  return safeSearch(query, limit, async () => {
     const db = await createClient();
     if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
@@ -451,7 +467,7 @@ export async function searchPayments(query: string, limit = RESULT_LIMIT) {
           )
         `,
       )
-      .or(`reference.ilike.${withWildcards(query)},status.ilike.${withWildcards(query)}`)
+      .matchText(["reference", "notes", "status"], query)
       .order("updated_at", { ascending: false });
 
     if (entityCode) {
@@ -459,7 +475,7 @@ export async function searchPayments(query: string, limit = RESULT_LIMIT) {
     }
 
     const { data, error } = await queryBuilder
-      .limit(limit)
+      .limit(candidateLimit(limit))
       .returns<Array<{
         id: string;
         status: string;
@@ -490,7 +506,7 @@ export async function searchPayments(query: string, limit = RESULT_LIMIT) {
 }
 
 export async function searchTeamMembers(query: string, limit = RESULT_LIMIT) {
-  return safeSearch(async () => {
+  return safeSearch(query, limit, async () => {
     const db = await createClient();
     if (!db) return [];
     const entityCode = await getOptionalCurrentEntityCode();
@@ -498,7 +514,7 @@ export async function searchTeamMembers(query: string, limit = RESULT_LIMIT) {
     let queryBuilder = db
       .from("profiles")
       .select("id, full_name, email, role, job_title, department, availability_status, updated_at")
-      .or(`full_name.ilike.${withWildcards(query)},email.ilike.${withWildcards(query)},job_title.ilike.${withWildcards(query)}`)
+      .matchText(["full_name", "email", "job_title", "department"], query)
       .order("full_name", { ascending: true });
 
     if (entityCode) {
@@ -506,7 +522,7 @@ export async function searchTeamMembers(query: string, limit = RESULT_LIMIT) {
     }
 
     const { data, error } = await queryBuilder
-      .limit(limit)
+      .limit(candidateLimit(limit))
       .returns<Array<{
         id: string;
         full_name: string;
@@ -567,14 +583,5 @@ export async function globalSearch(query: string, user: SearchViewer, options?: 
     .filter((result) => canViewSearchResult(user, result))
     .map((result) => sanitizeSearchResultForRole(result, user.role));
 
-  return visibleResults.sort((left, right) => {
-    const scoreDifference = searchScore(right, normalizedQuery) - searchScore(left, normalizedQuery);
-    if (scoreDifference !== 0) return scoreDifference;
-
-    const leftUpdatedAt = left.updatedAt ? new Date(left.updatedAt).getTime() : 0;
-    const rightUpdatedAt = right.updatedAt ? new Date(right.updatedAt).getTime() : 0;
-    if (rightUpdatedAt !== leftUpdatedAt) return rightUpdatedAt - leftUpdatedAt;
-
-    return entityLabel(left.entityType).localeCompare(entityLabel(right.entityType));
-  });
+  return visibleResults.sort((left, right) => compareResults(left, right, normalizedQuery));
 }

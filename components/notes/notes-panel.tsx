@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useI18n } from "@/components/layout/i18n-provider";
+import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
 import type { AppRole } from "@/types/auth";
 import { canCreateNoteByRole, type InternalNoteEntityType, type InternalNoteRecord, type NoteVisibility } from "@/types/note";
 
@@ -40,13 +41,11 @@ export function NotesPanel({
   const canCreate = canCreateNoteByRole(role, entityType);
 
   const filteredNotes = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+    const terms = searchTerms(query);
 
     return notes.filter((note) => {
       const matchesVisibility = visibility === "all" ? true : note.visibility === visibility;
-      const matchesQuery = normalizedQuery
-        ? [note.title, note.body, note.author?.full_name ?? ""].some((value) => value.toLowerCase().includes(normalizedQuery))
-        : true;
+      const matchesQuery = matchesSearchTerms(terms, [note.title, note.body, note.author?.full_name]);
 
       return matchesVisibility && matchesQuery;
     });

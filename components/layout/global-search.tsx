@@ -23,6 +23,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/components/layout/i18n-provider";
+import { normalizeSearchText } from "@/lib/search/text";
 import { cn } from "@/lib/utils";
 import type { GlobalSearchEntityType, GlobalSearchResult } from "@/types/search";
 
@@ -31,19 +32,17 @@ type QuickLink = { title: string; description: string; href: string; keywords: s
 type SearchMenuItem = { key: string; href: string };
 
 const RECENT_SEARCHES_KEY = "bumex-recent-searches";
-
-function normalizeText(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLocaleLowerCase();
-}
+const SEARCH_DELAY_MS = 180;
+const CACHE_SIZE = 40;
+const normalizeText = normalizeSearchText;
 
 export function GlobalSearch() {
   const { t } = useI18n();
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  // Recent answers, so backspacing or retyping a query shows results instantly.
+  const resultCacheRef = useRef(new Map<string, GlobalSearchResult[]>());
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<GlobalSearchResult[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -112,20 +111,33 @@ export function GlobalSearch() {
   }, []);
 
   useEffect(() => {
-    if (query.trim().length < 2) {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
       setResults([]);
       setState("idle");
       return;
     }
 
+    const cacheKey = normalizeText(trimmed).replace(/\s+/g, " ");
+    const cached = resultCacheRef.current.get(cacheKey);
+    if (cached) {
+      setResults(cached);
+      setState("ready");
+      return;
+    }
+
+    // Earlier results stay on screen until the new ones arrive.
+    setState("loading");
     const controller = new AbortController();
     const timeout = window.setTimeout(async () => {
       try {
-        setState("loading");
-        const response = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`, { signal: controller.signal });
+        const response = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`, { signal: controller.signal });
         if (!response.ok) throw new Error("Search failed");
 
         const payload = (await response.json()) as { results: GlobalSearchResult[] };
+        const cache = resultCacheRef.current;
+        cache.set(cacheKey, payload.results);
+        if (cache.size > CACHE_SIZE) cache.delete(cache.keys().next().value!);
         setResults(payload.results);
         setState("ready");
       } catch {
@@ -133,7 +145,7 @@ export function GlobalSearch() {
         setResults([]);
         setState("error");
       }
-    }, 180);
+    }, SEARCH_DELAY_MS);
 
     return () => {
       controller.abort();
@@ -204,7 +216,11 @@ export function GlobalSearch() {
   return (
     <div ref={containerRef} className="relative order-last basis-full min-w-0 lg:order-none lg:basis-auto lg:flex-1">
       <div className="group flex h-10 items-center gap-2.5 rounded-lg border border-input bg-card px-3 shadow-none transition-[background-color,border-color,box-shadow] duration-200 hover:border-border focus-within:border-primary focus-within:ring-3 focus-within:ring-ring/60 sm:px-4">
-        <Search className="size-4 text-muted-foreground transition-colors group-hover:text-primary" />
+        {state === "loading" ? (
+          <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden="true" />
+        ) : (
+          <Search className="size-4 text-muted-foreground transition-colors group-hover:text-primary" />
+        )}
         <input
           ref={inputRef}
           value={query}
@@ -234,9 +250,9 @@ export function GlobalSearch() {
       {open ? (
         <div id="global-search-results" className="absolute inset-x-0 top-[calc(100%+0.45rem)] z-50 overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-elevated)] lg:min-w-[36rem]">
           <div className="max-h-[70vh] overflow-y-auto p-2.5 sm:max-h-[30rem]">
-            {state === "loading" ? <DropdownMessage icon={Loader2} label={t("search.loading", "Searching workspace...")} spinning /> : null}
+            {state === "loading" && !results.length ? <DropdownMessage icon={Loader2} label={t("search.loading", "Searching workspace...")} spinning /> : null}
             {state === "error" ? <DropdownMessage icon={AlertCircle} label={t("search.error", "Search is temporarily unavailable.")} /> : null}
-            {state !== "loading" && state !== "error" ? (
+            {state === "ready" || state === "idle" || (state === "loading" && results.length > 0) ? (
               <div className="space-y-4">
                 {!query.trim() && recentSearches.length ? (
                   <SearchSection title={t("search.recent", "Recent searches")} icon={History}>

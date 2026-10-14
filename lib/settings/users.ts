@@ -45,8 +45,7 @@ export async function getSettingsUsers(filters: SettingsUserFilters = {}) {
 
   const search = filters.search?.trim();
   if (search) {
-    const escapedSearch = search.replace(/[%_]/g, "\\$&");
-    query = query.or(`full_name.ilike.%${escapedSearch}%,email.ilike.%${escapedSearch}%`);
+    query = query.matchText(["full_name", "email"], search);
   }
 
   if (filters.role) {

@@ -332,7 +332,7 @@ async function getFreshProjects(filters: ProjectFilters = {}, entityCode?: strin
     }
 
     if (filters.search) {
-      query = query.ilike("name", `%${filters.search}%`);
+      query = query.matchText(["name"], filters.search);
     }
 
     if (filters.status) {

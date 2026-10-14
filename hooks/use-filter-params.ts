@@ -19,23 +19,26 @@ export function useFilterParams<Key extends string>(keys: readonly Key[]) {
     return Boolean(value && value !== "all");
   });
 
-  function navigate(update: (params: URLSearchParams) => void) {
+  function navigate(update: (params: URLSearchParams) => void, history: "push" | "replace" = "push") {
     const next = new URLSearchParams(searchParams.toString());
     transientParams.forEach((key) => next.delete(key));
     update(next);
+    const href = next.size ? `${pathname}?${next.toString()}` : pathname;
+    if (href === `${pathname}${searchParams.size ? `?${searchParams.toString()}` : ""}`) return;
     startTransition(() => {
-      router.push(next.size ? `${pathname}?${next.toString()}` : pathname, { scroll: false });
+      router[history](href, { scroll: false });
     });
   }
 
-  function applyFilter(key: Key, value: string) {
+  /** `replace` keeps search-as-you-type from adding a history entry per keystroke. */
+  function applyFilter(key: Key, value: string, options?: { history?: "push" | "replace" }) {
     navigate((params) => {
       if (value && value !== "all") {
         params.set(key, value);
       } else {
         params.delete(key);
       }
-    });
+    }, options?.history);
   }
 
   function clearFilters() {

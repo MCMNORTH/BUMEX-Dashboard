@@ -91,6 +91,7 @@ export function MilestoneForm({
             <ModernSelect
               id={`${mode}-project`}
               name="project_id"
+              searchable
               defaultValue={defaults?.project_id ?? ""}
               placeholder="Select project"
               options={[
@@ -154,6 +155,7 @@ export function MilestoneForm({
             <ModernSelect
               id={`${mode}-owner`}
               name="owner_id"
+              searchable
               defaultValue={defaults?.owner_id ?? ""}
               placeholder="No owner"
               options={[

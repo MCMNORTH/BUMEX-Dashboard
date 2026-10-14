@@ -1,13 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { Search } from "lucide-react";
+import { X } from "lucide-react";
 
 import { useI18n } from "@/components/layout/i18n-provider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
+import { FilterSearchInput } from "@/components/shared/filter-search-input";
+import { useFilterParams } from "@/hooks/use-filter-params";
+import { cn } from "@/lib/utils";
 import type { ContractFilters, ContractFiltersData } from "@/types/contract";
+
+const filterKeys = ["search", "client", "status", "date", "value"] as const;
 
 export function ContractFilters({
   filters,
@@ -18,22 +21,27 @@ export function ContractFilters({
 }) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
+  const { applyFilter, clearFilters, hasActiveFilters, isPending } = useFilterParams(filterKeys);
 
   return (
-    <form className="grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[1.2fr_repeat(4,minmax(0,1fr))_auto]">
-      <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          name="search"
-          placeholder={isFr ? "Rechercher des contrats ou numéros" : "Search contracts or numbers"}
-          defaultValue={filters.search ?? ""}
-          className="pl-11"
-        />
-      </div>
+    <div
+      className={cn(
+        "grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[1.2fr_repeat(4,minmax(0,1fr))_auto] transition-opacity",
+        isPending && "opacity-70",
+      )}
+      aria-busy={isPending}
+    >
+      <FilterSearchInput
+        value={filters.search ?? ""}
+        onSearch={(value) => applyFilter("search", value, { history: "replace" })}
+        placeholder={isFr ? "Rechercher des contrats ou numéros" : "Search contracts or numbers"}
+      />
 
       <ModernSelect
         name="client"
-        defaultValue={filters.clientId ?? ""}
+        searchable
+        value={filters.clientId ?? ""}
+        onValueChange={(value) => applyFilter("client", value)}
         placeholder={isFr ? "Tous les clients" : "All clients"}
         options={[
           { value: "", label: isFr ? "Tous les clients" : "All clients" },
@@ -46,7 +54,8 @@ export function ContractFilters({
 
       <ModernSelect
         name="status"
-        defaultValue={filters.status ?? ""}
+        value={filters.status ?? ""}
+        onValueChange={(value) => applyFilter("status", value)}
         placeholder={isFr ? "Tous les statuts" : "All statuses"}
         options={[
           { value: "", label: isFr ? "Tous les statuts" : "All statuses" },
@@ -62,7 +71,8 @@ export function ContractFilters({
 
       <ModernSelect
         name="date"
-        defaultValue={filters.date ?? "all"}
+        value={filters.date ?? "all"}
+        onValueChange={(value) => applyFilter("date", value)}
         options={[
           { value: "all", label: isFr ? "Toute date" : "Any date" },
           { value: "renewing_soon", label: isFr ? "Renouvellement proche" : "Renewing soon" },
@@ -74,7 +84,8 @@ export function ContractFilters({
 
       <ModernSelect
         name="value"
-        defaultValue={filters.value ?? "all"}
+        value={filters.value ?? "all"}
+        onValueChange={(value) => applyFilter("value", value)}
         options={[
           { value: "all", label: isFr ? "Toute valeur" : "Any value" },
           { value: "under_10k", label: isFr ? "Moins de 10k" : "Under 10k" },
@@ -84,12 +95,16 @@ export function ContractFilters({
         ]}
       />
 
-      <div className="flex gap-2">
-        <Button type="submit" className="rounded-xl px-5">{isFr ? "Appliquer" : "Apply"}</Button>
-        <Button asChild variant="secondary" className="rounded-xl px-5">
-          <Link href="/contracts">{isFr ? "Réinitialiser" : "Reset"}</Link>
-        </Button>
-      </div>
-    </form>
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={clearFilters}
+        disabled={!hasActiveFilters || isPending}
+        className="text-muted-foreground"
+      >
+        <X />
+        {isFr ? "Effacer les filtres" : "Clear filters"}
+      </Button>
+    </div>
   );
 }

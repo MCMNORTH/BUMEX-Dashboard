@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { BellRing, Download, FileText, LockKeyhole, RotateCcw, ShieldCheck } from "lucide-react";
 
 import { InvoiceDocumentView } from "@/components/invoices/invoice-document-view";
@@ -54,12 +53,6 @@ export default async function InvoicePreviewPage({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="secondary" className="rounded-full px-5">
-            <Link href="/finance/invoices">
-              <FileText className="size-4" />
-              {locale === "fr" ? "Retour aux factures" : "Back to invoices"}
-            </Link>
-          </Button>
           {isApproved ? <Button asChild variant="secondary" className="rounded-full px-5">
             <a href={`/api/invoices/${invoice.id}/pdf`} target="_blank" rel="noreferrer">
               <FileText className="size-4" />

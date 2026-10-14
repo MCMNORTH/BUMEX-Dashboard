@@ -39,6 +39,7 @@ export function ReportBuilder({
               <ModernSelect
                 id="report-user"
                 name="user"
+                searchable
                 defaultValue={filters.userId}
                 placeholder={isFr ? "Périmètre par défaut" : "Default scope"}
                 options={[
@@ -60,6 +61,7 @@ export function ReportBuilder({
               <ModernSelect
                 id="report-project"
                 name="project"
+                searchable
                 defaultValue={filters.projectId}
                 placeholder={isFr ? "Périmètre par défaut" : "Default scope"}
                 options={[
@@ -81,6 +83,7 @@ export function ReportBuilder({
               <ModernSelect
                 id="report-client"
                 name="client"
+                searchable
                 defaultValue={filters.clientId}
                 placeholder={isFr ? "Périmètre par défaut" : "Default scope"}
                 options={[

@@ -28,6 +28,10 @@
     },
     "states": {
       "loading": "Chargement..."
+    },
+    "select": {
+      "searchPlaceholder": "Rechercher...",
+      "noResults": "Aucun résultat"
     }
   },
   "header": {

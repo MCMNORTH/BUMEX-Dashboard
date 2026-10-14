@@ -51,6 +51,7 @@ export function ReceiptForm({
             <ModernSelect
               id="receipt-payment"
               name="payment_id"
+              searchable
               placeholder="Select payment"
               options={[
                 { value: "", label: "Select payment" },
@@ -68,6 +69,7 @@ export function ReceiptForm({
             <ModernSelect
               id="receipt-document"
               name="document_id"
+              searchable
               placeholder="No linked document"
               options={[
                 { value: "", label: "No linked document" },

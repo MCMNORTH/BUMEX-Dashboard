@@ -1,11 +1,11 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 
 import { useI18n } from "@/components/layout/i18n-provider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
+import { FilterSearchInput } from "@/components/shared/filter-search-input";
 import { useFilterParams } from "@/hooks/use-filter-params";
 import { cn } from "@/lib/utils";
 import type { TicketFilters, TicketFiltersData, TicketStatus } from "@/types/ticket";
@@ -39,26 +39,13 @@ export function TicketFilters({ filters, filterData }: TicketFiltersProps) {
       )}
       aria-busy={isPending}
     >
-      <form
-        className="relative sm:col-span-2 xl:col-span-1"
-        role="search"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const value = new FormData(event.currentTarget).get("search");
-          applyFilter("search", typeof value === "string" ? value.trim() : "");
-        }}
-      >
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          key={filters.search ?? ""}
-          name="search"
-          type="search"
-          aria-label={t("tickets.filters.searchLabel", "Search tickets")}
-          placeholder={t("tickets.filters.searchPlaceholder", "Search tickets by title")}
-          defaultValue={filters.search ?? ""}
-          className="pl-9"
-        />
-      </form>
+      <FilterSearchInput
+        className="sm:col-span-2 xl:col-span-1"
+        value={filters.search ?? ""}
+        onSearch={(value) => applyFilter("search", value, { history: "replace" })}
+        ariaLabel={t("tickets.filters.searchLabel", "Search tickets")}
+        placeholder={t("tickets.filters.searchPlaceholder", "Search tickets by title")}
+      />
 
       <ModernSelect
         name="status"
@@ -88,6 +75,7 @@ export function TicketFilters({ filters, filterData }: TicketFiltersProps) {
 
       <ModernSelect
         name="assignee"
+        searchable
         value={filters.assigneeId ?? ""}
         onValueChange={(value) => applyFilter("assignee", value)}
         options={[
@@ -102,6 +90,7 @@ export function TicketFilters({ filters, filterData }: TicketFiltersProps) {
 
       <ModernSelect
         name="project"
+        searchable
         value={filters.projectId ?? ""}
         onValueChange={(value) => applyFilter("project", value)}
         options={[

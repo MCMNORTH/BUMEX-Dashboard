@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Search } from "lucide-react";
+import { ArrowRight, Loader2, Search } from "lucide-react";
 
 import { useI18n } from "@/components/layout/i18n-provider";
 import { EmptyState } from "@/components/layout/empty-state";
@@ -72,6 +72,23 @@ export function SearchResultsPage({
   const router = useRouter();
   const [category, setCategory] = useState<CategoryKey>("all");
   const [draftQuery, setDraftQuery] = useState(initialQuery);
+  const [isSearching, startSearch] = useTransition();
+  const timerRef = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+  }, []);
+
+  // Results follow the box as you type; `replace` keeps one history entry per search.
+  function runSearch(value: string) {
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    timerRef.current = null;
+    const nextQuery = value.trim();
+    if (nextQuery === initialQuery || nextQuery.length === 1) return;
+    startSearch(() => {
+      router.replace(nextQuery ? `/search?q=${encodeURIComponent(nextQuery)}` : "/search", { scroll: false });
+    });
+  }
 
   const visibleResults = useMemo(() => {
     return results.filter((result) => categoryConfig[category].matches(result.entityType));
@@ -117,16 +134,22 @@ export function SearchResultsPage({
           className="flex flex-col gap-3 lg:flex-row lg:items-center"
           onSubmit={(event) => {
             event.preventDefault();
-            const nextQuery = draftQuery.trim();
-            router.push(nextQuery ? `/search?q=${encodeURIComponent(nextQuery)}` : "/search");
+            runSearch(draftQuery);
           }}
         >
           <div className="field-shell flex h-12 flex-1 items-center gap-3 px-4">
-            <Search className="size-4 text-muted-foreground" />
+            {isSearching ? <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden="true" /> : <Search className="size-4 text-muted-foreground" />}
             <input
               name="q"
+              type="search"
+              autoFocus={!initialQuery}
               value={draftQuery}
-              onChange={(event) => setDraftQuery(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setDraftQuery(value);
+                if (timerRef.current) window.clearTimeout(timerRef.current);
+                timerRef.current = window.setTimeout(() => runSearch(value), 300);
+              }}
               placeholder={isFr ? "Rechercher dans l'espace de travail" : "Search across the workspace"}
               className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
               aria-label={isFr ? "Requête de recherche" : "Search query"}

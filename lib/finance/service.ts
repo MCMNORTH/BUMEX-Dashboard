@@ -165,6 +165,7 @@ type BankStatementRow = Omit<BankStatementRecord, "createdBy" | "lines"> & {
 
 type ScopedFinanceQuery<T> = {
   or: (filters: string) => T;
+  matchText: (columns: string[], query: string) => T;
   eq: (column: string, value: string) => T;
   lt: (column: string, value: string) => T;
   gte: (column: string, value: string) => T;
@@ -558,7 +559,7 @@ function applyScopedFilters<T extends ScopedFinanceQuery<T>>(
   dueColumn: "due_date" | "transfer_date",
 ) {
   if (filters.search) {
-    query = query.or(`reference.ilike.%${filters.search}%,notes.ilike.%${filters.search}%`);
+    query = query.matchText(["reference", "notes"], filters.search);
   }
 
   if (filters.clientId) {
@@ -832,7 +833,7 @@ export async function getInvoices(role: AppRole, filters: InvoiceFilters = {}) {
   query = applyEntityScope(query, entityCode);
 
   if (filters.search) {
-    query = query.or(`invoice_number.ilike.%${filters.search}%,notes.ilike.%${filters.search}%`);
+    query = query.matchText(["invoice_number", "notes"], filters.search);
   }
 
   if (filters.clientId) {
@@ -2050,14 +2051,7 @@ function applyTransferFilters<T extends ScopedFinanceQuery<T> & { ilike: (column
   filters: TransferFilters,
 ) {
   if (filters.search) {
-    query = query.or(
-      [
-        `transfer_reference.ilike.%${filters.search}%`,
-        `beneficiary_name.ilike.%${filters.search}%`,
-        `beneficiary_bank.ilike.%${filters.search}%`,
-        `notes.ilike.%${filters.search}%`,
-      ].join(","),
-    );
+    query = query.matchText(["transfer_reference", "beneficiary_name", "beneficiary_bank", "notes"], filters.search);
   }
 
   if (filters.clientId) {

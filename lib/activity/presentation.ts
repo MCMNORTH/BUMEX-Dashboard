@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { sanitizeActivityMetadata } from "@/lib/activity/security";
+import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
 import type { AppRole } from "@/types/auth";
 import type { ActivityEntityType, ActivityLogRecord, ActivityMetadata } from "@/types/activity";
 
@@ -209,9 +210,9 @@ export function sanitizeShareholderMetadata(activity: ActivityLogRecord): Activi
 }
 
 export function searchActivityLogs(activities: ActivityLogRecord[], query: string) {
-  const normalized = query.trim().toLowerCase();
+  const terms = searchTerms(query);
 
-  if (!normalized) {
+  if (!terms.length) {
     return activities;
   }
 
@@ -222,10 +223,9 @@ export function searchActivityLogs(activities: ActivityLogRecord[], query: strin
       activity.user?.full_name ?? "",
       getActivityMetadataSummary(activity) ?? "",
     ]
-      .join(" ")
-      .toLowerCase();
+      .join(" ");
 
-    return haystack.includes(normalized);
+    return matchesSearchTerms(terms, [haystack]);
   });
 }
 

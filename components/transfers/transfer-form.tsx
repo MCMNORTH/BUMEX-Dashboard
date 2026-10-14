@@ -223,6 +223,7 @@ export function TransferForm({
             <ModernSelect
               id={`${mode}-project`}
               name="related_project_id"
+              searchable
               defaultValue={defaults?.related_project_id ?? ""}
               placeholder={t("finance.transferForm.placeholders.noLinkedProject", "No linked project")}
               options={[
@@ -240,6 +241,7 @@ export function TransferForm({
             <ModernSelect
               id={`${mode}-client`}
               name="related_client_id"
+              searchable
               defaultValue={defaults?.related_client_id ?? ""}
               placeholder={t("finance.transferForm.placeholders.noLinkedClient", "No linked client")}
               options={[

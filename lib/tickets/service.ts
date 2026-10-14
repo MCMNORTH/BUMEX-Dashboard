@@ -177,7 +177,7 @@ type TicketQuery = ReturnType<typeof getBaseTicketQuery>;
 
 function applyFilters(query: TicketQuery, filters: TicketFilters) {
   if (filters.search) {
-    query = query.ilike("title", `%${filters.search}%`);
+    query = query.matchText(["title"], filters.search);
   }
 
   if (filters.status) {

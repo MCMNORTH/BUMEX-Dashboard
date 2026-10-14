@@ -539,9 +539,7 @@ export async function getDocuments(role: AppRole, filters: DocumentFilters = {})
   query = applyEntityScope(query, entityCode);
 
   if (filters.search) {
-    query = query.or(
-      `title.ilike.%${filters.search}%,description.ilike.%${filters.search}%,file_name.ilike.%${filters.search}%`,
-    );
+    query = query.matchText(["title", "description", "file_name"], filters.search);
   }
 
   if (filters.documentType) {

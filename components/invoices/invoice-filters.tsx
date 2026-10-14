@@ -1,13 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { Search } from "lucide-react";
+import { X } from "lucide-react";
 
 import { useI18n } from "@/components/layout/i18n-provider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
+import { FilterSearchInput } from "@/components/shared/filter-search-input";
+import { useFilterParams } from "@/hooks/use-filter-params";
+import { cn } from "@/lib/utils";
 import type { InvoiceFilters as InvoiceFiltersType, InvoiceFiltersData } from "@/types/finance";
+
+const filterKeys = ["search", "client", "project", "contract", "status", "approval", "due"] as const;
 
 export function InvoiceFilters({
   filters,
@@ -17,16 +20,26 @@ export function InvoiceFilters({
   filterData: InvoiceFiltersData;
 }) {
   const { t } = useI18n();
+  const { applyFilter, clearFilters, hasActiveFilters, isPending } = useFilterParams(filterKeys);
   return (
-    <form className="grid gap-3 rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[1.2fr_repeat(6,minmax(0,1fr))_auto]">
-      <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input name="search" placeholder={t("finance.invoiceFilters.searchPlaceholder", "Search invoice number or notes")} defaultValue={filters.search ?? ""} className="pl-11" />
-      </div>
+    <div
+      className={cn(
+        "grid gap-3 rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[1.2fr_repeat(6,minmax(0,1fr))_auto] transition-opacity",
+        isPending && "opacity-70",
+      )}
+      aria-busy={isPending}
+    >
+      <FilterSearchInput
+        value={filters.search ?? ""}
+        onSearch={(value) => applyFilter("search", value, { history: "replace" })}
+        placeholder={t("finance.invoiceFilters.searchPlaceholder", "Search invoice number or notes")}
+      />
 
       <ModernSelect
         name="client"
-        defaultValue={filters.clientId ?? ""}
+        searchable
+        value={filters.clientId ?? ""}
+        onValueChange={(value) => applyFilter("client", value)}
         placeholder={t("finance.invoiceFilters.allClients", "All clients")}
         options={[
           { value: "", label: t("finance.invoiceFilters.allClients", "All clients") },
@@ -36,7 +49,9 @@ export function InvoiceFilters({
 
       <ModernSelect
         name="project"
-        defaultValue={filters.projectId ?? ""}
+        searchable
+        value={filters.projectId ?? ""}
+        onValueChange={(value) => applyFilter("project", value)}
         placeholder={t("finance.invoiceFilters.allProjects", "All projects")}
         options={[
           { value: "", label: t("finance.invoiceFilters.allProjects", "All projects") },
@@ -46,7 +61,9 @@ export function InvoiceFilters({
 
       <ModernSelect
         name="contract"
-        defaultValue={filters.contractId ?? ""}
+        searchable
+        value={filters.contractId ?? ""}
+        onValueChange={(value) => applyFilter("contract", value)}
         placeholder={t("finance.invoiceFilters.allContracts", "All contracts")}
         options={[
           { value: "", label: t("finance.invoiceFilters.allContracts", "All contracts") },
@@ -56,7 +73,8 @@ export function InvoiceFilters({
 
       <ModernSelect
         name="status"
-        defaultValue={filters.status ?? ""}
+        value={filters.status ?? ""}
+        onValueChange={(value) => applyFilter("status", value)}
         placeholder={t("finance.invoiceFilters.allStatuses", "All statuses")}
         options={[
           { value: "", label: t("finance.invoiceFilters.allStatuses", "All statuses") },
@@ -72,7 +90,8 @@ export function InvoiceFilters({
 
       <ModernSelect
         name="approval"
-        defaultValue={filters.approvalStatus ?? ""}
+        value={filters.approvalStatus ?? ""}
+        onValueChange={(value) => applyFilter("approval", value)}
         placeholder={t("finance.invoiceFilters.allApprovals", "All approvals")}
         options={[
           { value: "", label: t("finance.invoiceFilters.allApprovals", "All approvals") },
@@ -84,7 +103,8 @@ export function InvoiceFilters({
 
       <ModernSelect
         name="due"
-        defaultValue={filters.dueWindow ?? "all"}
+        value={filters.dueWindow ?? "all"}
+        onValueChange={(value) => applyFilter("due", value)}
         options={[
           { value: "all", label: t("finance.invoiceFilters.anyDueDate", "Any due date") },
           { value: "overdue", label: t("finance.invoiceFilters.overdue", "Overdue") },
@@ -93,12 +113,16 @@ export function InvoiceFilters({
         ]}
       />
 
-      <div className="flex gap-2">
-        <Button type="submit" className="rounded-xl px-5">{t("common.actions.apply", "Apply")}</Button>
-        <Button asChild variant="secondary" className="rounded-xl px-5">
-          <Link href="/finance/invoices">{t("common.actions.reset", "Reset")}</Link>
-        </Button>
-      </div>
-    </form>
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={clearFilters}
+        disabled={!hasActiveFilters || isPending}
+        className="text-muted-foreground"
+      >
+        <X />
+        {t("common.actions.clearFilters", "Clear filters")}
+      </Button>
+    </div>
   );
 }

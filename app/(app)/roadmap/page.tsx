@@ -128,7 +128,7 @@ export default async function RoadmapPage({
         </Link>
       </div>
 
-      <RoadmapFilters filters={filters} filterData={filterData} view={view} period={period} />
+      <RoadmapFilters filters={filters} filterData={filterData} view={view} />
 
       <div className="grid gap-4 xl:grid-cols-4">
         {[

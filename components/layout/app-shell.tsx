@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { EntitySwitchProvider } from "@/components/entities/entity-switch-dialog";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { PageBackButton } from "@/components/layout/page-back-button";
 import { SidebarAppearanceProvider } from "@/components/layout/sidebar-appearance-provider";
 import { SidebarLogoFilters } from "@/components/layout/sidebar-logo";
 import type { SidebarAppearance } from "@/lib/settings/appearance";
@@ -54,6 +55,9 @@ export function AppShell({
               <div className="flex min-h-screen w-full min-w-0 flex-col bg-background">
                 <AppHeader onOpenMobileSidebar={openMobileSidebar} />
                 <div className="min-w-0 flex-1 px-3 py-4 sm:px-5 lg:px-6">
+                  <Suspense fallback={null}>
+                    <PageBackButton />
+                  </Suspense>
                   {children}
                 </div>
               </div>

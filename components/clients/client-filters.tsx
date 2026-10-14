@@ -1,42 +1,47 @@
 "use client";
 
-import Link from "next/link";
-import { Search } from "lucide-react";
+import { X } from "lucide-react";
 
 import { useI18n } from "@/components/layout/i18n-provider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
+import { FilterSearchInput } from "@/components/shared/filter-search-input";
+import { useFilterParams } from "@/hooks/use-filter-params";
+import { cn } from "@/lib/utils";
 import type { ClientFilters, ClientFiltersData } from "@/types/client";
+
+const filterKeys = ["search", "status", "type", "stage", "manager"] as const;
 
 export function ClientFilters({
   filters,
   filterData,
-  activeView,
 }: {
   filters: ClientFilters;
   filterData: ClientFiltersData;
-  activeView: "relationships" | "opportunities";
 }) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
+  const { applyFilter, clearFilters, hasActiveFilters, isPending } = useFilterParams(filterKeys);
 
   return (
-    <form className="bg-card grid gap-3 rounded-xl border border-primary/25 p-4 shadow-[var(--shadow-soft)] dark:border-slate-700 xl:grid-cols-[1.3fr_repeat(3,minmax(0,1fr))_auto]">
-      <input type="hidden" name="view" value={activeView === "opportunities" ? "opportunities" : ""} />
-      <div className="relative xl:col-span-1">
-        <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          name="search"
-          placeholder={isFr ? "Rechercher une relation, organisation ou un secteur" : "Search a relationship, organization, or industry"}
-          defaultValue={filters.search ?? ""}
-          className="pl-11"
-        />
-      </div>
+    <div
+      className={cn(
+        "bg-card grid gap-3 rounded-xl border border-primary/25 p-4 shadow-[var(--shadow-soft)] dark:border-slate-700 xl:grid-cols-[1.3fr_repeat(4,minmax(0,1fr))_auto] transition-opacity",
+        isPending && "opacity-70",
+      )}
+      aria-busy={isPending}
+    >
+      <FilterSearchInput
+        className="xl:col-span-1"
+        value={filters.search ?? ""}
+        onSearch={(value) => applyFilter("search", value, { history: "replace" })}
+        placeholder={isFr ? "Rechercher une relation, organisation ou un secteur" : "Search a relationship, organization, or industry"}
+      />
 
       <ModernSelect
         name="status"
-        defaultValue={filters.status ?? ""}
+        value={filters.status ?? ""}
+        onValueChange={(value) => applyFilter("status", value)}
         placeholder={isFr ? "Tous les statuts" : "All statuses"}
         options={[
           { value: "", label: isFr ? "Tous les statuts" : "All statuses" },
@@ -50,7 +55,8 @@ export function ClientFilters({
 
       <ModernSelect
         name="type"
-        defaultValue={filters.type ?? ""}
+        value={filters.type ?? ""}
+        onValueChange={(value) => applyFilter("type", value)}
         placeholder={isFr ? "Tous les types de relation" : "All relationship types"}
         options={[
           { value: "", label: isFr ? "Tous les types de relation" : "All relationship types" },
@@ -64,7 +70,8 @@ export function ClientFilters({
 
       <ModernSelect
         name="stage"
-        defaultValue={filters.prospectStage ?? ""}
+        value={filters.prospectStage ?? ""}
+        onValueChange={(value) => applyFilter("stage", value)}
         placeholder={isFr ? "Toutes les phases" : "All stages"}
         options={[
           { value: "", label: isFr ? "Toutes les phases" : "All stages" },
@@ -78,7 +85,9 @@ export function ClientFilters({
 
       <ModernSelect
         name="manager"
-        defaultValue={filters.accountManagerId ?? ""}
+        searchable
+        value={filters.accountManagerId ?? ""}
+        onValueChange={(value) => applyFilter("manager", value)}
         placeholder={isFr ? "Tous les responsables" : "All owners"}
         options={[
           { value: "", label: isFr ? "Tous les responsables" : "All owners" },
@@ -89,14 +98,16 @@ export function ClientFilters({
         ]}
       />
 
-      <div className="flex gap-2">
-        <Button type="submit" className="rounded-xl px-5">
-          {isFr ? "Appliquer" : "Apply"}
-        </Button>
-        <Button asChild variant="secondary" className="rounded-xl px-5">
-          <Link href={activeView === "opportunities" ? "/clients?view=opportunities" : "/clients"}>{isFr ? "Réinitialiser" : "Reset"}</Link>
-        </Button>
-      </div>
-    </form>
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={clearFilters}
+        disabled={!hasActiveFilters || isPending}
+        className="text-muted-foreground"
+      >
+        <X />
+        {isFr ? "Effacer les filtres" : "Clear filters"}
+      </Button>
+    </div>
   );
 }

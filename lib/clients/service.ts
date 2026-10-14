@@ -438,7 +438,7 @@ export async function getClients(role: AppRole, filters: ClientFilters = {}) {
   query = applyEntityScope(query, entityCode);
 
   if (filters.search) {
-    query = query.or(`name.ilike.%${filters.search}%,legal_name.ilike.%${filters.search}%,industry.ilike.%${filters.search}%`);
+    query = query.matchText(["name", "legal_name", "industry"], filters.search);
   }
 
   if (filters.status) {

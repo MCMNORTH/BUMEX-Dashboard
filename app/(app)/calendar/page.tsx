@@ -147,7 +147,7 @@ export default async function CalendarPage({
         isFr={isFr}
       />
 
-      <CalendarFilters filters={filters} filterData={filterData} view={view} period={period} />
+      <CalendarFilters filters={filters} filterData={filterData} />
 
       {attentionEvents.length ? <section className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-[0_24px_70px_-52px_rgba(15,23,42,.7)]" aria-labelledby="calendar-attention-title">
         <div className="bg-danger/10 flex flex-wrap items-center justify-between gap-3 border-b border-border/65 px-5 py-4"><div><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-danger"><AlertTriangle className="size-3.5" />{isFr ? "À surveiller" : "Watch list"}</p><h2 id="calendar-attention-title" className="mt-1 text-lg font-semibold">{isFr ? "Dates qui demandent une action" : "Dates that need action"}</h2><p className="mt-1 text-xs text-muted-foreground">{isFr ? "Retards d’abord, puis urgences et échéances des sept prochains jours." : "Overdue items first, followed by urgent and seven-day deadlines."}</p></div><Badge variant="secondary" className="rounded-full px-3 py-1">{attentionEvents.length} {isFr ? "priorité(s)" : "priority item(s)"}</Badge></div>

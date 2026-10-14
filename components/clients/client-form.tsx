@@ -115,6 +115,7 @@ export function ClientForm({
             <ModernSelect
               id={`${mode}-manager`}
               name="account_manager_id"
+              searchable
               defaultValue={values?.account_manager_id ?? ""}
               placeholder={isFr ? "Choisir une personne" : "Choose a person"}
               options={[

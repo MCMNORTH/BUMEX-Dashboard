@@ -1,11 +1,11 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 
 import { useI18n } from "@/components/layout/i18n-provider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
+import { FilterSearchInput } from "@/components/shared/filter-search-input";
 import { useFilterParams } from "@/hooks/use-filter-params";
 import { cn } from "@/lib/utils";
 import type { ProjectFilters, ProjectFiltersData } from "@/types/project";
@@ -30,26 +30,13 @@ export function ProjectFilters({ filters, filterData }: ProjectFiltersProps) {
       )}
       aria-busy={isPending}
     >
-      <form
-        className="relative sm:col-span-2 xl:col-span-1"
-        role="search"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const value = new FormData(event.currentTarget).get("search");
-          applyFilter("search", typeof value === "string" ? value.trim() : "");
-        }}
-      >
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          key={filters.search ?? ""}
-          name="search"
-          type="search"
-          aria-label={isFr ? "Rechercher des projets" : "Search projects"}
-          placeholder={isFr ? "Rechercher un projet par nom" : "Search projects by name"}
-          defaultValue={filters.search ?? ""}
-          className="pl-9"
-        />
-      </form>
+      <FilterSearchInput
+        className="sm:col-span-2 xl:col-span-1"
+        value={filters.search ?? ""}
+        onSearch={(value) => applyFilter("search", value, { history: "replace" })}
+        ariaLabel={isFr ? "Rechercher des projets" : "Search projects"}
+        placeholder={isFr ? "Rechercher un projet par nom" : "Search projects by name"}
+      />
 
       <ModernSelect
         name="status"
@@ -80,6 +67,7 @@ export function ProjectFilters({ filters, filterData }: ProjectFiltersProps) {
 
       <ModernSelect
         name="client"
+        searchable
         value={filters.clientId ?? ""}
         onValueChange={(value) => applyFilter("client", value)}
         options={[
@@ -90,6 +78,7 @@ export function ProjectFilters({ filters, filterData }: ProjectFiltersProps) {
 
       <ModernSelect
         name="owner"
+        searchable
         value={filters.ownerId ?? ""}
         onValueChange={(value) => applyFilter("owner", value)}
         options={[

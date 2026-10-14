@@ -84,6 +84,7 @@ export function ContractForm({
             <ModernSelect
               id={`${mode}-client`}
               name="client_id"
+              searchable
               defaultValue={defaults?.client_id ?? ""}
               placeholder="Select client"
               options={[
@@ -101,6 +102,7 @@ export function ContractForm({
             <ModernSelect
               id={`${mode}-project`}
               name="project_id"
+              searchable
               defaultValue={defaults?.project_id ?? ""}
               placeholder="No linked project"
               options={[
@@ -169,6 +171,7 @@ export function ContractForm({
             <ModernSelect
               id={`${mode}-owner`}
               name="responsible_user_id"
+              searchable
               defaultValue={defaults?.responsible_user_id ?? ""}
               placeholder="No owner"
               options={[

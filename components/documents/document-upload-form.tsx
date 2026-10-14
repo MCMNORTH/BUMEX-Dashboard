@@ -158,6 +158,7 @@ export function DocumentUploadForm({
             <ModernSelect
               id={`${mode}-related-id`}
               name="related_id"
+              searchable
               defaultValue={defaults?.related_id ?? ""}
               placeholder={isFr ? "Archive / aucun" : "Archive / none"}
               options={[

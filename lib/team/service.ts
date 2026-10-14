@@ -5,6 +5,7 @@ import { getCurrentEntityCode, getEntityScopedCacheKey, isEntityScopingEnabled }
 import { getProjects } from "@/lib/projects/service";
 import { getCached } from "@/lib/server-cache";
 import { createClient } from "@/lib/firebase/server";
+import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
 import { getTickets, getTicketsAcrossEntities } from "@/lib/tickets/service";
 import type { ActivityLogRecord } from "@/types/activity";
 import type { AppRole, Profile } from "@/types/auth";
@@ -482,9 +483,9 @@ function mapProjectPreview(
 }
 
 function applyMemberFilters(member: TeamMemberRecord, filters: TeamFilters) {
-  const normalizedSearch = filters.search?.trim().toLowerCase();
+  const terms = searchTerms(filters.search ?? "");
 
-  if (normalizedSearch) {
+  if (terms.length) {
     const haystack = [
       member.full_name,
       member.email,
@@ -495,10 +496,9 @@ function applyMemberFilters(member: TeamMemberRecord, filters: TeamFilters) {
       member.assigned_projects_preview.map((project) => `${project.name} ${project.client_name ?? ""}`).join(" "),
       member.current_focus.map((ticket) => `${ticket.title} ${ticket.project_name ?? ""}`).join(" "),
     ]
-      .join(" ")
-      .toLowerCase();
+      .join(" ");
 
-    if (!haystack.includes(normalizedSearch)) {
+    if (!matchesSearchTerms(terms, [haystack])) {
       return false;
     }
   }

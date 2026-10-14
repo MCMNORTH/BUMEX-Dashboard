@@ -16,6 +16,7 @@ import {
 } from "@/lib/firebase/filters";
 import type { AccessPolicy } from "@/lib/firebase/policies";
 import { applyDefaults, documentIdFor, getTableSchema, INBOUND_REFERENCES } from "@/lib/firebase/schema";
+import { searchTerms } from "@/lib/search/text";
 import { afterWrite, beforeWrite, type WriteContext } from "@/lib/firebase/triggers";
 
 export { DbQueryError } from "@/lib/firebase/errors";
@@ -374,6 +375,15 @@ export class QueryBuilder<T = any[]> implements PromiseLike<DbResult<T>> {
 
   or(expression: string) {
     this.filters.push(parseOrFilter(expression));
+    return this;
+  }
+
+  /**
+   * Keeps rows where every word of `query` appears in at least one of `columns`,
+   * ignoring case and accents. Not a PostgREST operator; it backs the global search.
+   */
+  matchText(columns: string[], query: string) {
+    this.filters.push({ kind: "text", columns, terms: searchTerms(query) });
     return this;
   }
 

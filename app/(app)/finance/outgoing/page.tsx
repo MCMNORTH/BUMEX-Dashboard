@@ -40,9 +40,6 @@ export default async function FinanceOutgoingPage() {
 
       <div className="flex flex-wrap gap-2">
         <Button asChild variant="secondary" className="rounded-full px-4">
-          <Link href="/finance">{getMessage(dictionary, "finance.outgoing.actions.backToFinance", "Back to finance")}</Link>
-        </Button>
-        <Button asChild variant="secondary" className="rounded-full px-4">
           <Link href="/finance/transfers">{getMessage(dictionary, "finance.outgoing.actions.fullOutgoingList", "Full outgoing list")}</Link>
         </Button>
       </div>

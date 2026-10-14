@@ -217,6 +217,7 @@ export function InvoiceForm({
                   <ModernSelect
                     id={`${mode}-client`}
                     name="client_id"
+                    searchable
                     value={clientId}
                     onValueChange={setClientId}
                     placeholder={t("finance.invoiceForm.placeholders.selectClient", "Select client")}
@@ -247,6 +248,7 @@ export function InvoiceForm({
                   <ModernSelect
                     id={`${mode}-project`}
                     name="project_id"
+                    searchable
                     value={projectId}
                     onValueChange={setProjectId}
                     placeholder={t("finance.invoiceForm.placeholders.noLinkedProject", "No linked project")}
@@ -262,6 +264,7 @@ export function InvoiceForm({
                   <ModernSelect
                     id={`${mode}-contract`}
                     name="contract_id"
+                    searchable
                     value={contractId}
                     onValueChange={setContractId}
                     placeholder={t("finance.invoiceForm.placeholders.noLinkedContract", "No linked contract")}

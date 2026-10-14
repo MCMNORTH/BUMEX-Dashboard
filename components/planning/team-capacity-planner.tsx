@@ -7,8 +7,10 @@ import { AlertTriangle, ArrowLeft, ArrowRight, ArrowRightLeft, BriefcaseBusiness
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { ModernSelect } from "@/components/ui/modern-select";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
 import type { TeamWorkloadRecord } from "@/types/team";
 import type { PlanningActualTime } from "@/types/planning";
 import type { TicketRecord } from "@/types/ticket";
@@ -107,7 +109,7 @@ export function TeamCapacityPlanner({
   const dates = useMemo(() => getDates(anchor, zoom), [anchor, zoom]);
   const today = dateKey(new Date());
   const visibleMembers = members.filter((member) => {
-    const matchesSearch = `${member.full_name} ${member.job_title ?? ""} ${member.department ?? ""}`.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = matchesSearchTerms(searchTerms(search), [member.full_name, member.job_title, member.department]);
     const hasProject = !project || tickets.some((ticket) => ticket.assignee_id === member.id && ticket.project_id === project);
     const needsAttention = !attentionOnly || member.workload_risk === "high" || member.overdue_items > 0;
     const matchesEntity = !entity || member.entity_code === entity;
@@ -233,7 +235,7 @@ export function TeamCapacityPlanner({
       <section className="rounded-xl border border-border/70 bg-card p-3 shadow-[0_22px_65px_-45px_rgba(15,23,42,.5)]">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           <div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={isFr ? "Rechercher une personne, un métier…" : "Search a person or role…"} className="h-10 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/25" /></div>
-          <select value={project} onChange={(event) => setProject(event.target.value)} className="h-10 rounded-xl border border-border bg-background px-3 text-sm"><option value="">{isFr ? "Tous les projets" : "All projects"}</option>{projects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+          <ModernSelect name="planner-project" searchable aria-label={isFr ? "Filtrer par projet" : "Filter by project"} value={project} onValueChange={setProject} className="h-10 min-w-48 rounded-xl" options={[{ value: "", label: isFr ? "Tous les projets" : "All projects" }, ...projects.map((item) => ({ value: item.id, label: item.name }))]} />
           {companyWide ? <select value={entity} onChange={(event) => setEntity(event.target.value)} className="h-10 rounded-xl border border-border bg-background px-3 text-sm" aria-label={isFr ? "Filtrer par entité" : "Filter by entity"}><option value="">{isFr ? "Toutes les entités" : "All entities"}</option>{entityOptions.map(code => <option key={code} value={code}>{getBumexEntity(code)?.name ?? code}</option>)}</select> : null}
           <select value={availability} onChange={(event) => setAvailability(event.target.value)} className="h-10 rounded-xl border border-border bg-background px-3 text-sm" aria-label={isFr ? "Filtrer par disponibilité" : "Filter by availability"}><option value="">{isFr ? "Toutes disponibilités" : "All availability"}</option><option value="available">{isFr ? "Disponible" : "Available"}</option><option value="busy">{isFr ? "Occupé" : "Busy"}</option><option value="overloaded">{isFr ? "Surchargé" : "Overloaded"}</option><option value="away">{isFr ? "Absent" : "Away"}</option></select>
           <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="h-10 rounded-xl border border-border bg-background px-3 text-sm" aria-label={isFr ? "Trier les collaborateurs" : "Sort people"}><option value="risk">{isFr ? "Priorité de charge" : "Workload priority"}</option><option value="name">{isFr ? "Nom A–Z" : "Name A–Z"}</option><option value="load-desc">{isFr ? "Charge décroissante" : "Highest load"}</option><option value="load-asc">{isFr ? "Charge croissante" : "Lowest load"}</option></select>

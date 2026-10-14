@@ -145,6 +145,7 @@ export function ProjectForm({
               <ModernSelect
                 id={`${mode}-client`}
                 name="client_id"
+                searchable
                 value={clientId}
                 onValueChange={setClientId}
                 placeholder={isFr ? "Sélectionner une entité" : "Select entity"}
@@ -169,6 +170,7 @@ export function ProjectForm({
             <ModernSelect
               id={`${mode}-owner`}
               name="owner_id"
+              searchable
               defaultValue={defaults?.owner_id ?? ""}
               placeholder="Select owner"
               options={[

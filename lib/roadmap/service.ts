@@ -179,7 +179,7 @@ export async function getRoadmapProjects(filters: RoadmapFilters = {}) {
     .order("created_at", { ascending: false });
 
   if (filters.search) {
-    query = query.ilike("name", `%${filters.search}%`);
+    query = query.matchText(["name"], filters.search);
   }
 
   if (filters.projectId) {

@@ -1,43 +1,51 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { X } from "lucide-react";
 
 import { useI18n } from "@/components/layout/i18n-provider";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { ModernSelect } from "@/components/ui/modern-select";
+import { FilterSearchInput } from "@/components/shared/filter-search-input";
+import { useFilterParams } from "@/hooks/use-filter-params";
+import { cn } from "@/lib/utils";
 import type { RoadmapFilterData, RoadmapFilters, RoadmapView } from "@/types/milestone";
+
+const filterKeys = ["search", "status", "project", "client", "owner"] as const;
+const viewKeys = ["view"] as const;
 
 export function RoadmapFilters({
   filters,
   filterData,
   view,
-  period,
 }: {
   filters: RoadmapFilters;
   filterData: RoadmapFilterData;
   view: RoadmapView;
-  period: string;
 }) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
+  const { applyFilter, clearFilters, hasActiveFilters, isPending } = useFilterParams(filterKeys);
+  const { applyFilter: applyView } = useFilterParams(viewKeys);
 
   return (
-    <form className="grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[1.3fr_repeat(5,minmax(0,1fr))]">
-      <input type="hidden" name="period" value={period} />
-
-      <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          name="search"
-          defaultValue={filters.search ?? ""}
-          placeholder={isFr ? "Rechercher des projets" : "Search projects"}
-          className="h-11 rounded-xl border-border/70 bg-background/45 pl-10"
-        />
-      </div>
+    <div
+      className={cn(
+        "grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[1.3fr_repeat(5,minmax(0,1fr))_auto] transition-opacity",
+        isPending && "opacity-70",
+      )}
+      aria-busy={isPending}
+    >
+      <FilterSearchInput
+        value={filters.search ?? ""}
+        onSearch={(value) => applyFilter("search", value, { history: "replace" })}
+        placeholder={isFr ? "Rechercher des projets" : "Search projects"}
+        inputClassName="h-11 rounded-xl border-border/70 bg-background/45"
+      />
 
       <ModernSelect
         name="view"
-        defaultValue={view}
+        value={view}
+        onValueChange={(value) => applyView("view", value)}
         options={[
           { value: "month", label: isFr ? "Vue mensuelle" : "Month view" },
           { value: "quarter", label: isFr ? "Vue trimestrielle" : "Quarter view" },
@@ -48,7 +56,8 @@ export function RoadmapFilters({
 
       <ModernSelect
         name="status"
-        defaultValue={filters.status ?? ""}
+        value={filters.status ?? ""}
+        onValueChange={(value) => applyFilter("status", value)}
         placeholder={isFr ? "Tous les statuts de jalon" : "All milestone statuses"}
         options={[
           { value: "", label: isFr ? "Tous les statuts de jalon" : "All milestone statuses" },
@@ -63,7 +72,9 @@ export function RoadmapFilters({
 
       <ModernSelect
         name="project"
-        defaultValue={filters.projectId ?? ""}
+        searchable
+        value={filters.projectId ?? ""}
+        onValueChange={(value) => applyFilter("project", value)}
         placeholder={isFr ? "Tous les projets" : "All projects"}
         options={[
           { value: "", label: isFr ? "Tous les projets" : "All projects" },
@@ -73,7 +84,9 @@ export function RoadmapFilters({
 
       <ModernSelect
         name="client"
-        defaultValue={filters.clientId ?? ""}
+        searchable
+        value={filters.clientId ?? ""}
+        onValueChange={(value) => applyFilter("client", value)}
         placeholder={isFr ? "Tous les clients" : "All clients"}
         options={[
           { value: "", label: isFr ? "Tous les clients" : "All clients" },
@@ -81,24 +94,28 @@ export function RoadmapFilters({
         ]}
       />
 
-      <div className="flex gap-3">
-        <ModernSelect
-          name="owner"
-          defaultValue={filters.ownerId ?? ""}
-          className="min-w-0 flex-1"
-          placeholder={isFr ? "Tous les responsables" : "All owners"}
-          options={[
-            { value: "", label: isFr ? "Tous les responsables" : "All owners" },
-            ...filterData.owners.map((owner) => ({ value: owner.id, label: owner.full_name })),
-          ]}
-        />
-        <button
-          type="submit"
-          className="h-11 rounded-xl border border-primary/30 bg-primary/12 px-4 text-sm font-medium text-primary transition-all hover:border-primary/40 hover:bg-primary/18"
-        >
-          {isFr ? "Appliquer" : "Apply"}
-        </button>
-      </div>
-    </form>
+      <ModernSelect
+        name="owner"
+        searchable
+        value={filters.ownerId ?? ""}
+        onValueChange={(value) => applyFilter("owner", value)}
+        placeholder={isFr ? "Tous les responsables" : "All owners"}
+        options={[
+          { value: "", label: isFr ? "Tous les responsables" : "All owners" },
+          ...filterData.owners.map((owner) => ({ value: owner.id, label: owner.full_name })),
+        ]}
+      />
+
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={clearFilters}
+        disabled={!hasActiveFilters || isPending}
+        className="text-muted-foreground"
+      >
+        <X />
+        {isFr ? "Effacer les filtres" : "Clear filters"}
+      </Button>
+    </div>
   );
 }

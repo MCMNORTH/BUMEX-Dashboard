@@ -1,31 +1,39 @@
 "use client";
 
-import type { CalendarFilterData, CalendarFilters, CalendarView } from "@/types/calendar";
+import type { CalendarFilterData, CalendarFilters } from "@/types/calendar";
+import { X } from "lucide-react";
+
 import { useI18n } from "@/components/layout/i18n-provider";
+import { Button } from "@/components/ui/button";
 import { ModernSelect } from "@/components/ui/modern-select";
+import { useFilterParams } from "@/hooks/use-filter-params";
+import { cn } from "@/lib/utils";
+
+const filterKeys = ["type", "project", "client", "assignee", "priority", "status"] as const;
 
 export function CalendarFilters({
   filters,
   filterData,
-  view,
-  period,
 }: {
   filters: CalendarFilters;
   filterData: CalendarFilterData;
-  view: CalendarView;
-  period: string;
 }) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
+  const { applyFilter, clearFilters, hasActiveFilters, isPending } = useFilterParams(filterKeys);
 
   return (
-    <form className="grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-6">
-      <input type="hidden" name="view" value={view} />
-      <input type="hidden" name="period" value={period} />
-
+    <div
+      className={cn(
+        "grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[repeat(6,minmax(0,1fr))_auto] transition-opacity",
+        isPending && "opacity-70",
+      )}
+      aria-busy={isPending}
+    >
       <ModernSelect
         name="type"
-        defaultValue={filters.type ?? ""}
+        value={filters.type ?? ""}
+        onValueChange={(value) => applyFilter("type", value)}
         placeholder={isFr ? "Tous les types d'événement" : "All event types"}
         options={[
           { value: "", label: isFr ? "Tous les types d'événement" : "All event types" },
@@ -40,7 +48,9 @@ export function CalendarFilters({
 
       <ModernSelect
         name="project"
-        defaultValue={filters.projectId ?? ""}
+        searchable
+        value={filters.projectId ?? ""}
+        onValueChange={(value) => applyFilter("project", value)}
         placeholder={isFr ? "Tous les projets" : "All projects"}
         options={[
           { value: "", label: isFr ? "Tous les projets" : "All projects" },
@@ -53,7 +63,9 @@ export function CalendarFilters({
 
       <ModernSelect
         name="client"
-        defaultValue={filters.clientId ?? ""}
+        searchable
+        value={filters.clientId ?? ""}
+        onValueChange={(value) => applyFilter("client", value)}
         placeholder={isFr ? "Tous les clients" : "All clients"}
         options={[
           { value: "", label: isFr ? "Tous les clients" : "All clients" },
@@ -66,7 +78,9 @@ export function CalendarFilters({
 
       <ModernSelect
         name="assignee"
-        defaultValue={filters.assigneeId ?? ""}
+        searchable
+        value={filters.assigneeId ?? ""}
+        onValueChange={(value) => applyFilter("assignee", value)}
         placeholder={isFr ? "Tous les assignés" : "All assignees"}
         options={[
           { value: "", label: isFr ? "Tous les assignés" : "All assignees" },
@@ -79,7 +93,8 @@ export function CalendarFilters({
 
       <ModernSelect
         name="priority"
-        defaultValue={filters.priority ?? ""}
+        value={filters.priority ?? ""}
+        onValueChange={(value) => applyFilter("priority", value)}
         placeholder={isFr ? "Toutes les priorités" : "All priorities"}
         options={[
           { value: "", label: isFr ? "Toutes les priorités" : "All priorities" },
@@ -91,34 +106,37 @@ export function CalendarFilters({
         ]}
       />
 
-      <div className="flex gap-3">
-        <ModernSelect
-          name="status"
-          defaultValue={filters.status ?? ""}
-          className="min-w-0 flex-1"
-          placeholder={isFr ? "Tous les statuts" : "All statuses"}
-          options={[
-            { value: "", label: isFr ? "Tous les statuts" : "All statuses" },
-            { value: "backlog", label: "Backlog" },
-            { value: "todo", label: isFr ? "À faire" : "To do" },
-            { value: "in_progress", label: isFr ? "En cours" : "In progress" },
-            { value: "review", label: isFr ? "Revue" : "Review" },
-            { value: "blocked", label: isFr ? "Bloqué" : "Blocked" },
-            { value: "done", label: isFr ? "Terminé" : "Done" },
-            { value: "planned", label: isFr ? "Planifié" : "Planned" },
-            { value: "completed", label: isFr ? "Complété" : "Completed" },
-            { value: "delayed", label: isFr ? "Retardé" : "Delayed" },
-            { value: "upcoming", label: isFr ? "À venir" : "Upcoming" },
-            { value: "scheduled", label: isFr ? "Planifié" : "Scheduled" },
-          ]}
-        />
-        <button
-          type="submit"
-          className="h-11 rounded-xl border border-primary/30 bg-primary/12 px-4 text-sm font-medium text-primary transition-all hover:border-primary/40 hover:bg-primary/18"
-        >
-          {isFr ? "Appliquer" : "Apply"}
-        </button>
-      </div>
-    </form>
+      <ModernSelect
+        name="status"
+        value={filters.status ?? ""}
+        onValueChange={(value) => applyFilter("status", value)}
+        placeholder={isFr ? "Tous les statuts" : "All statuses"}
+        options={[
+          { value: "", label: isFr ? "Tous les statuts" : "All statuses" },
+          { value: "backlog", label: "Backlog" },
+          { value: "todo", label: isFr ? "À faire" : "To do" },
+          { value: "in_progress", label: isFr ? "En cours" : "In progress" },
+          { value: "review", label: isFr ? "Revue" : "Review" },
+          { value: "blocked", label: isFr ? "Bloqué" : "Blocked" },
+          { value: "done", label: isFr ? "Terminé" : "Done" },
+          { value: "planned", label: isFr ? "Planifié" : "Planned" },
+          { value: "completed", label: isFr ? "Complété" : "Completed" },
+          { value: "delayed", label: isFr ? "Retardé" : "Delayed" },
+          { value: "upcoming", label: isFr ? "À venir" : "Upcoming" },
+          { value: "scheduled", label: isFr ? "Planifié" : "Scheduled" },
+        ]}
+      />
+
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={clearFilters}
+        disabled={!hasActiveFilters || isPending}
+        className="text-muted-foreground"
+      >
+        <X />
+        {isFr ? "Effacer les filtres" : "Clear filters"}
+      </Button>
+    </div>
   );
 }

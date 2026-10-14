@@ -118,7 +118,7 @@ export default async function ClientsPage({
         </Link>
       </nav>
 
-      <ClientFilters filters={filters} filterData={filterData} activeView={activeView} />
+      <ClientFilters filters={filters} filterData={filterData} />
 
       <div className="flex items-center justify-between">
         <div>

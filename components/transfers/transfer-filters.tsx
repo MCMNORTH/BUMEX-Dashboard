@@ -1,13 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { Search } from "lucide-react";
+import { X } from "lucide-react";
 
 import { useI18n } from "@/components/layout/i18n-provider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
+import { FilterSearchInput } from "@/components/shared/filter-search-input";
+import { useFilterParams } from "@/hooks/use-filter-params";
+import { cn } from "@/lib/utils";
 import type { TransferFilters as TransferFiltersType, TransferFiltersData } from "@/types/finance";
+
+const filterKeys = ["search", "client", "project", "status", "category", "entity", "date"] as const;
 
 export function TransferFilters({
   filters,
@@ -18,22 +21,27 @@ export function TransferFilters({
 }) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
+  const { applyFilter, clearFilters, hasActiveFilters, isPending } = useFilterParams(filterKeys);
 
   return (
-    <form className="grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[1.2fr_repeat(6,minmax(0,1fr))_auto]">
-      <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          name="search"
-          placeholder={isFr ? "Rechercher un bénéficiaire, une référence, banque ou notes" : "Search beneficiary, reference, bank, notes"}
-          defaultValue={filters.search ?? ""}
-          className="pl-11"
-        />
-      </div>
+    <div
+      className={cn(
+        "grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[1.2fr_repeat(6,minmax(0,1fr))_auto] transition-opacity",
+        isPending && "opacity-70",
+      )}
+      aria-busy={isPending}
+    >
+      <FilterSearchInput
+        value={filters.search ?? ""}
+        onSearch={(value) => applyFilter("search", value, { history: "replace" })}
+        placeholder={isFr ? "Rechercher un bénéficiaire, une référence, banque ou notes" : "Search beneficiary, reference, bank, notes"}
+      />
 
       <ModernSelect
         name="client"
-        defaultValue={filters.clientId ?? ""}
+        searchable
+        value={filters.clientId ?? ""}
+        onValueChange={(value) => applyFilter("client", value)}
         placeholder={isFr ? "Tous les clients" : "All clients"}
         options={[
           { value: "", label: isFr ? "Tous les clients" : "All clients" },
@@ -43,7 +51,9 @@ export function TransferFilters({
 
       <ModernSelect
         name="project"
-        defaultValue={filters.projectId ?? ""}
+        searchable
+        value={filters.projectId ?? ""}
+        onValueChange={(value) => applyFilter("project", value)}
         placeholder={isFr ? "Tous les projets" : "All projects"}
         options={[
           { value: "", label: isFr ? "Tous les projets" : "All projects" },
@@ -53,7 +63,8 @@ export function TransferFilters({
 
       <ModernSelect
         name="status"
-        defaultValue={filters.status ?? ""}
+        value={filters.status ?? ""}
+        onValueChange={(value) => applyFilter("status", value)}
         placeholder={isFr ? "Tous les statuts" : "All statuses"}
         options={[
           { value: "", label: isFr ? "Tous les statuts" : "All statuses" },
@@ -68,7 +79,8 @@ export function TransferFilters({
 
       <ModernSelect
         name="category"
-        defaultValue={filters.category ?? ""}
+        value={filters.category ?? ""}
+        onValueChange={(value) => applyFilter("category", value)}
         placeholder={isFr ? "Toutes les catégories" : "All categories"}
         options={[
           { value: "", label: isFr ? "Toutes les catégories" : "All categories" },
@@ -85,7 +97,8 @@ export function TransferFilters({
 
       <ModernSelect
         name="entity"
-        defaultValue={filters.entity ?? ""}
+        value={filters.entity ?? ""}
+        onValueChange={(value) => applyFilter("entity", value)}
         placeholder={isFr ? "Toutes les entités" : "All entities"}
         options={[
           { value: "", label: isFr ? "Toutes les entités" : "All entities" },
@@ -99,7 +112,8 @@ export function TransferFilters({
 
       <ModernSelect
         name="date"
-        defaultValue={filters.dateWindow ?? "all"}
+        value={filters.dateWindow ?? "all"}
+        onValueChange={(value) => applyFilter("date", value)}
         options={[
           { value: "all", label: isFr ? "Toute date" : "Any date" },
           { value: "this_month", label: isFr ? "Ce mois-ci" : "This month" },
@@ -108,12 +122,16 @@ export function TransferFilters({
         ]}
       />
 
-      <div className="flex gap-2">
-        <Button type="submit" className="rounded-xl px-5">{isFr ? "Appliquer" : "Apply"}</Button>
-        <Button asChild variant="secondary" className="rounded-xl px-5">
-          <Link href="/finance/transfers">{isFr ? "Réinitialiser" : "Reset"}</Link>
-        </Button>
-      </div>
-    </form>
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={clearFilters}
+        disabled={!hasActiveFilters || isPending}
+        className="text-muted-foreground"
+      >
+        <X />
+        {isFr ? "Effacer les filtres" : "Clear filters"}
+      </Button>
+    </div>
   );
 }

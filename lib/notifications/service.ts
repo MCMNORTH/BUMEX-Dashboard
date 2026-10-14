@@ -423,7 +423,7 @@ export async function getUserNotifications(filters: NotificationFilters = {}) {
     .order("created_at", { ascending: false });
 
   if (filters.search) {
-    query = query.or(`title.ilike.%${filters.search}%,body.ilike.%${filters.search}%`);
+    query = query.matchText(["title", "body"], filters.search);
   }
 
   if (filters.unreadOnly) {

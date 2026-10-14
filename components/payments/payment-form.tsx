@@ -76,6 +76,7 @@ export function PaymentForm({
             <ModernSelect
               id={`${mode}-client`}
               name="client_id"
+              searchable
               defaultValue={defaults?.client_id ?? ""}
               placeholder={t("finance.paymentForm.placeholders.selectClient", "Select client")}
               options={[
@@ -90,6 +91,7 @@ export function PaymentForm({
             <ModernSelect
               id={`${mode}-invoice`}
               name="invoice_id"
+              searchable
               defaultValue={defaults?.invoice_id ?? ""}
               placeholder={t("finance.paymentForm.placeholders.noLinkedInvoice", "No linked invoice")}
               options={[
@@ -104,6 +106,7 @@ export function PaymentForm({
             <ModernSelect
               id={`${mode}-project`}
               name="project_id"
+              searchable
               defaultValue={defaults?.project_id ?? ""}
               placeholder={t("finance.paymentForm.placeholders.noLinkedProject", "No linked project")}
               options={[
@@ -118,6 +121,7 @@ export function PaymentForm({
             <ModernSelect
               id={`${mode}-contract`}
               name="contract_id"
+              searchable
               defaultValue={defaults?.contract_id ?? ""}
               placeholder={t("finance.paymentForm.placeholders.noLinkedContract", "No linked contract")}
               options={[

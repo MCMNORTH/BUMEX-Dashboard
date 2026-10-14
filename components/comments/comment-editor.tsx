@@ -8,6 +8,7 @@ import { Bold, List, MessageSquarePlus } from "lucide-react";
 import { createCommentAction, updateCommentAction } from "@/app/(app)/comments/actions";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/components/layout/i18n-provider";
+import { normalizeSearchText } from "@/lib/search/text";
 import type { AppRole } from "@/types/auth";
 import type { CommentActionState, CommentEntityType, CommentRecord } from "@/types/comment";
 import type { MentionCandidate } from "@/types/notification";
@@ -75,9 +76,9 @@ export function CommentEditor({
       return [];
     }
 
-    const query = mentionState.query.trim().toLowerCase();
+    const query = normalizeSearchText(mentionState.query);
     return mentionCandidates
-      .filter((candidate) => candidate.full_name.toLowerCase().includes(query))
+      .filter((candidate) => normalizeSearchText(candidate.full_name).includes(query))
       .slice(0, 6);
   }, [mentionCandidates, mentionState]);
 

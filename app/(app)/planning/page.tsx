@@ -138,7 +138,6 @@ export default async function PlanningPage({
       <PlanningFilters
         filters={filters}
         filterData={filterData}
-        week={week}
         canFilterAssignee={!summaryMode}
       />
 

@@ -170,6 +170,7 @@ export function TicketForm({
               <ModernSelect
                 id={`${mode}-project`}
                 name="project_id"
+                searchable
                 defaultValue={defaults?.project_id ?? ""}
                 onValueChange={setSelectedProjectId}
                 placeholder={t("tickets.form.select.selectProject", "Select project")}
@@ -198,6 +199,7 @@ export function TicketForm({
               <ModernSelect
                 id={`${mode}-assignee`}
                 name="assignee_id"
+                searchable
                 defaultValue={selectedAssigneeId}
                 placeholder={t("tickets.form.select.unassigned", "Unassigned")}
                 onValueChange={setSelectedAssigneeId}
@@ -290,6 +292,7 @@ export function TicketForm({
                   <ModernSelect
                     id={`${mode}-reporter`}
                     name="reporter_id"
+                    searchable
                     defaultValue={defaultReporterId}
                     placeholder={t("tickets.form.select.noReporter", "No reporter")}
                     options={[

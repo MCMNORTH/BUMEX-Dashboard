@@ -1,33 +1,46 @@
-import Link from "next/link";
+"use client";
 
+import { X } from "lucide-react";
+
+import { useI18n } from "@/components/layout/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { ModernSelect } from "@/components/ui/modern-select";
-import { getCurrentLocale } from "@/lib/i18n/server";
+import { useFilterParams } from "@/hooks/use-filter-params";
+import { cn } from "@/lib/utils";
 import type { PlanningFilters } from "@/types/planning";
 import type { TicketFiltersData } from "@/types/ticket";
 
 type PlanningFiltersProps = {
   filters: PlanningFilters;
   filterData: TicketFiltersData;
-  week: string;
   canFilterAssignee?: boolean;
 };
 
-export async function PlanningFilters({
+const filterKeys = ["assignee", "project", "priority", "status", "type"] as const;
+
+export function PlanningFilters({
   filters,
   filterData,
-  week,
   canFilterAssignee = true,
 }: PlanningFiltersProps) {
-  const locale = await getCurrentLocale();
+  const { locale } = useI18n();
   const isFr = locale === "fr";
+  const { applyFilter, clearFilters, hasActiveFilters, isPending } = useFilterParams(filterKeys);
 
   return (
-    <form className="grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[repeat(5,minmax(0,1fr))_auto]">
+    <div
+      className={cn(
+        "grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[repeat(5,minmax(0,1fr))_auto] transition-opacity",
+        isPending && "opacity-70",
+      )}
+      aria-busy={isPending}
+    >
       {canFilterAssignee ? (
         <ModernSelect
           name="assignee"
-          defaultValue={filters.assigneeId ?? ""}
+          searchable
+          value={filters.assigneeId ?? ""}
+          onValueChange={(value) => applyFilter("assignee", value)}
           placeholder={isFr ? "Tous les assignés" : "All assignees"}
           options={[
             { value: "", label: isFr ? "Tous les assignés" : "All assignees" },
@@ -37,13 +50,13 @@ export async function PlanningFilters({
             })),
           ]}
         />
-      ) : (
-        <input type="hidden" name="assignee" value="" />
-      )}
+      ) : null}
 
         <ModernSelect
         name="project"
-        defaultValue={filters.projectId ?? ""}
+        searchable
+        value={filters.projectId ?? ""}
+        onValueChange={(value) => applyFilter("project", value)}
         placeholder={isFr ? "Tous les projets" : "All projects"}
         options={[
           { value: "", label: isFr ? "Tous les projets" : "All projects" },
@@ -56,7 +69,8 @@ export async function PlanningFilters({
 
       <ModernSelect
         name="priority"
-        defaultValue={filters.priority ?? ""}
+        value={filters.priority ?? ""}
+        onValueChange={(value) => applyFilter("priority", value)}
         placeholder={isFr ? "Toutes les priorités" : "All priorities"}
         options={[
           { value: "", label: isFr ? "Toutes les priorités" : "All priorities" },
@@ -69,7 +83,8 @@ export async function PlanningFilters({
 
       <ModernSelect
         name="status"
-        defaultValue={filters.status ?? ""}
+        value={filters.status ?? ""}
+        onValueChange={(value) => applyFilter("status", value)}
         placeholder={isFr ? "Tous les statuts" : "All statuses"}
         options={[
           { value: "", label: isFr ? "Tous les statuts" : "All statuses" },
@@ -84,7 +99,8 @@ export async function PlanningFilters({
 
       <ModernSelect
         name="type"
-        defaultValue={filters.type ?? ""}
+        value={filters.type ?? ""}
+        onValueChange={(value) => applyFilter("type", value)}
         placeholder={isFr ? "Tous les types" : "All types"}
         options={[
           { value: "", label: isFr ? "Tous les types" : "All types" },
@@ -97,16 +113,17 @@ export async function PlanningFilters({
         ]}
       />
 
-      <input type="hidden" name="week" value={week} />
 
-      <div className="flex gap-2">
-        <Button type="submit" className="rounded-xl px-5">
-          {isFr ? "Appliquer" : "Apply"}
-        </Button>
-        <Button asChild variant="secondary" className="rounded-xl px-5">
-          <Link href={`/planning?week=${week}`}>{isFr ? "Réinitialiser" : "Reset"}</Link>
-        </Button>
-      </div>
-    </form>
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={clearFilters}
+        disabled={!hasActiveFilters || isPending}
+        className="text-muted-foreground"
+      >
+        <X />
+        {isFr ? "Effacer les filtres" : "Clear filters"}
+      </Button>
+    </div>
   );
 }

@@ -332,9 +332,7 @@ export async function getContracts(role: AppRole, filters: ContractFilters = {})
     query = applyEntityScope(query, entityCode);
 
     if (filters.search) {
-      query = useLegacy
-        ? query.ilike("title", `%${filters.search}%`)
-        : query.or(`title.ilike.%${filters.search}%,contract_number.ilike.%${filters.search}%`);
+      query = query.matchText(useLegacy ? ["title"] : ["title", "contract_number"], filters.search);
     }
 
     if (filters.clientId) {

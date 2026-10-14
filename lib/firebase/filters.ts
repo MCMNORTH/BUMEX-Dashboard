@@ -1,6 +1,8 @@
 // In-memory evaluation of PostgREST-style filters (eq, ilike, or(...), ...)
 // against plain Firestore rows.
 
+import { matchesSearchTerms } from "@/lib/search/text";
+
 type Row = Record<string, unknown>;
 
 export type FilterOperator = "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "like" | "ilike" | "in" | "is";
@@ -9,7 +11,9 @@ export type Filter =
   | { kind: "condition"; column: string; operator: FilterOperator; value: unknown }
   | { kind: "or"; filters: Filter[] }
   | { kind: "and"; filters: Filter[] }
-  | { kind: "not"; filter: Filter };
+  | { kind: "not"; filter: Filter }
+  // Not PostgREST: every term must appear (accent- and case-insensitive) in one of the columns.
+  | { kind: "text"; columns: string[]; terms: string[] };
 
 // Resolves plain columns and Postgres JSON paths such as `metadata->>kind`
 // (`->>` yields text, `->` yields the raw JSON value).
@@ -135,6 +139,11 @@ export function matchesFilter(row: Row, filter: Filter): boolean {
       return filter.filters.some((child) => matchesFilter(row, child));
     case "not":
       return !matchesFilter(row, filter.filter);
+    case "text":
+      return matchesSearchTerms(filter.terms, filter.columns.map((column) => {
+        const value = readColumn(row, column);
+        return value == null ? null : String(value);
+      }));
   }
 }
 

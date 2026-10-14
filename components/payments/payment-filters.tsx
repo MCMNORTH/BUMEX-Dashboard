@@ -1,13 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { Search } from "lucide-react";
+import { X } from "lucide-react";
 
 import { useI18n } from "@/components/layout/i18n-provider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
+import { FilterSearchInput } from "@/components/shared/filter-search-input";
+import { useFilterParams } from "@/hooks/use-filter-params";
+import { cn } from "@/lib/utils";
 import type { FinanceFilters, PaymentFiltersData } from "@/types/finance";
+
+const filterKeys = ["search", "client", "project", "contract", "status", "method", "due"] as const;
 
 export function PaymentFilters({
   filters,
@@ -18,22 +21,27 @@ export function PaymentFilters({
 }) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
+  const { applyFilter, clearFilters, hasActiveFilters, isPending } = useFilterParams(filterKeys);
 
   return (
-    <form className="grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[1.15fr_repeat(5,minmax(0,1fr))_auto]">
-      <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          name="search"
-          placeholder={isFr ? "Rechercher par référence ou notes" : "Search by reference or notes"}
-          defaultValue={filters.search ?? ""}
-          className="pl-11"
-        />
-      </div>
+    <div
+      className={cn(
+        "grid gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-[var(--shadow-soft)] xl:grid-cols-[1.15fr_repeat(6,minmax(0,1fr))_auto] transition-opacity",
+        isPending && "opacity-70",
+      )}
+      aria-busy={isPending}
+    >
+      <FilterSearchInput
+        value={filters.search ?? ""}
+        onSearch={(value) => applyFilter("search", value, { history: "replace" })}
+        placeholder={isFr ? "Rechercher par référence ou notes" : "Search by reference or notes"}
+      />
 
       <ModernSelect
         name="client"
-        defaultValue={filters.clientId ?? ""}
+        searchable
+        value={filters.clientId ?? ""}
+        onValueChange={(value) => applyFilter("client", value)}
         placeholder={isFr ? "Tous les clients" : "All clients"}
         options={[
           { value: "", label: isFr ? "Tous les clients" : "All clients" },
@@ -43,7 +51,9 @@ export function PaymentFilters({
 
       <ModernSelect
         name="project"
-        defaultValue={filters.projectId ?? ""}
+        searchable
+        value={filters.projectId ?? ""}
+        onValueChange={(value) => applyFilter("project", value)}
         placeholder={isFr ? "Tous les projets" : "All projects"}
         options={[
           { value: "", label: isFr ? "Tous les projets" : "All projects" },
@@ -53,7 +63,9 @@ export function PaymentFilters({
 
       <ModernSelect
         name="contract"
-        defaultValue={filters.contractId ?? ""}
+        searchable
+        value={filters.contractId ?? ""}
+        onValueChange={(value) => applyFilter("contract", value)}
         placeholder={isFr ? "Tous les contrats" : "All contracts"}
         options={[
           { value: "", label: isFr ? "Tous les contrats" : "All contracts" },
@@ -63,7 +75,8 @@ export function PaymentFilters({
 
       <ModernSelect
         name="status"
-        defaultValue={filters.status ?? ""}
+        value={filters.status ?? ""}
+        onValueChange={(value) => applyFilter("status", value)}
         placeholder={isFr ? "Tous les statuts" : "All statuses"}
         options={[
           { value: "", label: isFr ? "Tous les statuts" : "All statuses" },
@@ -77,7 +90,8 @@ export function PaymentFilters({
 
       <ModernSelect
         name="method"
-        defaultValue={filters.method ?? ""}
+        value={filters.method ?? ""}
+        onValueChange={(value) => applyFilter("method", value)}
         placeholder={isFr ? "Toutes les méthodes" : "All methods"}
         options={[
           { value: "", label: isFr ? "Toutes les méthodes" : "All methods" },
@@ -92,7 +106,8 @@ export function PaymentFilters({
 
       <ModernSelect
         name="due"
-        defaultValue={filters.dueWindow ?? "all"}
+        value={filters.dueWindow ?? "all"}
+        onValueChange={(value) => applyFilter("due", value)}
         options={[
           { value: "all", label: isFr ? "Toute échéance" : "Any due date" },
           { value: "overdue", label: isFr ? "En retard" : "Overdue" },
@@ -101,12 +116,16 @@ export function PaymentFilters({
         ]}
       />
 
-      <div className="flex gap-2">
-        <Button type="submit" className="rounded-xl px-5">{isFr ? "Appliquer" : "Apply"}</Button>
-        <Button asChild variant="secondary" className="rounded-xl px-5">
-          <Link href="/finance/payments">{isFr ? "Réinitialiser" : "Reset"}</Link>
-        </Button>
-      </div>
-    </form>
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={clearFilters}
+        disabled={!hasActiveFilters || isPending}
+        className="text-muted-foreground"
+      >
+        <X />
+        {isFr ? "Effacer les filtres" : "Clear filters"}
+      </Button>
+    </div>
   );
 }
