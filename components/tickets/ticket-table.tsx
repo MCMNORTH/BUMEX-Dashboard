@@ -63,7 +63,7 @@ export function TicketTable({ tickets }: { tickets: TicketRecord[] }) {
         <span className="pl-6.5">{fr ? "Ticket" : "Ticket"}</span>
         <span>{fr ? "Statut" : "Status"}</span>
         <span>{fr ? "Priorité" : "Priority"}</span>
-        <span>{fr ? "Responsable" : "Assignee"}</span>
+        <span>{fr ? "Assigné" : "Assignee"}</span>
         <span className="text-right">{fr ? "Échéance" : "Due"}</span>
       </div>
       <ul className="divide-y divide-border">

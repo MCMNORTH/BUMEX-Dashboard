@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
-import { useFormStatus } from "react-dom";
-import { ChevronDown, Plus, SquarePen } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent, type KeyboardEvent } from "react";
+import Link from "next/link";
+import { CircleCheck, ChevronDown, Plus, SquarePen } from "lucide-react";
 
 import {
   createTicketAction,
@@ -10,6 +10,7 @@ import {
   type TicketActionState,
 } from "@/app/(app)/tickets/actions";
 import { useI18n } from "@/components/layout/i18n-provider";
+import { useLocalPreference } from "@/hooks/use-local-preference";
 import { useUser } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +35,11 @@ import type { BoardWorkflow } from "@/types/workflow";
 
 const initialState: TicketActionState = {};
 
+/** Per user: the project their last ticket went to. */
+const LAST_PROJECT_KEY = "bumex-ticket-form-project:";
+/** "0" once someone turns "Create another" off; on until then. */
+const CREATE_ANOTHER_KEY = "bumex-ticket-form-create-another";
+
 type TicketFormProps = {
   mode: "create" | "edit";
   role: AppRole;
@@ -48,12 +54,11 @@ type TicketFormProps = {
   suggestedAssignees?: TeamWorkloadRecord[];
 };
 
-function SubmitButton({ mode }: { mode: TicketFormProps["mode"] }) {
-  const { pending } = useFormStatus();
+function SubmitButton({ mode, pending }: { mode: TicketFormProps["mode"]; pending: boolean }) {
   const { t } = useI18n();
 
   return (
-    <Button type="submit" disabled={pending}>
+    <Button type="submit" disabled={pending} title="Ctrl + Enter">
       {pending
         ? t("common.actions.saving", "Saving...")
         : mode === "create"
@@ -79,14 +84,34 @@ export function TicketForm({
   assigneeWorkloads = [],
   suggestedAssignees = [],
 }: TicketFormProps) {
-  const [state, formAction] = useActionState(
-    mode === "create" ? createTicketAction : updateTicketAction,
-    initialState,
-  );
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const isFr = locale === "fr";
   const { profile } = useUser();
+  const [open, setOpen] = useState(openOnLoad);
+  const [, startTransition] = useTransition();
+  // Only the save itself: the transition also waits for the list behind the dialog to
+  // refresh, and the next ticket should not have to wait for that.
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Tickets made since the dialog opened, while "Create another" kept it open; latest first.
+  const [created, setCreated] = useState<Array<{ id: string; title: string }>>([]);
+  // Bumped after each of those, to clear the fields that describe a single ticket.
+  const [round, setRound] = useState(0);
+  const titleRef = useRef<HTMLInputElement>(null);
   const [selectedAssigneeId, setSelectedAssigneeId] = useState(defaults?.assignee_id ?? "");
-  const [selectedProjectId, setSelectedProjectId] = useState(defaults?.project_id ?? "");
+  // On for every new ticket: leaving one ticket silent does not silence the next.
+  const [emailAssignee, setEmailAssignee] = useState(true);
+  const [lastProjectId, rememberProject] = useLocalPreference(
+    mode === "create" && profile ? `${LAST_PROJECT_KEY}${profile.id}` : null,
+  );
+  const [createAnotherPreference, setCreateAnotherPreference] = useLocalPreference(
+    mode === "create" ? CREATE_ANOTHER_KEY : null,
+  );
+  const createAnother = mode === "create" && createAnotherPreference !== "0";
+  const [projectChoice, setProjectChoice] = useState<string | null>(null);
+  const lastProject = filterData.projects.some((project) => project.id === lastProjectId) ? lastProjectId : null;
+  // A pick in this form wins, then the page's project (a filtered board), then the last one used.
+  const selectedProjectId = projectChoice ?? (defaults?.project_id || (mode === "create" && lastProject) || "");
   // Whoever creates a ticket is its reporter unless they pick someone else.
   const defaultReporterId = defaults?.reporter_id ?? (mode === "create" ? profile?.id ?? "" : "");
   // Judged on the saved reporter: picking another one in this form changes nothing until saved.
@@ -107,8 +132,70 @@ export function TicketForm({
 
   const TriggerIcon = triggerIconName === "edit" ? SquarePen : Plus;
 
+  useEffect(() => {
+    if (round) {
+      titleRef.current?.focus();
+    }
+  }, [round]);
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+
+    if (!next) {
+      setCreated([]);
+      setError(null);
+      setEmailAssignee(true);
+    }
+  }
+
+  // Submitted by hand rather than as a form action, so React does not reset the
+  // fields: a refused save keeps what was typed, and "Create another" keeps the
+  // project, assignee and other settings for the next ticket.
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const projectId = formData.get("project_id");
+
+    if (mode === "create" && typeof projectId === "string" && projectId) {
+      rememberProject(projectId);
+    }
+
+    setSaving(true);
+    startTransition(async () => {
+      const action = mode === "create" ? createTicketAction : updateTicketAction;
+      // Without "Create another" (and when editing) a successful save navigates away.
+      const result = await action(initialState, formData);
+
+      if (result?.error) {
+        setError(result.error);
+        setSaving(false);
+        return;
+      }
+
+      if (result?.created) {
+        setError(null);
+        setCreated((current) => [result.created!, ...current]);
+        setRound((current) => current + 1);
+        setEmailAssignee(true);
+        setSaving(false);
+      }
+
+      // Anything else navigates away; the form stays busy until it does.
+    });
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLFormElement>) {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      event.currentTarget.requestSubmit();
+    }
+  }
+
+  const showEmailAssignee = mode === "create" && Boolean(selectedAssigneeId) && selectedAssigneeId !== profile?.id;
+  const latest = created[0];
+
   return (
-    <Dialog defaultOpen={openOnLoad}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {mode === "create" ? (
           <Button>
@@ -135,14 +222,42 @@ export function TicketForm({
           </DialogDescription>
         </DialogHeader>
 
-        <form action={formAction} className="grid gap-4 sm:grid-cols-2">
+        <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="grid gap-4 sm:grid-cols-2">
           {defaults?.ticket_id ? <input type="hidden" name="ticket_id" value={defaults.ticket_id} /> : null}
+          {mode === "create" ? (
+            <>
+              <input type="hidden" name="create_another" value={createAnother ? "1" : "0"} />
+              <input type="hidden" name="notify_assignee_email" value={emailAssignee ? "1" : "0"} />
+            </>
+          ) : null}
+
+          {latest ? (
+            <div role="status" className="flex items-center gap-2 rounded-lg border border-success/25 bg-success/10 px-3 py-2 text-sm text-success sm:col-span-2">
+              <CircleCheck className="size-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">
+                {isFr ? `« ${latest.title} » créé` : `Created “${latest.title}”`}
+                {created.length > 1 ? (
+                  <span className="text-success/80">{isFr ? ` · ${created.length} tickets créés` : ` · ${created.length} tickets so far`}</span>
+                ) : null}
+              </span>
+              <Link href={`/tickets/${latest.id}`} className="shrink-0 font-medium underline-offset-2 hover:underline">
+                {isFr ? "Ouvrir" : "Open"}
+              </Link>
+            </div>
+          ) : null}
 
           <div className="space-y-2 sm:col-span-2">
             <label className="text-sm font-medium" htmlFor={`${mode}-title`}>
               {t("tickets.form.fields.title", "Title")} <RequiredMark />
             </label>
-            <Input id={`${mode}-title`} name="title" defaultValue={defaults?.title ?? ""} required />
+            <Input
+              key={`title-${round}`}
+              ref={titleRef}
+              id={`${mode}-title`}
+              name="title"
+              defaultValue={round ? "" : defaults?.title ?? ""}
+              required
+            />
           </div>
 
           <div className="space-y-2 sm:col-span-2">
@@ -150,9 +265,10 @@ export function TicketForm({
               {t("tickets.form.fields.description", "Description")}
             </label>
             <Textarea
+              key={`description-${round}`}
               id={`${mode}-description`}
               name="description"
-              defaultValue={defaults?.description ?? ""}
+              defaultValue={round ? "" : defaults?.description ?? ""}
               rows={3}
               className="min-h-20"
               placeholder={t("tickets.form.placeholders.description", "What needs to be done, and why?")}
@@ -177,8 +293,8 @@ export function TicketForm({
                 id={`${mode}-project`}
                 name="project_id"
                 searchable
-                defaultValue={defaults?.project_id ?? ""}
-                onValueChange={setSelectedProjectId}
+                value={selectedProjectId}
+                onValueChange={setProjectChoice}
                 placeholder={t("tickets.form.select.selectProject", "Select project")}
                 options={[
                   { value: "", label: t("tickets.form.select.selectProject", "Select project") },
@@ -215,6 +331,17 @@ export function TicketForm({
                 ]}
               />
             )}
+            {showEmailAssignee ? (
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-[var(--primary)]"
+                  checked={emailAssignee}
+                  onChange={(event) => setEmailAssignee(event.target.checked)}
+                />
+                {isFr ? "Prévenir l’assigné par e-mail" : "Email the assignee"}
+              </label>
+            ) : null}
           </div>
 
           {!employeeRestricted ? <AssignmentHelper helper={assignmentHelper} /> : null}
@@ -240,7 +367,7 @@ export function TicketForm({
             <label className="text-sm font-medium" htmlFor={`${mode}-due`}>
               {t("tickets.form.fields.dueDate", "Due date")}
             </label>
-            <Input id={`${mode}-due`} name="due_date" type="date" defaultValue={defaults?.due_date ?? ""} />
+            <Input key={`due-${round}`} id={`${mode}-due`} name="due_date" type="date" defaultValue={round ? "" : defaults?.due_date ?? ""} />
           </div>
 
           <details className="group sm:col-span-2" open={mode === "edit"}>
@@ -316,12 +443,13 @@ export function TicketForm({
                   {t("tickets.form.fields.estimatedHours", "Estimated hours")}
                 </label>
                 <Input
+                  key={`estimated-${round}`}
                   id={`${mode}-estimated`}
                   name="estimated_hours"
                   type="number"
                   min="0"
                   step="0.25"
-                  defaultValue={defaults?.estimated_hours ?? ""}
+                  defaultValue={round ? "" : defaults?.estimated_hours ?? ""}
                   placeholder={t("tickets.form.placeholders.optional", "Optional")}
                 />
               </div>
@@ -348,26 +476,43 @@ export function TicketForm({
                   {t("tickets.form.fields.githubIssueUrl", "GitHub issue URL")}
                 </label>
                 <Input
+                  key={`github-${round}`}
                   id={`${mode}-github`}
                   name="github_issue_url"
                   type="url"
-                  defaultValue={defaults?.github_issue_url ?? ""}
+                  defaultValue={round ? "" : defaults?.github_issue_url ?? ""}
                   placeholder={t("tickets.form.placeholders.github", "https://github.com/...")}
                 />
               </div>
             </div>
           </details>
 
-          {mode === "create" ? <SubtaskDraftList /> : null}
+          {mode === "create" ? <SubtaskDraftList key={`subtasks-${round}`} /> : null}
 
-          {state.error ? (
-            <div className="sm:col-span-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
-              {state.error}
+          {error ? (
+            <div role="alert" className="sm:col-span-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+              {error}
             </div>
           ) : null}
 
-          <div className="sm:col-span-2 flex justify-end gap-2">
-            <SubmitButton mode={mode} />
+          <div className="sm:col-span-2 flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+            {mode === "create" ? (
+              <label className="mr-auto flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-[var(--primary)]"
+                  checked={createAnother}
+                  onChange={(event) => setCreateAnotherPreference(event.target.checked ? "1" : "0")}
+                />
+                {isFr ? "Créer un autre ticket ensuite" : "Create another"}
+              </label>
+            ) : null}
+            {mode === "create" ? (
+              <Button type="button" variant="secondary" onClick={() => handleOpenChange(false)}>
+                {created.length ? (isFr ? "Terminé" : "Done") : t("common.actions.cancel", "Cancel")}
+              </Button>
+            ) : null}
+            <SubmitButton mode={mode} pending={saving} />
           </div>
         </form>
       </DialogContent>

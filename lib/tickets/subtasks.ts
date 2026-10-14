@@ -234,15 +234,15 @@ export async function setSubtaskOwner(
   await Promise.all([
     logActivity({
       userId: actorUserId,
-      action: owner ? `Gave sub-task ${subtask.title} to ${owner.full_name}` : `Removed the owner of sub-task ${subtask.title}`,
+      action: owner ? `Assigned sub-task ${subtask.title} to ${owner.full_name}` : `Unassigned sub-task ${subtask.title}`,
       entityType: "task",
       entityId: subtask.task_id,
-      metadata: { kind: "assignment_change", summary: "Sub-task owner changed" },
+      metadata: { kind: "assignment_change", summary: "Sub-task assignee changed" },
     }),
     createAssignmentNotification({
       userId: owner?.id,
       title: "New sub-task assignment",
-      body: `You own the sub-task “${subtask.title}” on ${ticketTitle}.`,
+      body: `You are assigned the sub-task “${subtask.title}” on ${ticketTitle}.`,
       entityType: "ticket",
       entityId: subtask.task_id,
       skipUserId: actorUserId,

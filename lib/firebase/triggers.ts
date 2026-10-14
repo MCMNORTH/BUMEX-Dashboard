@@ -115,7 +115,7 @@ export async function beforeWrite(
 
 // notifications_enqueue_email (on conflict (notification_id) do nothing).
 // Skips people who turned email notifications off; a profile without the
-// field still gets them.
+// field still gets them. A notification flagged skip_email stays in the app.
 async function enqueueNotificationEmails(rows: Row[]) {
   const db = adminDb();
   const userIds = [...new Set(rows.map((row) => String(row.user_id)))];
@@ -129,7 +129,7 @@ async function enqueueNotificationEmails(rows: Row[]) {
   let queued = 0;
 
   for (const row of rows) {
-    const email = emails.get(String(row.user_id))?.trim();
+    const email = row.skip_email === true ? undefined : emails.get(String(row.user_id))?.trim();
 
     if (!email) continue;
 

@@ -233,7 +233,7 @@
         "title": "Title",
         "description": "Description",
         "project": "Project",
-        "assignee": "Task owner",
+        "assignee": "Assignee",
         "assigneeHelp": "This person owns this task. Project membership is managed in Staffing.",
         "reporter": "Reporter",
         "status": "Status",

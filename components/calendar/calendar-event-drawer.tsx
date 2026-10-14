@@ -72,7 +72,7 @@ export function CalendarEventDrawer({
 
                 {event.assigneeName ? (
                   <div className="rounded-xl border border-border/65 bg-background/38 p-4">
-                    <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{tr("Responsable", "Owner")}</p>
+                    <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{event.type === "ticket_due" ? tr("Assigné", "Assignee") : tr("Responsable", "Owner")}</p>
                     <p className="mt-2 flex items-center gap-2 text-sm font-medium">
                       <UserRound className="size-4 text-primary" />
                       {event.assigneeName}

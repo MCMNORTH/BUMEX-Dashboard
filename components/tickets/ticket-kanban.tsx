@@ -1,25 +1,22 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { memo, useMemo, useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   closestCorners,
   DndContext,
   DragOverlay,
   MouseSensor,
+  pointerWithin,
   TouchSensor,
+  useDraggable,
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { LoaderCircle } from "lucide-react";
 
 import { moveTicketStageAction } from "@/app/(app)/tickets/actions";
@@ -84,18 +81,32 @@ type MoveCheck =
 
 type PendingMove = { ticket: TicketRecord; stageId: string; message: string };
 
-function moveTicket(board: BoardState, ticket: TicketRecord, columnId: string): BoardState {
-  const next: BoardState = {};
+type OptimisticMove = { ticketId: string; stageId: string; status: TicketStatus; stageName: string | null };
 
-  for (const [key, items] of Object.entries(board)) {
-    next[key] = items.filter((item) => item.id !== ticket.id);
+/** Cards drawn per column until "Show more": long Done columns otherwise weigh on every drag. */
+const COLUMN_PAGE_SIZE = 40;
+
+// Only columns are drop targets: the one under the pointer, or the nearest one from a gap.
+const detectColumn: CollisionDetection = (args) => {
+  const hits = pointerWithin(args);
+  return hits.length ? hits : closestCorners(args);
+};
+
+/** The board as it will be once a move is saved. Tickets are listed by last update, so the card goes first. */
+function applyMove(tickets: TicketRecord[], move: OptimisticMove) {
+  const ticket = tickets.find((item) => item.id === move.ticketId);
+
+  if (!ticket) {
+    return tickets;
   }
 
-  next[columnId] = [ticket, ...(next[columnId] ?? [])];
-  return next;
+  return [
+    { ...ticket, stage_id: move.stageId, status: move.status, stage_name: move.stageName },
+    ...tickets.filter((item) => item.id !== move.ticketId),
+  ];
 }
 
-function TicketKanbanCard({
+const TicketKanbanCard = memo(function TicketKanbanCard({
   ticket,
   stageLabel,
   dragging = false,
@@ -133,46 +144,31 @@ function TicketKanbanCard({
       </div>
     </Link>
   );
-}
+});
 
-function SortableTicketCard({
+/**
+ * The drag handle around a card. It re-renders when a drag starts, ends or changes
+ * column; the card inside does not. The card stays put while a copy follows the pointer.
+ */
+function DraggableTicketCard({
   ticket,
-  columnId,
   stageLabel,
   canDrag,
 }: {
   ticket: TicketRecord;
-  columnId: string;
   stageLabel?: string | null;
   canDrag: boolean;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: ticket.id,
-    disabled: !canDrag,
-    data: {
-      type: "ticket",
-      columnId,
-    },
-  });
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: ticket.id, disabled: !canDrag });
 
   return (
     <div
       ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-      }}
+      className={cn("transition-opacity", isDragging && "opacity-40")}
       {...(canDrag ? attributes : {})}
       {...(canDrag ? listeners : {})}
     >
-      <TicketKanbanCard ticket={ticket} stageLabel={stageLabel} dragging={isDragging} />
+      <TicketKanbanCard ticket={ticket} stageLabel={stageLabel} />
     </div>
   );
 }
@@ -195,13 +191,15 @@ function KanbanColumn({
 }) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
+  const [expanded, setExpanded] = useState(false);
   const { setNodeRef, isOver } = useDroppable({
     id: `column:${column.id}`,
     data: {
-      type: "column",
       columnId: column.id,
     },
   });
+  const visibleTickets = expanded ? tickets : tickets.slice(0, COLUMN_PAGE_SIZE);
+  const hiddenCount = tickets.length - visibleTickets.length;
 
   return (
     <div
@@ -228,27 +226,33 @@ function KanbanColumn({
       ) : null}
 
       <div className="flex-1 space-y-2">
-        <SortableContext items={tickets.map((ticket) => ticket.id)} strategy={verticalListSortingStrategy}>
-          {tickets.length ? (
-            tickets.map((ticket) => (
-              <SortableTicketCard
-                key={ticket.id}
-                ticket={ticket}
-                columnId={column.id}
-                stageLabel={stageLabelFor(ticket, column)}
-                canDrag={canDrag}
-              />
-            ))
-          ) : (
-            <div className="flex min-h-20 items-center justify-center rounded-lg border border-dashed border-border px-3 text-center text-xs text-muted-foreground">
-              {dragging
-                ? blocked
-                  ? (isFr ? "Déplacement non autorisé" : "Move not allowed")
-                  : (isFr ? "Déposer le ticket ici" : "Drop ticket here")
-                : (isFr ? "Aucun ticket" : "No tickets")}
-            </div>
-          )}
-        </SortableContext>
+        {visibleTickets.length ? (
+          visibleTickets.map((ticket) => (
+            <DraggableTicketCard
+              key={ticket.id}
+              ticket={ticket}
+              stageLabel={stageLabelFor(ticket, column)}
+              canDrag={canDrag}
+            />
+          ))
+        ) : (
+          <div className="flex min-h-20 items-center justify-center rounded-lg border border-dashed border-border px-3 text-center text-xs text-muted-foreground">
+            {dragging
+              ? blocked
+                ? (isFr ? "Déplacement non autorisé" : "Move not allowed")
+                : (isFr ? "Déposer le ticket ici" : "Drop ticket here")
+              : (isFr ? "Aucun ticket" : "No tickets")}
+          </div>
+        )}
+        {hiddenCount > 0 ? (
+          <button
+            type="button"
+            className="w-full rounded-lg py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={() => setExpanded(true)}
+          >
+            {isFr ? `Afficher ${hiddenCount} de plus` : `Show ${hiddenCount} more`}
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -297,29 +301,25 @@ export function TicketKanban({ tickets, canDrag, workflows, boardProjectId }: Ti
     return [...active, ...stranded];
   }, [boardWorkflow, tickets, locale, isFr]);
 
-  const buildBoard = (items: TicketRecord[]): BoardState => {
-    const board: BoardState = Object.fromEntries(columns.map((column) => [column.id, []]));
+  // Moves show at once and last until the server's fresh tickets arrive with them;
+  // a refused move simply drops out, so nothing has to be rolled back by hand.
+  const [optimisticTickets, addOptimisticMove] = useOptimistic(tickets, applyMove);
 
-    for (const ticket of items) {
-      board[columnIdFor(ticket)]?.push(ticket);
+  const board = useMemo<BoardState>(() => {
+    const next: BoardState = Object.fromEntries(columns.map((column) => [column.id, []]));
+
+    for (const ticket of optimisticTickets) {
+      next[boardWorkflow ? ticket.stage_id : ticket.status]?.push(ticket);
     }
 
-    return board;
-  };
+    return next;
+  }, [optimisticTickets, columns, boardWorkflow]);
 
-  const [board, setBoard] = useState<BoardState>(() => buildBoard(tickets));
-  const [boardSource, setBoardSource] = useState({ tickets, columns });
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
   const [reason, setReason] = useState("");
-
-  // Fresh tickets from the server (after a save or a filter change) replace the local board.
-  if (boardSource.tickets !== tickets || boardSource.columns !== columns) {
-    setBoardSource({ tickets, columns });
-    setBoard(buildBoard(tickets));
-  }
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -327,15 +327,11 @@ export function TicketKanban({ tickets, canDrag, workflows, boardProjectId }: Ti
   );
 
   const ticketLookup = useMemo(
-    () =>
-      Object.values(board).flat().reduce<Record<string, TicketRecord>>((acc, ticket) => {
-        acc[ticket.id] = ticket;
-        return acc;
-      }, {}),
-    [board],
+    () => new Map(optimisticTickets.map((ticket) => [ticket.id, ticket])),
+    [optimisticTickets],
   );
 
-  const activeTicket = activeTicketId ? ticketLookup[activeTicketId] : null;
+  const activeTicket = activeTicketId ? ticketLookup.get(activeTicketId) ?? null : null;
 
   // The same rules the server applies, so a refused move is explained without a round trip.
   function checkMove(ticket: TicketRecord, columnId: string, moveReason?: string): MoveCheck {
@@ -390,21 +386,16 @@ export function TicketKanban({ tickets, canDrag, workflows, boardProjectId }: Ti
       return;
     }
 
-    const moved: TicketRecord = {
-      ...ticket,
-      stage_id: stage.id,
-      status: stageStatus(stage),
-      stage_name: workflow.is_configured ? stage.name : null,
-    };
-    const previousBoard = board;
-    setBoard(moveTicket(board, moved, columnIdFor(moved)));
-
     startTransition(async () => {
+      addOptimisticMove({
+        ticketId: ticket.id,
+        stageId: stage.id,
+        status: stageStatus(stage),
+        stageName: workflow.is_configured ? stage.name : null,
+      });
       const result = await moveTicketStageAction(ticket.id, { stageId: stage.id }, moveReason);
 
       if (result.error) {
-        setBoard(previousBoard);
-
         if (result.code === "reason_required") {
           setReason("");
           setPendingMove({ ticket, stageId: stage.id, message: result.error });
@@ -427,11 +418,11 @@ export function TicketKanban({ tickets, canDrag, workflows, boardProjectId }: Ti
       return;
     }
 
-    const ticket = ticketLookup[String(event.active.id)];
-    const overData = event.over?.data.current;
-    const columnId = overData?.type === "column" || overData?.type === "ticket" ? String(overData.columnId) : null;
+    const ticket = ticketLookup.get(String(event.active.id));
+    const overColumn = event.over?.data.current?.columnId;
+    const columnId = overColumn ? String(overColumn) : null;
 
-    // Dropping back into the card's own column only reorders it: not a stage change.
+    // Dropping back into the card's own column changes nothing.
     if (!ticket || !columnId || columnId === columnIdFor(ticket)) {
       return;
     }
@@ -477,7 +468,7 @@ export function TicketKanban({ tickets, canDrag, workflows, boardProjectId }: Ti
       <DndContext
         id="ticket-kanban"
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={detectColumn}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveTicketId(null)}
@@ -499,7 +490,8 @@ export function TicketKanban({ tickets, canDrag, workflows, boardProjectId }: Ti
           </div>
         </div>
 
-        <DragOverlay>
+        {/* No drop animation: the card is already in its new column when the pointer lets go. */}
+        <DragOverlay dropAnimation={null}>
           {activeTicket ? <TicketKanbanCard ticket={activeTicket} dragging /> : null}
         </DragOverlay>
       </DndContext>

@@ -181,7 +181,7 @@ async function TicketsContent({
           { key: "overdue", label: isFr ? "En retard" : "Overdue", count: counts.overdue, href: quickFilterHref({ due: "overdue" }), active: isQuickFilterActive({ due: "overdue" }), tone: "danger" },
           { key: "week", label: isFr ? "Cette semaine" : "Due this week", count: counts.dueThisWeek, href: quickFilterHref({ due: "this_week" }), active: isQuickFilterActive({ due: "this_week" }) },
           { key: "blocked", label: isFr ? "Bloqués" : "Blocked", count: counts.blocked, href: quickFilterHref({ status: "blocked" }), active: isQuickFilterActive({ status: "blocked" }), tone: "danger" },
-          { key: "unassigned", label: isFr ? "Sans responsable" : "Unassigned", count: counts.unassigned, href: quickFilterHref({ assignee: "unassigned" }), active: isQuickFilterActive({ assignee: "unassigned" }) },
+          { key: "unassigned", label: isFr ? "Non assigné" : "Unassigned", count: counts.unassigned, href: quickFilterHref({ assignee: "unassigned" }), active: isQuickFilterActive({ assignee: "unassigned" }) },
         ]}
       />
 

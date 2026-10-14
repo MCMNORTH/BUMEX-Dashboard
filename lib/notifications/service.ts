@@ -99,6 +99,8 @@ async function createNotifications(
     body: string;
     entity_type: NotificationEntityType;
     entity_id: string;
+    /** In-app only: the outbox trigger queues no email for it. */
+    skip_email?: true;
   }>,
 ) {
   if (!notifications.length) {
@@ -242,6 +244,7 @@ export async function createAssignmentNotification({
   entityType,
   entityId,
   skipUserId,
+  email = true,
 }: {
   userId: string | null | undefined;
   type?: NotificationType;
@@ -250,6 +253,8 @@ export async function createAssignmentNotification({
   entityType: NotificationEntityType;
   entityId: string;
   skipUserId?: string | null;
+  /** False keeps the notification in the app only (the creator chose not to email it). */
+  email?: boolean;
 }) {
   if (!userId || userId === skipUserId) {
     return;
@@ -263,6 +268,7 @@ export async function createAssignmentNotification({
       body,
       entity_type: entityType,
       entity_id: entityId,
+      ...(email ? {} : { skip_email: true as const }),
     },
   ]);
 }

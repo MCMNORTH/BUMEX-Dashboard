@@ -233,7 +233,7 @@
         "title": "Titre",
         "description": "Description",
         "project": "Projet",
-        "assignee": "Responsable de la tâche",
+        "assignee": "Assigné",
         "assigneeHelp": "Cette personne exécute cette tâche. L’affectation au projet se gère dans Staffing.",
         "reporter": "Reporteur",
         "status": "Statut",
@@ -293,7 +293,7 @@
       "dueIn30Days": "Échéance dans 30 jours",
       "noDeadline": "Aucune échéance",
       "allTypes": "Tous les types",
-      "unassigned": "Sans responsable",
+      "unassigned": "Non assigné",
       "searchLabel": "Rechercher des tickets"
     }
   },
@@ -556,7 +556,7 @@
       "openTickets": "Tickets ouverts",
       "thisMonth": "+{count} ce mois-ci",
       "needsAttention": "Tickets à traiter",
-      "needsAttentionCaption": "Bloqués, en retard, urgents ou sans responsable",
+      "needsAttentionCaption": "Bloqués, en retard, urgents ou non assignés",
       "myAttentionCaption": "Vos tickets bloqués, en retard ou urgents",
       "completedThisMonth": "Terminés ce mois-ci",
       "completedCaption": "Tickets passés à terminé",
@@ -571,7 +571,7 @@
       "projects": "Projets à risque",
       "projectsEmpty": "Aucun projet à risque ou en retard.",
       "tickets": "Tickets",
-      "ticketsEmpty": "Rien n’est bloqué, en retard, urgent ou sans responsable.",
+      "ticketsEmpty": "Rien n’est bloqué, en retard, urgent ou non assigné.",
       "seeAll": "Tout voir ({count})",
       "noOwner": "Sans responsable",
       "noProject": "Sans projet",
@@ -580,7 +580,7 @@
         "blocked": "Bloqué",
         "overdue": "En retard",
         "urgent": "Urgent",
-        "unassigned": "Sans responsable"
+        "unassigned": "Non assigné"
       }
     },
     "mine": {

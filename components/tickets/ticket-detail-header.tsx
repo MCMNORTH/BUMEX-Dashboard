@@ -153,7 +153,7 @@ export function TicketDetailHeader({
           detail={ticket.project?.client?.name ?? (isFr ? "Aucun client" : "No client")}
         />
         <DetailTile
-          label={isFr ? "Responsable" : "Assignee"}
+          label={isFr ? "Assigné" : "Assignee"}
           value={ticket.assignee?.full_name ?? (isFr ? "Non assigné" : "Unassigned")}
           detail={ticket.assignee?.email ?? "—"}
         />

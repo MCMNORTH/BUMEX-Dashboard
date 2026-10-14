@@ -509,7 +509,11 @@ function parseTicketPayload(values: TicketFormValues) {
   };
 }
 
-export async function createTicket(values: TicketFormValues, actorUserId: string) {
+export async function createTicket(
+  values: TicketFormValues,
+  actorUserId: string,
+  options: { emailAssignee?: boolean } = {},
+) {
   const db = await createClient();
 
   if (!db) {
@@ -546,6 +550,7 @@ export async function createTicket(values: TicketFormValues, actorUserId: string
     entityType: "ticket",
     entityId: data.id,
     skipUserId: actorUserId,
+    email: options.emailAssignee ?? true,
   });
 
   const projectRecipients = await getNotificationRecipientsForProject(payload.project_id);

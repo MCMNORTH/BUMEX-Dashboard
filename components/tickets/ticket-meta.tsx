@@ -20,6 +20,25 @@ function isOverdue(ticket: Pick<TicketRecord, "due_date" | "status">) {
   return ticket.due_date < new Date().toISOString().slice(0, 10);
 }
 
+// Boards draw hundreds of due dates, so the formatters are built once.
+const dueDateFormats = new Map<string, Intl.DateTimeFormat>();
+
+function dueDateFormat(locale: "en" | "fr", withYear: boolean) {
+  const key = `${locale}:${withYear}`;
+  let format = dueDateFormats.get(key);
+
+  if (!format) {
+    format = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
+      day: "numeric",
+      month: "short",
+      ...(withYear ? { year: "numeric" } : {}),
+    });
+    dueDateFormats.set(key, format);
+  }
+
+  return format;
+}
+
 /** "6 Oct", or "6 Oct 2025" outside the current year; red when the ticket is late. */
 export function TicketDue({
   ticket,
@@ -35,11 +54,7 @@ export function TicketDue({
   }
 
   const date = new Date(ticket.due_date);
-  const label = new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-GB", {
-    day: "numeric",
-    month: "short",
-    ...(date.getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}),
-  }).format(date);
+  const label = dueDateFormat(locale, date.getFullYear() !== new Date().getFullYear()).format(date);
   const late = isOverdue(ticket);
 
   return (

@@ -49,6 +49,8 @@ import type {
 
 export type TicketActionState = {
   error?: string;
+  /** Set when the form asked to stay open for the next ticket instead of leaving. */
+  created?: { id: string; title: string };
 };
 
 export type TicketMoveActionState = {
@@ -205,12 +207,22 @@ export async function createTicketAction(
   values.stage_id = defaultStage.id;
   values.status = stageStatus(defaultStage);
 
-  const ticketId = await createTicket(values, auth.profile.id);
+  // The assignee is emailed unless the creator unticked it; absent means yes.
+  const ticketId = await createTicket(values, auth.profile.id, {
+    emailAssignee: getString(formData, "notify_assignee_email") !== "0",
+  });
   await createSubtasks(ticketId, subtaskTitles.titles, auth.profile.id);
   revalidatePath("/tickets");
+  revalidatePath("/my-work");
+  revalidatePath("/overview");
   if (values.project_id) {
     revalidatePath(`/projects/${values.project_id}`);
   }
+
+  if (getString(formData, "create_another") === "1") {
+    return { created: { id: ticketId, title: values.title } };
+  }
+
   redirect("/tickets?toast=ticket-created");
 }
 
@@ -432,9 +444,9 @@ export async function moveTicketStageAction(
 }
 
 // ---- sub-tasks ----------------------------------------------------------------
-// Anyone who may update a ticket may manage its sub-tasks. Choosing owners is
+// Anyone who may update a ticket may manage its sub-tasks. Choosing assignees is
 // limited to admins and managers, like ticket assignment, and a sub-task's
-// owner may tick it off even when they cannot edit the rest of the ticket.
+// assignee may tick it off even when they cannot edit the rest of the ticket.
 
 export type SubtaskActionState = {
   error?: string;
@@ -584,7 +596,7 @@ export async function setSubtaskOwnerAction(subtaskId: string, assigneeId: strin
   }
 
   if (scope.auth.role !== "admin" && !isManagerLikeRole(scope.auth.role)) {
-    return { error: "Only admins and managers can choose sub-task owners." };
+    return { error: "Only admins and managers can choose sub-task assignees." };
   }
 
   const owner = assigneeId ? await getSubtaskOwnerCandidate(assigneeId) : null;

@@ -24,7 +24,7 @@ function getLocalizedCopy(type: string, title: string, description: string, isFr
     deadline_risk: { title: "Échéance à risque", description: "L’avancement actuel exige une attention avant l’échéance du projet." },
     financial_due: { title: "Facture à suivre", description: "Un encaissement est en retard ou approche de son échéance." },
     contract_due: { title: "Renouvellement à suivre", description: "Un contrat approche de sa date de renouvellement." },
-    unassigned: { title: "Ticket prioritaire non attribué", description: "Un ticket prioritaire n’a pas encore de responsable." },
+    unassigned: { title: "Ticket prioritaire non attribué", description: "Un ticket prioritaire n’est encore assigné à personne." },
   };
 
   return copy[type] ?? { title, description };

@@ -445,7 +445,7 @@ function SubtaskRow({
             type="button"
             onClick={() => handlers.toggleDetails(subtask)}
             aria-expanded={detailsOpen}
-            aria-label={isFr ? `Responsable et échéance de « ${subtask.title} »` : `Owner and due date of “${subtask.title}”`}
+            aria-label={isFr ? `Assigné et échéance de « ${subtask.title} »` : `Assignee and due date of “${subtask.title}”`}
             className={cn(
               "flex shrink-0 items-center gap-2 rounded-md px-1.5 py-0.5 text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/60",
               !hasMeta && !detailsOpen && REVEAL,
@@ -486,7 +486,7 @@ function SubtaskRow({
           }}
         >
           <label className="grid gap-1 text-xs font-medium text-muted-foreground">
-            {isFr ? "Responsable" : "Owner"}
+            {isFr ? "Assigné" : "Assignee"}
             {canAssign ? (
               <ModernSelect
                 name={`subtask-owner-${subtask.id}`}
@@ -495,13 +495,13 @@ function SubtaskRow({
                 onValueChange={(value) => handlers.setOwner(subtask, value || null)}
                 className="h-8 min-w-48"
                 options={[
-                  { value: "", label: isFr ? "Aucun responsable" : "No owner" },
+                  { value: "", label: isFr ? "Non assigné" : "Unassigned" },
                   ...ownerOptions.map((person) => ({ value: person.id, label: person.full_name })),
                 ]}
               />
             ) : (
               <span className="flex h-8 items-center text-sm text-foreground">
-                {subtask.assignee?.full_name ?? (isFr ? "Aucun responsable" : "No owner")}
+                {subtask.assignee?.full_name ?? (isFr ? "Non assigné" : "Unassigned")}
               </span>
             )}
           </label>

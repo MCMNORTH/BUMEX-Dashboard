@@ -75,7 +75,7 @@ export default async function TicketDetailPage({
     : null;
   const completedName = completedStage?.name ?? tr("Terminé", "Done");
   const nextAction = !ticket.assignee_id
-    ? { tone: "violet", title: tr("Désigner un responsable", "Assign an owner"), description: tr("Ce ticket ne peut pas être piloté clairement tant qu’aucun responsable n’est désigné.", "This ticket cannot be managed clearly until an owner is assigned.") }
+    ? { tone: "violet", title: tr("Assigner le ticket", "Assign the ticket"), description: tr("Ce ticket ne peut pas être piloté clairement tant que personne n’y est assigné.", "This ticket cannot be managed clearly until someone is assigned to it.") }
     : awaitingSignOff && isReporter
       ? { tone: "emerald", title: tr("Valider le travail", "Sign off the work"), description: tr(`Ce ticket attend votre validation. Vérifiez le travail, puis passez-le à « ${completedName} ».`, `This ticket is waiting for your sign-off. Check the work, then move it to ${completedName}.`) }
     : awaitingSignOff
@@ -83,12 +83,12 @@ export default async function TicketDetailPage({
     : ticket.status === "blocked"
       ? { tone: "rose", title: tr("Documenter et lever le blocage", "Document and remove the blocker"), description: tr("Ajoutez le contexte manquant dans les commentaires, puis mettez à jour statut.", "Add the missing context in comments, then update status.") }
       : dueState === "overdue"
-        ? { tone: "amber", title: tr("Replanifier l’échéance", "Replan the deadline"), description: tr("L’échéance est dépassée. Confirmez une nouvelle date réaliste avec le responsable.", "The deadline has passed. Confirm a realistic new date with the owner.") }
+        ? { tone: "amber", title: tr("Replanifier l’échéance", "Replan the deadline"), description: tr("L’échéance est dépassée. Confirmez une nouvelle date réaliste avec l’assigné.", "The deadline has passed. Confirm a realistic new date with the assignee.") }
         : timeUsage > 100
           ? { tone: "amber", title: tr("Revoir l’estimation", "Review the estimate"), description: tr(`Le temps réel atteint ${timeUsage} % de l’estimation. Documentez l’écart avant de poursuivre.`, `Actual time has reached ${timeUsage}% of the estimate. Document the variance before continuing.`) }
           : subtasksComplete && !["review", "done", "archived"].includes(ticket.status)
             ? { tone: "emerald", title: tr("Passer en revue", "Move to review"), description: tr("Toutes les sous-tâches sont terminées. Mettez à jour le statut du ticket.", "Every sub-task is done. Update the ticket status to match.") }
-            : { tone: "emerald", title: tr("Poursuivre l’exécution", "Continue execution"), description: tr("Le ticket possède un responsable et aucun signal critique immédiat n’est détecté.", "The ticket has an owner and no immediate critical signal is detected.") };
+            : { tone: "emerald", title: tr("Poursuivre l’exécution", "Continue execution"), description: tr("Le ticket est assigné et aucun signal critique immédiat n’est détecté.", "The ticket has an assignee and no immediate critical signal is detected.") };
   const timesheetHref = ticket.project_id && auth.role !== "shareholder"
     ? `/timesheet?${new URLSearchParams({ mode: "mine", project: ticket.project_id, mission: ticket.title }).toString()}`
     : null;

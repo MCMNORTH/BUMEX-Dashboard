@@ -108,7 +108,7 @@ export function SubtaskDraftList() {
           {isFr ? "Ajouter une sous-tâche" : "Add a sub-task"}
         </Button>
         <p className="text-xs text-muted-foreground">
-          {isFr ? "Responsables et échéances se règlent ensuite sur la page du ticket." : "Set owners and due dates on the ticket page afterwards."}
+          {isFr ? "Assignés et échéances se règlent ensuite sur la page du ticket." : "Set assignees and due dates on the ticket page afterwards."}
         </p>
       </div>
     </div>
