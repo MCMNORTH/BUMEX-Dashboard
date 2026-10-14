@@ -152,12 +152,19 @@ function ActivityRow({
 
           {entityUrl ? (
             <div className="pt-1">
-              <Link
-                href={entityUrl}
-                className="text-xs font-medium text-primary hover:underline"
-              >
-                {isFr ? "Ouvrir l’élément associé" : "Open related entity"}
-              </Link>
+              {onSelect ? (
+                <Link
+                  href={entityUrl}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  {isFr ? "Ouvrir l’élément associé" : "Open related entity"}
+                </Link>
+              ) : (
+                // The whole card already links to the entity, and a nested <a> breaks hydration.
+                <span className="text-xs font-medium text-primary">
+                  {isFr ? "Ouvrir l’élément associé" : "Open related entity"}
+                </span>
+              )}
             </div>
           ) : null}
         </div>

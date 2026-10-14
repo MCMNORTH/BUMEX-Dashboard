@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { useI18n } from "@/components/layout/i18n-provider";
-import { TicketAssignee, TicketDue } from "@/components/tickets/ticket-meta";
+import { TicketAssignee, TicketDue, TicketSubtaskProgress } from "@/components/tickets/ticket-meta";
 import { TicketPriorityBadge } from "@/components/tickets/ticket-priority-badge";
 import { TicketStatusBadge } from "@/components/tickets/ticket-status-badge";
 import { TicketTypeIcon } from "@/components/tickets/ticket-type-badge";
@@ -31,9 +31,12 @@ function TicketRow({ ticket, locale }: { ticket: TicketRecord; locale: "en" | "f
           <TicketTypeIcon type={ticket.type} className="mt-0.5 shrink-0" />
           <span className="min-w-0">
             <span className="block truncate text-sm font-medium text-foreground">{ticket.title}</span>
-            <span className="block truncate text-xs text-muted-foreground">
-              {context}
-              {owner ? ` · ${owner}` : ""}
+            <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+              <span className="truncate">
+                {context}
+                {owner ? ` · ${owner}` : ""}
+              </span>
+              <TicketSubtaskProgress ticket={ticket} locale={locale} />
             </span>
           </span>
         </span>

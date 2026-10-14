@@ -20,7 +20,7 @@ type Row = Record<string, unknown>;
 
 type Command = "select" | "insert" | "update" | "delete";
 
-const CORE = ["projects", "project_members", "tasks", "clients"];
+const CORE = ["projects", "project_members", "tasks", "subtasks", "clients"];
 const FINANCE = [...CORE, "contracts", "invoices", "payments", "transfers"];
 const EVERYTHING = [...FINANCE, "receipts", "milestones", "documents"];
 
@@ -34,6 +34,7 @@ const DEPENDENCIES: Record<string, string[]> = {
   project_members: CORE,
   tasks: CORE,
   task_dependencies: CORE,
+  subtasks: CORE,
   milestones: CORE,
   contracts: [...CORE, "contracts"],
   invoices: [...CORE, "contracts", "invoices"],
@@ -197,6 +198,33 @@ export class AccessPolicy {
     );
   }
 
+  // Tickets on which the viewer owns a sub-task, per subtasks snapshot (a
+  // reload after a write yields a new snapshot and so a fresh set).
+  private subtaskTaskIds = new WeakMap<Snapshot, Set<string>>();
+
+  private ownsSubtaskOn(taskId: unknown) {
+    const snapshot = this.t("subtasks");
+    let taskIds = this.subtaskTaskIds.get(snapshot);
+
+    if (!taskIds) {
+      taskIds = new Set(snapshot.rows.filter((row) => this.is(row.assignee_id)).map((row) => String(row.task_id)));
+      this.subtaskTaskIds.set(snapshot, taskIds);
+    }
+
+    return taskIds.has(String(taskId));
+  }
+
+  /** The ticket's assignee, or the owner of one of its sub-tasks. */
+  private worksOnTask(task: Row) {
+    return this.is(task.assignee_id) || this.ownsSubtaskOn(task.id);
+  }
+
+  private canEditSubtasksOf(taskId: unknown) {
+    if (this.isAdmin) return true;
+    const task = this.t("tasks").get(taskId);
+    return Boolean(task && (this.canManageProject(task.project_id) || this.is(task.assignee_id)));
+  }
+
   // ---- private.can_* helpers ----------------------------------------------
 
   canManageProject(projectId: unknown): boolean {
@@ -216,14 +244,14 @@ export class AccessPolicy {
     return this.cached(`readProject:${projectId}`, () =>
       this.canManageProject(projectId)
       || this.t("tasks").rows.some(
-        (task) => String(task.project_id) === String(projectId) && this.is(task.assignee_id),
+        (task) => String(task.project_id) === String(projectId) && this.worksOnTask(task),
       ),
     );
   }
 
   private canReadTaskRow(task: Row | undefined) {
     if (this.isAdmin || this.isShareholder) return true;
-    return Boolean(task && (this.is(task.assignee_id) || this.canManageProject(task.project_id)));
+    return Boolean(task && (this.worksOnTask(task) || this.canManageProject(task.project_id)));
   }
 
   canReadTask(taskId: unknown) {
@@ -266,7 +294,7 @@ export class AccessPolicy {
 
       if (this.isEmployee) {
         return this.t("tasks").rows.some((task) => {
-          if (!this.is(task.assignee_id)) return false;
+          if (!this.worksOnTask(task)) return false;
           const project = this.t("projects").get(task.project_id);
           return Boolean(project && String(project.client_id) === key);
         });
@@ -623,7 +651,7 @@ export class AccessPolicy {
           || this.is(project.owner_id)
           || this.isProjectMember(project.id)
           || this.t("tasks").rows.some(
-            (task) => String(task.project_id) === String(project.id) && this.is(task.assignee_id),
+            (task) => String(task.project_id) === String(project.id) && this.worksOnTask(task),
           )
         ))
       .map((project) => ({ id: project.id, name: project.name, entity_code: project.entity_code ?? null }));
@@ -712,6 +740,16 @@ export class AccessPolicy {
           return Boolean(task && this.canManageProject(task.project_id));
         },
       },
+    },
+    // Sub-tasks follow their parent ticket: readable with it, managed by
+    // whoever may update it (admins, the project's managers, the assignee).
+    subtasks: {
+      select: (row) => this.canReadTask(row.task_id),
+      insert: (row) => this.canEditSubtasksOf(row.task_id),
+      // The check phase re-runs this on the new row, so an owner who is not a
+      // ticket editor cannot hand their sub-task to someone else.
+      update: { using: (row) => this.canEditSubtasksOf(row.task_id) || this.is(row.assignee_id) },
+      delete: (row) => this.canEditSubtasksOf(row.task_id),
     },
     milestones: {
       select: (row) => this.canReadProject(row.project_id),

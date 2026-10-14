@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { useI18n } from "@/components/layout/i18n-provider";
-import { TicketAssignee, TicketDue, ticketStatusTone } from "@/components/tickets/ticket-meta";
+import { TicketAssignee, TicketDue, TicketSubtaskProgress, ticketStatusTone } from "@/components/tickets/ticket-meta";
 import { TicketPriorityBadge } from "@/components/tickets/ticket-priority-badge";
 import { TicketTypeIcon } from "@/components/tickets/ticket-type-badge";
 import { toneDot } from "@/components/ui/tone";
@@ -47,6 +47,7 @@ export function PlanningTaskCard({
           </span>
           {ticket.priority === "high" || ticket.priority === "urgent" ? <TicketPriorityBadge priority={ticket.priority} /> : null}
           <TicketDue ticket={ticket} locale={locale} />
+          <TicketSubtaskProgress ticket={ticket} locale={locale} />
         </span>
         <TicketAssignee name={ticket.assignee?.full_name} locale={locale} showName={false} />
       </div>

@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MyWorkViewPanel } from "@/components/tickets/my-work-view-panel";
+import { MySubtasksCard } from "@/components/tickets/my-subtasks-card";
 import { TicketWorkloadPreview } from "@/components/tickets/ticket-workload-preview";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -126,6 +127,8 @@ async function MyWorkContent({
       {nextTicket ? <Card className={`overflow-hidden ${nextTicketSignal.tone === "rose" ? "bg-danger/10 dark:bg-danger/10 border-danger/25 dark:border-danger/20" : nextTicketSignal.tone === "amber" ? "bg-warning/10 dark:bg-warning/10 border-warning/25 dark:border-warning/20" : nextTicketSignal.tone === "blue" ? "bg-card border-primary/25 dark:border-primary/20" : "bg-success/10 dark:bg-success/10 border-success/25 dark:border-success/20"}`}>
         <CardContent className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex min-w-0 items-start gap-4"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-background/80 shadow-sm">{nextTicketSignal.tone === "rose" ? <AlertTriangle className="size-5 text-danger" /> : <Sparkles className="size-5 text-primary" />}</span><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{isFr ? "Prochaine action recommandée" : "Recommended next action"}</p><h2 className="mt-1 truncate text-lg font-semibold">{nextTicketSignal.label} · {nextTicket.title}</h2><p className="mt-1 text-sm text-muted-foreground">{nextTicketSignal.description}{nextTicket.project?.name ? ` · ${nextTicket.project.name}` : ""}</p></div></div><Button asChild><Link href={`/tickets/${nextTicket.id}`}>{isFr ? "Ouvrir le ticket" : "Open ticket"}<ArrowRight className="size-4" /></Link></Button></CardContent>
       </Card> : null}
+
+      {auth.role !== "shareholder" ? <Suspense fallback={null}><MySubtasksCard userId={auth.profile.id} locale={locale} /></Suspense> : null}
 
       <div className="grid gap-4 xl:grid-cols-4">
         {[

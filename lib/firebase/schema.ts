@@ -62,6 +62,18 @@ export const TABLES: Record<string, TableSchema> = {
     defaults: {},
     unique: { task_dependencies_unique: ["task_id", "depends_on_task_id"] },
   },
+  subtasks: {
+    defaults: {
+      ...timestamps,
+      is_done: false,
+      assignee_id: null,
+      due_date: null,
+      position: 0,
+      completed_at: null,
+      created_by: null,
+    },
+    touchUpdatedAt: true,
+  },
   milestones: {
     defaults: { ...timestamps, status: "planned" },
   },
@@ -234,6 +246,7 @@ export const INBOUND_REFERENCES: Record<string, InboundReference[]> = {
   tasks: [
     { table: "task_dependencies", column: "task_id", onDelete: "cascade" },
     { table: "task_dependencies", column: "depends_on_task_id", onDelete: "cascade" },
+    { table: "subtasks", column: "task_id", onDelete: "cascade" },
   ],
   clients: [
     { table: "projects", column: "client_id", onDelete: "restrict" },

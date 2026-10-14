@@ -70,6 +70,34 @@ export type TicketRecord = {
   reporter: TicketReporter | null;
   activity: TicketActivity[];
   viewMode: TicketViewMode;
+  /** Sub-task progress, cached on the ticket so lists can show it without extra reads. */
+  subtasks_total?: number;
+  subtasks_done?: number;
+};
+
+export type SubtaskOwner = Pick<Profile, "id" | "full_name">;
+
+/** A checklist step that belongs to exactly one ticket (`task_id`). */
+export type TicketSubtask = {
+  id: string;
+  task_id: string;
+  title: string;
+  is_done: boolean;
+  /** The sub-task's owner; they may tick it off even without edit rights on the ticket. */
+  assignee_id: string | null;
+  due_date: string | null;
+  /** Order within the ticket, lowest first. */
+  position: number;
+  completed_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  assignee: SubtaskOwner | null;
+};
+
+/** A sub-task listed on My Work, with the ticket it belongs to. */
+export type MySubtask = TicketSubtask & {
+  task: { id: string; title: string; entity_code: string | null } | null;
 };
 
 export type TicketFilters = {

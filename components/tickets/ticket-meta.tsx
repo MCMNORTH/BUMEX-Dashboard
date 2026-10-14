@@ -1,5 +1,7 @@
 "use client";
 
+import { ListChecks } from "lucide-react";
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { Tone } from "@/components/ui/tone";
 import { cn } from "@/lib/utils";
@@ -56,6 +58,35 @@ export function TicketDue({
       title={late ? (locale === "fr" ? "En retard" : "Overdue") : undefined}
     >
       {label}
+    </span>
+  );
+}
+
+/** "2/5" sub-tasks done; renders nothing for tickets without sub-tasks. */
+export function TicketSubtaskProgress({
+  ticket,
+  locale,
+  className,
+}: {
+  ticket: Pick<TicketRecord, "subtasks_total" | "subtasks_done">;
+  locale: "en" | "fr";
+  className?: string;
+}) {
+  const total = ticket.subtasks_total ?? 0;
+
+  if (!total) {
+    return null;
+  }
+
+  const done = ticket.subtasks_done ?? 0;
+
+  return (
+    <span
+      className={cn("inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs tabular-nums", done === total ? "text-success" : "text-muted-foreground", className)}
+      title={locale === "fr" ? `${done} sous-tâche(s) terminée(s) sur ${total}` : `${done} of ${total} sub-tasks done`}
+    >
+      <ListChecks className="size-3.5" aria-hidden="true" />
+      {done}/{total}
     </span>
   );
 }

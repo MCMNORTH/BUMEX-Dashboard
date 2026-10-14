@@ -11,11 +11,14 @@ import { getMentionCandidates } from "@/lib/notifications/service";
 import { getAvailableTeamMembers, getTeamWorkload } from "@/lib/team/service";
 import { formatTicketDate, getTicketDueState } from "@/lib/tickets/helpers";
 import { getTicketById, getTicketsFilterData } from "@/lib/tickets/service";
+import { getTicketSubtasks } from "@/lib/tickets/subtasks";
 import { ActivityFeed } from "@/components/activity/activity-feed";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TicketDetailHeader } from "@/components/tickets/ticket-detail-header";
 import { TicketJourney } from "@/components/tickets/ticket-journey";
+import { TicketSubtasks } from "@/components/tickets/ticket-subtasks";
+import type { TicketSubtask } from "@/types/ticket";
 import { TicketToast } from "@/components/tickets/ticket-toast";
 
 export default async function TicketDetailPage({
@@ -27,13 +30,16 @@ export default async function TicketDetailPage({
   const isFr = (await getCurrentLocale()) === "fr";
   const tr = (fr: string, en: string) => isFr ? fr : en;
   const { id } = await params;
-  const [ticket, filterData, assigneeWorkloads, suggestedAssignees, comments, mentionCandidates] = await Promise.all([
+  const isShareholder = auth.role === "shareholder";
+  const [ticket, filterData, assigneeWorkloads, suggestedAssignees, comments, mentionCandidates, subtasks] = await Promise.all([
     getTicketById(id, auth.role),
     getTicketsFilterData(),
     getTeamWorkload(auth.role, auth.profile.id),
     getAvailableTeamMembers(auth.role),
     getCommentsForEntity("ticket", id),
     getMentionCandidates(),
+    // Shareholders only get the progress counts carried on the ticket.
+    isShareholder ? Promise.resolve([] as TicketSubtask[]) : getTicketSubtasks(id),
   ]);
 
   if (!ticket) {
@@ -49,6 +55,9 @@ export default async function TicketDetailPage({
   const actualHours = Number(ticket.actual_hours ?? 0);
   const timeUsage = estimatedHours > 0 ? Math.round(actualHours / estimatedHours * 100) : 0;
   const dueState = getTicketDueState(ticket.due_date);
+  const subtasksTotal = isShareholder ? ticket.subtasks_total ?? 0 : subtasks.length;
+  const subtasksDone = isShareholder ? ticket.subtasks_done ?? 0 : subtasks.filter((subtask) => subtask.is_done).length;
+  const subtasksComplete = subtasksTotal > 0 && subtasksDone === subtasksTotal;
   const nextAction = !ticket.assignee_id
     ? { tone: "violet", title: tr("Désigner un responsable", "Assign an owner"), description: tr("Ce ticket ne peut pas être piloté clairement tant qu’aucun responsable n’est désigné.", "This ticket cannot be managed clearly until an owner is assigned.") }
     : ticket.status === "blocked"
@@ -57,7 +66,9 @@ export default async function TicketDetailPage({
         ? { tone: "amber", title: tr("Replanifier l’échéance", "Replan the deadline"), description: tr("L’échéance est dépassée. Confirmez une nouvelle date réaliste avec le responsable.", "The deadline has passed. Confirm a realistic new date with the owner.") }
         : timeUsage > 100
           ? { tone: "amber", title: tr("Revoir l’estimation", "Review the estimate"), description: tr(`Le temps réel atteint ${timeUsage} % de l’estimation. Documentez l’écart avant de poursuivre.`, `Actual time has reached ${timeUsage}% of the estimate. Document the variance before continuing.`) }
-          : { tone: "emerald", title: tr("Poursuivre l’exécution", "Continue execution"), description: tr("Le ticket possède un responsable et aucun signal critique immédiat n’est détecté.", "The ticket has an owner and no immediate critical signal is detected.") };
+          : subtasksComplete && !["review", "done", "archived"].includes(ticket.status)
+            ? { tone: "emerald", title: tr("Passer en revue", "Move to review"), description: tr("Toutes les sous-tâches sont terminées. Mettez à jour le statut du ticket.", "Every sub-task is done. Update the ticket status to match.") }
+            : { tone: "emerald", title: tr("Poursuivre l’exécution", "Continue execution"), description: tr("Le ticket possède un responsable et aucun signal critique immédiat n’est détecté.", "The ticket has an owner and no immediate critical signal is detected.") };
   const timesheetHref = ticket.project_id && auth.role !== "shareholder"
     ? `/timesheet?${new URLSearchParams({ mode: "mine", project: ticket.project_id, mission: ticket.title }).toString()}`
     : null;
@@ -80,6 +91,18 @@ export default async function TicketDetailPage({
       </Card>
 
       <TicketJourney status={ticket.status} isFr={isFr} />
+
+      {!isShareholder || subtasksTotal > 0 ? (
+        <TicketSubtasks
+          ticketId={ticket.id}
+          subtasks={subtasks}
+          canEdit={canUpdate}
+          canAssign={canManage}
+          currentUserId={auth.profile.id}
+          people={filterData.assignees}
+          summary={isShareholder ? { total: subtasksTotal, done: subtasksDone } : undefined}
+        />
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
         <Card className="border-border/70 bg-card">

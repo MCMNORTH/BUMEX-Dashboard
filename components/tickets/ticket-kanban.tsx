@@ -26,7 +26,7 @@ import { updateTicketStatusAction } from "@/app/(app)/tickets/actions";
 import { ticketKanbanStatuses } from "@/lib/tickets/helpers";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/components/layout/i18n-provider";
-import { TicketAssignee, TicketDue, ticketStatusTone } from "@/components/tickets/ticket-meta";
+import { TicketAssignee, TicketDue, TicketSubtaskProgress, ticketStatusTone } from "@/components/tickets/ticket-meta";
 import { TicketPriorityBadge } from "@/components/tickets/ticket-priority-badge";
 import { TicketTypeIcon } from "@/components/tickets/ticket-type-badge";
 import { toneDot } from "@/components/ui/tone";
@@ -105,6 +105,7 @@ function TicketKanbanCard({
         <span className="flex min-w-0 items-center gap-2 text-xs">
           {showPriority ? <TicketPriorityBadge priority={ticket.priority} /> : null}
           <TicketDue ticket={ticket} locale={locale} />
+          <TicketSubtaskProgress ticket={ticket} locale={locale} />
         </span>
         <TicketAssignee name={ticket.assignee?.full_name} locale={locale} showName={false} />
       </div>

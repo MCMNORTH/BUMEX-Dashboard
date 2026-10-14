@@ -23,6 +23,7 @@ import {
 import { AssignmentHelper } from "@/components/team/assignment-helper";
 import { Input } from "@/components/ui/input";
 import { ModernSelect } from "@/components/ui/modern-select";
+import { SubtaskDraftList } from "@/components/tickets/subtask-draft-list";
 import { Textarea } from "@/components/ui/textarea";
 import type { AppRole } from "@/types/auth";
 import type { TicketFiltersData, TicketFormValues } from "@/types/ticket";
@@ -348,6 +349,8 @@ export function TicketForm({
               </div>
             </div>
           </details>
+
+          {mode === "create" ? <SubtaskDraftList /> : null}
 
           {state.error ? (
             <div className="sm:col-span-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">

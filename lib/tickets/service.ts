@@ -36,6 +36,8 @@ type TicketRow = {
   estimated_hours: number | null;
   actual_hours: number | null;
   github_issue_url: string | null;
+  subtasks_total: number | null;
+  subtasks_done: number | null;
   created_at: string;
   updated_at: string;
   project: TicketProject | TicketProject[] | null;
@@ -75,6 +77,8 @@ function mapTicket(row: TicketRow, role: AppRole, activity: TicketActivity[] = [
     reporter: single(row.reporter),
     activity,
     viewMode: role === "shareholder" ? "summary" : "full",
+    subtasks_total: row.subtasks_total ?? 0,
+    subtasks_done: row.subtasks_done ?? 0,
   };
 }
 
@@ -96,6 +100,8 @@ function getBaseTicketQuery(db: AppDataClient) {
         estimated_hours,
         actual_hours,
         github_issue_url,
+        subtasks_total,
+        subtasks_done,
         created_at,
         updated_at,
         project:projects (
@@ -215,7 +221,7 @@ function ticketFiltersKey(filters: TicketFilters = {}) {
   });
 }
 
-function invalidateTicketReadCache() {
+export function invalidateTicketReadCache() {
   invalidateCached((key) => key.startsWith("tickets:") || key === "tickets-filter-data");
 }
 
@@ -327,6 +333,8 @@ export async function getTicketById(id: string, role: AppRole) {
         estimated_hours,
         actual_hours,
         github_issue_url,
+        subtasks_total,
+        subtasks_done,
         created_at,
         updated_at,
         project:projects (
