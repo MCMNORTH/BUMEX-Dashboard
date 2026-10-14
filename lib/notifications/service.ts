@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { after } from "next/server";
 
-import { dispatchNotificationEmails } from "@/lib/notifications/email-delivery";
+import { dispatchNotificationEmails, sweepNotificationEmails } from "@/lib/notifications/email-delivery";
 import { createClient } from "@/lib/firebase/server";
 import { requireAuthenticatedUser } from "@/lib/auth/server";
 import type { CommentEntityType, CommentRecord } from "@/types/comment";
@@ -128,6 +128,7 @@ async function createNotifications(
     after(async () => {
       try {
         await dispatchNotificationEmails(rows.map(({ id }) => id));
+        await sweepNotificationEmails();
       } catch (dispatchError) {
         console.error(
           "[notification-email:dispatch]",

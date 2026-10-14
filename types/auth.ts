@@ -21,6 +21,8 @@ export type Profile = {
   // Absent on profiles created before sidebar themes existed.
   sidebar_theme?: string | null;
   logo_appearance?: string | null;
+  // Absent until the person changes it; anything but false means emails are on.
+  email_notifications?: boolean | null;
   created_at: string;
   updated_at: string;
 };

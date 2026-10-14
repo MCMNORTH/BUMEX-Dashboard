@@ -549,8 +549,9 @@ export async function createTicket(values: TicketFormValues, actorUserId: string
 
   const projectRecipients = await getNotificationRecipientsForProject(payload.project_id);
 
+  // The assignee already got "New ticket assignment" for this ticket.
   await createScopedNotifications({
-    userIds: projectRecipients.map((recipient) => recipient.id),
+    userIds: projectRecipients.map((recipient) => recipient.id).filter((id) => id !== payload.assignee_id),
     type: "comment",
     title: "New ticket created",
     body: `${payload.title} was added to the operational queue.`,

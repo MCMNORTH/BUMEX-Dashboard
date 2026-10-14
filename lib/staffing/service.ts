@@ -2,13 +2,29 @@ import "server-only";
 
 import { logActivity } from "@/lib/activity/service";
 import { requireCurrentEntityContext } from "@/lib/entities/scope";
-import { createAssignmentNotification } from "@/lib/notifications/service";
+import { createAssignmentNotification, createScopedNotifications } from "@/lib/notifications/service";
 import { createClient } from "@/lib/firebase/server";
+import type { NotificationType } from "@/types/notification";
 import type { StaffingActivity, StaffingAssignment, StaffingPerson, StaffingProject, StaffingStatus } from "@/types/staffing";
 
-async function notifyStaffing(params: Parameters<typeof createAssignmentNotification>[0]) {
+// The person staffed hears about their own assignment. The project owner and
+// whoever requested the assignment hear about the same change for that person.
+// Whoever made the change hears nothing.
+async function notifyStaffing(notice: {
+  projectId: string;
+  assigneeId: string;
+  involvedUserIds: Array<string | null | undefined>;
+  actorId: string;
+  type?: NotificationType;
+  title: string;
+  assigneeBody: string;
+  involvedBody: string;
+}) {
   try {
-    await createAssignmentNotification(params);
+    await Promise.all([
+      createAssignmentNotification({ userId: notice.assigneeId, skipUserId: notice.actorId, type: notice.type, title: notice.title, body: notice.assigneeBody, entityType: "project", entityId: notice.projectId }),
+      createScopedNotifications({ userIds: notice.involvedUserIds.filter(id => id !== notice.assigneeId), skipUserId: notice.actorId, type: notice.type ?? "assignment", title: notice.title, body: notice.involvedBody, entityType: "project", entityId: notice.projectId }),
+    ]);
   } catch (error) {
     console.error("[staffing:notification]", error instanceof Error ? error.message : "unknown");
   }
@@ -74,7 +90,7 @@ export async function createStaffingAssignment(input: {
   if (!db) throw new Error("Staffing unavailable.");
 
   const [{ data: project }, { data: person }] = await Promise.all([
-    db.from("projects").select("id, name, entity_code").eq("id", input.projectId).maybeSingle<{ id: string; name: string; entity_code: string | null }>(),
+    db.from("projects").select("id, name, entity_code, owner_id").eq("id", input.projectId).maybeSingle<{ id: string; name: string; entity_code: string | null; owner_id: string | null }>(),
     db.from("profiles").select("id, full_name, entity_code, role, availability_status").eq("id", input.userId).maybeSingle<{ id: string; full_name: string; entity_code: string | null; role: string; availability_status: string }>(),
   ]);
   if (!project || !person) throw new Error("Project or person not found.");
@@ -105,7 +121,8 @@ export async function createStaffingAssignment(input: {
     }
   }
   await logActivity({ userId: auth.profile.id, action: `Created staffing assignment for ${person.id}`, entityType: "project", entityId: input.projectId, metadata: { kind: "assignment_change", summary: `Staffing assignment created at ${input.allocationPercent}%`, related_type: "staffing", related_id: assignment.id, assignee_id: person.id, status: input.status } });
-  await notifyStaffing({ userId: person.id, skipUserId: auth.profile.id, title: input.status === "confirmed" ? "New project assignment confirmed" : "New staffing assignment", body: `${project.name} · ${input.projectRole} · ${input.allocationPercent}% from ${input.startDate} to ${input.endDate}.`, entityType: "project", entityId: input.projectId });
+  const period = `${input.projectRole} · ${input.allocationPercent}% from ${input.startDate} to ${input.endDate}`;
+  await notifyStaffing({ projectId: input.projectId, assigneeId: person.id, involvedUserIds: [project.owner_id], actorId: auth.profile.id, title: input.status === "confirmed" ? "New project assignment confirmed" : "New staffing assignment", assigneeBody: `${project.name} · ${period}.`, involvedBody: `${person.full_name} · ${project.name} · ${period}.` });
 }
 
 export async function updateStaffingAssignmentStatus(assignmentId: string, status: StaffingStatus) {
@@ -115,9 +132,9 @@ export async function updateStaffingAssignmentStatus(assignmentId: string, statu
   if (!db) throw new Error("Staffing unavailable.");
   const { data: assignment, error: readError } = await db
     .from("staffing_assignments")
-    .select("id, project_id, user_id, entity_code, start_date, end_date, allocation_percent")
+    .select("id, project_id, user_id, entity_code, start_date, end_date, allocation_percent, created_by")
     .eq("id", assignmentId)
-    .maybeSingle<{ id: string; project_id: string; user_id: string; entity_code: string; start_date: string; end_date: string; allocation_percent: number }>();
+    .maybeSingle<{ id: string; project_id: string; user_id: string; entity_code: string; start_date: string; end_date: string; allocation_percent: number; created_by: string | null }>();
   if (readError || !assignment) throw new Error(readError?.message ?? "Assignment not found.");
   if (auth.role === "manager" && assignment.entity_code !== entityCode) throw new Error("Selection outside your entity.");
 
@@ -145,8 +162,12 @@ export async function updateStaffingAssignmentStatus(assignmentId: string, statu
     if (!count) await db.from("project_members").delete().eq("project_id", assignment.project_id).eq("user_id", assignment.user_id);
   }
   await logActivity({ userId: auth.profile.id, action: `Changed staffing status to ${status}`, entityType: "project", entityId: assignment.project_id, metadata: { kind: "status_change", summary: `Staffing assignment is now ${status}`, related_type: "staffing", related_id: assignment.id, assignee_id: assignment.user_id, status } });
-  const { data: statusProject } = await db.from("projects").select("name").eq("id", assignment.project_id).maybeSingle<{ name: string }>();
-  await notifyStaffing({ userId: assignment.user_id, skipUserId: auth.profile.id, type: "status_change", title: `Staffing assignment ${status}`, body: `${statusProject?.name ?? "Project"}: your assignment is now ${status}.`, entityType: "project", entityId: assignment.project_id });
+  const [{ data: statusProject }, { data: statusPerson }] = await Promise.all([
+    db.from("projects").select("name, owner_id").eq("id", assignment.project_id).maybeSingle<{ name: string; owner_id: string | null }>(),
+    db.from("profiles").select("full_name").eq("id", assignment.user_id).maybeSingle<{ full_name: string }>(),
+  ]);
+  const statusProjectName = statusProject?.name ?? "Project";
+  await notifyStaffing({ projectId: assignment.project_id, assigneeId: assignment.user_id, involvedUserIds: [statusProject?.owner_id, assignment.created_by], actorId: auth.profile.id, type: "status_change", title: `Staffing assignment ${status}`, assigneeBody: `${statusProjectName}: your assignment is now ${status}.`, involvedBody: `${statusProjectName}: ${statusPerson?.full_name ?? "A team member"}'s assignment is now ${status}.` });
 }
 
 export async function updateStaffingAssignment(input: { assignmentId: string; projectRole: string; startDate: string; endDate: string; allocationPercent: number; weeklyHours: number; note: string }) {
@@ -155,8 +176,8 @@ export async function updateStaffingAssignment(input: { assignmentId: string; pr
   const db = await createClient();
   if (!db) throw new Error("Staffing unavailable.");
   const { data: assignment, error: readError } = await db.from("staffing_assignments")
-    .select("id, project_id, user_id, entity_code, status").eq("id", input.assignmentId)
-    .maybeSingle<{ id: string; project_id: string; user_id: string; entity_code: string; status: StaffingStatus }>();
+    .select("id, project_id, user_id, entity_code, status, created_by").eq("id", input.assignmentId)
+    .maybeSingle<{ id: string; project_id: string; user_id: string; entity_code: string; status: StaffingStatus; created_by: string | null }>();
   if (readError || !assignment) throw new Error(readError?.message ?? "Assignment not found.");
   if (auth.role === "manager" && assignment.entity_code !== entityCode) throw new Error("Selection outside your entity.");
   if (assignment.status === "cancelled" || assignment.status === "completed") throw new Error("Closed assignments cannot be edited.");
@@ -171,6 +192,10 @@ export async function updateStaffingAssignment(input: { assignmentId: string; pr
   const { error } = await db.from("staffing_assignments").update({ project_role: input.projectRole, start_date: input.startDate, end_date: input.endDate, allocation_percent: input.allocationPercent, weekly_hours: input.weeklyHours, note: input.note || null }).eq("id", assignment.id);
   if (error) throw new Error(error.message);
   await logActivity({ userId: auth.profile.id, action: "Updated staffing assignment", entityType: "project", entityId: assignment.project_id, metadata: { kind: "assignment_change", summary: `Staffing assignment updated to ${input.allocationPercent}%`, related_type: "staffing", related_id: assignment.id, assignee_id: assignment.user_id, allocation_percent: input.allocationPercent } });
-  const { data: updatedProject } = await db.from("projects").select("name").eq("id", assignment.project_id).maybeSingle<{ name: string }>();
-  await notifyStaffing({ userId: assignment.user_id, skipUserId: auth.profile.id, title: "Project assignment updated", body: `${updatedProject?.name ?? "Project"} · ${input.projectRole} · ${input.allocationPercent}% from ${input.startDate} to ${input.endDate}.`, entityType: "project", entityId: assignment.project_id });
+  const [{ data: updatedProject }, { data: updatedPerson }] = await Promise.all([
+    db.from("projects").select("name, owner_id").eq("id", assignment.project_id).maybeSingle<{ name: string; owner_id: string | null }>(),
+    db.from("profiles").select("full_name").eq("id", assignment.user_id).maybeSingle<{ full_name: string }>(),
+  ]);
+  const updatedPeriod = `${updatedProject?.name ?? "Project"} · ${input.projectRole} · ${input.allocationPercent}% from ${input.startDate} to ${input.endDate}`;
+  await notifyStaffing({ projectId: assignment.project_id, assigneeId: assignment.user_id, involvedUserIds: [updatedProject?.owner_id, assignment.created_by], actorId: auth.profile.id, title: "Project assignment updated", assigneeBody: `${updatedPeriod}.`, involvedBody: `${updatedPerson?.full_name ?? "A team member"} · ${updatedPeriod}.` });
 }

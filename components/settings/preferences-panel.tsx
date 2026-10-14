@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { BellRing, Globe2, MonitorCog, MoonStar, SunMedium } from "lucide-react";
 import { useTheme } from "next-themes";
 
+import { updateEmailNotificationsAction } from "@/app/(app)/settings/preferences/actions";
 import { useI18n } from "@/components/layout/i18n-provider";
 import { useMounted } from "@/hooks/use-mounted";
 import { PageHeader } from "@/components/layout/page-header";
@@ -14,7 +15,6 @@ type LanguagePreference = "fr" | "en";
 type ThemePreference = "dark" | "light" | "system";
 type NotificationPreferenceState = {
   inApp: boolean;
-  email: boolean;
 };
 
 const storageKeys = {
@@ -22,7 +22,13 @@ const storageKeys = {
   notifications: "bumex-preferences-notifications",
 } as const;
 
-export function PreferencesPanel() {
+export function PreferencesPanel({
+  emailNotifications: savedEmailNotifications,
+  email,
+}: {
+  emailNotifications: boolean;
+  email: string;
+}) {
   const mounted = useMounted();
   const { theme, setTheme } = useTheme();
   const { locale } = useI18n();
@@ -30,8 +36,24 @@ export function PreferencesPanel() {
   const [language, setLanguage] = useState<LanguagePreference>("fr");
   const [notifications, setNotifications] = useState<NotificationPreferenceState>({
     inApp: true,
-    email: false,
   });
+  const [emailNotifications, setEmailNotifications] = useState(savedEmailNotifications);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailPending, startEmailTransition] = useTransition();
+
+  function toggleEmailNotifications() {
+    const next = !emailNotifications;
+    setEmailNotifications(next);
+    setEmailError(null);
+    startEmailTransition(async () => {
+      const result = await updateEmailNotificationsAction(next).catch(() => ({ error: "Network error." }));
+
+      if (result.error) {
+        setEmailNotifications(!next);
+        setEmailError(result.error);
+      }
+    });
+  }
 
   useEffect(() => {
     if (!mounted) {
@@ -97,7 +119,9 @@ export function PreferencesPanel() {
             <PreferenceSection
               icon={BellRing}
               title={isFr ? "Préférences de notifications" : "Notification preferences"}
-              description={isFr ? "Stocké localement jusqu’à l’introduction d’une table de préférences dédiée." : "Stored locally until a dedicated preferences table is introduced."}
+              description={isFr
+                ? `Les e-mails partent vers ${email} : tickets qui vous sont attribués, staffing qui vous concerne et toute autre notification. Ce choix est enregistré sur votre profil.`
+                : `Emails go to ${email}: tickets assigned to you, staffing that involves you, and every other notification. This choice is saved to your profile.`}
             >
               <div className="grid gap-3 sm:grid-cols-2">
                 <ToggleCard
@@ -108,11 +132,19 @@ export function PreferencesPanel() {
                 />
                 <ToggleCard
                   title={isFr ? "Notifications par e-mail" : "Email notifications"}
-                  active={notifications.email}
-                  onToggle={() => setNotifications((current) => ({ ...current, email: !current.email }))}
+                  active={emailNotifications}
+                  disabled={emailPending}
+                  onToggle={toggleEmailNotifications}
                   isFr={isFr}
                 />
               </div>
+              <p role="status" aria-live="polite" className="min-h-5 text-sm text-danger">
+                {emailError
+                  ? isFr
+                    ? `Échec de l’enregistrement : ${emailError.replace(/\.$/, "")}. Votre choix précédent est rétabli.`
+                    : `Couldn’t save: ${emailError.replace(/\.$/, "")}. Your previous choice is back.`
+                  : null}
+              </p>
             </PreferenceSection>
           </CardContent>
         </Card>
@@ -132,8 +164,8 @@ export function PreferencesPanel() {
             />
             <SummaryTile
               label={isFr ? "Notifications e-mail" : "Email notifications"}
-              value={notifications.email ? (isFr ? "Activées" : "Enabled") : (isFr ? "Désactivées" : "Disabled")}
-              detail={isFr ? "Placeholder temporaire" : "Placeholder only for now"}
+              value={emailNotifications ? (isFr ? "Activées" : "Enabled") : (isFr ? "Désactivées" : "Disabled")}
+              detail={isFr ? "Enregistré sur votre profil" : "Saved to your profile"}
             />
 
             <div className="rounded-xl border border-border/65 bg-background/35 p-4">
@@ -202,18 +234,22 @@ function PreferenceButton({
 function ToggleCard({
   title,
   active,
+  disabled,
   onToggle,
   isFr,
 }: {
   title: string;
   active: boolean;
+  disabled?: boolean;
   onToggle: () => void;
   isFr: boolean;
 }) {
   return (
     <button
       type="button"
-      className={`rounded-xl border px-4 py-4 text-left transition-all ${
+      aria-pressed={active}
+      disabled={disabled}
+      className={`rounded-xl border px-4 py-4 text-left transition-all disabled:opacity-70 ${
         active
           ? "border-primary/40 bg-primary/12 dark:border-primary/25 dark:bg-primary/14"
           : "border-border/65 bg-background/45 hover:bg-accent/40 dark:border-white/10 dark:bg-slate-950/45 dark:hover:bg-slate-900/70"

@@ -2,10 +2,17 @@ import "server-only";
 
 import { isSmtpConfigured, sendMail } from "@/lib/email/server";
 import { isMicrosoftGraphConfigured, sendMicrosoftGraphMail } from "@/lib/email/microsoft-graph";
+import { isResendConfigured, sendResendMail } from "@/lib/email/resend";
 import { createAdminClient } from "@/lib/firebase/server";
 
 const MAX_ATTEMPTS = 5;
 const NOTIFICATION_EMAIL_FROM = process.env.NOTIFICATION_EMAIL_FROM || "BUMEX <bumex@bumex.mr>";
+// An email that couldn't go out within a day is stale news; it is marked
+// expired instead. This also keeps the backlog queued while no provider was
+// configured from reaching inboxes all at once.
+const MAX_EMAIL_AGE_MS = 24 * 60 * 60_000;
+const SWEEP_INTERVAL_MS = 5 * 60_000;
+let lastSweepAt = 0;
 
 type NotificationEmail = {
   id: string;
@@ -16,6 +23,7 @@ type NotificationEmail = {
   entity_type: string;
   entity_id: string;
   attempts: number;
+  created_at: string;
 };
 
 function escapeHtml(value: string) {
@@ -66,10 +74,11 @@ function createEmailContent(notification: NotificationEmail) {
   const linkHtml = link
     ? `<p style="margin:24px 0"><a href="${escapeHtml(link)}" style="background:#173b67;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none">Ouvrir BUMEX Dashboard</a></p>`
     : "";
+  const footer = "Vous recevez cet e-mail car cette notification vous concerne dans BUMEX Dashboard. Vous pouvez désactiver ces e-mails dans Paramètres › Préférences.";
 
   return {
-    html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#172033;max-width:600px;margin:0 auto"><p style="font-size:12px;color:#65748b">BUMEX Dashboard</p><h1 style="font-size:22px">${title}</h1><p>${body}</p>${linkHtml}</div>`,
-    text: `${notification.subject}\n\n${notification.body}${link ? `\n\nOuvrir BUMEX Dashboard : ${link}` : ""}`,
+    html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#172033;max-width:600px;margin:0 auto"><p style="font-size:12px;color:#65748b">BUMEX Dashboard</p><h1 style="font-size:22px">${title}</h1><p>${body}</p>${linkHtml}<p style="font-size:12px;color:#65748b;border-top:1px solid #e2e8f0;padding-top:12px">${escapeHtml(footer)}</p></div>`,
+    text: `${notification.subject}\n\n${notification.body}${link ? `\n\nOuvrir BUMEX Dashboard : ${link}` : ""}\n\n${footer}`,
   };
 }
 
@@ -81,9 +90,31 @@ async function processEmail(
   db: NonNullable<ReturnType<typeof createAdminClient>>,
   notification: NotificationEmail,
 ) {
+  const createdAt = Date.parse(notification.created_at);
+  if (Number.isFinite(createdAt) && Date.now() - createdAt > MAX_EMAIL_AGE_MS) {
+    const { error } = await db
+      .from("notification_email_outbox")
+      .update({ status: "expired", locked_at: null, last_error: "Not sent: older than 24 hours when delivery ran." })
+      .eq("id", notification.id)
+      .eq("status", "processing");
+
+    if (error) {
+      console.error("[notification-email:update-failure]", notification.id, error.code ?? "database");
+    }
+    return { sent: 0, failed: 0 };
+  }
+
   try {
     const content = createEmailContent(notification);
-    if (isMicrosoftGraphConfigured()) {
+    if (isResendConfigured()) {
+      await sendResendMail({
+        from: NOTIFICATION_EMAIL_FROM,
+        to: notification.recipient_email,
+        subject: notification.subject,
+        ...content,
+        idempotencyKey: `notification-email/${notification.id}`,
+      });
+    } else if (isMicrosoftGraphConfigured()) {
       await sendMicrosoftGraphMail({
         to: notification.recipient_email,
         subject: notification.subject,
@@ -133,7 +164,7 @@ export async function dispatchNotificationEmails(notificationIds?: string[]) {
   if (notificationIds && notificationIds.length === 0) return { sent: 0, failed: 0, deferred: false };
 
   const db = createAdminClient();
-  if (!db || (!isMicrosoftGraphConfigured() && !isSmtpConfigured(NOTIFICATION_EMAIL_FROM))) {
+  if (!db || (!isResendConfigured() && !isMicrosoftGraphConfigured() && !isSmtpConfigured(NOTIFICATION_EMAIL_FROM))) {
     return { sent: 0, failed: 0, deferred: true };
   }
 
@@ -157,4 +188,16 @@ export async function dispatchNotificationEmails(notificationIds?: string[]) {
   }
 
   return { sent, failed, deferred: false };
+}
+
+// Retrying failed sends is the cron's job, but App Hosting runs no cron, so
+// instances that are creating notifications anyway also pick up due retries,
+// at most once every few minutes each.
+export async function sweepNotificationEmails() {
+  if (Date.now() - lastSweepAt < SWEEP_INTERVAL_MS) {
+    return null;
+  }
+
+  lastSweepAt = Date.now();
+  return dispatchNotificationEmails();
 }

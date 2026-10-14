@@ -113,12 +113,18 @@ export async function beforeWrite(
 
 // ---- after triggers ----------------------------------------------------------
 
-// notifications_enqueue_email (on conflict (notification_id) do nothing)
+// notifications_enqueue_email (on conflict (notification_id) do nothing).
+// Skips people who turned email notifications off; a profile without the
+// field still gets them.
 async function enqueueNotificationEmails(rows: Row[]) {
   const db = adminDb();
   const userIds = [...new Set(rows.map((row) => String(row.user_id)))];
   const profiles = await db.getAll(...userIds.map((id) => db.collection("profiles").doc(id)));
-  const emails = new Map(profiles.filter((doc) => doc.exists).map((doc) => [doc.id, doc.get("email") as string | null]));
+  const emails = new Map(
+    profiles
+      .filter((doc) => doc.exists && doc.get("email_notifications") !== false)
+      .map((doc) => [doc.id, doc.get("email") as string | null]),
+  );
   const batch = db.batch();
   let queued = 0;
 

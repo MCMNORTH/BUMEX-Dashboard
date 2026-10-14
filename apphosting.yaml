@@ -38,3 +38,16 @@ env:
     value: "0"
   - variable: ENABLE_LOCAL_PREVIEW_AUTH
     value: "0"
+
+  # Notification emails (lib/notifications/email-delivery.ts). dashboard.bumex.mr
+  # still serves the older Vercel app, so links point at this backend.
+  - variable: APP_URL
+    value: https://bumex-dashboard--bumex-one.europe-west4.hosted.app
+  - variable: NOTIFICATION_EMAIL_FROM
+    value: "BUMEX Dashboard <notifications@verify.bumex.mr>"
+  # Create it before deploying, or the rollout fails:
+  #   firebase apphosting:secrets:set resend-api-key --project bumex-one
+  - variable: RESEND_API_KEY
+    secret: resend-api-key
+    availability:
+      - RUNTIME
