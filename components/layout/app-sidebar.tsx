@@ -4,13 +4,15 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { BriefcaseBusiness, Blocks, ChevronsUpDown, PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 
-import { EntityLogo } from "@/components/entities/entity-logo";
 import { useEntitySwitch } from "@/components/entities/entity-switch-dialog";
 import { useI18n } from "@/components/layout/i18n-provider";
+import { useSidebarAppearance } from "@/components/layout/sidebar-appearance-provider";
+import { SidebarLogo } from "@/components/layout/sidebar-logo";
 import { navigationGroups } from "@/data/navigation";
 import { useEntity } from "@/hooks/use-entity";
 import { filterNavigationGroupsByRole } from "@/lib/auth/permissions";
 import { getBumexEntity } from "@/lib/entities/config";
+import type { LogoAppearance } from "@/lib/settings/appearance";
 import { siteConfig } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -60,10 +62,12 @@ function matchesNavigationPath(pathname: string, href: string) {
 
 function SidebarContent({
   collapsed,
+  logoAppearance,
   onToggleCollapsed,
   onNavigate,
 }: {
   collapsed: boolean;
+  logoAppearance: LogoAppearance;
   onToggleCollapsed: () => void;
   onNavigate?: () => void;
 }) {
@@ -167,17 +171,13 @@ function SidebarContent({
           title={canSwitchEntities ? t("navigation.switchEntity", "Switch entity") : undefined}
           aria-label={canSwitchEntities ? t("navigation.switchEntity", "Switch entity") : undefined}
           className={cn(
-            "flex min-w-0 items-center gap-2.5 rounded-lg p-1 text-left transition-colors disabled:cursor-default",
-            canSwitchEntities && "hover:bg-sidebar-accent",
-            entityPulse && "bg-sidebar-accent",
+            "flex min-w-0 items-center gap-2.5 rounded-lg p-1 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring disabled:cursor-default",
+            canSwitchEntities && "hover:bg-sidebar-hover",
+            entityPulse && "bg-sidebar-hover",
           )}
         >
           {activeEntity || fallbackEntity ? (
-            <EntityLogo
-              entity={(activeEntity ?? fallbackEntity)!}
-              size="sm"
-              className="size-10 shrink-0 rounded-lg border-transparent p-0.5 shadow-none ring-1 ring-white/25"
-            />
+            <SidebarLogo entity={(activeEntity ?? fallbackEntity)!} appearance={logoAppearance} />
           ) : null}
           {!collapsed ? (
             <div className="min-w-0">
@@ -188,13 +188,13 @@ function SidebarContent({
             </div>
           ) : null}
           {canSwitchEntities && !collapsed ? (
-            <ChevronsUpDown className="size-4 shrink-0 text-sidebar-muted" />
+            <ChevronsUpDown className="size-4 shrink-0 text-sidebar-icon" />
           ) : null}
         </button>
         {!collapsed ? (
           <button
             type="button"
-            className="grid size-8 shrink-0 place-items-center rounded-lg text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            className="grid size-8 shrink-0 place-items-center rounded-lg text-sidebar-icon transition-colors outline-none hover:bg-sidebar-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
             onClick={onToggleCollapsed}
             aria-label={t("navigation.collapse", "Collapse sidebar")}
           >
@@ -207,7 +207,7 @@ function SidebarContent({
         <div className="flex justify-center border-b border-sidebar-border py-2">
           <button
             type="button"
-            className="grid size-10 place-items-center rounded-lg text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            className="grid size-10 place-items-center rounded-lg text-sidebar-icon transition-colors outline-none hover:bg-sidebar-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
             onClick={onToggleCollapsed}
             aria-label={t("navigation.expand", "Expand sidebar")}
           >
@@ -219,7 +219,7 @@ function SidebarContent({
       <div ref={scrollRef} className="sidebar-scrollbar min-h-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-3">
         <div
           className={cn(
-            "grid gap-1 rounded-lg border border-sidebar-border bg-black/10 p-1",
+            "grid gap-1 rounded-lg border border-sidebar-border bg-sidebar-track p-1",
             collapsed ? "grid-cols-1" : "grid-cols-3",
           )}
         >
@@ -235,9 +235,9 @@ function SidebarContent({
                 type="button"
                 onClick={() => setSelectedSection({ key, pathname })}
                 className={cn(
-                  "flex min-w-0 items-center justify-center rounded-md px-1 py-1.5 transition-colors duration-150",
+                  "flex min-w-0 items-center justify-center rounded-md px-1 py-1.5 transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
                   selected
-                    ? "bg-sidebar-accent text-sidebar-foreground shadow-[inset_0_0_0_1px_var(--sidebar-border)]"
+                    ? "bg-sidebar-tab text-sidebar-active-foreground shadow-[inset_0_0_0_1px_var(--sidebar-border)]"
                     : "text-sidebar-muted hover:text-sidebar-foreground",
                 )}
                 aria-pressed={selected}
@@ -308,15 +308,22 @@ export function AppSidebar({
   mobileOpen,
   onCloseMobile,
 }: AppSidebarProps) {
+  const { appearance } = useSidebarAppearance();
+
   return (
     <>
       <aside
+        data-sidebar-theme={appearance.sidebarTheme}
         className={cn(
           "fixed inset-y-0 left-0 z-30 hidden h-screen overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:block",
           collapsed ? "w-20" : "w-72",
         )}
       >
-        <SidebarContent collapsed={collapsed} onToggleCollapsed={onToggleCollapsed} />
+        <SidebarContent
+          collapsed={collapsed}
+          logoAppearance={appearance.logoAppearance}
+          onToggleCollapsed={onToggleCollapsed}
+        />
       </aside>
 
       <div
@@ -327,6 +334,7 @@ export function AppSidebar({
         onClick={onCloseMobile}
       />
       <aside
+        data-sidebar-theme={appearance.sidebarTheme}
         className={cn(
           "fixed inset-y-0 left-0 z-50 h-screen w-[min(92vw,22rem)] overflow-x-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-[var(--shadow-elevated)] transition-transform duration-200 lg:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-[110%]",
@@ -334,6 +342,7 @@ export function AppSidebar({
       >
         <SidebarContent
           collapsed={false}
+          logoAppearance={appearance.logoAppearance}
           onToggleCollapsed={onCloseMobile}
           onNavigate={onCloseMobile}
         />

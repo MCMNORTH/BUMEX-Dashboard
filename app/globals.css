@@ -27,18 +27,28 @@
   --color-warning: var(--warning);
   --color-danger: var(--danger);
 
+  /* The BUMEX navy whatever the user's theme, for the "brand" status tone (components/ui/tone.ts). */
+  --color-brand: var(--brand);
+
   /* BUMEX logo colors, for brand touches and charts. Status meaning uses success/warning/danger. */
   --color-brand-navy: #2b4669;
   --color-brand-steel: #6088c0;
   --color-brand-sand: #d9c5b1;
   --color-brand-orange: #eea442;
 
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-muted: var(--sidebar-muted);
-  --color-sidebar-accent: var(--sidebar-accent);
+  /* Sidebar colors come from the user's sidebar theme, see [data-sidebar-theme] below. */
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-foreground: var(--sidebar-text);
+  --color-sidebar-muted: var(--sidebar-text-muted);
+  --color-sidebar-icon: var(--sidebar-icon);
+  --color-sidebar-hover: var(--sidebar-hover-bg);
+  --color-sidebar-active: var(--sidebar-active-bg);
+  --color-sidebar-active-foreground: var(--sidebar-active-text);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-indicator: var(--sidebar-indicator);
+  --color-sidebar-track: var(--sidebar-track-bg);
+  --color-sidebar-tab: var(--sidebar-tab-active-bg);
+  --color-sidebar-ring: var(--sidebar-focus-ring);
 
   /* Type scale floor: the root is 14px, so the Tailwind defaults put text-xs at 10.5px. */
   --text-xs: 0.8572rem;
@@ -68,31 +78,19 @@
   --card-foreground: #1c2b40;
   --popover: #ffffff;
   --popover-foreground: #1c2b40;
-  --primary: #2b4669;
   --primary-foreground: #ffffff;
   --secondary: #f3f5f8;
   --secondary-foreground: #1c2b40;
   --muted: #f3f5f8;
   --muted-foreground: #5d6b7e;
-  --accent: #e9eff7;
-  --accent-foreground: #2b4669;
   --border: rgba(28, 43, 64, 0.13);
   --input: rgba(28, 43, 64, 0.16);
-  --ring: rgba(96, 136, 192, 0.4);
   --success: #2e7d52;
   /* The logo orange darkened enough to be readable as text on white. */
   --warning: #b56d0d;
   --danger: #c0392b;
-  --hero: #2b4669;
-  --hero-border: rgba(43, 70, 105, 0.6);
+  --brand: #2b4669;
   /* Chart series, in order of use: navy, steel, orange, sand, slate. */
-  /* Sidebar: deep logo navy, white text, the logo orange marks the current page. */
-  --sidebar: #1c3150;
-  --sidebar-foreground: #ffffff;
-  --sidebar-muted: rgba(255, 255, 255, 0.68);
-  --sidebar-accent: rgba(255, 255, 255, 0.1);
-  --sidebar-border: rgba(255, 255, 255, 0.1);
-  --sidebar-indicator: #eea442;
   --chart-1: #2b4669;
   --chart-2: #6088c0;
   --chart-3: #eea442;
@@ -100,7 +98,7 @@
   --chart-5: #94a3b8;
   --radius: 10px;
   --shadow-soft-token: 0 1px 2px rgba(28, 43, 64, 0.1);
-  --shadow-glow-token: 0 0 0 1px rgba(96, 136, 192, 0.25), 0 8px 18px rgba(28, 43, 64, 0.08);
+  --shadow-glow-token: 0 0 0 1px color-mix(in srgb, var(--theme-tint) 25%, transparent), 0 8px 18px rgba(28, 43, 64, 0.08);
   --shadow-elevated-token: 0 4px 14px rgba(28, 43, 64, 0.12);
   --shadow-inner-token: inset 0 0 0 1px rgba(28, 43, 64, 0.06);
 }
@@ -112,38 +110,274 @@
   --card-foreground: #e3e8ef;
   --popover: #18222f;
   --popover-foreground: #e3e8ef;
-  --primary: #86a6d6;
   --primary-foreground: #0f1b2b;
   --secondary: #213046;
   --secondary-foreground: #e3e8ef;
   --muted: #1e2a3b;
   --muted-foreground: #9aa8ba;
-  --accent: rgba(96, 136, 192, 0.18);
-  --accent-foreground: #b9cde8;
   --border: rgba(255, 255, 255, 0.09);
   --input: rgba(255, 255, 255, 0.12);
-  --ring: rgba(134, 166, 214, 0.4);
   --success: #5cc48a;
   --warning: #eea442;
   --danger: #f2766b;
-  --hero: #1f3553;
-  --hero-border: rgba(134, 166, 214, 0.18);
-  /* Darker than the page so the sidebar still reads as its own surface. */
-  --sidebar: #0c1522;
-  --sidebar-foreground: #f1f4f8;
-  --sidebar-muted: rgba(241, 244, 248, 0.62);
-  --sidebar-accent: rgba(255, 255, 255, 0.08);
-  --sidebar-border: rgba(255, 255, 255, 0.07);
-  --sidebar-indicator: #eea442;
+  --brand: #86a6d6;
   --chart-1: #86a6d6;
   --chart-2: #b9cde8;
   --chart-3: #eea442;
   --chart-4: #d9c5b1;
   --chart-5: #64748b;
   --shadow-soft-token: 0 1px 2px rgba(0, 0, 0, 0.34);
-  --shadow-glow-token: 0 0 0 1px rgba(134, 166, 214, 0.16), 0 10px 24px rgba(0, 0, 0, 0.26);
+  --shadow-glow-token: 0 0 0 1px color-mix(in srgb, var(--theme-light) 16%, transparent), 0 10px 24px rgba(0, 0, 0, 0.26);
   --shadow-elevated-token: 0 10px 28px rgba(0, 0, 0, 0.28);
   --shadow-inner-token: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+/*
+ * App themes. <html data-app-theme> carries the user's theme (the settings previews set
+ * it on their thumbnails too), so buttons, links, highlights, focus rings and banners
+ * follow it. Status tones and charts keep the logo palette. Each theme gives four colors:
+ *   --theme        the main color (buttons, links, banners in light mode)
+ *   --theme-tint   a mid-tone for soft highlights and focus rings
+ *   --theme-light  the main color in dark mode
+ *   --theme-hero-dark  banners in dark mode
+ * Every text pairing derived from them keeps at least 4.5:1, in light and dark mode.
+ */
+:root,
+[data-app-theme="white"],
+[data-app-theme="bumex"] {
+  --theme: #2b4669;
+  --theme-tint: #6088c0;
+  --theme-light: #86a6d6;
+  --theme-hero-dark: #1f3553;
+}
+
+[data-app-theme="forest"] {
+  --theme: #1b4332;
+  --theme-tint: #40916c;
+  --theme-light: #74c69d;
+  --theme-hero-dark: #173a2b;
+}
+
+[data-app-theme="red"] {
+  --theme: #991b1b;
+  --theme-tint: #dc2626;
+  --theme-light: #f87171;
+  --theme-hero-dark: #7f1d1d;
+}
+
+[data-app-theme="purple"] {
+  --theme: #581c87;
+  --theme-tint: #9333ea;
+  --theme-light: #c084fc;
+  --theme-hero-dark: #4a1772;
+}
+
+[data-app-theme="black"] {
+  --theme: #171717;
+  --theme-tint: #737373;
+  --theme-light: #d4d4d4;
+  --theme-hero-dark: #262626;
+}
+
+[data-app-theme="grey"] {
+  --theme: #374151;
+  --theme-tint: #6b7280;
+  --theme-light: #d1d5db;
+  --theme-hero-dark: #2d3748;
+}
+
+[data-app-theme="pink"] {
+  --theme: #9d174d;
+  --theme-tint: #db2777;
+  --theme-light: #f472b6;
+  --theme-hero-dark: #831843;
+}
+
+[data-app-theme="orange"] {
+  --theme: #9a3412;
+  --theme-tint: #ea580c;
+  --theme-light: #fb923c;
+  --theme-hero-dark: #7c2d12;
+}
+
+/* Re-derived on every themed element, because custom properties inherit already resolved. */
+:root,
+[data-app-theme] {
+  --primary: var(--theme);
+  --accent: color-mix(in srgb, var(--theme-tint) 13%, #ffffff);
+  --accent-foreground: var(--theme);
+  --ring: color-mix(in srgb, var(--theme-tint) 40%, transparent);
+  --hero: var(--theme);
+  --hero-border: color-mix(in srgb, var(--theme) 60%, transparent);
+}
+
+.dark,
+.dark [data-app-theme] {
+  --primary: var(--theme-light);
+  --accent: color-mix(in srgb, var(--theme-tint) 18%, transparent);
+  --accent-foreground: color-mix(in srgb, var(--theme-light) 60%, #ffffff);
+  --ring: color-mix(in srgb, var(--theme-light) 40%, transparent);
+  --hero: var(--theme-hero-dark);
+  --hero-border: color-mix(in srgb, var(--theme-light) 18%, transparent);
+}
+
+/*
+ * Sidebar themes. The shell puts data-sidebar-theme on the sidebar, and the settings
+ * previews put it on their thumbnails, so both read the same tokens. Each theme sets
+ * the base colors; the rule below derives the rest from them. Text and muted text
+ * keep at least 4.5:1 against the sidebar, hover and active backgrounds.
+ */
+[data-sidebar-theme] {
+  --sidebar-icon: var(--sidebar-text-muted);
+  --sidebar-tab-active-bg: var(--sidebar-active-bg);
+  --sidebar-focus-ring: color-mix(in srgb, var(--sidebar-indicator) 65%, transparent);
+  --sidebar-scrollbar: color-mix(in srgb, var(--sidebar-text) 22%, transparent);
+  --sidebar-scrollbar-hover: color-mix(in srgb, var(--sidebar-text) 35%, transparent);
+  --sidebar-logo-ring: color-mix(in srgb, var(--sidebar-text) 25%, transparent);
+  /* Logo tiles for a dark sidebar: the white logo sits on the sidebar, the dark one on white. */
+  --sidebar-logo-white-tile: transparent;
+  --sidebar-logo-dark-tile: #ffffff;
+  --sidebar-logo-auto-tile: transparent;
+  --sidebar-logo-auto-ring: transparent;
+  --sidebar-logo-auto-filter: url(#bumex-logo-mono-white);
+  --sidebar-logo-auto-text: #ffffff;
+}
+
+/* Neutral White takes the page's own colors, so it also matches the page in dark mode. */
+[data-sidebar-theme="white"] {
+  --sidebar-bg: var(--background);
+  --sidebar-text: var(--foreground);
+  --sidebar-text-muted: var(--muted-foreground);
+  --sidebar-hover-bg: var(--muted);
+  --sidebar-active-bg: var(--accent);
+  --sidebar-active-text: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-track-bg: var(--muted);
+  --sidebar-indicator: var(--primary);
+}
+
+/* The only light sidebar: logos keep their colors, a white logo gets a navy tile. */
+:root:not(.dark) [data-sidebar-theme="white"] {
+  --sidebar-tab-active-bg: #ffffff;
+  --sidebar-logo-white-tile: #2b4669;
+  --sidebar-logo-dark-tile: transparent;
+  --sidebar-logo-auto-tile: #ffffff;
+  --sidebar-logo-auto-ring: var(--sidebar-logo-ring);
+  --sidebar-logo-auto-filter: none;
+  --sidebar-logo-auto-text: initial;
+}
+
+/* The original navy sidebar, unchanged: the logo orange marks the current page. */
+[data-sidebar-theme="bumex"] {
+  --sidebar-bg: #1c3150;
+  --sidebar-text: #ffffff;
+  --sidebar-text-muted: rgba(255, 255, 255, 0.68);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.1);
+  --sidebar-active-bg: rgba(255, 255, 255, 0.1);
+  --sidebar-active-text: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-track-bg: rgba(0, 0, 0, 0.1);
+  --sidebar-indicator: #eea442;
+}
+
+/* Darker than the page so the sidebar still reads as its own surface. */
+.dark [data-sidebar-theme="bumex"] {
+  --sidebar-bg: #0c1522;
+  --sidebar-text: #f1f4f8;
+  --sidebar-text-muted: rgba(241, 244, 248, 0.62);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+  --sidebar-active-bg: rgba(255, 255, 255, 0.08);
+  --sidebar-active-text: #f1f4f8;
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+}
+
+[data-sidebar-theme="forest"],
+[data-sidebar-theme="red"],
+[data-sidebar-theme="purple"],
+[data-sidebar-theme="black"],
+[data-sidebar-theme="grey"],
+[data-sidebar-theme="pink"],
+[data-sidebar-theme="orange"] {
+  --sidebar-text: #ffffff;
+  --sidebar-text-muted: rgba(255, 255, 255, 0.78);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.08);
+  --sidebar-active-bg: rgba(255, 255, 255, 0.14);
+  --sidebar-active-text: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-track-bg: rgba(0, 0, 0, 0.18);
+  --sidebar-indicator: #eea442;
+}
+
+[data-sidebar-theme="forest"] {
+  --sidebar-bg: #1b4332;
+}
+
+[data-sidebar-theme="purple"] {
+  --sidebar-bg: #581c87;
+}
+
+[data-sidebar-theme="black"] {
+  --sidebar-bg: #171717;
+}
+
+[data-sidebar-theme="grey"] {
+  --sidebar-bg: #374151;
+}
+
+/* On the warm reds the orange marker drops under 3:1, so the current page is marked in white. */
+[data-sidebar-theme="red"] {
+  --sidebar-bg: #991b1b;
+  --sidebar-indicator: #ffffff;
+}
+
+[data-sidebar-theme="pink"] {
+  --sidebar-bg: #9d174d;
+  --sidebar-indicator: #ffffff;
+}
+
+[data-sidebar-theme="orange"] {
+  --sidebar-bg: #9a3412;
+  --sidebar-indicator: #ffffff;
+}
+
+/* The logo tile and filter for each logo appearance; filters are defined in sidebar-logo.tsx. */
+.sidebar-logo {
+  --logo-tile: #ffffff;
+  --logo-ring: var(--sidebar-logo-ring);
+  --logo-filter: none;
+  --logo-text: var(--logo-brand);
+  background: var(--logo-tile);
+  box-shadow: 0 0 0 1px var(--logo-ring);
+}
+
+.sidebar-logo[data-logo-appearance="dark"] {
+  --logo-tile: var(--sidebar-logo-dark-tile);
+  --logo-ring: transparent;
+  --logo-filter: url(#bumex-logo-mono-dark);
+  --logo-text: #1c2b40;
+}
+
+.sidebar-logo[data-logo-appearance="white"] {
+  --logo-tile: var(--sidebar-logo-white-tile);
+  --logo-ring: transparent;
+  --logo-filter: url(#bumex-logo-mono-white);
+  --logo-text: #ffffff;
+}
+
+/* Automatic: the original logo on the light sidebar, the white one on dark sidebars. */
+.sidebar-logo[data-logo-appearance="auto"] {
+  --logo-tile: var(--sidebar-logo-auto-tile);
+  --logo-ring: var(--sidebar-logo-auto-ring);
+  --logo-filter: var(--sidebar-logo-auto-filter);
+  --logo-text: var(--sidebar-logo-auto-text, var(--logo-brand));
+}
+
+.sidebar-logo img {
+  filter: var(--logo-filter);
+}
+
+.sidebar-logo [data-logo-text] {
+  color: var(--logo-text);
 }
 
 html {
@@ -303,7 +537,7 @@ select option {
 .surface-hero .bg-primary.text-primary-foreground {
   border-color: #ffffff;
   background-color: #ffffff;
-  color: #2b4669;
+  color: var(--theme);
 }
 
 .surface-hero .bg-primary.text-primary-foreground:hover {
@@ -683,7 +917,7 @@ select option {
 
 .sidebar-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+  scrollbar-color: var(--sidebar-scrollbar) transparent;
 }
 
 .sidebar-scrollbar::-webkit-scrollbar {
@@ -698,11 +932,11 @@ select option {
 .sidebar-scrollbar::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.22) padding-box;
+  background: var(--sidebar-scrollbar) padding-box;
 }
 
 .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.35) padding-box;
+  background: var(--sidebar-scrollbar-hover) padding-box;
 }
 
 @media (prefers-reduced-motion: reduce) {

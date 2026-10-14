@@ -32,11 +32,11 @@ function NavigationItemComponent({
       prefetch={false}
       onClick={handleNavigate}
       className={cn(
-        "group relative flex items-center rounded-lg text-sm transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sidebar-indicator/60 focus-visible:outline-none",
+        "group relative flex items-center rounded-lg text-sm transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none",
         collapsed ? "mx-auto size-10 justify-center" : "w-full gap-3 px-3 py-2",
         active
-          ? "bg-sidebar-accent font-medium text-sidebar-foreground"
-          : "text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground",
+          ? "bg-sidebar-active font-medium text-sidebar-active-foreground"
+          : "text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-foreground",
       )}
       aria-current={active ? "page" : undefined}
       title={collapsed ? item.label : undefined}
@@ -50,7 +50,14 @@ function NavigationItemComponent({
           )}
         />
       ) : null}
-      <Icon className={cn("shrink-0", collapsed ? "size-[1.15rem]" : "size-4")} strokeWidth={1.9} />
+      <Icon
+        className={cn(
+          "shrink-0",
+          collapsed ? "size-[1.15rem]" : "size-4",
+          !active && "text-sidebar-icon group-hover:text-sidebar-foreground",
+        )}
+        strokeWidth={1.9}
+      />
       {collapsed ? (
         <span className="pointer-events-none absolute left-[calc(100%+0.75rem)] top-1/2 z-[90] hidden -translate-y-1/2 whitespace-nowrap rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs font-semibold text-popover-foreground shadow-[var(--shadow-elevated)] group-hover:flex">
           {item.label}

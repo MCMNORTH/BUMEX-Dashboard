@@ -18,6 +18,9 @@ export type Profile = {
   phone: string | null;
   availability_status: AvailabilityStatus;
   weekly_capacity_hours: number;
+  // Absent on profiles created before sidebar themes existed.
+  sidebar_theme?: string | null;
+  logo_appearance?: string | null;
   created_at: string;
   updated_at: string;
 };

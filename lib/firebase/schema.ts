@@ -2,6 +2,8 @@
 // Firestore has no column defaults, unique constraints, foreign keys or
 // triggers, so the data layer applies these rules itself on every write.
 
+import { DEFAULT_LOGO_APPEARANCE, DEFAULT_SIDEBAR_THEME } from "@/lib/settings/appearance";
+
 type Row = Record<string, unknown>;
 
 const now = () => new Date().toISOString();
@@ -32,6 +34,9 @@ export const TABLES: Record<string, TableSchema> = {
       skills: () => [],
       availability_status: "available",
       weekly_capacity_hours: 40,
+      // Only new profiles get these; older ones keep their sidebar (see lib/settings/appearance).
+      sidebar_theme: DEFAULT_SIDEBAR_THEME,
+      logo_appearance: DEFAULT_LOGO_APPEARANCE,
     },
     unique: { profiles_email_key: ["email"] },
   },

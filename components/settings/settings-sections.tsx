@@ -5,6 +5,7 @@ import {
   LockKeyhole,
   Palette,
   ShieldCheck,
+  SwatchBook,
   Users2,
 } from "lucide-react";
 
@@ -15,7 +16,8 @@ type SettingsSectionKey =
   | "users"
   | "roles"
   | "security"
-  | "preferences";
+  | "preferences"
+  | "appearance";
 
 type SettingsSectionConfig = {
   key: SettingsSectionKey;
@@ -40,6 +42,13 @@ export const settingsSections: SettingsSectionConfig[] = [
     title: { en: "Preferences", fr: "Préférences" },
     description: { en: "Language, theme, and notification choices.", fr: "Langue, thème et notifications." },
     icon: Palette,
+  },
+  {
+    key: "appearance",
+    href: "/settings/appearance",
+    title: { en: "Appearance", fr: "Apparence" },
+    description: { en: "Theme color, sidebar and logo.", fr: "Couleur du thème, barre latérale et logo." },
+    icon: SwatchBook,
   },
   {
     key: "security",

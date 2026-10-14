@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { requireAuthenticatedUser } from "@/lib/auth/server";
+import { resolveSidebarAppearance } from "@/lib/settings/appearance";
 import { sidebarCollapsedCookieName } from "@/lib/site";
 
 export default async function ApplicationLayout({
@@ -19,5 +20,10 @@ export default async function ApplicationLayout({
   const cookieStore = await cookies();
   const sidebarCollapsed = cookieStore.get(sidebarCollapsedCookieName)?.value === "1";
 
-  return <AppShell initialCollapsed={sidebarCollapsed}>{children}</AppShell>;
+  // Rendered on the server from the profile, so a reload never flashes another theme.
+  return (
+    <AppShell initialCollapsed={sidebarCollapsed} initialAppearance={resolveSidebarAppearance(auth.profile)}>
+      {children}
+    </AppShell>
+  );
 }
