@@ -11,7 +11,7 @@ import {
 } from "react";
 
 import { getCurrentProfileAction } from "@/lib/auth/actions";
-import { buildPermissionSetForContext } from "@/lib/auth/permissions";
+import { buildPermissionSetForContext, canProfileSwitchEntities } from "@/lib/auth/permissions";
 import { sanitizeProfileEntityCode } from "@/lib/entities/runtime";
 import type { AuthState, AuthUser, Profile, PermissionSet } from "@/types/auth";
 import type { BumexEntityCode } from "@/types/entity";
@@ -69,7 +69,7 @@ export function AuthProvider({
         ? (initialActiveEntityCode ?? profile.entity_code ?? null)
         : (profile?.entity_code ?? initialActiveEntityCode ?? null);
     const resolvedAvailableEntityCodes =
-      profile?.is_super_admin
+      canProfileSwitchEntities(profile)
         ? initialAvailableEntityCodes
         : (profile?.entity_code ? [profile.entity_code] : []);
 

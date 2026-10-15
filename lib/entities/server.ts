@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 
+import { canProfileSwitchEntities } from "@/lib/auth/permissions";
 import { activeEntityCookieName, getBumexEntity, isBumexEntityCode, selectableEntityCodes } from "@/lib/entities/config";
 import type { Profile } from "@/types/auth";
 import type { BumexEntityCode } from "@/types/entity";
@@ -9,6 +10,9 @@ export async function getActiveEntityCodeForProfile(profile: Profile | null): Pr
     return null;
   }
 
+  // Only the super admin's session cookie overrides the profile. Other admins
+  // switch by updating their profile, so a cookie left in a shared browser
+  // never moves them to another entity.
   if (profile.is_super_admin) {
     const cookieStore = await cookies();
     const cookieValue = cookieStore.get(activeEntityCookieName)?.value;
@@ -26,7 +30,7 @@ export function getAccessibleEntityCodes(profile: Profile | null): BumexEntityCo
     return [];
   }
 
-  if (profile.is_super_admin) {
+  if (canProfileSwitchEntities(profile)) {
     return [...selectableEntityCodes];
   }
 

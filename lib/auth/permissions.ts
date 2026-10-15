@@ -102,6 +102,13 @@ export function canViewEmployeePerformanceDetails(source: RoleSource) {
   return role === "admin" || role === "manager" || role === "supervisor";
 }
 
+// Every admin may switch to every entity, not only the super admin.
+export function canProfileSwitchEntities(
+  profile: { role: AppRole | null; is_super_admin?: boolean } | null,
+) {
+  return profile?.role === "admin" || profile?.is_super_admin === true;
+}
+
 export function getDefaultRouteForRole(role: AppRole | null) {
   if (!role) {
     return "/login";
@@ -145,7 +152,7 @@ export function buildPermissionSetForContext({
     isSupervisor: role === "supervisor",
     isEmployee: role === "employee",
     isShareholder: role === "shareholder",
-    canSwitchEntities: role === "admin" || isSuperAdmin,
+    canSwitchEntities: canProfileSwitchEntities({ role, is_super_admin: isSuperAdmin }),
     canAccessRoute: (route) => canRoleAccessRoute(role, route),
     canAccessFinance: role === "admin" || role === "manager" || role === "shareholder",
     canManageProjects: role === "admin" || role === "manager" || role === "supervisor",

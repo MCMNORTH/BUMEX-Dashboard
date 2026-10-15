@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { useEntity } from "@/hooks/use-entity";
 import { useUser } from "@/hooks/use-user";
+import { canProfileSwitchEntities } from "@/lib/auth/permissions";
 import { getEntityCopy } from "@/lib/entities/config";
 
 type EntitySwitchContextValue = {
@@ -50,7 +51,7 @@ export function EntitySwitchProvider({ children }: { children: React.ReactNode }
   const { profile } = useUser();
   const { locale } = useI18n();
   const { activeEntity, activeEntityCode, availableEntities } = useEntity();
-  const canSwitchEntities = Boolean(profile?.is_super_admin && availableEntities.length > 1);
+  const canSwitchEntities = canProfileSwitchEntities(profile) && availableEntities.length > 1;
   const hasSessionEntityOverride = Boolean(
     profile?.is_super_admin
       && activeEntityCode
@@ -149,8 +150,8 @@ export function EntitySwitchProvider({ children }: { children: React.ReactNode }
             </DialogTitle>
             <DialogDescription>
               {locale === "fr"
-                ? "Cette action met à jour votre profil super admin et l'entité affichée dans toute l'application."
-                : "This updates your super admin profile and the entity shown across application."}
+                ? "Cette action met à jour votre profil et l'entité affichée dans toute l'application."
+                : "This updates your profile and the entity shown across the application."}
             </DialogDescription>
           </DialogHeader>
 

@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 
+import { canProfileSwitchEntities } from "@/lib/auth/permissions";
 import { requireAuthenticatedUser } from "@/lib/auth/server";
 import { activeEntityCookieName, isBumexEntityCode } from "@/lib/entities/config";
 import { normalizeEntityMutationError } from "@/lib/entities/errors";
+import { getAccessibleEntityCodes } from "@/lib/entities/server";
 import { createClient } from "@/lib/firebase/server";
 
 function getString(formData: FormData, key: string) {
@@ -20,26 +22,35 @@ export type SetActiveEntityActionResult =
 export async function setActiveEntityAction(formData: FormData): Promise<SetActiveEntityActionResult> {
   try {
     const auth = await requireAuthenticatedUser();
+    const isSuperAdmin = auth.profile.is_super_admin;
 
-    if (!auth.profile.is_super_admin) {
-      throw new Error("Only the super admin can change the active entity.");
+    if (!canProfileSwitchEntities(auth.profile)) {
+      throw new Error("Only admins can change the active entity.");
     }
 
     const entityCode = getString(formData, "entity_code");
     const redirectPath = getString(formData, "redirect_path");
-    if (!isBumexEntityCode(entityCode)) {
+    if (!isBumexEntityCode(entityCode) || !getAccessibleEntityCodes(auth.profile).includes(entityCode)) {
       throw new Error("Invalid entity selection.");
     }
 
-    const cookieStore = await cookies();
-    cookieStore.set(activeEntityCookieName, entityCode, {
-      path: "/",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 365,
-    });
+    // The cookie is only read for the super admin (see getActiveEntityCodeForProfile);
+    // for other admins the profile update below is the switch.
+    if (isSuperAdmin) {
+      const cookieStore = await cookies();
+      cookieStore.set(activeEntityCookieName, entityCode, {
+        path: "/",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 365,
+      });
+    }
 
     const db = await createClient();
     if (!db) {
+      if (!isSuperAdmin) {
+        throw new Error("The entity could not be updated.");
+      }
+
       if (redirectPath.startsWith("/")) {
         revalidatePath(redirectPath);
       }
@@ -62,7 +73,7 @@ export async function setActiveEntityAction(formData: FormData): Promise<SetActi
     if (error) {
       const normalizedError = normalizeEntityMutationError(error, entityCode, "The entity could not be updated.");
 
-      if (normalizedError.toLowerCase().includes("does not yet allow")) {
+      if (isSuperAdmin && normalizedError.toLowerCase().includes("does not yet allow")) {
         if (redirectPath.startsWith("/")) {
           revalidatePath(redirectPath);
         }
