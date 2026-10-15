@@ -25,6 +25,7 @@ import { getStageCategoryLabel } from "@/lib/tickets/workflow";
 import { cn } from "@/lib/utils";
 import type { OverviewAttentionReason, OverviewDashboardData, OverviewUpcomingItem } from "@/lib/overview/service";
 import type { AppRole } from "@/types/auth";
+import { IntentPrefetchLink } from "@/components/shared/intent-prefetch-link";
 
 type Translate = (key: string, fallback: string, values?: Record<string, string | number>) => string;
 
@@ -309,7 +310,7 @@ export function OverviewDashboard({
                 <ul>
                   {myTickets.items.map((ticket) => (
                     <li key={ticket.id}>
-                      <Link href={`/tickets/${ticket.id}`} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted">
+                      <IntentPrefetchLink href={`/tickets/${ticket.id}`} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted">
                         <span className={cn("size-2 shrink-0 rounded-full", toneDot[ticketStatusTone[ticket.status]])} aria-hidden="true" />
                         <span className="min-w-0 flex-1 truncate text-sm">
                           <span className="font-medium">{ticket.title}</span>
@@ -324,7 +325,7 @@ export function OverviewDashboard({
                           {ticket.stageName ?? getStageCategoryLabel(ticket.status, locale)}
                         </span>
                         <TicketDue ticket={{ due_date: ticket.dueDate, status: ticket.status }} locale={locale} className="w-14 shrink-0 text-right text-xs" />
-                      </Link>
+                      </IntentPrefetchLink>
                     </li>
                   ))}
                 </ul>
@@ -342,14 +343,14 @@ export function OverviewDashboard({
                   <ul>
                     {signOff.items.map((ticket) => (
                       <li key={ticket.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-muted">
-                        <Link href={`/tickets/${ticket.id}`} className="min-w-0 flex-1">
+                        <IntentPrefetchLink href={`/tickets/${ticket.id}`} className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium">{ticket.title}</span>
                           <span className="block truncate text-xs text-muted-foreground">
                             {/* A reporter outside the project cannot read its name. */}
                             {ticket.projectName ? `${ticket.projectName} · ` : null}
                             {ticket.assigneeName ?? t("overview.attention.reasons.unassigned", "Unassigned")}
                           </span>
-                        </Link>
+                        </IntentPrefetchLink>
                         <TicketSignOffButton
                           ticketId={ticket.id}
                           stageId={ticket.completedStageId}
@@ -387,7 +388,7 @@ export function OverviewDashboard({
               <ul>
                 {data.attentionProjects.map((project) => (
                   <li key={project.id}>
-                    <Link href={`/projects/${project.id}`} className="flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 hover:bg-muted">
+                    <IntentPrefetchLink href={`/projects/${project.id}`} className="flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 hover:bg-muted">
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-medium">{project.name}</span>
                         <span className="block truncate text-xs text-muted-foreground">
@@ -396,7 +397,7 @@ export function OverviewDashboard({
                         </span>
                       </span>
                       <ProjectHealthBadge health={project.health} />
-                    </Link>
+                    </IntentPrefetchLink>
                   </li>
                 ))}
               </ul>
@@ -416,7 +417,7 @@ export function OverviewDashboard({
                 <ul>
                   {data.attentionTickets.map((ticket) => (
                     <li key={ticket.id}>
-                      <Link href={`/tickets/${ticket.id}`} className="flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 hover:bg-muted">
+                      <IntentPrefetchLink href={`/tickets/${ticket.id}`} className="flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 hover:bg-muted">
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-medium">{ticket.title}</span>
                           <span className="block truncate text-xs text-muted-foreground">
@@ -426,7 +427,7 @@ export function OverviewDashboard({
                         <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-xs font-medium", reasonClasses[ticket.reason])}>
                           {t(`overview.attention.reasons.${ticket.reason}`, ticket.reason)}
                         </span>
-                      </Link>
+                      </IntentPrefetchLink>
                     </li>
                   ))}
                 </ul>
@@ -448,7 +449,7 @@ export function OverviewDashboard({
             <ul>
               {data.upcoming.map((item) => (
                 <li key={item.key}>
-                  <Link href={item.href} className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-muted">
+                  <IntentPrefetchLink href={item.href} className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-muted">
                     <span className={cn("flex items-center gap-1.5 text-xs font-medium", daysFromToday(item.date) <= 1 ? "text-foreground" : "text-muted-foreground")}>
                       <CalendarDays className="size-3.5 shrink-0" />
                       {relativeDayLabel(item.date, t)}
@@ -460,7 +461,7 @@ export function OverviewDashboard({
                     <span className={cn("rounded-md px-2 py-0.5 text-xs font-medium", upcomingKindClasses[item.kind])}>
                       {t(`overview.upcoming.kinds.${item.kind}`, item.kind)}
                     </span>
-                  </Link>
+                  </IntentPrefetchLink>
                 </li>
               ))}
             </ul>
@@ -483,7 +484,7 @@ export function OverviewDashboard({
                   const overloaded = person.risk === "high" || person.utilization > 100;
                   return (
                     <li key={person.id}>
-                      <Link href={`/team/${person.id}`} className="block rounded-lg px-2 py-2.5 hover:bg-muted">
+                      <IntentPrefetchLink href={`/team/${person.id}`} className="block rounded-lg px-2 py-2.5 hover:bg-muted">
                         <span className="flex items-center justify-between gap-3">
                           <span className="truncate text-sm font-medium">{person.name}</span>
                           <span className={cn("text-sm font-semibold tabular-nums", overloaded && "text-danger")}>{person.utilization}%</span>
@@ -498,7 +499,7 @@ export function OverviewDashboard({
                           {t("overview.workload.active", "{count} in progress", { count: person.activeItems })}
                           {person.overdueItems ? ` · ${t("overview.workload.overdue", "{count} overdue", { count: person.overdueItems })}` : ""}
                         </span>
-                      </Link>
+                      </IntentPrefetchLink>
                     </li>
                   );
                 })}
