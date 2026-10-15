@@ -12,6 +12,7 @@ import { formatNumber } from "@/lib/formatters";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { getTeamCapacitySummary, getTeamFiltersData, getTeamMembers } from "@/lib/team/service";
 import type { TeamFilters as TeamFiltersType, TeamMemberRecord } from "@/types/team";
+import { PageRefresh } from "@/components/layout/page-refresh";
 
 const TEAM_PAGE_TIMEOUT_MS = 4_000;
 
@@ -45,6 +46,9 @@ function buildAssignmentSummary(members: TeamMemberRecord[]) {
     attention: members.filter((member) => member.assignment_state === "attention").length,
   };
 }
+
+// Cached for 5 minutes, revalidated when people, assignments or staffing change.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function TeamPage({
   searchParams,
@@ -83,6 +87,7 @@ export default async function TeamPage({
     .slice(0, 4);
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["profiles", "tasks", "project_members", "team_members", "staffing_assignments"]} />
       <TeamToast />
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">

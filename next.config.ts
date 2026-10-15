@@ -2,6 +2,13 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  experimental: {
+    // How long the browser reuses a page it already has. Each page sets its own
+    // lifetime (`unstable_dynamicStaleTime`); Next uses this default for pages
+    // it re-renders after a refresh or a change, which would otherwise be
+    // fetched again on the next visit.
+    staleTimes: { dynamic: 30 },
+  },
   async headers() {
     return [
       {

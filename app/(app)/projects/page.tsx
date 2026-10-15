@@ -17,6 +17,7 @@ import { ProjectToast } from "@/components/projects/project-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/formatters";
 import type { ProjectFilters as ProjectFiltersType } from "@/types/project";
+import { PageRefresh } from "@/components/layout/page-refresh";
 
 function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -26,6 +27,10 @@ function getString(value: string | string[] | undefined) {
 // while search, client, and kind are kept.
 const quickFilterKeys = ["status", "owner", "health", "deadline"] as const;
 
+// Project lists change rarely: cached for 5 minutes, revalidated when projects
+// or their tickets change.
+export const unstable_dynamicStaleTime = 300;
+
 export default async function ProjectsPage({
   searchParams,
 }: {
@@ -34,6 +39,7 @@ export default async function ProjectsPage({
   const locale = await getCurrentLocale();
   return (
     <div className="space-y-4">
+      <PageRefresh tables={["projects", "tasks", "project_members", "clients", "milestones", "profiles"]} />
       <ProjectToast />
       <Suspense fallback={<ProjectsPageFallback />}>
         <ProjectsContent searchParams={searchParams} locale={locale} />

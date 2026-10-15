@@ -1,7 +1,12 @@
 import { OverviewDashboard } from "@/components/dashboard/overview-dashboard";
+import { PageRefresh } from "@/components/layout/page-refresh";
 import { requireRouteAccess } from "@/lib/auth/server";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { getOverviewDashboardData } from "@/lib/overview/service";
+
+// Shown again from the browser's cache for 2 minutes; it revalidates in the
+// background when the tickets, projects or finances it summarizes change.
+export const unstable_dynamicStaleTime = 120;
 
 export default async function OverviewPage() {
   const auth = await requireRouteAccess("overview");
@@ -10,5 +15,10 @@ export default async function OverviewPage() {
     getCurrentLocale(),
   ]);
 
-  return <OverviewDashboard data={dashboardData} role={auth.role} locale={locale} />;
+  return (
+    <>
+      <PageRefresh tables={["tasks", "subtasks", "projects", "project_members", "project_workflows", "milestones", "invoices", "payments", "contracts", "profiles"]} />
+      <OverviewDashboard data={dashboardData} role={auth.role} locale={locale} />
+    </>
+  );
 }

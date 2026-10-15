@@ -1,14 +1,17 @@
 import "server-only";
 
 import { cache } from "react";
+import { cookies } from "next/headers";
 
-import { adminDb } from "@/lib/firebase/admin";
 import { hasFirebaseEnv } from "@/lib/firebase/config";
 import { AccessPolicy } from "@/lib/firebase/policies";
 import { QueryBuilder } from "@/lib/firebase/query";
 import { RpcCall } from "@/lib/firebase/rpc";
-import { getSessionUser } from "@/lib/firebase/session";
+import { getSessionUser, SESSION_COOKIE_NAME } from "@/lib/firebase/session";
 import { storage } from "@/lib/firebase/storage";
+import { readCachedTable } from "@/lib/firebase/table-cache";
+import { getTableVersions } from "@/lib/firebase/table-versions";
+import { perRequest } from "@/lib/request-memo";
 import type { AppRole } from "@/types/auth";
 
 export class DataClient {
@@ -25,9 +28,22 @@ export class DataClient {
   }
 }
 
-export const getCurrentSessionUser = cache(getSessionUser);
+async function sessionCookieValue() {
+  return (await cookies()).get(SESSION_COOKIE_NAME)?.value ?? "";
+}
 
-const getRequestPolicy = cache(async () => {
+// Once per request, also in Server Actions and Route Handlers (where React's
+// cache() does not apply), and per session cookie, so a sign-in or sign-out
+// made earlier in the same request is still seen.
+export const getCurrentSessionUser = cache(async () =>
+  perRequest(`session-user:${await sessionCookieValue()}`, getSessionUser),
+);
+
+const getRequestPolicy = cache(async () =>
+  perRequest(`access-policy:${await sessionCookieValue()}`, buildRequestPolicy),
+);
+
+async function buildRequestPolicy() {
   const user = await getCurrentSessionUser();
 
   if (!user) {
@@ -35,14 +51,16 @@ const getRequestPolicy = cache(async () => {
     return new AccessPolicy("", null);
   }
 
-  const profile = await adminDb().collection("profiles").doc(user.id).get();
-  const role = (profile.exists ? profile.get("role") : null) as AppRole | null;
+  // Role changes bump the profiles counter, so they apply from the next request.
+  const profiles = await readCachedTable("profiles", await getTableVersions());
+  const profile = profiles.byId.get(user.id);
+  const role = (profile?.role ?? null) as AppRole | null;
 
   return new AccessPolicy(user.id, role, {
-    entityCode: (profile.exists ? profile.get("entity_code") : null) ?? null,
-    isSuperAdmin: profile.exists ? profile.get("is_super_admin") === true : false,
+    entityCode: profile?.entity_code ?? null,
+    isSuperAdmin: profile?.is_super_admin === true,
   });
-});
+}
 
 /**
  * Data client scoped to the signed-in user. Every read and write goes through

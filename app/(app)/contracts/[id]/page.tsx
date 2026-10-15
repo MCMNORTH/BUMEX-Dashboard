@@ -18,6 +18,10 @@ import { getProjectById } from "@/lib/projects/service";
 import { formatCurrency, formatDate } from "@/lib/projects/helpers";
 import { ContractDetailHeader } from "@/components/contracts/contract-detail-header";
 import { ContractToast } from "@/components/contracts/contract-toast";
+import { PageRefresh } from "@/components/layout/page-refresh";
+
+// Cached for 5 minutes, revalidated when the contract or its comments change.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function ContractDetailPage({
   params,
@@ -57,6 +61,7 @@ export default async function ContractDetailPage({
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["contracts", "clients", "projects", "invoices", "comments", "internal_notes"]} />
       <ContractToast />
       <ContractDetailHeader contract={contract} role={auth.role} canManage={canManage} filterData={filterData} />
 

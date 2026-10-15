@@ -15,10 +15,14 @@ import { ClientTable } from "@/components/clients/client-table";
 import { ClientToast } from "@/components/clients/client-toast";
 import { formatNumber } from "@/lib/formatters";
 import type { ClientFilters as ClientFiltersType, ClientRecord } from "@/types/client";
+import { PageRefresh } from "@/components/layout/page-refresh";
 
 function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
+
+// Cached for 5 minutes, revalidated when clients or their business change.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function ClientsPage({
   searchParams,
@@ -58,6 +62,7 @@ export default async function ClientsPage({
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["clients", "projects", "contracts", "invoices", "payments"]} />
       <ClientToast />
       <section className="surface-hero px-5 py-5 sm:px-6">
         <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">

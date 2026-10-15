@@ -6,6 +6,8 @@ import { adminDb } from "@/lib/firebase/admin";
 import { DbQueryError } from "@/lib/firebase/errors";
 import type { AccessPolicy } from "@/lib/firebase/policies";
 import { QueryBuilder, type DbError } from "@/lib/firebase/query";
+import { forgetCachedTable, isCachedTable, readCachedTable } from "@/lib/firebase/table-cache";
+import { bumpTableVersionInTransaction, forgetRequestTableVersions, getTableVersions } from "@/lib/firebase/table-versions";
 
 // Ports of the `security definer` SQL functions that were live on Supabase.
 // Like the originals they run with full access; the ones that act for the
@@ -15,7 +17,12 @@ type Row = Record<string, unknown>;
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-async function readAll(table: string): Promise<Row[]> {
+// Callers only read the rows, so cached tables are handed out as they are (frozen).
+async function readAll(table: string): Promise<readonly Row[]> {
+  if (isCachedTable(table)) {
+    return (await readCachedTable(table, await getTableVersions())).rows;
+  }
+
   const snapshot = await adminDb().collection(table).get();
   return snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
 }
@@ -197,7 +204,7 @@ async function assignOwnEntity(args: Row, policy: AccessPolicy | null) {
 
   const ref = adminDb().collection("profiles").doc(uid);
 
-  return adminDb().runTransaction(async (transaction) => {
+  const result = await adminDb().runTransaction(async (transaction) => {
     const doc = await transaction.get(ref);
 
     if (!doc.exists) {
@@ -209,6 +216,7 @@ async function assignOwnEntity(args: Row, policy: AccessPolicy | null) {
     if (current == null) {
       const updatedAt = new Date().toISOString();
       transaction.update(ref, { entity_code: requested, updated_at: updatedAt });
+      bumpTableVersionInTransaction(transaction, "profiles");
       return { ...doc.data(), id: doc.id, entity_code: requested, updated_at: updatedAt };
     }
 
@@ -218,6 +226,10 @@ async function assignOwnEntity(args: Row, policy: AccessPolicy | null) {
 
     return { ...doc.data(), id: doc.id };
   });
+
+  forgetCachedTable("profiles");
+  await forgetRequestTableVersions();
+  return result;
 }
 
 // ---- trusted server functions ---------------------------------------------------

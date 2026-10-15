@@ -1,6 +1,8 @@
 import "server-only";
 
 import { adminDb } from "@/lib/firebase/admin";
+import { isCachedTable, readCachedTable } from "@/lib/firebase/table-cache";
+import { getTableVersions, type TableVersions } from "@/lib/firebase/table-versions";
 import type { AppRole } from "@/types/auth";
 
 // ---------------------------------------------------------------------------
@@ -80,7 +82,7 @@ const ADMIN_DEPENDENCIES: Record<string, string[]> = {
 class Snapshot {
   private byId = new Map<string, Row>();
 
-  constructor(readonly rows: Row[]) {
+  constructor(readonly rows: readonly Row[]) {
     for (const row of rows) {
       this.byId.set(String(row.id), row);
     }
@@ -97,6 +99,7 @@ export class AccessPolicy {
   private snapshots = new Map<string, Promise<Snapshot>>();
   private resolved = new Map<string, Snapshot>();
   private memo = new Map<string, boolean>();
+  private versions: Promise<TableVersions> | null = null;
 
   constructor(
     readonly uid: string,
@@ -119,18 +122,29 @@ export class AccessPolicy {
     await Promise.all(deps.map((dep) => this.load(dep)));
   }
 
+  /**
+   * The table write counters this request reads its data under (see
+   * lib/firebase/table-versions.ts): one read per request, or per policy where
+   * no render shares it (Server Actions, Route Handlers).
+   */
+  tableVersions() {
+    this.versions ??= getTableVersions();
+    return this.versions;
+  }
+
   private load(table: string) {
     let pending = this.snapshots.get(table);
 
     if (!pending) {
-      pending = adminDb()
-        .collection(table)
-        .get()
-        .then((result) => {
-          const snapshot = new Snapshot(result.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-          this.resolved.set(table, snapshot);
-          return snapshot;
-        });
+      const rows: Promise<readonly Row[]> = isCachedTable(table)
+        ? this.tableVersions().then((versions) => readCachedTable(table, versions)).then((cached) => cached.rows)
+        : adminDb().collection(table).get().then((result) => result.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+
+      pending = rows.then((loaded) => {
+        const snapshot = new Snapshot(loaded);
+        this.resolved.set(table, snapshot);
+        return snapshot;
+      });
       this.snapshots.set(table, pending);
     }
 
@@ -141,6 +155,8 @@ export class AccessPolicy {
     this.snapshots.delete(table);
     this.resolved.delete(table);
     this.memo.clear();
+    // The write bumped the table's counter; read the new one before reloading.
+    this.versions = null;
   }
 
   private t(table: string) {

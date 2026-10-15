@@ -4,6 +4,13 @@ import { getAdminTimesheetOverview, getTimesheet } from "@/lib/timesheet/service
 import { weekBounds } from "@/lib/timesheet/validation";
 import { TimesheetView } from "@/components/timesheet/timesheet-view";
 import { AdminTimesheetOverview } from "@/components/timesheet/admin-timesheet-overview";
+import { PageRefresh } from "@/components/layout/page-refresh";
+
+// Each week (in the URL) is cached for 2 minutes. Reviewers see submissions
+// arrive, and people see reviews come back, within a minute while it is open.
+export const unstable_dynamicStaleTime = 120;
+
+const TIMESHEET_TABLES = ["time_entries", "timesheet_week_status", "projects", "time_mission_favorites"];
 
 export default async function TimesheetPage({ searchParams }: {
   searchParams: Promise<{ week?: string; mode?: string; project?: string; mission?: string; date?: string }>;
@@ -14,8 +21,18 @@ export default async function TimesheetPage({ searchParams }: {
   const bounds = (typeof params.week === "string" ? weekBounds(params.week) : null) ?? weekBounds(today)!;
   if ((auth.role === "admin" || auth.role === "manager") && params.mode !== "mine") {
     const { profiles, entries, statuses, events } = await getAdminTimesheetOverview(bounds.start);
-    return <AdminTimesheetOverview profiles={profiles} entries={entries} statuses={statuses} events={events} week={bounds.start} days={bounds.days} today={today} locale={locale} companyWide={auth.role === "admin"} />;
+    return (
+      <>
+        <PageRefresh tables={[...TIMESHEET_TABLES, "profiles"]} />
+        <AdminTimesheetOverview profiles={profiles} entries={entries} statuses={statuses} events={events} week={bounds.start} days={bounds.days} today={today} locale={locale} companyWide={auth.role === "admin"} />
+      </>
+    );
   }
   const { entries, projects, missions, favorites, weekStatus, events } = await getTimesheet(bounds.start);
-  return <TimesheetView key={bounds.start} entries={entries} projects={projects} missions={missions} favorites={favorites} weekStatus={weekStatus} events={events} week={bounds.start} days={bounds.days} today={today} locale={locale} weeklyCapacityHours={auth.profile.weekly_capacity_hours} initialProjectId={params.project} initialMission={params.mission} initialDate={params.date} />;
+  return (
+    <>
+      <PageRefresh tables={TIMESHEET_TABLES} />
+      <TimesheetView key={bounds.start} entries={entries} projects={projects} missions={missions} favorites={favorites} weekStatus={weekStatus} events={events} week={bounds.start} days={bounds.days} today={today} locale={locale} weeklyCapacityHours={auth.profile.weekly_capacity_hours} initialProjectId={params.project} initialMission={params.mission} initialDate={params.date} />
+    </>
+  );
 }

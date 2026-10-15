@@ -17,10 +17,14 @@ import { formatNumber } from "@/lib/formatters";
 import { formatRoadmapDate, getRoadmapRange, getRoadmapSummary, shiftRoadmapStart } from "@/lib/roadmap/helpers";
 import { getMilestoneActivity, getRoadmapFilterData, getRoadmapProjects } from "@/lib/roadmap/service";
 import type { RoadmapFilters as RoadmapFiltersType, RoadmapView } from "@/types/milestone";
+import { PageRefresh } from "@/components/layout/page-refresh";
 
 function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
+
+// Cached for 5 minutes, revalidated when projects, milestones or tickets change.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function RoadmapPage({
   searchParams,
@@ -86,6 +90,7 @@ export default async function RoadmapPage({
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["projects", "milestones", "tasks", "clients"]} />
       <RoadmapToast />
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">

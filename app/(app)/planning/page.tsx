@@ -23,10 +23,17 @@ import { TicketWorkloadPreview } from "@/components/tickets/ticket-workload-prev
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PlanningFilters as PlanningFiltersType } from "@/types/planning";
+import { PageRefresh } from "@/components/layout/page-refresh";
 
 function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
+
+// Cached for 5 minutes per week and filter set, revalidated when tickets,
+// people or staffing change.
+export const unstable_dynamicStaleTime = 300;
+
+const PLANNING_TABLES = ["tasks", "profiles", "staffing_assignments", "time_entries", "projects"];
 
 export default async function PlanningPage({
   searchParams,
@@ -83,6 +90,8 @@ export default async function PlanningPage({
     ).sort((left, right) => left.name.localeCompare(right.name));
 
     return (
+      <>
+      <PageRefresh tables={PLANNING_TABLES} />
       <TeamCapacityPlanner
         members={visibleMembers}
         tickets={visiblePlanningTickets}
@@ -94,11 +103,13 @@ export default async function PlanningPage({
         actualTime={actualTime}
         teamMode={canSeeTeam}
       />
+      </>
     );
   }
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={PLANNING_TABLES} />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <PageHeader
           eyebrow={isFr ? "Planification" : "Planning"}

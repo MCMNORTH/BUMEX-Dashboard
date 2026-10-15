@@ -3,6 +3,9 @@ import { NotificationCenter } from "@/components/notifications/notification-cent
 import { requireRouteAccess } from "@/lib/auth/server";
 import { getCurrentLocale } from "@/lib/i18n/server";
 
+// Only the page frame: the list keeps itself current (hooks/use-notifications.ts).
+export const unstable_dynamicStaleTime = 600;
+
 export default async function NotificationsPage() {
   await requireRouteAccess("notifications");
   const locale = await getCurrentLocale();

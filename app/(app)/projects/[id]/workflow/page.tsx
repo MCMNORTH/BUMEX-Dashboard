@@ -10,6 +10,10 @@ import { countCardsByStage, getProjectTicketStages } from "@/lib/tickets/service
 import { getBoardWorkflow } from "@/lib/tickets/workflow-service";
 import { WorkflowSettings } from "@/components/projects/workflow-settings";
 import { Button } from "@/components/ui/button";
+import { PageRefresh } from "@/components/layout/page-refresh";
+
+// Board settings: cached for 5 minutes; saving them refreshes the page.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function ProjectWorkflowPage({
   params,
@@ -33,6 +37,7 @@ export default async function ProjectWorkflowPage({
 
   return (
     <div className="space-y-4">
+      <PageRefresh tables={["project_workflows", "tasks"]} live="off" />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">{isFr ? "Paramètres du workflow" : "Workflow settings"}</h1>

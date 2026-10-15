@@ -15,6 +15,10 @@ import { formatFinanceCurrency } from "@/lib/finance/helpers";
 import { getInvoiceFiltersData, getInvoices, getInvoiceSummary, getPayments, getPaymentsFilterData, getPaymentSummary } from "@/lib/finance/service";
 import { getCurrentLocale, getDictionary, getMessage } from "@/lib/i18n/server";
 import { formatDate } from "@/lib/projects/helpers";
+import { PageRefresh } from "@/components/layout/page-refresh";
+
+// Cached for 5 minutes, revalidated when invoices or payments change.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function FinanceIncomingPage() {
   const auth = await requireIncomingFinanceOperationsAccess();
@@ -34,6 +38,7 @@ export default async function FinanceIncomingPage() {
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["invoices", "payments", "clients"]} />
       <InvoiceToast />
 
       <div className="flex flex-col gap-4">

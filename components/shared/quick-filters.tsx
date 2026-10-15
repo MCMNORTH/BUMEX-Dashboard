@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { IntentPrefetchLink } from "@/components/shared/intent-prefetch-link";
 import { formatNumber } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +21,8 @@ export function QuickFilters({ label, items }: { label: string; items: QuickFilt
 
           return (
             <li key={item.key}>
-              <Link
+              {/* The same page with other filters: prefetching every chip on sight cost a request each, again after every refresh. */}
+              <IntentPrefetchLink
                 href={item.href}
                 scroll={false}
                 aria-current={item.active ? "true" : undefined}
@@ -48,7 +48,7 @@ export function QuickFilters({ label, items }: { label: string; items: QuickFilt
                 >
                   {formatNumber(item.count)}
                 </span>
-              </Link>
+              </IntentPrefetchLink>
             </li>
           );
         })}

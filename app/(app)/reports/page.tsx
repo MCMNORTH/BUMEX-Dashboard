@@ -11,6 +11,7 @@ import { getCurrentLocale } from "@/lib/i18n/server";
 import { generateReport, getDefaultDateRange, getReportBuilderData } from "@/lib/reports/service";
 import { frenchReportTypeLabels, reportTypeLabels } from "@/components/reports/report-type-selector";
 import type { ReportBuilderFilters, ReportType } from "@/types/report";
+import { PageRefresh } from "@/components/layout/page-refresh";
 
 function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -23,6 +24,10 @@ function normalizeReportType(value: string | undefined, allowedTypes: ReportType
 
   return allowedTypes[0];
 }
+
+// Reports are cached per set of parameters (they live in the URL) for 10
+// minutes and only recomputed on request, with the Refresh button.
+export const unstable_dynamicStaleTime = 600;
 
 export default async function ReportsPage({
   searchParams,
@@ -61,6 +66,7 @@ export default async function ReportsPage({
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["tasks", "projects", "time_entries", "invoices", "payments", "profiles"]} live="off" />
       <div className="print-hidden">
         <PageHeader
           eyebrow={isFr ? "Rapports" : "Reports"}

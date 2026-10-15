@@ -26,10 +26,14 @@ import {
 } from "@/lib/clients/service";
 import { formatDate } from "@/lib/projects/helpers";
 import type { ClientRecord, ClientTimelineFilter } from "@/types/client";
+import { PageRefresh } from "@/components/layout/page-refresh";
 
 function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
+
+// Cached for 5 minutes, revalidated when the client's records or comments change.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function ClientDetailPage({
   params,
@@ -68,6 +72,7 @@ export default async function ClientDetailPage({
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["clients", "projects", "contracts", "documents", "invoices", "payments", "comments", "internal_notes", "tasks"]} />
       <ClientToast />
       <ClientDetailHeader client={client} role={auth.role} canManage={canManage} filterData={filterData} />
       {isOpportunity ? (

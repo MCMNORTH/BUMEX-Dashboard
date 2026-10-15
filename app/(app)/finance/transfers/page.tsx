@@ -28,6 +28,7 @@ import {
 } from "@/lib/finance/service";
 import type { CommentRecord } from "@/types/comment";
 import type { TransferFilters as TransferFiltersType } from "@/types/finance";
+import { PageRefresh } from "@/components/layout/page-refresh";
 
 function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -63,6 +64,9 @@ function buildStructuredTransferGroups(transfers: Awaited<ReturnType<typeof getT
     })),
   }));
 }
+
+// Cached for 5 minutes, revalidated when transfers or their comments change.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function FinanceTransfersPage({
   searchParams,
@@ -106,6 +110,7 @@ export default async function FinanceTransfersPage({
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["transfers", "comments"]} />
       <TransferToast />
 
       <div className="flex flex-col gap-4">

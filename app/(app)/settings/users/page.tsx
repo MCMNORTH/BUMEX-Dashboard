@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { PageRefresh } from "@/components/layout/page-refresh";
 import { UsersManagement } from "@/components/settings/users-management";
 import { requireRouteAccess } from "@/lib/auth/server";
 import { getSettingsUsers } from "@/lib/settings/users";
@@ -8,6 +9,9 @@ import type { AppRole } from "@/types/auth";
 function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
+
+// Accounts change rarely and only here: cached for 10 minutes, refreshed on request.
+export const unstable_dynamicStaleTime = 600;
 
 export default async function SettingsUsersPage({
   searchParams,
@@ -29,6 +33,8 @@ export default async function SettingsUsersPage({
   });
 
   return (
+    <>
+    <PageRefresh tables={["profiles", "team_members"]} live="off" />
     <UsersManagement
       users={users}
       currentUserId={auth.profile.id}
@@ -38,5 +44,6 @@ export default async function SettingsUsersPage({
       error={error}
       success={success}
     />
+    </>
   );
 }

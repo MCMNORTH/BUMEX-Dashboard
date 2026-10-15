@@ -14,10 +14,14 @@ import { ContractTable } from "@/components/contracts/contract-table";
 import { ContractToast } from "@/components/contracts/contract-toast";
 import { RenewalAlertCard } from "@/components/contracts/renewal-alert-card";
 import type { ContractFilters as ContractFiltersType } from "@/types/contract";
+import { PageRefresh } from "@/components/layout/page-refresh";
 
 function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
+
+// Cached for 5 minutes, revalidated when contracts change.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function ContractsPage({
   searchParams,
@@ -50,6 +54,7 @@ export default async function ContractsPage({
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["contracts", "clients", "projects", "invoices"]} />
       <ContractToast />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <PageHeader

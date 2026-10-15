@@ -12,6 +12,7 @@ import { EntityLogo } from "@/components/entities/entity-logo";
 import { useEntitySwitch } from "@/components/entities/entity-switch-dialog";
 import { useI18n } from "@/components/layout/i18n-provider";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
+import { PageRefreshButton } from "@/components/layout/page-refresh-button";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { useEntity } from "@/hooks/use-entity";
@@ -80,6 +81,8 @@ export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <PageRefreshButton />
+
           <LanguageSwitcher />
 
           <NotificationBell />

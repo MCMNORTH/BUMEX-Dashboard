@@ -22,6 +22,11 @@ import { TicketJourney } from "@/components/tickets/ticket-journey";
 import { TicketSubtasks } from "@/components/tickets/ticket-subtasks";
 import type { TicketSubtask } from "@/types/ticket";
 import { TicketToast } from "@/components/tickets/ticket-toast";
+import { PageRefresh } from "@/components/layout/page-refresh";
+
+// A ticket people work on together: cached for a minute, checked for changes
+// (stage moves, sub-tasks, comments) every 20 seconds while open.
+export const unstable_dynamicStaleTime = 60;
 
 export default async function TicketDetailPage({
   params,
@@ -95,6 +100,7 @@ export default async function TicketDetailPage({
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["tasks", "subtasks", "comments", "project_workflows", "profiles"]} live="fast" />
       <TicketToast />
       <TicketDetailHeader
         ticket={ticket}

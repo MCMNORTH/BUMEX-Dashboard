@@ -1,7 +1,6 @@
 "use client";
 
 import { memo, useMemo, useOptimistic, useState, useTransition } from "react";
-import Link from "next/link";
 import {
   closestCorners,
   DndContext,
@@ -20,6 +19,7 @@ import {
 import { LoaderCircle } from "lucide-react";
 
 import { moveTicketStageAction } from "@/app/(app)/tickets/actions";
+import { IntentPrefetchLink } from "@/components/shared/intent-prefetch-link";
 import { useUser } from "@/hooks/use-user";
 import { ticketKanbanStatuses } from "@/lib/tickets/helpers";
 import {
@@ -121,7 +121,7 @@ const TicketKanbanCard = memo(function TicketKanbanCard({
   const showPriority = ticket.priority === "high" || ticket.priority === "urgent";
 
   return (
-    <Link
+    <IntentPrefetchLink
       href={`/tickets/${ticket.id}`}
       className={cn(
         "block min-w-0 rounded-lg border border-border bg-card p-2.5 shadow-[var(--shadow-soft)] transition-colors hover:border-primary/40",
@@ -142,7 +142,7 @@ const TicketKanbanCard = memo(function TicketKanbanCard({
         </span>
         <TicketAssignee name={ticket.assignee?.full_name} locale={locale} showName={false} />
       </div>
-    </Link>
+    </IntentPrefetchLink>
   );
 });
 
@@ -393,7 +393,15 @@ export function TicketKanban({ tickets, canDrag, workflows, boardProjectId }: Ti
         status: stageStatus(stage),
         stageName: workflow.is_configured ? stage.name : null,
       });
-      const result = await moveTicketStageAction(ticket.id, { stageId: stage.id }, moveReason);
+      let result: Awaited<ReturnType<typeof moveTicketStageAction>>;
+
+      try {
+        result = await moveTicketStageAction(ticket.id, { stageId: stage.id }, moveReason);
+      } catch {
+        // The card returns to its column when the transition ends; say why.
+        setError(isFr ? "Le déplacement n’a pas pu être enregistré. Vérifiez votre connexion et réessayez." : "The move could not be saved. Check your connection and try again.");
+        return;
+      }
 
       if (result.error) {
         if (result.code === "reason_required") {

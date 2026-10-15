@@ -11,6 +11,7 @@ import { getTeamWorkloadPreview, getMyTickets, getTickets, getTicketStats } from
 import { getTimesheet } from "@/lib/timesheet/service";
 import { formatDuration, weekBounds } from "@/lib/timesheet/validation";
 import { PageHeader } from "@/components/layout/page-header";
+import { PageRefresh } from "@/components/layout/page-refresh";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,10 @@ function sortRecentlyUpdated(tickets: TicketRecord[]) {
   return [...tickets].sort((left, right) => right.updated_at.localeCompare(left.updated_at));
 }
 
+// A personal board others also move tickets on: cached for 2 minutes, checked
+// for changes every 20 seconds while open.
+export const unstable_dynamicStaleTime = 120;
+
 export default async function MyWorkPage({
   searchParams,
 }: {
@@ -40,6 +45,7 @@ export default async function MyWorkPage({
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["tasks", "subtasks", "project_workflows", "projects", "time_entries", "timesheet_week_status"]} live="fast" />
       <PageHeader
         eyebrow={isFr ? "Mon travail" : "My work"}
         title={

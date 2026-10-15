@@ -10,6 +10,9 @@ function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+// Results are cached per query (it is in the URL) for a minute.
+export const unstable_dynamicStaleTime = 60;
+
 export default async function SearchPage({
   searchParams,
 }: {

@@ -28,10 +28,14 @@ import { getCommentsForEntities } from "@/lib/comments/service";
 import { getMentionCandidates } from "@/lib/notifications/service";
 import type { CommentRecord } from "@/types/comment";
 import type { FinanceFilters } from "@/types/finance";
+import { PageRefresh } from "@/components/layout/page-refresh";
 
 function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
+
+// Cached for 5 minutes, revalidated when payments or their comments change.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function FinancePaymentsPage({
   searchParams,
@@ -65,6 +69,7 @@ export default async function FinancePaymentsPage({
   const canManage = auth.role === "admin" || auth.role === "manager" || auth.role === "employee";
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["payments", "invoices", "comments"]} />
       <PaymentToast />
 
       <div className="flex flex-col gap-4">

@@ -16,6 +16,7 @@ import { getCurrentLocale } from "@/lib/i18n/server";
 import { getMentionCandidates } from "@/lib/notifications/service";
 import type { CommentRecord } from "@/types/comment";
 import type { DocumentFilters as DocumentFiltersType, DocumentRecord } from "@/types/document";
+import { PageRefresh } from "@/components/layout/page-refresh";
 
 function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -32,6 +33,9 @@ function groupByType(documents: DocumentRecord[]) {
     .sort((left, right) => right[1] - left[1])
     .slice(0, 5);
 }
+
+// Cached for 5 minutes, revalidated when documents or their comments change.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function DocumentsPage({
   searchParams,
@@ -70,6 +74,7 @@ export default async function DocumentsPage({
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["documents", "comments", "projects", "clients"]} />
       <DocumentToast />
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">

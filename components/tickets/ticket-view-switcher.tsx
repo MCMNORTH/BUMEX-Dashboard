@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { LayoutList, Rows3 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { TicketWorkspaceView } from "@/types/ticket";
+import { IntentPrefetchLink } from "@/components/shared/intent-prefetch-link";
 
 type TicketViewSwitcherProps = {
   activeView: TicketWorkspaceView;
@@ -48,7 +48,7 @@ export function TicketViewSwitcher({
         const active = activeView === view.key;
 
         return (
-          <Link
+          <IntentPrefetchLink
             key={view.key}
             href={buildHref(basePath, view.key, queryString)}
             scroll={false}
@@ -62,7 +62,7 @@ export function TicketViewSwitcher({
           >
             <Icon className="size-4" />
             {view.label}
-          </Link>
+          </IntentPrefetchLink>
         );
       })}
     </div>

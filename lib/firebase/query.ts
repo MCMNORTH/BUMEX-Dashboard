@@ -2,7 +2,7 @@ import "server-only";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { DocumentSnapshot, Query, WriteBatch } from "firebase-admin/firestore";
+import type { DocumentSnapshot, WriteBatch } from "firebase-admin/firestore";
 
 import { adminDb } from "@/lib/firebase/admin";
 import { DbQueryError } from "@/lib/firebase/errors";
@@ -17,6 +17,13 @@ import {
 import type { AccessPolicy } from "@/lib/firebase/policies";
 import { applyDefaults, documentIdFor, getTableSchema, INBOUND_REFERENCES } from "@/lib/firebase/schema";
 import { searchTerms } from "@/lib/search/text";
+import { forgetCachedTable, isCachedTable, readCachedTable } from "@/lib/firebase/table-cache";
+import {
+  bumpTableVersionInBatch,
+  forgetRequestTableVersions,
+  getTableVersions,
+  type TableVersions,
+} from "@/lib/firebase/table-versions";
 import { afterWrite, beforeWrite, type WriteContext } from "@/lib/firebase/triggers";
 
 export { DbQueryError } from "@/lib/firebase/errors";
@@ -30,7 +37,9 @@ export { DbQueryError } from "@/lib/firebase/errors";
 // `project:projects(name)`. Only single-field equality filters are pushed
 // down to Firestore (they never need composite indexes); every other filter,
 // ordering and limit is applied in memory, which suits the dashboard's
-// data volumes.
+// data volumes. Reads of the tables in lib/firebase/table-cache.ts are served
+// from a shared in-memory copy; writes always go to Firestore and bump the
+// table's write counter (lib/firebase/table-versions.ts) in the same batch.
 // ---------------------------------------------------------------------------
 
 type Row = Record<string, any>;
@@ -144,11 +153,35 @@ function parseSelect(clause: string | undefined): SelectClause {
   return { columns: wildcard ? null : columns, embeds };
 }
 
+// Rows may come from the shared table cache, whose nested arrays and objects
+// are frozen; callers get their own copies.
+function copyValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(copyValue);
+  }
+
+  if (value && typeof value === "object") {
+    const prototype = Object.getPrototypeOf(value);
+
+    if (prototype === Object.prototype || prototype === null) {
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, copyValue(item)]));
+    }
+  }
+
+  return value;
+}
+
 function project(row: Row, { columns, embeds }: SelectClause) {
-  const projected: Row = columns ? {} : { ...row };
+  const projected: Row = {};
+
+  if (!columns) {
+    for (const [key, value] of Object.entries(row)) {
+      projected[key] = key.startsWith("__embed_") ? value : copyValue(value);
+    }
+  }
 
   for (const { alias, source } of columns ?? []) {
-    projected[alias] = row[source] ?? null;
+    projected[alias] = copyValue(row[source] ?? null);
   }
 
   for (const embed of embeds) {
@@ -204,7 +237,18 @@ function resolveRelationship(table: string, embed: Embed, rows: Row[]): Relation
   return { kind: "to-many", column: table === "profiles" ? "user_id" : `${singularize(table)}_id` };
 }
 
-async function fetchByColumn(table: string, column: string, values: string[]) {
+async function fetchByColumn(table: string, column: string, values: string[], versions: () => Promise<TableVersions>) {
+  if (isCachedTable(table)) {
+    const snapshot = await readCachedTable(table, await versions(), hasIdColumn(table));
+
+    if (column === "id" && hasIdColumn(table)) {
+      return values.map((id) => snapshot.byId.get(id)).filter((row): row is Row => row !== undefined);
+    }
+
+    const wanted = new Set(values);
+    return snapshot.rows.filter((row) => row[column] != null && wanted.has(String(row[column])));
+  }
+
   const collection = adminDb().collection(table);
 
   if (column === "id" && !getTableSchema(table).primaryKey) {
@@ -220,6 +264,87 @@ async function fetchByColumn(table: string, column: string, values: string[]) {
   }
 
   return rows;
+}
+
+// ---- filter pushdown -----------------------------------------------------------
+
+type Pushdown = { column: string; operator: "==" | "in"; values: unknown[] };
+
+// Every filter is still applied in memory afterwards, so pushing one down only
+// has to return a superset of the matching rows; the aim is the smallest one.
+// Foreign keys narrow a table to a handful of rows; columns like status or
+// entity_type rarely do.
+function selectivity(column: string) {
+  return column.endsWith("_id") ? 2 : 1;
+}
+
+// Columns an OR constrains in every branch, with the union of their values:
+// `or(and(entity_type.eq.task,entity_id.in.(a,b)),and(entity_type.eq.project,entity_id.eq.c))`
+// only matches rows whose entity_id is a, b or c.
+function orConstraints(filter: Extract<Filter, { kind: "or" }>) {
+  let common: Map<string, Set<string>> | null = null;
+
+  for (const branch of filter.filters) {
+    const conditions = branch.kind === "condition" ? [branch] : branch.kind === "and" ? branch.filters : [];
+    const constrained = new Map<string, Set<string>>();
+
+    for (const condition of conditions) {
+      if (condition.kind !== "condition" || condition.column.includes("->") || constrained.has(condition.column)) continue;
+
+      const values = condition.operator === "eq" ? [condition.value] : condition.operator === "in" ? condition.value : null;
+
+      if (Array.isArray(values) && values.length && values.every((value) => typeof value === "string")) {
+        constrained.set(condition.column, new Set(values as string[]));
+      }
+    }
+
+    if (common === null) {
+      common = constrained;
+    } else {
+      for (const [column, values] of common) {
+        const more = constrained.get(column);
+
+        if (more) {
+          more.forEach((value) => values.add(value));
+        } else {
+          common.delete(column);
+        }
+      }
+    }
+  }
+
+  return common ?? new Map<string, Set<string>>();
+}
+
+// Picks the one filter Firestore applies (the others need composite indexes):
+// a foreign key over anything else, and an equality over a list.
+function choosePushdown(filters: Filter[]): Pushdown | null {
+  const options: Array<Pushdown & { score: number }> = [];
+
+  for (const filter of filters) {
+    if (filter.kind === "condition" && !filter.column.includes("->")) {
+      if (filter.operator === "eq" && (typeof filter.value === "string" || typeof filter.value === "boolean")) {
+        options.push({ column: filter.column, operator: "==", values: [filter.value], score: selectivity(filter.column) * 2 });
+      } else if (
+        filter.operator === "in"
+        && Array.isArray(filter.value)
+        && filter.value.length > 0
+        && filter.value.every((value) => typeof value === "string")
+      ) {
+        options.push({ column: filter.column, operator: "in", values: [...new Set(filter.value)], score: selectivity(filter.column) * 2 - 1 });
+      }
+    } else if (filter.kind === "or") {
+      for (const [column, values] of orConstraints(filter)) {
+        options.push({ column, operator: "in", values: [...values], score: selectivity(column) * 2 - 1 });
+      }
+    }
+  }
+
+  // Past a few hundred values, a list costs more round trips than it saves.
+  const usable = options.filter((option) => option.values.length <= FIRESTORE_IN_LIMIT * 10);
+
+  // The first of equally good options wins, as before this choice was scored.
+  return usable.reduce<(Pushdown & { score: number }) | null>((best, option) => (!best || option.score > best.score ? option : best), null);
 }
 
 // ---- writes ------------------------------------------------------------------
@@ -243,20 +368,27 @@ async function writeRows(table: string, rows: Row[], mode: "set" | "delete") {
     return;
   }
 
-  await commitInBatches((batch) => {
-    for (const row of rows.slice(offset, offset + WRITE_BATCH_LIMIT)) {
-      const ref = collection.doc(documentIdFor(table, row));
+  try {
+    await commitInBatches((batch) => {
+      for (const row of rows.slice(offset, offset + WRITE_BATCH_LIMIT)) {
+        const ref = collection.doc(documentIdFor(table, row));
 
-      if (mode === "set") {
-        batch.set(ref, toDocument(table, row));
-      } else {
-        batch.delete(ref);
+        if (mode === "set") {
+          batch.set(ref, toDocument(table, row));
+        } else {
+          batch.delete(ref);
+        }
       }
-    }
 
-    offset += WRITE_BATCH_LIMIT;
-    return Math.max(rows.length - offset, 0);
-  });
+      bumpTableVersionInBatch(batch, table);
+      offset += WRITE_BATCH_LIMIT;
+      return Math.max(rows.length - offset, 0);
+    });
+  } finally {
+    // Even a failed multi-batch write may have committed its first batches.
+    forgetCachedTable(table);
+    await forgetRequestTableVersions();
+  }
 }
 
 export class QueryBuilder<T = any[]> implements PromiseLike<DbResult<T>> {
@@ -441,6 +573,8 @@ export class QueryBuilder<T = any[]> implements PromiseLike<DbResult<T>> {
     return { uid: this.policy?.uid || null, role: this.policy?.role ?? null };
   }
 
+  private readonly tableVersions = () => (this.policy ? this.policy.tableVersions() : getTableVersions());
+
   private async execute(): Promise<DbResult<T>> {
     try {
       if (this.policy) {
@@ -528,7 +662,7 @@ export class QueryBuilder<T = any[]> implements PromiseLike<DbResult<T>> {
       const sourceColumn = relationship.kind === "to-one" ? relationship.column : "id";
       const targetColumn = relationship.kind === "to-one" ? "id" : relationship.column;
       const keys = [...new Set(rows.map((row) => row[sourceColumn]).filter((value) => value != null).map(String))];
-      const targets = keys.length ? await fetchByColumn(embed.table, targetColumn, keys) : [];
+      const targets = keys.length ? await fetchByColumn(embed.table, targetColumn, keys, this.tableVersions) : [];
 
       if (this.policy) {
         await this.policy.prepare(embed.table);
@@ -570,12 +704,10 @@ export class QueryBuilder<T = any[]> implements PromiseLike<DbResult<T>> {
     // timesheet_missions: select distinct project_id, entity_code, mission
     // from time_entries where mission <> '' (with time_entries policies).
     await this.policy.prepare("time_entries");
-    const entries = await adminDb().collection("time_entries").get();
+    const entries = await readCachedTable("time_entries", await this.tableVersions());
     const missions = new Map<string, Row>();
 
-    for (const doc of entries.docs) {
-      const entry = fromSnapshot("time_entries", doc);
-
+    for (const entry of entries.rows) {
       if (!entry.mission || !this.policy.allows("time_entries", "select", entry)) continue;
 
       const key = JSON.stringify([entry.project_id, entry.entity_code, entry.mission]);
@@ -586,15 +718,22 @@ export class QueryBuilder<T = any[]> implements PromiseLike<DbResult<T>> {
   }
 
   // Fetches candidate rows, pushing at most one equality filter to Firestore.
-  private async fetchCandidates(): Promise<Row[]> {
+  // Reads of cached tables come from the shared copy; updates and deletes
+  // always read Firestore, since they write back whole rows.
+  private async fetchCandidates(command: "select" | "update" | "delete"): Promise<Row[]> {
     if (this.isView) {
       return this.viewRows();
     }
 
-    const collection = adminDb().collection(this.table);
     const conditions = this.filters.filter(
       (filter): filter is Extract<Filter, { kind: "condition" }> => filter.kind === "condition",
     );
+
+    if (command === "select" && isCachedTable(this.table)) {
+      return this.cachedCandidates(conditions);
+    }
+
+    const collection = adminDb().collection(this.table);
 
     if (hasIdColumn(this.table)) {
       const idEq = conditions.find((filter) => filter.column === "id" && filter.operator === "eq");
@@ -617,36 +756,66 @@ export class QueryBuilder<T = any[]> implements PromiseLike<DbResult<T>> {
       }
     }
 
-    let query: Query = collection;
-    const pushable = conditions.find(
-      (filter) =>
-        filter.operator === "eq"
-        && !filter.column.includes("->")
-        && (typeof filter.value === "string" || typeof filter.value === "boolean"),
-    );
+    if (conditions.some((filter) => filter.operator === "in" && Array.isArray(filter.value) && filter.value.length === 0)) {
+      return [];
+    }
 
-    if (pushable) {
-      query = query.where(pushable.column, "==", pushable.value);
-    } else {
-      const pushableIn = conditions.find(
-        (filter) =>
-          filter.operator === "in"
-          && !filter.column.includes("->")
-          && Array.isArray(filter.value)
-          && filter.value.length > 0
-          && filter.value.length <= FIRESTORE_IN_LIMIT
-          && filter.value.every((value) => typeof value === "string"),
-      );
+    const pushdown = choosePushdown(this.filters);
 
-      if (pushableIn) {
-        query = query.where(pushableIn.column, "in", pushableIn.value);
-      } else if (conditions.some((filter) => filter.operator === "in" && Array.isArray(filter.value) && filter.value.length === 0)) {
-        return [];
+    if (!pushdown) {
+      const snapshot = await collection.get();
+      return snapshot.docs.map((doc) => fromSnapshot(this.table, doc));
+    }
+
+    if (pushdown.operator === "==") {
+      const snapshot = await collection.where(pushdown.column, "==", pushdown.values[0]).get();
+      return snapshot.docs.map((doc) => fromSnapshot(this.table, doc));
+    }
+
+    // Firestore takes 30 values per `in`; larger lists run as parallel chunks,
+    // merged back into document id order like a single query would return.
+    const chunks: unknown[][] = [];
+
+    for (let index = 0; index < pushdown.values.length; index += FIRESTORE_IN_LIMIT) {
+      chunks.push(pushdown.values.slice(index, index + FIRESTORE_IN_LIMIT));
+    }
+
+    const snapshots = await Promise.all(chunks.map((chunk) => collection.where(pushdown.column, "in", chunk).get()));
+    const docs = new Map<string, DocumentSnapshot>();
+
+    for (const snapshot of snapshots) {
+      for (const doc of snapshot.docs) {
+        docs.set(doc.id, doc);
       }
     }
 
-    const snapshot = await query.get();
-    return snapshot.docs.map((doc) => fromSnapshot(this.table, doc));
+    return [...docs.values()]
+      .sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))
+      .map((doc) => fromSnapshot(this.table, doc));
+  }
+
+  // Same candidates as the Firestore path (in the same order: document id, or
+  // the requested ids), taken from the shared copy of the table.
+  private async cachedCandidates(conditions: Array<Extract<Filter, { kind: "condition" }>>): Promise<Row[]> {
+    const snapshot = await readCachedTable(this.table, await this.tableVersions(), hasIdColumn(this.table));
+
+    if (hasIdColumn(this.table)) {
+      const idEq = conditions.find((filter) => filter.column === "id" && filter.operator === "eq");
+
+      if (idEq) {
+        const row = idEq.value == null ? undefined : snapshot.byId.get(String(idEq.value));
+        return row ? [row] : [];
+      }
+
+      const idIn = conditions.find((filter) => filter.column === "id" && filter.operator === "in");
+
+      if (idIn && Array.isArray(idIn.value)) {
+        const ids = [...new Set(idIn.value.filter((value) => value != null).map(String))];
+        return ids.map((id) => snapshot.byId.get(id)).filter((row): row is Row => row !== undefined);
+      }
+    }
+
+    return [...snapshot.rows];
   }
 
   private matches(row: Row) {
@@ -654,7 +823,7 @@ export class QueryBuilder<T = any[]> implements PromiseLike<DbResult<T>> {
   }
 
   private async findRows(command: "select" | "update" | "delete") {
-    const candidates = await this.fetchCandidates();
+    const candidates = await this.fetchCandidates(command);
 
     return candidates.filter(
       (row) =>

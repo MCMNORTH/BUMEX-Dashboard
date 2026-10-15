@@ -21,6 +21,11 @@ import { ProjectDetailHeader } from "@/components/projects/project-detail-header
 import { ProjectHealthBadge } from "@/components/projects/project-health-badge";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ProjectToast } from "@/components/projects/project-toast";
+import { PageRefresh } from "@/components/layout/page-refresh";
+
+// Cached for 2 minutes, revalidated when the project, its tickets, members,
+// milestones or comments change.
+export const unstable_dynamicStaleTime = 120;
 
 export default async function ProjectDetailPage({
   params,
@@ -54,6 +59,7 @@ export default async function ProjectDetailPage({
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["projects", "tasks", "project_members", "milestones", "comments", "internal_notes", "contracts", "clients"]} />
       <ProjectToast />
       <ProjectDetailHeader
         project={project}

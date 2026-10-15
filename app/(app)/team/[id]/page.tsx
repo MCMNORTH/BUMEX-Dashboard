@@ -18,6 +18,10 @@ import { formatNumber } from "@/lib/formatters";
 import { formatDate } from "@/lib/projects/helpers";
 import { getTeamMemberById, getUserPerformance } from "@/lib/team/service";
 import { getCurrentLocale } from "@/lib/i18n/server";
+import { PageRefresh } from "@/components/layout/page-refresh";
+
+// Cached for 5 minutes, revalidated when the person's work or staffing changes.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function TeamMemberDetailPage({
   params,
@@ -46,6 +50,7 @@ export default async function TeamMemberDetailPage({
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["profiles", "tasks", "project_members", "time_entries", "staffing_assignments"]} />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <PageHeader
           eyebrow={tr("Profil collaborateur", "Team profile")}

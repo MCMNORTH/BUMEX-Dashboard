@@ -12,6 +12,10 @@ import { formatFinanceCurrency } from "@/lib/finance/helpers";
 import { getTransferSummary, getTransfers, getTransfersFilterData } from "@/lib/finance/service";
 import { getCurrentLocale, getDictionary, getMessage } from "@/lib/i18n/server";
 import { formatDate } from "@/lib/projects/helpers";
+import { PageRefresh } from "@/components/layout/page-refresh";
+
+// Cached for 5 minutes, revalidated when transfers change.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function FinanceOutgoingPage() {
   const auth = await requireFinanceOperationsAccess();
@@ -29,6 +33,7 @@ export default async function FinanceOutgoingPage() {
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["transfers"]} />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <PageHeader
           eyebrow={getMessage(dictionary, "finance.outgoing.eyebrow", "Outgoing finance")}

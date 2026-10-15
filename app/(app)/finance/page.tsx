@@ -13,6 +13,10 @@ import {
   getTransfersFilterData,
   getTransferSummary,
 } from "@/lib/finance/service";
+import { PageRefresh } from "@/components/layout/page-refresh";
+
+// Cached for 5 minutes, revalidated when invoices, payments or transfers change.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function FinancePage() {
   const auth = await requireRouteAccess("finance");
@@ -78,6 +82,8 @@ export default async function FinancePage() {
   }
 
   return (
+    <>
+    <PageRefresh tables={["invoices", "payments", "transfers", "bank_statements", "clients"]} />
     <FinanceWorkspace
       isAdmin={auth.role === "admin"}
       canManageIncomingFinance={canManageIncomingFinance}
@@ -96,5 +102,6 @@ export default async function FinancePage() {
       bankStatements={bankStatements}
       bankSummary={canManageBankFinance ? getBankStatementSummary(bankStatements) : null}
     />
+    </>
   );
 }

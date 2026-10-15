@@ -6,6 +6,10 @@ import { SectionCard } from "@/components/layout/section-card";
 import { ActivityCenter } from "@/components/activity/activity-center";
 import { Badge } from "@/components/ui/badge";
 import type { ActivityLogRecord } from "@/types/activity";
+import { PageRefresh } from "@/components/layout/page-refresh";
+
+// The activity feed: cached for 2 minutes, revalidated as new activity is logged.
+export const unstable_dynamicStaleTime = 120;
 
 export default async function ActivityPage() {
   const auth = await requireRouteAccess("activity");
@@ -30,6 +34,7 @@ export default async function ActivityPage() {
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["activity_logs"]} />
       <PageHeader
         eyebrow={isFr ? "Activité" : "Activity"}
         title={

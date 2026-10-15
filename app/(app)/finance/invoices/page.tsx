@@ -19,10 +19,14 @@ import { getMentionCandidates } from "@/lib/notifications/service";
 import { getInvoiceFiltersData, getInvoices, getInvoiceSummary } from "@/lib/finance/service";
 import type { CommentRecord } from "@/types/comment";
 import type { InvoiceFilters as InvoiceFiltersType } from "@/types/finance";
+import { PageRefresh } from "@/components/layout/page-refresh";
 
 function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
+
+// Cached for 5 minutes, revalidated when invoices or their comments change.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function FinanceInvoicesPage({
   searchParams,
@@ -70,6 +74,7 @@ export default async function FinanceInvoicesPage({
     : invoices;
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["invoices", "comments", "clients"]} />
       <InvoiceToast />
 
       <div className="flex flex-col gap-4">

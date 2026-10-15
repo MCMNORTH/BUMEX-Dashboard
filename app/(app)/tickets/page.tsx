@@ -10,6 +10,7 @@ import { canManageBoard } from "@/lib/tickets/board-access";
 import { getTeamWorkloadPreview, getTicketQuickCounts, getTickets, getTicketsFilterData } from "@/lib/tickets/service";
 import { getBoardWorkflows } from "@/lib/tickets/workflow-service";
 import { Button } from "@/components/ui/button";
+import { PageRefresh } from "@/components/layout/page-refresh";
 import { Card, CardContent } from "@/components/ui/card";
 import { QuickFilters } from "@/components/shared/quick-filters";
 import { TicketEmptyState } from "@/components/tickets/ticket-empty-state";
@@ -46,6 +47,10 @@ function buildQueryString(params: Record<string, string | string[] | undefined>)
 // while search, project, type, and view are kept.
 const quickFilterKeys = ["status", "priority", "assignee", "due", "attention"] as const;
 
+// The shared Kanban board: cached for 2 minutes (per filter combination, since
+// filters live in the URL), checked for changes every 20 seconds while open.
+export const unstable_dynamicStaleTime = 120;
+
 export default function TicketsPage({
   searchParams,
 }: {
@@ -53,6 +58,7 @@ export default function TicketsPage({
 }) {
   return (
     <div className="space-y-4">
+      <PageRefresh tables={["tasks", "subtasks", "project_workflows", "projects", "project_members", "profiles"]} live="fast" />
       <TicketToast />
       <Suspense fallback={<TicketsPageFallback />}>
         <TicketsContent searchParams={searchParams} />

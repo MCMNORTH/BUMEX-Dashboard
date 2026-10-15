@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-
 import { useI18n } from "@/components/layout/i18n-provider";
+import { IntentPrefetchLink } from "@/components/shared/intent-prefetch-link";
 import { TicketAssignee, TicketDue, TicketSubtaskProgress } from "@/components/tickets/ticket-meta";
 import { TicketPriorityBadge } from "@/components/tickets/ticket-priority-badge";
 import { TicketStatusBadge } from "@/components/tickets/ticket-status-badge";
@@ -23,7 +22,7 @@ function TicketRow({ ticket, locale }: { ticket: TicketRecord; locale: "en" | "f
 
   return (
     <li>
-      <Link
+      <IntentPrefetchLink
         href={`/tickets/${ticket.id}`}
         className={`grid min-w-0 gap-x-4 gap-y-1.5 px-3 py-2.5 transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none md:items-center ${columns}`}
       >
@@ -48,7 +47,7 @@ function TicketRow({ ticket, locale }: { ticket: TicketRecord; locale: "en" | "f
           <span className="min-w-0 md:block"><TicketAssignee name={ticket.assignee?.full_name} locale={locale} /></span>
           <TicketDue ticket={ticket} locale={locale} className="text-sm md:text-right" />
         </span>
-      </Link>
+      </IntentPrefetchLink>
     </li>
   );
 }

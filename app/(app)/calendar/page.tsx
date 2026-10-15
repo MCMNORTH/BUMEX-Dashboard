@@ -12,6 +12,7 @@ import { getCalendarEvents, getCalendarFilterData } from "@/lib/calendar/service
 import { formatNumber } from "@/lib/formatters";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import type { CalendarFilters as CalendarFiltersType, CalendarView } from "@/types/calendar";
+import { PageRefresh } from "@/components/layout/page-refresh";
 
 function getString(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -59,6 +60,10 @@ function shiftPeriod(view: CalendarView, period: string, direction: -1 | 1) {
 
   return formatKey(addMonths(current, direction));
 }
+
+// Cached for 5 minutes (per month/week, since the period is in the URL),
+// revalidated when any dated item it shows changes.
+export const unstable_dynamicStaleTime = 300;
 
 export default async function CalendarPage({
   searchParams,
@@ -118,6 +123,7 @@ export default async function CalendarPage({
 
   return (
     <div className="space-y-6">
+      <PageRefresh tables={["tasks", "milestones", "projects", "contracts", "invoices", "payments", "staffing_assignments"]} />
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <PageHeader
           eyebrow={isFr ? "Calendrier" : "Calendar"}
