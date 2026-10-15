@@ -413,7 +413,8 @@ export async function markAllNotificationsAsRead() {
   }
 }
 
-export async function getUserNotifications(filters: NotificationFilters = {}) {
+/** The user's notifications, newest first; `limit` keeps it to the latest ones. */
+export async function getUserNotifications(filters: NotificationFilters = {}, limit?: number) {
   const userId = await getCurrentNotificationUserId();
   const db = await createClient();
 
@@ -456,6 +457,10 @@ export async function getUserNotifications(filters: NotificationFilters = {}) {
     const monthStart = new Date();
     monthStart.setUTCDate(monthStart.getUTCDate() - 30);
     query = query.gte("created_at", monthStart.toISOString());
+  }
+
+  if (limit) {
+    query = query.limit(limit);
   }
 
   const { data, error } = await query.returns<NotificationRecord[]>();

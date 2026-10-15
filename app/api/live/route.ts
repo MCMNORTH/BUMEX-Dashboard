@@ -4,11 +4,14 @@ import { adminAuth } from "@/lib/firebase/admin";
 import { hasFirebaseEnv } from "@/lib/firebase/config";
 import { TABLES } from "@/lib/firebase/schema";
 import { SESSION_COOKIE_NAME } from "@/lib/firebase/session";
-import { readTableVersions } from "@/lib/firebase/table-versions";
+import { notificationsKey, readTableVersions } from "@/lib/firebase/table-versions";
 
 export const dynamic = "force-dynamic";
 
 const NO_STORE = { "Cache-Control": "no-store" };
+
+// The caller's own notifications counter (see notificationsKey).
+const OWN_NOTIFICATIONS = "notifications:me";
 
 /**
  * The write counters of the requested tables (see lib/firebase/table-versions.ts),
@@ -33,12 +36,13 @@ export async function GET(request: Request) {
 
   const requested = (new URL(request.url).searchParams.get("tables") ?? "")
     .split(",")
-    .filter((table) => table in TABLES)
+    .filter((table) => table in TABLES || table === OWN_NOTIFICATIONS)
     .slice(0, 40);
   const versions = await readTableVersions();
+  const counter = (table: string) => versions[table === OWN_NOTIFICATIONS ? notificationsKey(uid) : table] ?? 0;
 
   return Response.json(
-    { uid, versions: Object.fromEntries(requested.map((table) => [table, versions[table] ?? 0])) },
+    { uid, versions: Object.fromEntries(requested.map((table) => [table, counter(table)])) },
     { headers: NO_STORE },
   );
 }

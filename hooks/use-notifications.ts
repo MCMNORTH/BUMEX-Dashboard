@@ -17,7 +17,8 @@ const OPERATIONAL_ARCHIVED_STORAGE_KEY = "bumex-operational-notifications-archiv
 
 // Firestore is only reachable from the server, so the browser learns about new
 // notifications by polling the table write counters (lib/live/live-client.ts),
-// and fetches the list only when the notifications counter moved.
+// and fetches the list only when this user's notifications counter moved.
+const OWN_NOTIFICATIONS = "notifications:me";
 const CHECK_INTERVAL_MS = 30_000;
 
 // Operational alerts are computed from these tables. They are recomputed when
@@ -27,8 +28,8 @@ const OPERATIONAL_SOURCES = ["tasks", "projects", "milestones", "contracts", "in
 const OPERATIONAL_MIN_AGE_MS = 5 * 60_000;
 const OPERATIONAL_MAX_AGE_MS = 15 * 60_000;
 
-function isOperationalNotification(notification: NotificationRecord) {
-  return notification.id.startsWith("operational-");
+function isOperationalNotification(notificationId: string) {
+  return notificationId.startsWith("operational-");
 }
 
 function getStoredIds(key: string) {
@@ -49,7 +50,15 @@ function storeId(key: string, id: string) {
   }
 }
 
-type View = { notifications: NotificationRecord[]; loading: boolean };
+type View = {
+  /** Both kinds together (alerts first), for the notification center. */
+  notifications: NotificationRecord[];
+  /** Notifications people or the app sent to this user. */
+  stored: NotificationRecord[];
+  /** Operational alerts computed from current data (overdue, blocked...). */
+  alerts: NotificationRecord[];
+  loading: boolean;
+};
 
 // One list per user, limit and filters, shared by every component showing it
 // (the bell and its dropdown read the same one) and kept while unmounted, so
@@ -69,21 +78,25 @@ type Store = {
 };
 
 const stores = new Map<string, Store>();
-const SERVER_VIEW: View = { notifications: [], loading: false };
+const SERVER_VIEW: View = { notifications: [], stored: [], alerts: [], loading: false };
 
 function rebuild(store: Store) {
   const { search, unreadOnly, type } = store.filters;
   const readIds = getStoredIds(OPERATIONAL_READ_STORAGE_KEY);
   const archivedIds = getStoredIds(OPERATIONAL_ARCHIVED_STORAGE_KEY);
-  const operational = store.operational
+  const alerts = store.operational
     .filter((notification) => !archivedIds.has(notification.id))
     .map((notification) => ({ ...notification, is_read: readIds.has(notification.id) }))
     .filter((notification) => !search || `${notification.title} ${notification.body}`.toLowerCase().includes(search.toLowerCase()))
     .filter((notification) => !unreadOnly || !notification.is_read)
     .filter((notification) => !type || notification.type === type);
 
+  const stored = store.stored ?? [];
+
   store.view = {
-    notifications: [...operational, ...(store.stored ?? [])].slice(0, store.limit),
+    notifications: [...alerts, ...stored].slice(0, store.limit),
+    stored: stored.slice(0, store.limit),
+    alerts: alerts.slice(0, store.limit),
     loading: store.stored === null,
   };
   store.listeners.forEach((listener) => listener());
@@ -118,8 +131,8 @@ async function loadOperational(store: Store) {
 }
 
 function onVersions(store: Store, versions: LiveVersions) {
-  if ("notifications" in versions && versions.notifications !== store.seenVersion) {
-    store.seenVersion = versions.notifications;
+  if (OWN_NOTIFICATIONS in versions && versions[OWN_NOTIFICATIONS] !== store.seenVersion) {
+    store.seenVersion = versions[OWN_NOTIFICATIONS];
     void loadStored(store);
   }
 
@@ -147,7 +160,7 @@ function getStore(userId: string, limit: number, filters: Required<NotificationF
       operationalAt: 0,
       operationalVersions: null,
       seenVersion: null,
-      view: { notifications: [], loading: true },
+      view: { notifications: [], stored: [], alerts: [], loading: true },
       listeners: new Set(),
       stopLive: null,
     };
@@ -161,7 +174,7 @@ function subscribe(store: Store, listener: () => void) {
   store.listeners.add(listener);
 
   if (!store.stopLive) {
-    store.stopLive = subscribeLive(["notifications", ...OPERATIONAL_SOURCES], CHECK_INTERVAL_MS, (versions) => onVersions(store, versions));
+    store.stopLive = subscribeLive([OWN_NOTIFICATIONS, ...OPERATIONAL_SOURCES], CHECK_INTERVAL_MS, (versions) => onVersions(store, versions));
   }
 
   return () => {
@@ -190,14 +203,15 @@ export function useNotifications(limit = 8, filters: NotificationFilters = {}) {
   );
   const view = useSyncExternalStore(subscribeToStore, () => store?.view ?? SERVER_VIEW, () => SERVER_VIEW);
   const notifications = view.notifications;
-  const unreadCount = notifications.filter((notification) => !notification.is_read).length;
+  // What the bell and its dropdown show: the latest stored notifications and the alerts.
+  const unreadCount = [...view.stored, ...view.alerts].filter((notification) => !notification.is_read).length;
 
   async function markAsRead(notificationId: string) {
     if (!currentUserId) {
       return;
     }
 
-    if (isOperationalNotification(notifications.find((notification) => notification.id === notificationId) ?? {} as NotificationRecord)) {
+    if (isOperationalNotification(notificationId)) {
       storeId(OPERATIONAL_READ_STORAGE_KEY, notificationId);
       storesOf(currentUserId).forEach(rebuild);
       return;
@@ -214,7 +228,9 @@ export function useNotifications(limit = 8, filters: NotificationFilters = {}) {
   }
 
   async function markAllAsRead() {
-    notifications.filter(isOperationalNotification).forEach((notification) => storeId(OPERATIONAL_READ_STORAGE_KEY, notification.id));
+    [...notifications, ...view.alerts]
+      .filter((notification) => isOperationalNotification(notification.id))
+      .forEach((notification) => storeId(OPERATIONAL_READ_STORAGE_KEY, notification.id));
 
     if (!currentUserId) {
       return;
@@ -233,7 +249,7 @@ export function useNotifications(limit = 8, filters: NotificationFilters = {}) {
       return;
     }
 
-    if (isOperationalNotification(notifications.find((notification) => notification.id === notificationId) ?? {} as NotificationRecord)) {
+    if (isOperationalNotification(notificationId)) {
       storeId(OPERATIONAL_ARCHIVED_STORAGE_KEY, notificationId);
       storesOf(currentUserId).forEach(rebuild);
       return;
@@ -249,6 +265,8 @@ export function useNotifications(limit = 8, filters: NotificationFilters = {}) {
 
   return {
     notifications,
+    stored: view.stored,
+    alerts: view.alerts,
     unreadCount,
     loading: view.loading,
     markAsRead,

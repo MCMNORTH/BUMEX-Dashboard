@@ -2,7 +2,7 @@ import "server-only";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { DocumentSnapshot, WriteBatch } from "firebase-admin/firestore";
+import type { DocumentSnapshot, Query, WriteBatch } from "firebase-admin/firestore";
 
 import { adminDb } from "@/lib/firebase/admin";
 import { DbQueryError } from "@/lib/firebase/errors";
@@ -17,7 +17,7 @@ import {
 import type { AccessPolicy } from "@/lib/firebase/policies";
 import { applyDefaults, documentIdFor, getTableSchema, INBOUND_REFERENCES } from "@/lib/firebase/schema";
 import { searchTerms } from "@/lib/search/text";
-import { forgetCachedTable, isCachedTable, readCachedTable } from "@/lib/firebase/table-cache";
+import { isCachedTable, readCachedTable, recordChangesInBatch } from "@/lib/firebase/table-cache";
 import {
   bumpTableVersionInBatch,
   forgetRequestTableVersions,
@@ -268,6 +268,9 @@ async function fetchByColumn(table: string, column: string, values: string[], ve
 
 // ---- filter pushdown -----------------------------------------------------------
 
+// Composite indexes found missing, and until when not to try them again.
+const missingIndexes = new Map<string, number>();
+
 type Pushdown = { column: string; operator: "==" | "in"; values: unknown[] };
 
 // Every filter is still applied in memory afterwards, so pushing one down only
@@ -370,8 +373,12 @@ async function writeRows(table: string, rows: Row[], mode: "set" | "delete") {
 
   try {
     await commitInBatches((batch) => {
-      for (const row of rows.slice(offset, offset + WRITE_BATCH_LIMIT)) {
+      const documentIds: string[] = [];
+      const chunk = rows.slice(offset, offset + WRITE_BATCH_LIMIT);
+
+      for (const row of chunk) {
         const ref = collection.doc(documentIdFor(table, row));
+        documentIds.push(ref.id);
 
         if (mode === "set") {
           batch.set(ref, toDocument(table, row));
@@ -380,13 +387,14 @@ async function writeRows(table: string, rows: Row[], mode: "set" | "delete") {
         }
       }
 
-      bumpTableVersionInBatch(batch, table);
+      // Committed with the data, so caches catch up on exactly these documents.
+      bumpTableVersionInBatch(batch, table, chunk);
+      recordChangesInBatch(batch, table, documentIds);
       offset += WRITE_BATCH_LIMIT;
       return Math.max(rows.length - offset, 0);
     });
   } finally {
     // Even a failed multi-batch write may have committed its first batches.
-    forgetCachedTable(table);
     await forgetRequestTableVersions();
   }
 }
@@ -762,6 +770,14 @@ export class QueryBuilder<T = any[]> implements PromiseLike<DbResult<T>> {
 
     const pushdown = choosePushdown(this.filters);
 
+    if (command === "select") {
+      const newest = await this.orderedCandidates(pushdown);
+
+      if (newest) {
+        return newest;
+      }
+    }
+
     if (!pushdown) {
       const snapshot = await collection.get();
       return snapshot.docs.map((doc) => fromSnapshot(this.table, doc));
@@ -792,6 +808,74 @@ export class QueryBuilder<T = any[]> implements PromiseLike<DbResult<T>> {
     return [...docs.values()]
       .sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))
       .map((doc) => fromSnapshot(this.table, doc));
+  }
+
+  // "The latest N" of a table that keeps growing (activity, notifications):
+  // Firestore sorts by created_at and hands over pages until N rows pass the
+  // other filters and the row policies, instead of the whole table being read
+  // and sorted here. Only for created_at, which every row has, and with at most
+  // an equality filter pushed down. That pair needs a composite index
+  // (firebase/firestore.indexes.json); until one is deployed, Firestore refuses
+  // the query and the table is read the usual way.
+  private async orderedCandidates(pushdown: Pushdown | null): Promise<Row[] | null> {
+    const ordering = this.orderings[0];
+    const wanted = this.limitCount == null ? null : this.rangeStart + this.limitCount;
+
+    if (
+      wanted === null
+      || this.countMode
+      || this.orderings.length !== 1
+      || ordering.column !== "created_at"
+      || (pushdown !== null && pushdown.operator !== "==")
+    ) {
+      return null;
+    }
+
+    const indexKey = `${this.table}:${pushdown?.column ?? ""}`;
+
+    if ((missingIndexes.get(indexKey) ?? 0) > Date.now()) {
+      return null;
+    }
+
+    let query: Query = adminDb().collection(this.table);
+
+    if (pushdown) {
+      query = query.where(pushdown.column, "==", pushdown.values[0]);
+    }
+
+    query = query.orderBy(ordering.column, ordering.ascending ? "asc" : "desc");
+    const pageSize = Math.min(Math.max(wanted * 2, 20), 500);
+    const rows: Row[] = [];
+    let last: DocumentSnapshot | null = null;
+
+    try {
+      for (;;) {
+        const page = await (last ? query.startAfter(last) : query).limit(pageSize).get();
+
+        for (const doc of page.docs) {
+          const row = fromSnapshot(this.table, doc);
+
+          if (this.matches(row) && (!this.policy || this.policy.allows(this.table, "select", row))) {
+            rows.push(row);
+          }
+        }
+
+        if (rows.length >= wanted || page.size < pageSize) {
+          return rows;
+        }
+
+        last = page.docs[page.docs.length - 1];
+      }
+    } catch (error) {
+      // FAILED_PRECONDITION: the composite index is missing (or still building).
+      if ((error as { code?: number }).code === 9) {
+        console.warn(`Firestore index missing for ${this.table} by ${pushdown?.column} and created_at; reading the table instead.`);
+        missingIndexes.set(indexKey, Date.now() + 10 * 60_000);
+        return null;
+      }
+
+      throw error;
+    }
   }
 
   // Same candidates as the Firestore path (in the same order: document id, or

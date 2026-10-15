@@ -59,11 +59,33 @@ export function versionOf(versions: TableVersions, table: string) {
   return versions[table] ?? 0;
 }
 
-/** Adds the counter bump for `table` to a batch that writes to it. */
-export function bumpTableVersionInBatch(batch: WriteBatch, table: string) {
-  if (!UNTRACKED_TABLES.has(table)) {
-    batch.set(versionsRef(), { [table]: FieldValue.increment(1) }, { merge: true });
+/**
+ * The counter of one user's notifications. Every notification someone else
+ * receives moves the table's counter; the bell watches this one instead, so
+ * it only fetches when the list it shows changed.
+ */
+export function notificationsKey(userId: string) {
+  return `notifications:${userId}`;
+}
+
+/**
+ * Adds the counter bump for `table` to a batch that writes to it, and for
+ * notifications, the counters of the users whose notifications it writes.
+ */
+export function bumpTableVersionInBatch(batch: WriteBatch, table: string, rows: ReadonlyArray<Record<string, unknown>> = []) {
+  if (UNTRACKED_TABLES.has(table)) {
+    return;
   }
+
+  const bumps: Record<string, FieldValue> = { [table]: FieldValue.increment(1) };
+
+  if (table === "notifications") {
+    for (const row of rows) {
+      if (row.user_id != null) bumps[notificationsKey(String(row.user_id))] = FieldValue.increment(1);
+    }
+  }
+
+  batch.set(versionsRef(), bumps, { merge: true });
 }
 
 /** Same, for the few writes made in a transaction rather than a batch. */

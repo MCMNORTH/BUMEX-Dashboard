@@ -16,7 +16,8 @@ import { useI18n } from "@/components/layout/i18n-provider";
 export function NotificationDropdown() {
   const { locale } = useI18n();
   const isFr = locale === "fr";
-  const { notifications, unreadCount, loading, markAllAsRead, markAsRead } = useNotifications(6);
+  const { stored, alerts, unreadCount, loading, markAllAsRead, markAsRead } = useNotifications(6);
+  const sectionTitle = "px-1 pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground";
 
   return (
     <DropdownMenuContent align="end" className="w-[24rem]">
@@ -40,12 +41,25 @@ export function NotificationDropdown() {
         {loading ? (
           <div className="px-2 py-4 text-sm text-muted-foreground">{isFr ? "Chargement des notifications..." : "Loading notifications..."}</div>
         ) : (
-          <NotificationList
-            notifications={notifications}
-            compact
-            onMarkRead={markAsRead}
-            emptyMessage={isFr ? "Aucune notification récente." : "No recent notifications."}
-          />
+          // Alerts are recomputed on every check and would always sort first,
+          // pushing assignments and mentions out of view; each gets its own section.
+          <div className="space-y-4">
+            <section>
+              <p className={sectionTitle}>{isFr ? "Récentes" : "Recent"}</p>
+              <NotificationList
+                notifications={stored.slice(0, 5)}
+                compact
+                onMarkRead={markAsRead}
+                emptyMessage={isFr ? "Aucune notification récente." : "No recent notifications."}
+              />
+            </section>
+            {alerts.length ? (
+              <section>
+                <p className={sectionTitle}>{isFr ? "À surveiller" : "Needs attention"}</p>
+                <NotificationList notifications={alerts.slice(0, 3)} compact onMarkRead={markAsRead} />
+              </section>
+            ) : null}
+          </div>
         )}
       </div>
       <DropdownMenuSeparator />

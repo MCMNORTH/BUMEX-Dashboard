@@ -6,7 +6,7 @@ import { adminDb } from "@/lib/firebase/admin";
 import { DbQueryError } from "@/lib/firebase/errors";
 import type { AccessPolicy } from "@/lib/firebase/policies";
 import { QueryBuilder, type DbError } from "@/lib/firebase/query";
-import { forgetCachedTable, isCachedTable, readCachedTable } from "@/lib/firebase/table-cache";
+import { isCachedTable, readCachedTable, recordChangesInTransaction } from "@/lib/firebase/table-cache";
 import { bumpTableVersionInTransaction, forgetRequestTableVersions, getTableVersions } from "@/lib/firebase/table-versions";
 
 // Ports of the `security definer` SQL functions that were live on Supabase.
@@ -217,6 +217,7 @@ async function assignOwnEntity(args: Row, policy: AccessPolicy | null) {
       const updatedAt = new Date().toISOString();
       transaction.update(ref, { entity_code: requested, updated_at: updatedAt });
       bumpTableVersionInTransaction(transaction, "profiles");
+      recordChangesInTransaction(transaction, "profiles", [uid]);
       return { ...doc.data(), id: doc.id, entity_code: requested, updated_at: updatedAt };
     }
 
@@ -227,7 +228,6 @@ async function assignOwnEntity(args: Row, policy: AccessPolicy | null) {
     return { ...doc.data(), id: doc.id };
   });
 
-  forgetCachedTable("profiles");
   await forgetRequestTableVersions();
   return result;
 }

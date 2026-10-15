@@ -12,8 +12,7 @@ export async function listNotificationsAction(
   limit: number,
   filters: NotificationFilters,
 ): Promise<NotificationRecord[]> {
-  const notifications = await getUserNotifications(filters);
-  return notifications.slice(0, limit);
+  return getUserNotifications(filters, Math.min(Math.max(Math.trunc(Number(limit)) || 1, 1), 200));
 }
 
 export async function markNotificationAsReadAction(notificationId: string) {
