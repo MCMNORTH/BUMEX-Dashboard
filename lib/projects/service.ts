@@ -91,7 +91,7 @@ type ProjectRow = {
     | Array<{
         id: string;
         role: ProjectMember["role"];
-        user: ProjectOwner | ProjectOwner[] | null;
+        user: ProjectMember["user"] | Array<NonNullable<ProjectMember["user"]>>;
       }>
     | null;
   tasks: ProjectTaskPreview[] | null;
@@ -185,7 +185,8 @@ const FULL_PROJECT_SELECT = `
     full_name,
     email,
     avatar_url,
-    role
+    role,
+    entity_code
   ),
   members:project_members (
     id,
@@ -195,7 +196,9 @@ const FULL_PROJECT_SELECT = `
       full_name,
       email,
       avatar_url,
-      role
+      role,
+      entity_code,
+      job_title
     )
   ),
   tasks (
@@ -227,7 +230,8 @@ const LEGACY_PROJECT_SELECT = `
     full_name,
     email,
     avatar_url,
-    role
+    role,
+    entity_code
   ),
   members:project_members (
     id,
@@ -237,7 +241,9 @@ const LEGACY_PROJECT_SELECT = `
       full_name,
       email,
       avatar_url,
-      role
+      role,
+      entity_code,
+      job_title
     )
   ),
   tasks (

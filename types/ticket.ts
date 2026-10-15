@@ -1,4 +1,5 @@
 import type { Profile } from "@/types/auth";
+import type { BumexEntityCode } from "@/types/entity";
 import type { ProjectRecord } from "@/types/project";
 
 export type TicketStatus =
@@ -34,8 +35,11 @@ export type TicketTableColumnKey =
   | "updated_at"
   | "actions";
 
-export type TicketAssignee = Pick<Profile, "id" | "full_name" | "email" | "avatar_url" | "role">;
-export type TicketReporter = Pick<Profile, "id" | "full_name" | "email" | "avatar_url" | "role">;
+/** Picker lists also load the entity and job title, to group people and search them. */
+type TicketPersonDetails = { entity_code?: BumexEntityCode | null; job_title?: string | null };
+
+export type TicketAssignee = Pick<Profile, "id" | "full_name" | "email" | "avatar_url" | "role"> & TicketPersonDetails;
+export type TicketReporter = Pick<Profile, "id" | "full_name" | "email" | "avatar_url" | "role"> & TicketPersonDetails;
 export type TicketProject = Pick<ProjectRecord, "id" | "name" | "status" | "client" | "end_date" | "entity_code">;
 
 export type TicketActivity = {
@@ -137,10 +141,19 @@ export type TicketFormValues = {
   github_issue_url: string;
 };
 
+/** A project whose team has people from other entities than its own. */
+export type TicketProjectTeam = {
+  /** The project's entity, or its owner's when unset. */
+  entityCode: BumexEntityCode;
+  outsideMembers: TicketAssignee[];
+};
+
 export type TicketFiltersData = {
   assignees: TicketAssignee[];
   reporters: TicketReporter[];
   projects: TicketProject[];
+  /** Only projects with outside members: their pickers add those members and group people by entity. */
+  projectTeams?: Record<string, TicketProjectTeam>;
 };
 
 export type TicketStats = {

@@ -12,13 +12,16 @@ import { getCommentsForEntity } from "@/lib/comments/service";
 import { getNotesForEntity } from "@/lib/notes/service";
 import { getMentionCandidates } from "@/lib/notifications/service";
 import { formatCurrency, formatDate } from "@/lib/projects/helpers";
+import { getProjectMemberCandidates } from "@/lib/projects/members";
 import { getProjectById, getProjectsFilterData } from "@/lib/projects/service";
+import { projectHomeEntity } from "@/lib/entities/people-options";
 import { canManageBoard } from "@/lib/tickets/board-access";
 import { ActivityFeed } from "@/components/activity/activity-feed";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProjectDetailHeader } from "@/components/projects/project-detail-header";
 import { ProjectHealthBadge } from "@/components/projects/project-health-badge";
+import { ProjectMembersPanel } from "@/components/projects/project-members-panel";
 import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { ProjectToast } from "@/components/projects/project-toast";
 import { PageRefresh } from "@/components/layout/page-refresh";
@@ -52,6 +55,10 @@ export default async function ProjectDetailPage({
     getProjectRisks(project.id, isFr ? "fr" : "en"),
     canManageBoard(auth.role, auth.profile.id, project.id),
   ]);
+  // Whoever may manage the board may also manage the team (the same row policy).
+  const memberCandidates = canConfigureBoard
+    ? await getProjectMemberCandidates(project.members.flatMap((member) => (member.user ? [member.user.id] : [])))
+    : [];
 
   const canManage =
     auth.role === "admin" || (isManagerLikeRole(auth.role) && project.owner_id === auth.profile.id);
@@ -107,26 +114,13 @@ export default async function ProjectDetailPage({
               </Badge>
             </div>
 
-            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
-              <p className="text-sm font-medium">{tr("Membres", "Members")}</p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {project.members.length ? (
-                  project.members.map((member) => (
-                    <div key={member.id} className="rounded-xl border border-border/65 bg-background/45 p-4">
-                      <p className="text-sm font-medium">{member.user?.full_name ?? "Unknown member"}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{member.user?.email ?? "No email"}</p>
-                      <Badge variant="outline" className="mt-3 rounded-full px-3 py-1">
-                        {member.role}
-                      </Badge>
-                    </div>
-                  ))
-                ) : (
-                  <div className="sm:col-span-2 rounded-xl border border-dashed border-border/70 bg-background/35 p-5 text-sm text-muted-foreground">
-                    {tr("Aucun membre n’est encore lié.", "No members are linked yet.")}
-                  </div>
-                )}
-              </div>
-            </div>
+            <ProjectMembersPanel
+              projectId={project.id}
+              homeEntityCode={projectHomeEntity(project, project.owner)}
+              members={project.members}
+              candidates={memberCandidates}
+              canManage={canConfigureBoard}
+            />
 
             <div className="grid gap-3 sm:grid-cols-3">
               {[

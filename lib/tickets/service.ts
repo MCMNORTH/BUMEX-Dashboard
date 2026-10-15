@@ -16,6 +16,7 @@ import {
   getEntityScopedCacheKey,
   isEntityScopingEnabled,
 } from "@/lib/entities/scope";
+import { isOutsidePerson, projectHomeEntity } from "@/lib/entities/people-options";
 import { getCached, invalidateCached } from "@/lib/server-cache";
 import { createClient } from "@/lib/firebase/server";
 import { getTicketDueState, redactTicketDescription, normalizeTicketPriority, normalizeTicketStatus } from "@/lib/tickets/helpers";
@@ -32,7 +33,7 @@ import {
 } from "@/lib/tickets/workflow";
 import { getBoardWorkflow, getConfiguredWorkflows } from "@/lib/tickets/workflow-service";
 import type { AppRole } from "@/types/auth";
-import type { TicketActivity, TicketAssignee, TicketFilters, TicketFiltersData, TicketFormValues, TicketProject, TicketRecord, TicketReporter, TicketStats, TicketStatus, TicketWorkloadRecord } from "@/types/ticket";
+import type { TicketActivity, TicketAssignee, TicketFilters, TicketFiltersData, TicketFormValues, TicketProject, TicketProjectTeam, TicketRecord, TicketReporter, TicketStats, TicketStatus, TicketWorkloadRecord } from "@/types/ticket";
 import type { BoardWorkflow, TransitionErrorCode } from "@/types/workflow";
 
 type TicketRow = {
@@ -424,6 +425,8 @@ export async function getTicketById(id: string, role: AppRole) {
   return ticket;
 }
 
+const PICKER_PERSON_SELECT = "id, full_name, email, avatar_url, role, entity_code, job_title";
+
 export async function getTicketsFilterData(): Promise<TicketFiltersData> {
   const entityCode = await getCurrentEntityCode();
   return getCached(getEntityScopedCacheKey("tickets-filter-data", entityCode), 30_000, () =>
@@ -441,11 +444,11 @@ async function getFreshTicketsFilterData(entityCode?: string): Promise<TicketFil
   const shouldScopeByEntity = isEntityScopingEnabled() && Boolean(entityCode);
   let assigneesQuery = db
     .from("profiles")
-    .select("id, full_name, email, avatar_url, role")
+    .select(PICKER_PERSON_SELECT)
     .order("full_name", { ascending: true });
   let reportersQuery = db
     .from("profiles")
-    .select("id, full_name, email, avatar_url, role")
+    .select(PICKER_PERSON_SELECT)
     .order("full_name", { ascending: true });
   let projectsQuery = db
     .from("projects")
@@ -455,6 +458,8 @@ async function getFreshTicketsFilterData(entityCode?: string): Promise<TicketFil
         name,
         status,
         end_date,
+        entity_code,
+        owner_id,
         client:clients (
           id,
           name,
@@ -474,7 +479,7 @@ async function getFreshTicketsFilterData(entityCode?: string): Promise<TicketFil
     await Promise.all([
       assigneesQuery.returns<TicketAssignee[]>(),
       reportersQuery.returns<TicketReporter[]>(),
-      projectsQuery.returns<TicketProject[]>(),
+      projectsQuery.returns<Array<TicketProject & { owner_id: string | null }>>(),
     ]);
 
   if (assigneeError) throw new Error(assigneeError.message);
@@ -485,7 +490,56 @@ async function getFreshTicketsFilterData(entityCode?: string): Promise<TicketFil
     assignees: assignees ?? [],
     reporters: reporters ?? [],
     projects: projects ?? [],
+    projectTeams: await getProjectTeams(db, projects ?? []),
   };
+}
+
+/**
+ * The listed projects that have members from another entity than their own (the
+ * owner's when a project has none), with those members, for the ticket pickers.
+ */
+async function getProjectTeams(
+  db: AppDataClient,
+  projects: Array<Pick<TicketProject, "id" | "entity_code"> & { owner_id: string | null }>,
+): Promise<Record<string, TicketProjectTeam>> {
+  if (!projects.length) {
+    return {};
+  }
+
+  const { data: memberships, error: membershipsError } = await db
+    .from("project_members")
+    .select("project_id, user_id")
+    .in("project_id", projects.map((project) => project.id))
+    .returns<Array<{ project_id: string; user_id: string }>>();
+
+  if (membershipsError) throw new Error(membershipsError.message);
+  if (!memberships?.length) return {};
+
+  const ownerIds = projects.flatMap((project) => (project.entity_code || !project.owner_id ? [] : [project.owner_id]));
+  const { data: people, error: peopleError } = await db
+    .from("profiles")
+    .select(PICKER_PERSON_SELECT)
+    .in("id", [...new Set([...ownerIds, ...memberships.map((membership) => membership.user_id)])])
+    .returns<TicketAssignee[]>();
+
+  if (peopleError) throw new Error(peopleError.message);
+
+  const peopleById = new Map((people ?? []).map((person) => [person.id, person]));
+  const teams: Record<string, TicketProjectTeam> = {};
+
+  for (const project of projects) {
+    const entityCode = projectHomeEntity(project, project.owner_id ? peopleById.get(project.owner_id) : null);
+    const outsideMembers = memberships
+      .filter((membership) => membership.project_id === project.id)
+      .flatMap((membership) => peopleById.get(membership.user_id) ?? [])
+      .filter((person) => isOutsidePerson(person, entityCode));
+
+    if (entityCode && outsideMembers.length) {
+      teams[project.id] = { entityCode, outsideMembers };
+    }
+  }
+
+  return teams;
 }
 
 function parseTicketPayload(values: TicketFormValues) {

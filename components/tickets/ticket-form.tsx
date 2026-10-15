@@ -27,9 +27,10 @@ import { ModernSelect } from "@/components/ui/modern-select";
 import { SubtaskDraftList } from "@/components/tickets/subtask-draft-list";
 import { Textarea } from "@/components/ui/textarea";
 import { TicketStageField } from "@/components/tickets/ticket-stage-field";
+import { buildPeopleOptions } from "@/lib/entities/people-options";
 import { getCompletionRule } from "@/lib/tickets/workflow";
 import type { AppRole } from "@/types/auth";
-import type { TicketFiltersData, TicketFormValues } from "@/types/ticket";
+import type { TicketAssignee, TicketFiltersData, TicketFormValues } from "@/types/ticket";
 import type { AssignmentHelperRecord, TeamWorkloadRecord } from "@/types/team";
 import type { BoardWorkflow } from "@/types/workflow";
 
@@ -122,6 +123,21 @@ export function TicketForm({
 
   const triggerIconName = triggerIcon ?? (mode === "create" ? "plus" : "edit");
   const employeeRestricted = role === "employee" && mode === "edit";
+  // On a project with members from other entities, the pickers add them and list its own entity first.
+  const projectTeam = filterData.projectTeams?.[selectedProjectId];
+  const peoplePicker = useMemo(() => {
+    const withTeam = (people: TicketAssignee[]) => [...people, ...(projectTeam?.outsideMembers ?? [])];
+    const toOptions = (people: TicketAssignee[]) => projectTeam
+      ? buildPeopleOptions(withTeam(people), projectTeam.entityCode, locale)
+      : people.map((person) => ({ value: person.id, label: person.full_name }));
+
+    return {
+      assignees: withTeam(filterData.assignees),
+      reporters: withTeam(filterData.reporters),
+      assigneeOptions: toOptions(filterData.assignees),
+      reporterOptions: toOptions(filterData.reporters),
+    };
+  }, [filterData.assignees, filterData.reporters, locale, projectTeam]);
   const assignmentHelper = useMemo<AssignmentHelperRecord>(() => {
     const currentAssignee = assigneeWorkloads.find((member) => member.id === selectedAssigneeId) ?? null;
     return {
@@ -313,7 +329,7 @@ export function TicketForm({
                 <input type="hidden" name="assignee_id" value={defaults?.assignee_id ?? ""} />
                 <Input
                   id={`${mode}-assignee`}
-                  value={filterData.assignees.find((assignee) => assignee.id === defaults?.assignee_id)?.full_name ?? t("tickets.form.select.locked", "Locked")}
+                  value={peoplePicker.assignees.find((assignee) => assignee.id === defaults?.assignee_id)?.full_name ?? t("tickets.form.select.locked", "Locked")}
                   readOnly
                 />
               </>
@@ -327,7 +343,7 @@ export function TicketForm({
                 onValueChange={setSelectedAssigneeId}
                 options={[
                   { value: "", label: t("tickets.form.select.unassigned", "Unassigned") },
-                  ...filterData.assignees.map((assignee) => ({ value: assignee.id, label: assignee.full_name })),
+                  ...peoplePicker.assigneeOptions,
                 ]}
               />
             )}
@@ -419,7 +435,7 @@ export function TicketForm({
                     <input type="hidden" name="reporter_id" value={defaults?.reporter_id ?? ""} />
                     <Input
                       id={`${mode}-reporter`}
-                      value={filterData.reporters.find((reporter) => reporter.id === defaults?.reporter_id)?.full_name ?? t("tickets.form.select.locked", "Locked")}
+                      value={peoplePicker.reporters.find((reporter) => reporter.id === defaults?.reporter_id)?.full_name ?? t("tickets.form.select.locked", "Locked")}
                       readOnly
                     />
                   </>
@@ -432,7 +448,7 @@ export function TicketForm({
                     placeholder={t("tickets.form.select.noReporter", "No reporter")}
                     options={[
                       { value: "", label: t("tickets.form.select.noReporter", "No reporter") },
-                      ...filterData.reporters.map((reporter) => ({ value: reporter.id, label: reporter.full_name })),
+                      ...peoplePicker.reporterOptions,
                     ]}
                   />
                 )}

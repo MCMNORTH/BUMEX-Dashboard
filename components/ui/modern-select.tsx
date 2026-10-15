@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Search } from "lucide-react";
 
 import { useI18n } from "@/components/layout/i18n-provider";
@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
@@ -17,6 +18,12 @@ export type ModernSelectOption = {
   value: string;
   label: string;
   disabled?: boolean;
+  /** Heading the option is listed under. Headings show only when the options span two or more groups. */
+  group?: string;
+  /** Short tag shown after the label, e.g. another entity's name. */
+  badge?: string;
+  /** Extra text the search box matches besides the label (email, job title...). */
+  keywords?: Array<string | null | undefined>;
 };
 
 // Long lists get a search box even when the caller doesn't ask for one.
@@ -71,8 +78,14 @@ export function ModernSelect({
   );
   const visibleOptions = useMemo(() => {
     const terms = searchTerms(query);
-    return terms.length ? options.filter((option) => matchesSearchTerms(terms, [option.label])) : options;
+    return terms.length
+      ? options.filter((option) => matchesSearchTerms(terms, [option.label, ...(option.keywords ?? [])]))
+      : options;
   }, [options, query]);
+  const showGroups = useMemo(
+    () => new Set(options.flatMap((option) => (option.group ? [option.group] : []))).size > 1,
+    [options],
+  );
 
   function choose(option: ModernSelectOption) {
     if (controlledValue === undefined) {
@@ -180,40 +193,51 @@ export function ModernSelect({
           </div>
         ) : null}
         {visibleOptions.map((option, index) => (
-          <DropdownMenuItem
-            key={`${name}-${option.value || "empty"}`}
-            disabled={option.disabled}
-            onSelect={() => choose(option)}
-            // While searching, hovering must not pull focus out of the search box.
-            onPointerMove={showSearch ? (event) => event.preventDefault() : undefined}
-            onPointerLeave={showSearch ? (event) => event.preventDefault() : undefined}
-            onKeyDown={
-              showSearch
-                ? (event) => {
-                    if (isTypingKey(event)) {
-                      event.stopPropagation();
-                      searchRef.current?.focus();
-                    } else if (event.key === "ArrowUp" && index === 0) {
-                      event.preventDefault();
-                      searchRef.current?.focus();
-                    }
-                  }
-                : undefined
-            }
-            className={cn(
-              "min-h-9 rounded-lg px-3 py-2 text-sm",
-              value === option.value
-                ? "bg-accent font-medium text-accent-foreground"
-                : "text-foreground",
-            )}
-          >
-            <span className="min-w-0 flex-1 truncate">{option.label}</span>
-            {value === option.value ? (
-              <span className="flex shrink-0 items-center justify-center text-primary">
-                <Check className="size-3.5" />
-              </span>
+          <Fragment key={`${name}-${option.value || "empty"}`}>
+            {showGroups && option.group && option.group !== visibleOptions[index - 1]?.group ? (
+              <DropdownMenuLabel className="px-3 pt-2.5 pb-1 text-xs font-semibold text-muted-foreground">
+                {option.group}
+              </DropdownMenuLabel>
             ) : null}
-          </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={option.disabled}
+              onSelect={() => choose(option)}
+              // While searching, hovering must not pull focus out of the search box.
+              onPointerMove={showSearch ? (event) => event.preventDefault() : undefined}
+              onPointerLeave={showSearch ? (event) => event.preventDefault() : undefined}
+              onKeyDown={
+                showSearch
+                  ? (event) => {
+                      if (isTypingKey(event)) {
+                        event.stopPropagation();
+                        searchRef.current?.focus();
+                      } else if (event.key === "ArrowUp" && index === 0) {
+                        event.preventDefault();
+                        searchRef.current?.focus();
+                      }
+                    }
+                  : undefined
+              }
+              className={cn(
+                "min-h-9 rounded-lg px-3 py-2 text-sm",
+                value === option.value
+                  ? "bg-accent font-medium text-accent-foreground"
+                  : "text-foreground",
+              )}
+            >
+              <span className="min-w-0 flex-1 truncate">{option.label}</span>
+              {option.badge ? (
+                <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] leading-none text-muted-foreground">
+                  {option.badge}
+                </span>
+              ) : null}
+              {value === option.value ? (
+                <span className="flex shrink-0 items-center justify-center text-primary">
+                  <Check className="size-3.5" />
+                </span>
+              ) : null}
+            </DropdownMenuItem>
+          </Fragment>
         ))}
         {showSearch && !visibleOptions.length ? (
           <p className="px-3 py-4 text-center text-sm text-muted-foreground">

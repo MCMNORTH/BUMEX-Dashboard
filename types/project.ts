@@ -13,12 +13,18 @@ export type ProjectClient = {
   contact_email: string | null;
 };
 
-export type ProjectOwner = Pick<Profile, "id" | "full_name" | "email" | "avatar_url" | "role">;
+export type ProjectOwner = Pick<Profile, "id" | "full_name" | "email" | "avatar_url" | "role"> & {
+  /** Loaded where a project's entity may be unset and falls back to its owner's. */
+  entity_code?: BumexEntityCode | null;
+};
 
 export type ProjectMember = {
   id: string;
   role: AppRole;
-  user: Pick<Profile, "id" | "full_name" | "email" | "avatar_url" | "role"> | null;
+  user: (Pick<Profile, "id" | "full_name" | "email" | "avatar_url" | "role"> & {
+    entity_code?: BumexEntityCode | null;
+    job_title?: string | null;
+  }) | null;
 };
 
 export type ProjectTaskPreview = {
