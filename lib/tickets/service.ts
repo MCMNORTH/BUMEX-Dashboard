@@ -571,6 +571,15 @@ export async function createTicket(
   return data.id;
 }
 
+/**
+ * Who hears about a ticket's stage changes: its assignee and its reporter (not
+ * the whole project, which made every move a notification, and an email, for
+ * every member). The person who made the change is left out by the caller.
+ */
+function ticketParticipants(ticket: { assignee_id?: string | null; reporter_id?: string | null }) {
+  return [ticket.assignee_id, ticket.reporter_id];
+}
+
 /** A stage change that already passed the board's rules, for the ticket's history. */
 export type TicketStageChange = {
   fromStageId: string;
@@ -685,16 +694,14 @@ export async function updateTicket(
 
     if (stageChange || previousTicket.status !== payload.status) {
       activityTasks.push(
-        getNotificationRecipientsForProject(payload.project_id).then((recipients) =>
-          createStatusChangeNotification({
-            userIds: recipients.map((recipient) => recipient.id),
-            title: "Ticket status updated",
-            body: `${payload.title} moved to ${stageChange?.toName ?? payload.status.replaceAll("_", " ")}.`,
-            entityType: "ticket",
-            entityId: id,
-            skipUserId: actorUserId,
-          }),
-        ),
+        createStatusChangeNotification({
+          userIds: ticketParticipants(payload),
+          title: "Ticket status updated",
+          body: `${payload.title} moved to ${stageChange?.toName ?? payload.status.replaceAll("_", " ")}.`,
+          entityType: "ticket",
+          entityId: id,
+          skipUserId: actorUserId,
+        }),
       );
     }
 
@@ -832,10 +839,8 @@ export async function moveTicketToStage(
 
   await logStageChange(ticket.id, { fromStageId: fromId, toStageId: to.id, fromName, toName: to.name, reason: reason || null }, options.actorUserId);
 
-  const recipients = await getNotificationRecipientsForProject(ticket.project_id);
-
   await createStatusChangeNotification({
-    userIds: recipients.map((recipient) => recipient.id),
+    userIds: ticketParticipants(ticket),
     title: "Ticket status updated",
     body: `${ticket.title} moved to ${to.name}.`,
     entityType: "ticket",
