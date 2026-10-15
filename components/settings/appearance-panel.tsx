@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, RotateCcw } from "lucide-react";
+import { Check, MonitorCog, MoonStar, RotateCcw, SunMedium } from "lucide-react";
+import { useTheme } from "next-themes";
 
 import { useI18n } from "@/components/layout/i18n-provider";
 import { useSidebarAppearance } from "@/components/layout/sidebar-appearance-provider";
@@ -8,6 +9,7 @@ import { SidebarLogo } from "@/components/layout/sidebar-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEntity } from "@/hooks/use-entity";
+import { useMounted } from "@/hooks/use-mounted";
 import { getBumexEntity } from "@/lib/entities/config";
 import {
   DEFAULT_LOGO_APPEARANCE,
@@ -18,17 +20,48 @@ import {
 } from "@/lib/settings/appearance";
 import { cn } from "@/lib/utils";
 
-const optionClassName =
-  "rounded-xl border bg-card p-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/60";
+function optionClassName(selected: boolean) {
+  return cn(
+    "rounded-xl border bg-card p-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/60",
+    selected ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/40",
+  );
+}
+
+// Light or dark mode goes through next-themes, which keeps it per device (not on the profile).
+const colorModes = [
+  { id: "light", icon: SunMedium, label: { en: "Light", fr: "Clair" }, hint: { en: "Always light", fr: "Toujours clair" } },
+  { id: "dark", icon: MoonStar, label: { en: "Dark", fr: "Sombre" }, hint: { en: "Always dark", fr: "Toujours sombre" } },
+  {
+    id: "system",
+    icon: MonitorCog,
+    label: { en: "System", fr: "Système" },
+    hint: { en: "Follows your device", fr: "Suit votre appareil" },
+  },
+] as const;
+
+const DEFAULT_COLOR_MODE = "system";
 
 export function AppearancePanel() {
   const { locale } = useI18n();
   const isFr = locale === "fr";
   const { appearance, status, error, updateAppearance } = useSidebarAppearance();
+  const mounted = useMounted();
+  const { theme: colorMode, setTheme: setColorMode } = useTheme();
+  // next-themes only knows the stored mode in the browser, so nothing is selected until mount.
+  const selectedMode = mounted ? (colorMode ?? DEFAULT_COLOR_MODE) : null;
   const { activeEntity } = useEntity();
   const entity = activeEntity ?? getBumexEntity("bumex_it")!;
-  const isDefault =
+  const isDefaultTheme =
     appearance.sidebarTheme === DEFAULT_SIDEBAR_THEME && appearance.logoAppearance === DEFAULT_LOGO_APPEARANCE;
+  const isDefault = isDefaultTheme && (selectedMode === null || selectedMode === DEFAULT_COLOR_MODE);
+
+  function resetToDefault() {
+    setColorMode(DEFAULT_COLOR_MODE);
+
+    if (!isDefaultTheme) {
+      updateAppearance({ sidebarTheme: DEFAULT_SIDEBAR_THEME, logoAppearance: DEFAULT_LOGO_APPEARANCE });
+    }
+  }
 
   const statusMessage =
     status === "saving"
@@ -48,17 +81,11 @@ export function AppearancePanel() {
           <h1 className="text-2xl font-semibold tracking-tight">{isFr ? "Apparence" : "Appearance"}</h1>
           <p className="text-sm text-muted-foreground">
             {isFr
-              ? "Personnalisez votre barre latérale. Ces choix ne s’appliquent qu’à votre compte."
-              : "Personalize your sidebar. These choices apply to your account only."}
+              ? "Choisissez le mode clair ou sombre, la couleur du thème et le logo. Ces choix ne s’appliquent qu’à vous."
+              : "Choose light or dark mode, your theme color and logo. These choices apply to you only."}
           </p>
         </div>
-        <Button
-          variant="secondary"
-          disabled={isDefault}
-          onClick={() =>
-            updateAppearance({ sidebarTheme: DEFAULT_SIDEBAR_THEME, logoAppearance: DEFAULT_LOGO_APPEARANCE })
-          }
-        >
+        <Button variant="secondary" disabled={isDefault} onClick={resetToDefault}>
           <RotateCcw />
           {isFr ? "Réinitialiser" : "Reset to default"}
         </Button>
@@ -70,6 +97,48 @@ export function AppearancePanel() {
       >
         {statusMessage}
       </p>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{isFr ? "Mode" : "Mode"}</CardTitle>
+          <CardDescription>
+            {isFr
+              ? "Clair, sombre ou selon votre appareil. Enregistré sur cet appareil."
+              : "Light, dark, or matching your device. Saved on this device."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div
+            role="group"
+            aria-label={isFr ? "Mode d’affichage" : "Display mode"}
+            className="grid gap-3 sm:grid-cols-3"
+          >
+            {colorModes.map((mode) => {
+              const Icon = mode.icon;
+              const selected = selectedMode === mode.id;
+
+              return (
+                <button
+                  key={mode.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setColorMode(mode.id)}
+                  className={cn(optionClassName(selected), "flex items-center gap-3 p-3")}
+                >
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground">
+                    <Icon className="size-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{mode.label[locale]}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{mode.hint[locale]}</span>
+                  </span>
+                  {selected ? <Check className="size-4 shrink-0 text-primary" /> : null}
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -95,10 +164,7 @@ export function AppearancePanel() {
                   type="button"
                   aria-pressed={selected}
                   onClick={() => updateAppearance({ sidebarTheme: theme.id })}
-                  className={cn(
-                    optionClassName,
-                    selected ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/40",
-                  )}
+                  className={optionClassName(selected)}
                 >
                   <SidebarThemePreview themeId={theme.id} />
                   <span className="mt-2 flex items-center justify-between gap-2 px-1">
@@ -140,10 +206,7 @@ export function AppearancePanel() {
                   type="button"
                   aria-pressed={selected}
                   onClick={() => updateAppearance({ logoAppearance: option.id })}
-                  className={cn(
-                    optionClassName,
-                    selected ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/40",
-                  )}
+                  className={optionClassName(selected)}
                 >
                   <span
                     aria-hidden="true"

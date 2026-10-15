@@ -40,14 +40,14 @@ export const settingsSections: SettingsSectionConfig[] = [
     key: "preferences",
     href: "/settings/preferences",
     title: { en: "Preferences", fr: "Préférences" },
-    description: { en: "Language, theme, and notification choices.", fr: "Langue, thème et notifications." },
+    description: { en: "Language and notification choices.", fr: "Langue et notifications." },
     icon: Palette,
   },
   {
     key: "appearance",
     href: "/settings/appearance",
     title: { en: "Appearance", fr: "Apparence" },
-    description: { en: "Theme color, sidebar and logo.", fr: "Couleur du thème, barre latérale et logo." },
+    description: { en: "Light or dark mode, theme color and logo.", fr: "Mode clair ou sombre, couleur du thème et logo." },
     icon: SwatchBook,
   },
   {

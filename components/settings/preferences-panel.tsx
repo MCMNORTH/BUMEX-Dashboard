@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { BellRing, Globe2, MonitorCog, MoonStar, SunMedium } from "lucide-react";
-import { useTheme } from "next-themes";
+import { BellRing, Globe2 } from "lucide-react";
 
 import { updateEmailNotificationsAction } from "@/app/(app)/settings/preferences/actions";
 import { useI18n } from "@/components/layout/i18n-provider";
@@ -12,7 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type LanguagePreference = "fr" | "en";
-type ThemePreference = "dark" | "light" | "system";
 type NotificationPreferenceState = {
   inApp: boolean;
 };
@@ -30,7 +28,6 @@ export function PreferencesPanel({
   email: string;
 }) {
   const mounted = useMounted();
-  const { theme, setTheme } = useTheme();
   const { locale } = useI18n();
   const isFr = locale === "fr";
   const [language, setLanguage] = useState<LanguagePreference>("fr");
@@ -71,14 +68,12 @@ export function PreferencesPanel({
     window.localStorage.setItem(storageKeys.notifications, JSON.stringify(notifications));
   }, [mounted, notifications]);
 
-  const selectedTheme = (theme as ThemePreference | undefined) ?? "system";
-
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow={isFr ? "Préférences" : "Preferences"}
-        title={isFr ? "Paramètres personnels d’interface pour le thème, la langue et les notifications." : "Personal interface defaults for theme, language, and notification posture."}
-        subtitle={isFr ? "Ces préférences restent volontairement légères. Le thème est appliqué directement, tandis que le reste stocké localement jusqu’à l’introduction d’un vrai modèle de préférences." : "These preferences stay intentionally lightweight. Theme is applied directly, while the rest are stored locally until a dedicated model introduced."}
+        title={isFr ? "Paramètres personnels pour la langue et les notifications." : "Personal defaults for language and notifications."}
+        subtitle={isFr ? "Le mode clair ou sombre se règle dans Apparence." : "Light or dark mode is set under Appearance."}
       />
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
@@ -88,23 +83,6 @@ export function PreferencesPanel({
             <CardDescription>{isFr ? "Valeurs visuelles par défaut et comportement personnel dans l’espace." : "Visual defaults and personal workspace behavior."}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <PreferenceSection
-              icon={selectedTheme === "light" ? SunMedium : selectedTheme === "system" ? MonitorCog : MoonStar}
-              title={isFr ? "Préférence de thème" : "Theme preference"}
-              description={isFr ? "Appliqué via le fournisseur de thème existant." : "Applied through the existing theme provider."}
-            >
-              <div className="grid gap-3 sm:grid-cols-3">
-                {(["dark", "light", "system"] as ThemePreference[]).map((option) => (
-                  <PreferenceButton
-                    key={option}
-                    active={selectedTheme === option}
-                    label={option}
-                    onClick={() => setTheme(option)}
-                  />
-                ))}
-              </div>
-            </PreferenceSection>
-
             <PreferenceSection
               icon={Globe2}
               title={isFr ? "Préférence de langue" : "Language preference"}
@@ -155,7 +133,6 @@ export function PreferencesPanel({
             <CardDescription>{isFr ? "Résumé local actuel des préférences pour cette session navigateur." : "Current local preference summary for this browser session."}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <SummaryTile label={isFr ? "Thème" : "Theme"} value={selectedTheme} detail={isFr ? "Appliqué via next-themes" : "Applied through next-themes"} />
             <SummaryTile label={isFr ? "Langue" : "Language"} value={language === "fr" ? (isFr ? "Français" : "French") : (isFr ? "Anglais" : "English")} detail={isFr ? "État local temporaire" : "Local placeholder state"} />
             <SummaryTile
               label={isFr ? "Notifications dans l’application" : "In-app notifications"}
@@ -171,7 +148,6 @@ export function PreferencesPanel({
             <div className="rounded-xl border border-border/65 bg-background/35 p-4">
               <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{isFr ? "Mode de stockage" : "Storage mode"}</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Badge variant="secondary" className="rounded-full px-3 py-1">{isFr ? "Fournisseur de thème" : "Theme provider"}</Badge>
                 <Badge variant="outline" className="rounded-full px-3 py-1">{isFr ? "État local du navigateur" : "Local browser state"}</Badge>
               </div>
             </div>
