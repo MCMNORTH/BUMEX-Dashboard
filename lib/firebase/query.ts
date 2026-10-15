@@ -978,14 +978,19 @@ export class QueryBuilder<T = any[]> implements PromiseLike<DbResult<T>> {
 
   private applyPatch(row: Row, patch: Row) {
     const next: Row = { ...row };
+    const { touchUpdatedAt, derivedColumns = [] } = getTableSchema(this.table);
+    let changed = false;
 
     for (const [column, value] of Object.entries(patch)) {
       if (value !== undefined && column !== "id") {
+        changed ||= !derivedColumns.includes(column) && JSON.stringify(row[column] ?? null) !== JSON.stringify(value ?? null);
         next[column] = value;
       }
     }
 
-    if (getTableSchema(this.table).touchUpdatedAt) {
+    // A write that leaves the row as it was (e.g. pinning a stage it already
+    // had) is not an update anyone made.
+    if (touchUpdatedAt && changed && !("updated_at" in patch)) {
       next.updated_at = new Date().toISOString();
     }
 

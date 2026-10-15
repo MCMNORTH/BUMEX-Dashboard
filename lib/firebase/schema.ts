@@ -18,8 +18,11 @@ type TableSchema = {
   // Each entry lists the columns of one unique constraint, keyed by the
   // original Postgres constraint name so error messages stay recognizable.
   unique?: Record<string, string[]>;
-  // Mirrors `before update` triggers that stamp updated_at.
+  // Mirrors `before update` triggers that stamp updated_at, but only for
+  // writes that change something other than `derivedColumns`.
   touchUpdatedAt?: boolean;
+  // Bookkeeping kept on the row for other tables' sake; changing it is not an update.
+  derivedColumns?: string[];
 };
 
 const timestamps = { created_at: now, updated_at: now };
@@ -62,6 +65,10 @@ export const TABLES: Record<string, TableSchema> = {
   },
   tasks: {
     defaults: { ...timestamps, status: "todo", priority: "medium", type: "task" },
+    // set_tasks_updated_at (supabase/tickets.sql): boards and "recently updated" lists sort on it.
+    touchUpdatedAt: true,
+    // Sub-task progress cached on the ticket (lib/tickets/subtasks.ts).
+    derivedColumns: ["subtasks_total", "subtasks_done"],
   },
   task_dependencies: {
     defaults: {},
