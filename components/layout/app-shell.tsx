@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { EntitySwitchProvider } from "@/components/entities/entity-switch-dialog";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { NavigationProgress } from "@/components/layout/navigation-progress";
 import { PageBackButton } from "@/components/layout/page-back-button";
 import { SidebarAppearanceProvider } from "@/components/layout/sidebar-appearance-provider";
 import { SidebarLogoFilters } from "@/components/layout/sidebar-logo";
@@ -38,6 +39,9 @@ export function AppShell({
     <SidebarAppearanceProvider initialAppearance={initialAppearance}>
       <EntitySwitchProvider>
         <SidebarLogoFilters />
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
         <div className="min-h-screen bg-background text-foreground">
           <AppSidebar
             collapsed={collapsed}
