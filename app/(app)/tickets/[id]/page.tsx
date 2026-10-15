@@ -153,13 +153,6 @@ export default async function TicketDetailPage({
               </div>
             </div>
 
-            <div className="rounded-xl border border-border/65 bg-background/38 p-4">
-              <p className="text-sm font-medium">{tr("Description", "Description")}</p>
-              <p className="mt-3 whitespace-pre-line break-words text-sm leading-7 text-muted-foreground">
-                {ticket.description || tr("Aucune description n’est disponible pour ce ticket.", "No description is available for this ticket.")}
-              </p>
-            </div>
-
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl border border-border/65 bg-background/38 p-4">
                 <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{tr("Estimation", "Estimate")}</p>
@@ -198,7 +191,18 @@ export default async function TicketDetailPage({
           </CardContent>
         </Card>
 
-        <div className="grid gap-4">
+        {/* The conversation comes first; the change history sits under it. */}
+        <div className="grid content-start gap-4">
+          <div id="ticket-collaboration" className="scroll-mt-24"><CommentsPanel
+            comments={comments}
+            entityType="ticket"
+            entityId={ticket.id}
+            returnPath={`/tickets/${ticket.id}`}
+            role={auth.role}
+            currentUserId={auth.profile.id}
+            mentionCandidates={mentionCandidates}
+          /></div>
+
           <Card className="border-border/70 bg-card">
             <CardHeader>
               <CardTitle>{tr("Historique d’activité", "Activity history")}</CardTitle>
@@ -223,17 +227,6 @@ export default async function TicketDetailPage({
               )}
             </CardContent>
           </Card>
-
-          <div id="ticket-collaboration" className="scroll-mt-24"><CommentsPanel
-            comments={comments}
-            entityType="ticket"
-            entityId={ticket.id}
-            returnPath={`/tickets/${ticket.id}`}
-            role={auth.role}
-            currentUserId={auth.profile.id}
-            mentionCandidates={mentionCandidates}
-          /></div>
-
         </div>
       </div>
 
