@@ -63,7 +63,9 @@ export function NotificationItem({
 }) {
   const { locale } = useI18n();
   const isFr = locale === "fr";
-  const Icon = iconMap[notification.type];
+  // Rows migrated from Postgres can carry types the app no longer writes
+  // (the old enum had "project"); an unknown type must not break the list.
+  const Icon = iconMap[notification.type as keyof typeof iconMap] ?? BellRing;
   const severity = getNotificationSeverity(notification);
 
   return (
@@ -104,7 +106,7 @@ export function NotificationItem({
                       payment_due: "paiement",
                       contract_due: "contrat",
                       system: "système",
-                    }[notification.type])
+                    } as Record<string, string>)[notification.type] ?? getNotificationTypeLabel(notification.type)
                   : getNotificationTypeLabel(notification.type)}
               </Badge>
               {severity !== "info" ? (
