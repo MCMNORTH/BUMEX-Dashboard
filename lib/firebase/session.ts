@@ -107,8 +107,21 @@ export async function getSessionUser(): Promise<AuthUser | null> {
   }
 
   try {
-    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
+    // Signature and expiry are checked locally. `verifySessionCookie(cookie, true)`
+    // would fetch this same user record for its revocation check, so that check
+    // is made here, on the one record (firebase-admin's
+    // verifyDecodedJWTNotRevokedOrDisabled): disabled accounts and sessions
+    // started before the last revocation are refused.
+    const decoded = await adminAuth().verifySessionCookie(sessionCookie);
     const user = await adminAuth().getUser(decoded.uid);
+
+    if (user.disabled) {
+      return null;
+    }
+
+    if (user.tokensValidAfterTime && decoded.auth_time * 1000 < new Date(user.tokensValidAfterTime).getTime()) {
+      return null;
+    }
 
     return {
       id: user.uid,
