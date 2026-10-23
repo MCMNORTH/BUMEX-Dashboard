@@ -1,8 +1,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { ErpAccessProvider } from "@/components/erp/erp-access-provider";
 import { AppShell } from "@/components/layout/app-shell";
 import { requireAuthenticatedUser } from "@/lib/auth/server";
+import { getErpAccess } from "@/lib/erp/access";
 import { resolveSidebarAppearance } from "@/lib/settings/appearance";
 import { sidebarCollapsedCookieName } from "@/lib/site";
 
@@ -19,11 +21,14 @@ export default async function ApplicationLayout({
 
   const cookieStore = await cookies();
   const sidebarCollapsed = cookieStore.get(sidebarCollapsedCookieName)?.value === "1";
+  const erpAccess = await getErpAccess(auth.profile.id);
 
   // Rendered on the server from the profile, so a reload never flashes another theme.
   return (
-    <AppShell initialCollapsed={sidebarCollapsed} initialAppearance={resolveSidebarAppearance(auth.profile)}>
-      {children}
-    </AppShell>
+    <ErpAccessProvider access={erpAccess}>
+      <AppShell initialCollapsed={sidebarCollapsed} initialAppearance={resolveSidebarAppearance(auth.profile)}>
+        {children}
+      </AppShell>
+    </ErpAccessProvider>
   );
 }

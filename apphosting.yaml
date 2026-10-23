@@ -51,3 +51,22 @@ env:
     secret: resend-api-key
     availability:
       - RUNTIME
+
+  # ERP database (lib/erp/db.ts, db/erp/README.md): Cloud SQL for PostgreSQL in this project. The backend's service
+  # account has Cloud SQL Client; the bumex_app password is the secret erp-database-password.
+  - variable: ERP_CLOUDSQL_INSTANCE
+    value: bumex-one:europe-west4:bumex-erp-vanguard
+    availability:
+      - RUNTIME
+  - variable: ERP_DATABASE_NAME
+    value: bumex_erp
+    availability:
+      - RUNTIME
+  - variable: ERP_DATABASE_USER
+    value: bumex_app
+    availability:
+      - RUNTIME
+  - variable: ERP_DATABASE_PASSWORD
+    secret: erp-database-password
+    availability:
+      - RUNTIME

@@ -20,6 +20,7 @@ export type AppRouteKey =
   | "finance"
   | "activity"
   | "shareholders"
+  | "erp"
   | "settings";
 
 export type NavigationItemConfig = {

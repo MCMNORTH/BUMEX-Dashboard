@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { BriefcaseBusiness, Blocks, ChevronsUpDown, PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
+import { BriefcaseBusiness, Blocks, ChevronsUpDown, Landmark, PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { useEntitySwitch } from "@/components/entities/entity-switch-dialog";
+import { useErpAccess } from "@/components/erp/erp-access-provider";
 import { useI18n } from "@/components/layout/i18n-provider";
 import { useSidebarAppearance } from "@/components/layout/sidebar-appearance-provider";
 import { SidebarLogo } from "@/components/layout/sidebar-logo";
@@ -18,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/use-permissions";
 import { NavigationItem } from "@/components/layout/navigation-item";
 
-type SectionKey = "workspace" | "business" | "system";
+type SectionKey = "workspace" | "business" | "erp" | "system";
 
 const sectionConfig: Record<
   SectionKey,
@@ -40,6 +41,12 @@ const sectionConfig: Record<
     shortLabel: "Biz",
     icon: BriefcaseBusiness,
     description: "Clients, contracts, documents, finance, and governance.",
+  },
+  erp: {
+    title: "ERP",
+    shortLabel: "ERP",
+    icon: Landmark,
+    description: "Accounting, treasury, payroll and tax.",
   },
   system: {
     title: "System",
@@ -74,6 +81,7 @@ function SidebarContent({
   const pathname = usePathname();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const { role } = usePermissions();
+  const erpAccess = useErpAccess();
   const { t } = useI18n();
   const { activeEntity, activeEntityCode } = useEntity();
   const { canSwitchEntities, openEntitySwitcher } = useEntitySwitch();
@@ -81,8 +89,12 @@ function SidebarContent({
   const [pendingNavigation, setPendingNavigation] = useState<{ href: string; from: string } | null>(null);
   const [entityPulse, setEntityPulse] = useState(false);
   const visibleGroups = useMemo(
-    () => (role ? filterNavigationGroupsByRole(navigationGroups, role) : navigationGroups),
-    [role],
+    () =>
+      (role ? filterNavigationGroupsByRole(navigationGroups, role) : navigationGroups).filter(
+        // The ERP tab follows the ERP access, not the BUMEX One role.
+        (group) => group.title !== "ERP" || erpAccess !== null,
+      ),
+    [role, erpAccess],
   );
   const managementItems = role === "admin" || role === "manager"
     ? ["/staffing", "/planning", "/timesheet"].flatMap((href) =>
@@ -220,7 +232,7 @@ function SidebarContent({
         <div
           className={cn(
             "grid gap-1 rounded-lg border border-sidebar-border bg-sidebar-track p-1",
-            collapsed ? "grid-cols-1" : "grid-cols-3",
+            collapsed ? "grid-cols-1" : sectionEntries.length > 3 ? "grid-cols-4" : "grid-cols-3",
           )}
         >
           {sectionEntries.map(({ key }) => {

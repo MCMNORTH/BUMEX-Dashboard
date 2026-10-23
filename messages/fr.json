@@ -43,11 +43,13 @@
     "groups": {
       "workspace": "Espace de travail",
       "business": "Affaires",
+      "erp": "ERP",
       "system": "Système"
     },
     "groupDescriptions": {
       "workspace": "Livraison, planification, execution et operations d'equipe.",
       "business": "Relations externes, contrats, documents, finances et gouvernance.",
+      "erp": "Comptabilité, trésorerie, paie et fiscalité.",
       "system": "Configuration, notifications et controles de la plateforme."
     },
     "items": {
@@ -106,6 +108,10 @@
       "finance": {
         "label": "Finance",
         "description": "Coûts, facturation et pilotage financier."
+      },
+      "erp": {
+        "label": "Accueil ERP",
+        "description": "Votre accès ERP, vos entités et vos modules."
       },
       "activity": {
         "label": "Activité",

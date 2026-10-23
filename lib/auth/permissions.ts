@@ -58,6 +58,8 @@ export const routeAccess: Record<AppRouteKey, AppRole[]> = {
   finance: ["admin", "manager", "shareholder"],
   activity: ["admin"],
   shareholders: ["admin", "manager", "shareholder"],
+  // Open to every BUMEX One role; the ERP access (lib/erp/server.ts) decides who actually gets in.
+  erp: ["admin", "manager", "supervisor", "employee", "shareholder"],
   settings: ["admin", "manager", "supervisor", "employee", "shareholder"],
 };
 

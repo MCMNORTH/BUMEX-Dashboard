@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Loaded by Node at run time rather than bundled: it reads its own files and Google credentials (lib/erp/db.ts).
+  serverExternalPackages: ["@google-cloud/cloud-sql-connector"],
   experimental: {
     // How long the browser reuses a page it already has. Each page sets its own
     // lifetime (`unstable_dynamicStaleTime`); Next uses this default for pages

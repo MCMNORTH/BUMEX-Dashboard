@@ -9,6 +9,7 @@ import {
   Grid2X2,
   Handshake,
   KanbanSquare,
+  Landmark,
   LayoutGrid,
   ListTodo,
   Route,
@@ -138,6 +139,19 @@ export const navigationGroups: NavigationGroup[] = [
         icon: WalletMinimal,
         description: "Costs, billing, and financial oversight.",
         allowedRoles: ["admin", "manager", "shareholder"],
+      },
+    ],
+  },
+  {
+    // Shown only to people with ERP access (see the sidebar), whatever their BUMEX One role.
+    title: "ERP",
+    items: [
+      {
+        href: "/erp",
+        label: "ERP home",
+        icon: Landmark,
+        description: "Your ERP access, entities and modules.",
+        allowedRoles: ["admin", "manager", "supervisor", "employee", "shareholder"],
       },
     ],
   },
@@ -329,6 +343,14 @@ export const placeholderPages: Record<AppRouteKey, PlaceholderPageContent> = {
     emptyDescription:
       "Use this page later for ownership structure, board context, key documents, and strategic notes.",
     placeholderLabel: "Ownership overview",
+  },
+  erp: {
+    title: "ERP",
+    subtitle: "Accounting, treasury, payroll and tax for every BUMEX entity.",
+    eyebrow: "BUMEX ERP",
+    emptyTitle: "No ERP module yet",
+    emptyDescription: "The ERP modules arrive step by step: accounting first, then sales, suppliers and treasury.",
+    placeholderLabel: "ERP",
   },
   settings: {
     title: "Settings",

@@ -2,11 +2,13 @@ import { updateSettingsUserEntityAction, updateSettingsUserRoleAction } from "@/
 import { availableEntityCodes, bumexEntities } from "@/lib/entities/config";
 import { roleLabels } from "@/lib/auth/permissions";
 import { getCurrentLocale } from "@/lib/i18n/server";
+import { ErpAccessCell } from "@/components/settings/erp-access-cell";
 import { AvailabilityBadge } from "@/components/team/availability-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ModernSelect } from "@/components/ui/modern-select";
 import type { AppRole } from "@/types/auth";
+import type { ErpAccessGrant } from "@/types/erp";
 import type { SettingsUserRecord } from "@/lib/settings/users";
 
 const editableRoleOptions: AppRole[] = ["admin", "manager", "employee"];
@@ -23,6 +25,7 @@ export async function UsersManagement({
   users,
   isSuperAdmin,
   supportsEntityManagement,
+  erpAccess,
   error,
   success,
 }: {
@@ -31,10 +34,13 @@ export async function UsersManagement({
   currentRole: AppRole;
   isSuperAdmin: boolean;
   supportsEntityManagement: boolean;
+  // null = no ERP database yet (no column); grants null = the ERP database cannot be reached.
+  erpAccess: { grants: Record<string, ErpAccessGrant> | null; canManage: boolean } | null;
   error?: string;
   success?: string;
 }) {
-  const isFr = (await getCurrentLocale()) === "fr";
+  const locale = await getCurrentLocale();
+  const isFr = locale === "fr";
   const tr = (fr: string, en: string) => (isFr ? fr : en);
   const roleLabel = (role: AppRole) => (isFr ? frenchRoleLabels[role] : roleLabels[role]);
   const dateFormatter = new Intl.DateTimeFormat(isFr ? "fr-FR" : "en-US", { dateStyle: "medium" });
@@ -70,6 +76,7 @@ export async function UsersManagement({
                 <th className="px-4 py-3 font-medium">{tr("Utilisateur", "User")}</th>
                 <th className="px-4 py-3 font-medium">{tr("Rôle", "Role")}</th>
                 <th className="px-4 py-3 font-medium">{tr("Entité", "Entity")}</th>
+                {erpAccess ? <th className="px-4 py-3 font-medium">{tr("Accès ERP", "ERP access")}</th> : null}
                 <th className="px-4 py-3 font-medium">{tr("Disponibilité", "Availability")}</th>
                 <th className="px-4 py-3 font-medium">{tr("Créé le", "Created")}</th>
               </tr>
@@ -128,6 +135,21 @@ export async function UsersManagement({
                         </div>
                       )}
                     </td>
+                    {erpAccess ? (
+                      <td className="px-4 py-3">
+                        {erpAccess.grants ? (
+                          <ErpAccessCell
+                            userId={user.id}
+                            userName={user.full_name}
+                            grant={erpAccess.grants[user.id] ?? null}
+                            canManage={erpAccess.canManage}
+                            locale={locale}
+                          />
+                        ) : (
+                          <span className="text-sm text-muted-foreground">{tr("ERP indisponible", "ERP unavailable")}</span>
+                        )}
+                      </td>
+                    ) : null}
                     <td className="px-4 py-3">
                       <AvailabilityBadge status={user.availability_status} />
                     </td>
@@ -136,7 +158,7 @@ export async function UsersManagement({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={erpAccess ? 6 : 5} className="px-4 py-12 text-center text-sm text-muted-foreground">
                     {tr("Aucun utilisateur.", "No users yet.")}
                   </td>
                 </tr>

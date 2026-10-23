@@ -1,0 +1,195 @@
+// BUMEX ERP — guarantees of migration 0004 (the ERP inside BUMEX One), run on PGlite like guarantees.test.mjs.
+// Every check goes through the application's path: a transaction, `set local role erp_app`, then
+// erp.open_session(<Firebase uid>) or erp.open_system_session(<actor>).
+import { PGlite } from '@electric-sql/pglite';
+import { readFileSync, readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const migrations = join(here, '..', 'migrations');
+const DDL = readdirSync(migrations).filter((f) => f.endsWith('.sql')).sort().map((f) => readFileSync(join(migrations, f), 'utf8')).join('\n');
+
+const BUMEX_ONE_CODES = ['bumex_holding', 'bumex_sa', 'bumex_audit', 'bumex_advisory', 'bumex_mauritanie', 'bumex_avocat', 'bumex_it', 'bumex_maroc'];
+
+const results = [];
+let db;
+
+async function fresh() {
+  db = new PGlite();
+  await db.exec(DDL);
+  const ids = {};
+  for (const r of (await db.query('select id, code from erp.entity')).rows) ids[r.code] = r.id;
+  return ids;
+}
+
+async function one(sql, params = []) {
+  return (await db.query(sql, params)).rows[0];
+}
+
+async function within(open, fn) {
+  await db.exec('begin');
+  try {
+    await db.exec('set local role erp_app');
+    await open();
+    const out = await fn();
+    await db.exec('commit');
+    return out;
+  } catch (err) {
+    await db.exec('rollback');
+    throw err;
+  }
+}
+const asUser = (uid, fn) => within(() => db.query('select erp.open_session($1)', [uid]), fn);
+const asSystem = (actor, fn) => within(() => db.query('select erp.open_system_session($1)', [actor]), fn);
+
+const grant = (uid, role, entities = null, modules = null) =>
+  db.query('insert into erp.user_access (user_id, erp_role, entity_codes, modules) values ($1, $2, $3, $4)', [uid, role, entities, modules]);
+
+async function addTasks(ids) {
+  await asSystem('seed', async () => {
+    for (const code of ['bumex_audit', 'bumex_it']) {
+      await db.query(`insert into erp.task (entity_id, title, module, assignee, due_date) values ($1, $2, 'accounting', 'x', '2026-12-31')`, [ids[code], `task ${code}`]);
+    }
+  });
+}
+
+async function expectError(fn, pattern) {
+  try {
+    await fn();
+  } catch (err) {
+    if (pattern.test(err.message)) return err.message.split('\n')[0];
+    throw new Error(`wrong error: ${err.message}`);
+  }
+  throw new Error(`expected an error matching ${pattern}, got none`);
+}
+
+async function test(name, fn) {
+  try {
+    const note = await fn();
+    results.push({ name, ok: true, note: note ?? '' });
+  } catch (err) {
+    results.push({ name, ok: false, note: err.message });
+  }
+}
+
+// ---------------------------------------------------------------------------
+await test('entities: the eight BUMEX One codes, Maroc on CGNC / MAD, OHADA chart accepted', async () => {
+  const ids = await fresh();
+  const codes = (await db.query('select code from erp.entity order by floor_order')).rows.map((r) => r.code);
+  if (JSON.stringify(codes) !== JSON.stringify(BUMEX_ONE_CODES)) throw new Error(codes.join(','));
+  const ma = await one(`select country, functional_currency, coa_template from erp.entity where code = 'bumex_maroc'`);
+  if (ma.country !== 'MA' || ma.functional_currency !== 'MAD' || ma.coa_template !== 'CGNC') throw new Error(JSON.stringify(ma));
+  const hold = await one(`select is_holding from erp.entity where id = $1`, [ids.bumex_holding]);
+  if (!hold.is_holding) throw new Error('holding flag');
+  await db.query(`insert into erp.entity (group_id, code, name, country, functional_currency, coa_template)
+                  select group_id, 'ohada_test', 'Test OHADA', 'SN', 'EUR', 'SYSCOHADA' from erp.entity limit 1`);
+  await db.exec(DDL.slice(DDL.indexOf('-- 6. The group'))); // the seed is idempotent
+  const n = await one('select count(*)::int n from erp.entity');
+  return `${codes.length} entities, Maroc CGNC/MAD, SYSCOHADA ok, seed re-run keeps ${n.n}`;
+});
+
+await test('access: no access row = no ERP (role none, nothing visible)', async () => {
+  const ids = await fresh();
+  await addTasks(ids);
+  const seen = await asUser('nobody', async () => {
+    const role = await one(`select current_setting('erp.actor_role') r`);
+    const n = await one('select count(*)::int n from erp.task');
+    return { role: role.r, n: n.n };
+  });
+  if (seen.role !== 'none' || seen.n !== 0) throw new Error(JSON.stringify(seen));
+  return 'role none, 0 of 2 tasks';
+});
+
+await test('access: a partner given one entity sees that entity only (0001 let every partner see all)', async () => {
+  const ids = await fresh();
+  await addTasks(ids);
+  await asSystem('admin-uid', () => grant('u_partner', 'partner', ['bumex_audit']));
+  const titles = await asUser('u_partner', async () => (await db.query('select title from erp.task')).rows.map((r) => r.title));
+  if (titles.length !== 1 || titles[0] !== 'task bumex_audit') throw new Error(titles.join(','));
+  const refused = await expectError(
+    () => asUser('u_partner', () => db.query(`insert into erp.task (entity_id, title, module, assignee, due_date) values ($1, 'x', 'accounting', 'x', '2026-12-31')`, [ids.bumex_it])),
+    /row-level security/,
+  );
+  return `sees 1 of 2; writing to BUMEX IT refused (${refused.slice(0, 40)}…)`;
+});
+
+await test('access: no entity list = every entity', async () => {
+  const ids = await fresh();
+  await addTasks(ids);
+  await asSystem('admin-uid', () => grant('u_raf', 'raf'));
+  const n = await asUser('u_raf', async () => (await one('select count(*)::int n from erp.task')).n);
+  if (n !== 2) throw new Error(`saw ${n}`);
+  return 'sees 2 of 2';
+});
+
+await test('access: only an ERP administrator or the system changes access; entities and modules checked', async () => {
+  await fresh();
+  await asSystem('super-admin-uid', async () => {
+    await grant('u_admin', 'admin');
+    await grant('u_partner', 'partner', ['bumex_audit']);
+  });
+  await expectError(() => asUser('u_partner', () => grant('u_x', 'staff', ['bumex_audit'])), /only an ERP administrator/);
+  await asUser('u_admin', () => grant('u_acc', 'accountant', ['bumex_it'], ['accounting', 'tax']));
+  await expectError(() => asUser('u_admin', () => grant('u_y', 'staff', ['bumex_nowhere'])), /unknown entity code/);
+  await expectError(() => asUser('u_admin', () => grant('u_z', 'staff', null, ['missions'])), /check constraint/);
+  await expectError(() => asUser('u_admin', () => grant('u_w', 'boss')), /check constraint/);
+  await expectError(() => asUser('u_admin', () => db.query(`update erp.user_access set erp_role = 'partner' where user_id = 'u_admin'`)), /own administrator role/);
+  await expectError(() => asUser('u_admin', () => db.query(`delete from erp.user_access where user_id = 'u_admin'`)), /own access/);
+  await asUser('u_admin', () => db.query(`update erp.user_access set entity_codes = '{bumex_it,bumex_sa}' where user_id = 'u_acc'`));
+  const row = await one(`select granted_by, updated_by, entity_codes from erp.user_access where user_id = 'u_acc'`);
+  if (row.granted_by !== 'u_admin' || row.updated_by !== 'u_admin' || row.entity_codes.length !== 2) throw new Error(JSON.stringify(row));
+  const audit = await one(`select count(*)::int n from erp.audit_log where table_name = 'user_access'`);
+  if (audit.n < 4) throw new Error(`audit rows ${audit.n}`);
+  return `partner refused, admin grants, 5 refusals, ${audit.n} audit rows`;
+});
+
+await test('session: the context lasts one transaction and ends with it', async () => {
+  await fresh();
+  await asSystem('super-admin-uid', () => grant('u_acc', 'accountant', ['bumex_audit']));
+  const inside = await asUser('u_acc', async () => one(`select current_user u, current_setting('erp.actor_id') a, current_setting('erp.actor_role') r, current_setting('erp.entity_ids') e`));
+  if (inside.u !== 'erp_app' || inside.a !== 'u_acc' || inside.r !== 'accountant' || inside.e.split(',').length !== 1) throw new Error(JSON.stringify(inside));
+  const after = await one(`select current_user u, coalesce(current_setting('erp.actor_role', true), '') r, coalesce(current_setting('erp.entity_ids', true), '') e`);
+  if (after.u === 'erp_app' || after.r !== '' || after.e !== '') throw new Error(JSON.stringify(after));
+  return `inside: ${inside.u} / ${inside.r}; after commit: ${after.u}, context empty`;
+});
+
+await test('erp_app never bypasses row-level security and cannot rewrite the audit trail', async () => {
+  await fresh();
+  const role = await one(`select rolbypassrls, rolsuper from pg_roles where rolname = 'erp_app'`);
+  if (role.rolbypassrls || role.rolsuper) throw new Error(JSON.stringify(role));
+  await asSystem('super-admin-uid', () => grant('u_admin', 'admin'));
+  await expectError(() => asSystem('x', () => db.query(`update erp.audit_log set actor_id = 'edited'`)), /permission denied/);
+  await expectError(() => asSystem('x', () => db.query('delete from erp.audit_log')), /permission denied/);
+  return 'no bypass; update / delete on audit_log denied';
+});
+
+await test('no session: erp_app sees nothing; an app login reaches the schema only through set role (0005)', async () => {
+  const ids = await fresh();
+  await addTasks(ids);
+  await db.exec('begin');
+  await db.exec('set local role erp_app');
+  const app = await one(`select erp.actor_role() r, (select count(*)::int from erp.task) n`);
+  await db.exec('rollback');
+  if (app.r !== 'none' || app.n !== 0) throw new Error('erp_app without session ' + JSON.stringify(app));
+  const admin = await one(`select erp.actor_role() r, (select count(*)::int from erp.task) n`);
+  if (admin.r !== 'system' || admin.n !== 2) throw new Error('administrator ' + JSON.stringify(admin));
+  // a login granted the usual way, then 0005 applied again (it is idempotent)
+  await db.exec(`create role app_login login; grant erp_app to app_login`);
+  await db.exec(readFileSync(join(migrations, '0005_no_session_no_data.sql'), 'utf8'));
+  const m = await one(`select has_table_privilege('app_login', 'erp.task', 'select') direct,
+                              pg_has_role('app_login', 'erp_app', 'SET') can_set,
+                              pg_has_role('app_login', 'erp_app', 'USAGE') inherits`);
+  if (m.direct || !m.can_set || m.inherits) throw new Error(JSON.stringify(m));
+  return 'erp_app alone: none, 0 of 2 tasks; admin: system; login: no direct rights, may set role';
+});
+
+// ---------------------------------------------------------------------------
+const pad = (s, n) => (s + ' '.repeat(n)).slice(0, n);
+let failed = 0;
+for (const r of results) {
+  if (!r.ok) failed++;
+  console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${pad(r.name, 78)}  ${r.note}`);
+}
+console.log(`\n${results.length - failed}/${results.length} passed`);
+process.exit(failed ? 1 : 0);

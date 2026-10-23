@@ -43,11 +43,13 @@
     "groups": {
       "workspace": "Workspace",
       "business": "Business",
+      "erp": "ERP",
       "system": "System"
     },
     "groupDescriptions": {
       "workspace": "Delivery, planning, execution, and team operations.",
       "business": "External relations, contracts, documents, finance, and governance.",
+      "erp": "Accounting, treasury, payroll and tax.",
       "system": "Configuration, notifications, and platform controls."
     },
     "items": {
@@ -106,6 +108,10 @@
       "finance": {
         "label": "Finance",
         "description": "Costs, billing, and financial oversight."
+      },
+      "erp": {
+        "label": "ERP home",
+        "description": "Your ERP access, entities and modules."
       },
       "activity": {
         "label": "Activity",
