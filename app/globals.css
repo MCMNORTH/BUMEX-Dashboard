@@ -434,24 +434,25 @@ body::after {
   background: color-mix(in srgb, var(--primary) 26%, transparent);
 }
 
-* {
+/* Vanguard keeps the browser's own scrollbars and selects (vanguard/vanguard.css). */
+:where(:not(.vanguard, .vanguard *)) {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.72) transparent;
 }
 
-*::-webkit-scrollbar {
+:where(:not(.vanguard, .vanguard *))::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
-*::-webkit-scrollbar-track {
+:where(:not(.vanguard, .vanguard *))::-webkit-scrollbar-track {
   margin-block: 10px;
   margin-inline: 10px;
   border-radius: 999px;
   background: transparent;
 }
 
-*::-webkit-scrollbar-thumb {
+:where(:not(.vanguard, .vanguard *))::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
   background:
@@ -461,16 +462,16 @@ body::after {
     0 8px 18px rgba(15, 23, 42, 0.12);
 }
 
-*::-webkit-scrollbar-thumb:hover {
+:where(:not(.vanguard, .vanguard *))::-webkit-scrollbar-thumb:hover {
   background:
     linear-gradient(180deg, rgba(96, 136, 192, 0.85), rgba(96, 136, 192, 0.85)) padding-box;
 }
 
-.dark * {
+.dark :where(:not(.vanguard, .vanguard *)) {
   scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
 }
 
-.dark *::-webkit-scrollbar-thumb {
+.dark :where(:not(.vanguard, .vanguard *))::-webkit-scrollbar-thumb {
   background:
     linear-gradient(180deg, rgba(148, 163, 184, 0.5), rgba(71, 85, 105, 0.82)) padding-box;
   box-shadow:
@@ -478,7 +479,7 @@ body::after {
     0 10px 22px rgba(2, 8, 23, 0.34);
 }
 
-.dark *::-webkit-scrollbar-thumb:hover {
+.dark :where(:not(.vanguard, .vanguard *))::-webkit-scrollbar-thumb:hover {
   background:
     linear-gradient(180deg, rgba(96, 136, 192, 0.85), rgba(96, 136, 192, 0.85)) padding-box;
 }
@@ -488,20 +489,20 @@ input[type="password"]::-ms-clear {
   display: none;
 }
 
-select {
+select:where(:not(.vanguard *)) {
   color-scheme: light;
 }
 
-select option {
+select:where(:not(.vanguard *)) option {
   background-color: var(--popover);
   color: var(--popover-foreground);
 }
 
-.dark select {
+.dark select:where(:not(.vanguard *)) {
   color-scheme: dark;
 }
 
-.dark select option {
+.dark select:where(:not(.vanguard *)) option {
   background-color: var(--popover);
   color: var(--popover-foreground);
 }

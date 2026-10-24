@@ -12,8 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // The ERP team's engine and schema tests, kept as delivered so their updates diff cleanly (see db/erp/README.md).
+    // The ERP team's engine, interface (vanguard/) and schema tests, kept as delivered so their updates diff cleanly.
     "lib/erp/engine/**",
+    "vanguard/**",
     "db/erp/test/guarantees.test.mjs",
   ]),
 ]);

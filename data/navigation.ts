@@ -2,6 +2,7 @@ import {
   Activity,
   BellDot,
   BookOpenCheck,
+  Building2,
   CalendarDays,
   ChartColumnIncreasing,
   Clock3,
@@ -147,6 +148,14 @@ export const navigationGroups: NavigationGroup[] = [
     // Shown only to people with ERP access (see the sidebar), whatever their BUMEX One role.
     title: "ERP",
     items: [
+      {
+        // The main app, full screen; BUMEX One remains as the legacy app until it is merged in.
+        href: "/vanguard",
+        label: "BUMEX Vanguard",
+        icon: Building2,
+        description: "The ERP as a building: floors, rooms and modules.",
+        allowedRoles: ["admin", "manager", "supervisor", "employee", "shareholder"],
+      },
       {
         href: "/erp",
         label: "ERP home",

@@ -25,6 +25,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@bumex/domain": [
+        "./lib/erp/engine/index.ts"
       ]
     }
   },

@@ -115,6 +115,10 @@
         "label": "Finance",
         "description": "Costs, billing, and financial oversight."
       },
+      "vanguard": {
+        "label": "BUMEX Vanguard",
+        "description": "The ERP as a building: floors, rooms and modules."
+      },
       "erp": {
         "label": "ERP home",
         "description": "Your ERP access, entities and modules."

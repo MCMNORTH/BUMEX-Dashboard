@@ -115,6 +115,10 @@
         "label": "Finance",
         "description": "Coûts, facturation et pilotage financier."
       },
+      "vanguard": {
+        "label": "BUMEX Vanguard",
+        "description": "L'ERP en immeuble : étages, salles et modules."
+      },
       "erp": {
         "label": "Accueil ERP",
         "description": "Votre accès ERP, vos entités et vos modules."

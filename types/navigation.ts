@@ -25,7 +25,7 @@ export type AppRouteKey =
   | "settings";
 
 export type NavigationItemConfig = {
-  href: `/${AppRouteKey}` | `/erp/${string}`;
+  href: `/${AppRouteKey}` | `/erp/${string}` | "/vanguard";
   label: string;
   icon: LucideIcon;
   description: string;
