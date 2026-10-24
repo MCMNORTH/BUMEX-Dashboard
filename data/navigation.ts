@@ -1,6 +1,7 @@
 import {
   Activity,
   BellDot,
+  BookOpenCheck,
   CalendarDays,
   ChartColumnIncreasing,
   Clock3,
@@ -152,6 +153,14 @@ export const navigationGroups: NavigationGroup[] = [
         icon: Landmark,
         description: "Your ERP access, entities and modules.",
         allowedRoles: ["admin", "manager", "supervisor", "employee", "shareholder"],
+      },
+      {
+        href: "/erp/accounting",
+        label: "Accounting",
+        icon: BookOpenCheck,
+        description: "Entries, ledger, trial balance, closing and chart of accounts.",
+        allowedRoles: ["admin", "manager", "supervisor", "employee", "shareholder"],
+        erpModule: "accounting",
       },
     ],
   },

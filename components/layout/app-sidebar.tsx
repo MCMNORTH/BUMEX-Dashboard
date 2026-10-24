@@ -38,7 +38,7 @@ const sectionConfig: Record<
   },
   business: {
     title: "Business",
-    shortLabel: "Biz",
+    shortLabel: "Business",
     icon: BriefcaseBusiness,
     description: "Clients, contracts, documents, finance, and governance.",
   },
@@ -50,7 +50,7 @@ const sectionConfig: Record<
   },
   system: {
     title: "System",
-    shortLabel: "Sys",
+    shortLabel: "System",
     icon: Settings,
     description: "Configuration, notifications, and platform controls.",
   },
@@ -90,10 +90,10 @@ function SidebarContent({
   const [entityPulse, setEntityPulse] = useState(false);
   const visibleGroups = useMemo(
     () =>
-      (role ? filterNavigationGroupsByRole(navigationGroups, role) : navigationGroups).filter(
-        // The ERP tab follows the ERP access, not the BUMEX One role.
-        (group) => group.title !== "ERP" || erpAccess !== null,
-      ),
+      (role ? filterNavigationGroupsByRole(navigationGroups, role) : navigationGroups)
+        // The ERP tab and its pages follow the ERP access (role and modules), not the BUMEX One role.
+        .filter((group) => group.title !== "ERP" || erpAccess !== null)
+        .map((group) => ({ ...group, items: group.items.filter((item) => !item.erpModule || Boolean(erpAccess?.modules.includes(item.erpModule))) })),
     [role, erpAccess],
   );
   const managementItems = role === "admin" || role === "manager"
@@ -161,8 +161,11 @@ function SidebarContent({
     };
   }, [activeEntityCode]);
 
+  // The most specific item wins: on /erp/accounting, "Accounting" is active, not "ERP home" (/erp).
+  const hrefs = visibleGroups.flatMap((group) => group.items.map((item) => item.href as string));
   const isActive = (href: string) =>
-    matchesNavigationPath(pathname, href) || (pendingNavigation?.href === href && pendingNavigation.from === pathname);
+    (matchesNavigationPath(pathname, href) && !hrefs.some((other) => other.length > href.length && other.startsWith(`${href}/`) && matchesNavigationPath(pathname, other))) ||
+    (pendingNavigation?.href === href && pendingNavigation.from === pathname);
   const groupItems = currentGroup
     ? currentGroup.items.filter((item) => !managementItems.some((shortcut) => shortcut.href === item.href))
     : [];
@@ -240,6 +243,8 @@ function SidebarContent({
             const Icon = section.icon;
             const selected = key === activeSection;
             const sectionTitle = t(`navigation.groups.${key}`, section.title);
+            // Four tabs (with the ERP) leave no room for the full names; they stay in the tooltip.
+            const tabLabel = sectionEntries.length > 3 ? t(`navigation.groupsShort.${key}`, section.shortLabel) : sectionTitle;
 
             return (
               <button
@@ -247,7 +252,8 @@ function SidebarContent({
                 type="button"
                 onClick={() => setSelectedSection({ key, pathname })}
                 className={cn(
-                  "flex min-w-0 items-center justify-center rounded-md px-1 py-1.5 transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                  "flex min-w-0 items-center justify-center rounded-md py-1.5 transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                  sectionEntries.length > 3 ? "px-0.5" : "px-1",
                   selected
                     ? "bg-sidebar-tab text-sidebar-active-foreground shadow-[inset_0_0_0_1px_var(--sidebar-border)]"
                     : "text-sidebar-muted hover:text-sidebar-foreground",
@@ -258,7 +264,7 @@ function SidebarContent({
                 {collapsed ? (
                   <Icon className="size-4 shrink-0" strokeWidth={1.9} />
                 ) : (
-                  <span className="truncate text-xs leading-none font-medium">{sectionTitle}</span>
+                  <span className={cn("truncate leading-none font-medium", sectionEntries.length > 3 ? "text-[11px]" : "text-xs")}>{tabLabel}</span>
                 )}
               </button>
             );
@@ -275,7 +281,7 @@ function SidebarContent({
             {managementItems.map((item) => (
               <NavigationItem
                 key={item.href}
-                item={{ ...item, label: t(`navigation.items.${item.href.slice(1)}.label`, item.label) }}
+                item={{ ...item, label: t(`navigation.items.${item.href.slice(1).replaceAll("/", "-")}.label`, item.label) }}
                 active={isActive(item.href)}
                 collapsed={collapsed}
                 onNavigate={handleNavigate}
@@ -292,7 +298,7 @@ function SidebarContent({
               </p>
             ) : null}
             {groupItems.map((item) => {
-              const itemKey = item.href.replace("/", "");
+              const itemKey = item.href.slice(1).replaceAll("/", "-");
               return (
                 <NavigationItem
                   key={item.href}

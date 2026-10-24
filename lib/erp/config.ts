@@ -65,6 +65,12 @@ export const erpModules: Record<ErpModuleKey, { label: Record<Locale, string>; d
   },
 };
 
+// Modules whose pages exist (the others show the step that brings them).
+export const erpModulePaths: Partial<Record<ErpModuleKey, string>> = {
+  accounting: "/erp/accounting",
+  reports: "/erp/accounting/trial-balance",
+};
+
 // From the ERP's ROLE_DEFAULT_MODULES, without the missions and tasks that BUMEX One keeps.
 export const erpRoleDefaultModules: Record<ErpRole, readonly ErpModuleKey[]> = {
   admin: erpModuleKeys,

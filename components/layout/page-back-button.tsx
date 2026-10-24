@@ -69,7 +69,7 @@ export function PageBackButton() {
   const target = previous ?? parentPath(pathname);
   const targetPath = pathOf(target);
   const targetLabel = mainPaths.has(targetPath)
-    ? t(`navigation.items.${targetPath.slice(1)}.label`, targetPath.slice(1))
+    ? t(`navigation.items.${targetPath.slice(1).replaceAll("/", "-")}.label`, targetPath.slice(1))
     : null;
   const backLabel = locale === "fr" ? "Retour" : "Back";
 

@@ -46,6 +46,12 @@
       "erp": "ERP",
       "system": "Système"
     },
+    "groupsShort": {
+      "workspace": "Travail",
+      "business": "Affaires",
+      "erp": "ERP",
+      "system": "Système"
+    },
     "groupDescriptions": {
       "workspace": "Livraison, planification, execution et operations d'equipe.",
       "business": "Relations externes, contrats, documents, finances et gouvernance.",
@@ -112,6 +118,10 @@
       "erp": {
         "label": "Accueil ERP",
         "description": "Votre accès ERP, vos entités et vos modules."
+      },
+      "erp-accounting": {
+        "label": "Comptabilité",
+        "description": "Écritures, grand livre, balance, clôture et plan comptable."
       },
       "activity": {
         "label": "Activité",

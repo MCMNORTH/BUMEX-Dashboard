@@ -7,6 +7,9 @@ The ERP (BUMEX VANGUARD, delivered by the ERP team) is being integrated into BUM
 |---|---|
 | `db/erp/migrations/0001–0003` | The ERP team's schema, **as delivered** (schema `erp`: ledger, triggers, row-level security) |
 | `db/erp/migrations/0004_bumex_one.sql` | Our adaptation: ERP access per BUMEX One user, session functions, role `erp_app`, the 8 entities with BUMEX One codes |
+| `db/erp/migrations/0005_no_session_no_data.sql` | No session = no data for `erp_app`; app logins switch to the role, never inherit it |
+| `db/erp/migrations/0006_accounting.sql` | Customer / supplier required by an account, who may post (checked by the database), fiscal years with their 12 periods, row-level security on the last ledger tables |
+| `lib/erp/accounting/` | Accounting (step 2): setup from the engine's chart, entries, reports, closing, chart and import, journals; tests in `test/` run on the real schema |
 | `db/erp/test/guarantees.test.mjs` | The ERP team's 35 guarantee tests (now run against every migration, 0004 included) |
 | `db/erp/test/bumex-one.test.mjs` | Tests of 0004 |
 | `lib/erp/engine/` | The ERP team's TypeScript engine, **as delivered** (65 tests in `lib/erp/engine/test`) |
@@ -41,7 +44,12 @@ runs exactly as before.
 
 ## Tests
 
-    npm run test:erp     # engine (vitest) + schema guarantees + 0004, on PGlite: no PostgreSQL needed
+    npm run test:erp     # engine + accounting layer (vitest) + schema guarantees + our migrations, on PGlite
+
+## Deploying a change that adds a migration
+
+Migrate first, then deploy: the new code expects the new columns and functions. Until then, only the pages using
+them fail; BUMEX One and the rest of the ERP keep working.
 
 ## Production
 

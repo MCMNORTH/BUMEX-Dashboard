@@ -39,10 +39,10 @@ env:
   - variable: ENABLE_LOCAL_PREVIEW_AUTH
     value: "0"
 
-  # Notification emails (lib/notifications/email-delivery.ts). dashboard.bumex.mr
-  # still serves the older Vercel app, so links point at this backend.
+  # Links in notification emails and invoices (lib/app-url.ts). one.bumex.mr is this
+  # backend's domain; dashboard.bumex.mr still serves the older Vercel app.
   - variable: APP_URL
-    value: https://bumex-dashboard--bumex-one.europe-west4.hosted.app
+    value: https://one.bumex.mr
   - variable: NOTIFICATION_EMAIL_FROM
     value: "BUMEX Dashboard <notifications@verify.bumex.mr>"
   # Create it before deploying, or the rollout fails:

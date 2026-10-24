@@ -84,7 +84,8 @@ await test('entities: the eight BUMEX One codes, Maroc on CGNC / MAD, OHADA char
   if (!hold.is_holding) throw new Error('holding flag');
   await db.query(`insert into erp.entity (group_id, code, name, country, functional_currency, coa_template)
                   select group_id, 'ohada_test', 'Test OHADA', 'SN', 'EUR', 'SYSCOHADA' from erp.entity limit 1`);
-  await db.exec(DDL.slice(DDL.indexOf('-- 6. The group'))); // the seed is idempotent
+  const m0004 = readFileSync(join(migrations, '0004_bumex_one.sql'), 'utf8');
+  await db.exec(m0004.slice(m0004.indexOf('-- 6. The group'))); // the seed is idempotent
   const n = await one('select count(*)::int n from erp.entity');
   return `${codes.length} entities, Maroc CGNC/MAD, SYSCOHADA ok, seed re-run keeps ${n.n}`;
 });
@@ -182,6 +183,74 @@ await test('no session: erp_app sees nothing; an app login reaches the schema on
                               pg_has_role('app_login', 'erp_app', 'USAGE') inherits`);
   if (m.direct || !m.can_set || m.inherits) throw new Error(JSON.stringify(m));
   return 'erp_app alone: none, 0 of 2 tasks; admin: system; login: no direct rights, may set role';
+});
+
+// A small chart for BUMEX Audit: bank, receivable (customer required), expense, income; journal OD; fiscal year 2026.
+async function miniLedger(ids) {
+  return asSystem('seed', async () => {
+    const e = ids.bumex_audit;
+    const acc = async (code, name, kind, customer = false) =>
+      (await one(`insert into erp.account (entity_id, code, name_fr, class, kind, requires_customer) values ($1, $2, $3, $4, $5, $6) returning id`, [e, code, name, Number(code[0]), kind, customer])).id;
+    const bank = await acc('550100', 'Banque', 'asset');
+    const ar = await acc('410000', 'Clients', 'asset', true);
+    const fees = await acc('631000', 'Honoraires', 'expense');
+    const journal = (await one(`insert into erp.journal (entity_id, code, name, kind) values ($1, 'OD', 'Opérations diverses', 'misc') returning id`, [e])).id;
+    const fy = (await one(`select erp.create_fiscal_year($1, 2026) id`, [e])).id;
+    const period = (await one(`select id from erp.period where fiscal_year_id = $1 and period_no = 10`, [fy])).id;
+    return { e, bank, ar, fees, journal, fy, period };
+  });
+}
+
+async function draft(l, lines) {
+  const entry = (await one(
+    `insert into erp.journal_entry (entity_id, journal_id, fiscal_year_id, period_id, entry_date, description, currency)
+     values ($1, $2, $3, $4, '2026-10-15', 'test', 'MRU') returning id`, [l.e, l.journal, l.fy, l.period])).id;
+  let n = 1;
+  for (const [account, debit, credit] of lines) {
+    await db.query(`insert into erp.journal_line (entry_id, line_no, account_id, currency, debit_txn, credit_txn, debit, credit) values ($1, $2, $3, 'MRU', $4, $5, $4, $5)`, [entry, n++, account, debit, credit]);
+  }
+  return entry;
+}
+
+await test('posting (0006): staff cannot post, an accountant can; number and hash are set', async () => {
+  const ids = await fresh();
+  const l = await miniLedger(ids);
+  await asSystem('admin-uid', async () => {
+    await grant('u_staff', 'staff', ['bumex_audit'], ['accounting']);
+    await grant('u_acc', 'accountant', ['bumex_audit']);
+  });
+  const entry = await asUser('u_staff', () => draft(l, [[l.fees, 1000, 0], [l.bank, 0, 1000]]));
+  const refused = await expectError(() => asUser('u_staff', () => db.query(`update erp.journal_entry set status = 'posted' where id = $1`, [entry])), /cannot post entries/);
+  await asUser('u_acc', () => db.query(`update erp.journal_entry set status = 'posted' where id = $1`, [entry]));
+  const posted = await one(`select entry_no, status, hash is not null as sealed, posted_by from erp.journal_entry where id = $1`, [entry]);
+  if (posted.entry_no !== 1 || posted.status !== 'posted' || !posted.sealed || posted.posted_by !== 'u_acc') throw new Error(JSON.stringify(posted));
+  return `staff: ${refused.slice(0, 32)}…; accountant posts n° 1, sealed`;
+});
+
+await test('posting (0006): an account that requires a customer refuses a line without one', async () => {
+  const ids = await fresh();
+  const l = await miniLedger(ids);
+  const flags = await one(`select requires_counterparty from erp.account where id = $1`, [l.ar]);
+  if (!flags.requires_counterparty) throw new Error('requires_counterparty not set from requires_customer');
+  await asSystem('admin-uid', () => grant('u_acc', 'accountant', ['bumex_audit']));
+  const entry = await asUser('u_acc', () => draft(l, [[l.ar, 500, 0], [l.bank, 0, 500]]));
+  const refused = await expectError(() => asUser('u_acc', () => db.query(`update erp.journal_entry set status = 'posted' where id = $1`, [entry])), /required dimension|customer or supplier/);
+  return `refused: ${refused.slice(0, 60)}…`;
+});
+
+await test('fiscal years (0006): twelve periods in one call, idempotent, seen only by the entity\'s people', async () => {
+  const ids = await fresh();
+  const l = await miniLedger(ids);
+  const again = await asSystem('seed', async () => (await one(`select erp.create_fiscal_year($1, 2026) id`, [ids.bumex_audit])).id);
+  if (again !== l.fy) throw new Error('not idempotent');
+  await asSystem('seed', () => db.query(`select erp.create_fiscal_year($1, 2026)`, [ids.bumex_it]));
+  const periods = await one(`select count(*)::int n, min(start_date)::text first, max(end_date)::text last from erp.period where fiscal_year_id = $1`, [l.fy]);
+  if (periods.n !== 12 || periods.first !== '2026-01-01' || periods.last !== '2026-12-31') throw new Error(JSON.stringify(periods));
+  await asSystem('admin-uid', () => grant('u_acc', 'accountant', ['bumex_audit']));
+  const seen = await asUser('u_acc', async () => (await one('select count(*)::int n from erp.fiscal_year')).n);
+  if (seen !== 1) throw new Error(`accountant of Audit sees ${seen} fiscal years`);
+  await expectError(() => asSystem('seed', () => db.query(`select erp.create_fiscal_year($1, 1800)`, [ids.bumex_audit])), /out of range/);
+  return '12 periods 2026-01-01 → 2026-12-31; Audit accountant sees 1 of 2 years; 1800 refused';
 });
 
 // ---------------------------------------------------------------------------

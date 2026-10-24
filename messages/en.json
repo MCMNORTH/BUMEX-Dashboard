@@ -46,6 +46,12 @@
       "erp": "ERP",
       "system": "System"
     },
+    "groupsShort": {
+      "workspace": "Work",
+      "business": "Business",
+      "erp": "ERP",
+      "system": "System"
+    },
     "groupDescriptions": {
       "workspace": "Delivery, planning, execution, and team operations.",
       "business": "External relations, contracts, documents, finance, and governance.",
@@ -112,6 +118,10 @@
       "erp": {
         "label": "ERP home",
         "description": "Your ERP access, entities and modules."
+      },
+      "erp-accounting": {
+        "label": "Accounting",
+        "description": "Entries, ledger, trial balance, closing and chart of accounts."
       },
       "activity": {
         "label": "Activity",

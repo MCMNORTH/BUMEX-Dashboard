@@ -1,6 +1,8 @@
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
 import { getBumexEntity } from "@/lib/entities/config";
-import { erpModules, erpRoleLabels } from "@/lib/erp/config";
+import { erpModulePaths, erpModules, erpRoleLabels } from "@/lib/erp/config";
 import { getErpEntities } from "@/lib/erp/entities";
 import { requireErpAccess } from "@/lib/erp/server";
 import { getCurrentLocale } from "@/lib/i18n/server";
@@ -55,15 +57,29 @@ export default async function ErpHomePage() {
         <h2 className="text-lg font-semibold">{tr("Vos modules", "Your modules")}</h2>
         {access.modules.length ? (
           <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {access.modules.map((key) => (
-              <li key={key} className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold">{erpModules[key].label[locale]}</span>
-                  <Badge variant="secondary">{tr(`Étape ${erpModules[key].step}`, `Step ${erpModules[key].step}`)}</Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">{erpModules[key].description[locale]}</p>
-              </li>
-            ))}
+            {access.modules.map((key) => {
+              const path = erpModulePaths[key];
+              const body = (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold">{erpModules[key].label[locale]}</span>
+                    {path ? <Badge>{tr("Disponible", "Available")}</Badge> : <Badge variant="secondary">{tr(`Étape ${erpModules[key].step}`, `Step ${erpModules[key].step}`)}</Badge>}
+                  </div>
+                  <p className="text-sm text-muted-foreground">{erpModules[key].description[locale]}</p>
+                </>
+              );
+              return (
+                <li key={key}>
+                  {path ? (
+                    <Link href={path} className="flex h-full flex-col gap-2 rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-soft)] transition-colors hover:border-primary/40">
+                      {body}
+                    </Link>
+                  ) : (
+                    <div className="flex h-full flex-col gap-2 rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-soft)]">{body}</div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="text-sm text-muted-foreground">
