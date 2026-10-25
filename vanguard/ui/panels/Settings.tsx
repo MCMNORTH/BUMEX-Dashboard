@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react'; // [bumex-one] useEffect
 import { ROLES, MODULE_KEYS, ROLE_DEFAULT_MODULES, createUser, updateUserAccess, setUserStatus, decideDeletion, pendingDeletions, isAccessAdmin, canDecideDeletions, type Role, type AppUser, type Id } from '@bumex/domain';
 import { useStore } from '../../store';
 import { Field, Tabs, Chip, saveFile, Icon, DeleteButton } from '../common';
 import { History } from '../../one/History'; // [bumex-one] one history: the ERP's audit and BUMEX One's activity
+import { MyAccountPanel, PeopleWithoutAccessList } from '../../one/Account'; // [bumex-one]
+import { useSay } from '../../one/say'; // [bumex-one]
 import logoImage from '../../assets/logo.jpg'; // [bumex-one] Next imports images as objects
 const logo = logoImage.src;
 
-type Tab = 'general' | 'access' | 'deletions' | 'history';
+type Tab = 'general' | 'account' | 'access' | 'deletions' | 'history'; // [bumex-one] account
 
 const MODULE_LABEL: Record<string, string> = { accounting: 'Comptabilité', bank: 'Trésorerie', clients: 'Clients', suppliers: 'Fournisseurs', missions: 'Missions', assets: 'Immobilisations', hr: 'Ressources humaines', tax: 'Fiscalité', archives: 'Archives', tasks: 'Tâches', reports: 'Rapports', penthouse: 'Holding · consolidé' };
 const STATUS_FR: Record<AppUser['status'], string> = { invited: 'Invité · lien non activé', active: 'Actif', disabled: 'Désactivé' };
@@ -14,13 +16,16 @@ const STATUS_FR: Record<AppUser['status'], string> = { invited: 'Invité · lien
 export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
   const { state, ui, t, setUi, setLang, setQuality, reset, openRoom, toast } = useStore();
   const admin = isAccessAdmin(state);
-  const tabs: { id: Tab; label: string }[] = [{ id: 'general', label: 'Général' }, ...(admin ? [{ id: 'access' as Tab, label: `Comptes & accès · ${state.users.length}` }] : []), { id: 'deletions', label: `Demandes de suppression · ${pendingDeletions(state).length}` }, { id: 'history', label: 'Historique' }];
+  const say = useSay(); // [bumex-one]
+  const tabs: { id: Tab; label: string }[] = [{ id: 'general', label: 'Général' }, { id: 'account', label: say('Mon compte', 'My account') }, ...(admin ? [{ id: 'access' as Tab, label: `Comptes & accès · ${state.users.length}` }] : []), { id: 'deletions', label: `Demandes de suppression · ${pendingDeletions(state).length}` }, { id: 'history', label: 'Historique' }];
   const [tab, setTab] = useState<Tab>(initialTab && tabs.some((x) => x.id === initialTab) ? (initialTab as Tab) : 'general');
+  useEffect(() => { if (initialTab && tabs.some((x) => x.id === initialTab)) setTab(initialTab as Tab); }, [initialTab]); // [bumex-one] a link to another tab while the room is open
   return (
     <>
       <div className="sheet-head"><h1>{t('set_title')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
       <div className="sheet-body">
         {tab === 'general' && <General />}
+        {tab === 'account' && <MyAccountPanel />}{/* [bumex-one] BUMEX One's profile, preferences, security */}
         {tab === 'access' && admin && <Access />}
         {tab === 'deletions' && <Deletions />}
         {tab === 'history' && <History />}
@@ -153,6 +158,7 @@ function Access() {
           </tbody>
         </table>
       </div>
+      <PeopleWithoutAccessList />{/* [bumex-one] BUMEX One's people without access (its Users page, merged here) */}
       <div className="card">
         <h2>Droits par rôle</h2>
         <table>

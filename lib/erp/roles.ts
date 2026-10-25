@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import { getErpAccess } from "@/lib/erp/access";
 import { resolveErpModules } from "@/lib/erp/config";
-import { withErpSystemSession } from "@/lib/erp/db";
+import { isErpDatabaseConfigured, withErpSystemSession } from "@/lib/erp/db";
 import { createAdminClient } from "@/lib/firebase/server";
 import type { AppRole, Profile } from "@/types/auth";
 import type { ErpAccessInput } from "@/lib/erp/access";
@@ -86,3 +86,15 @@ export async function provisionErpAccess(person: Person): Promise<ErpAccess | nu
 export const getOrProvisionErpAccess = cache(async (person: Person): Promise<ErpAccess | null> => {
   return (await getErpAccess(person.id)) ?? (await provisionErpAccess(person).catch(() => null));
 });
+
+// Whether the person enters Vanguard, the app: their access, or why not. Someone whose access an administrator
+// removed sees so; a database that cannot be reached is said as such (getErpAccess hides its errors).
+export type VanguardEntry = { access: ErpAccess } | { access: null; reason: "removed" | "unavailable" };
+
+export async function getVanguardEntry(person: Person): Promise<VanguardEntry> {
+  if (!isErpDatabaseConfigured()) return { access: null, reason: "unavailable" };
+  const access = await getOrProvisionErpAccess(person);
+  if (access) return { access };
+  const reachable = await withErpSystemSession(person.id, (tx) => tx.query("select 1")).then(() => true, () => false);
+  return { access: null, reason: reachable ? "removed" : "unavailable" };
+}

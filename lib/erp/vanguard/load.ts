@@ -6,6 +6,7 @@ import type { ErpTransaction } from "@/lib/erp/db";
 import { moduleTables, readTable } from "@/lib/erp/vanguard/tables";
 import { ticketTasks, type VanguardTicket } from "@/lib/erp/vanguard/tickets";
 import { visibleState } from "@/lib/erp/vanguard/visible";
+import { floors } from "@/lib/erp/vanguard/floors";
 import type { ErpAccess, ErpModuleKey } from "@/types/erp";
 
 // BUMEX Vanguard's state, read from PostgreSQL for one person (in their ERP session: row-level security applies).
@@ -17,18 +18,6 @@ export type VanguardPerson = {
   entityCode: string | null;
   active: boolean; // not marked inactive in BUMEX One
   present: boolean; // available, busy or overloaded in BUMEX One
-};
-
-// The ERP team's names for the floors (the screens refer to BUMEX Audit as "AUD") and the line under each name.
-export const floors: Record<string, { code: string; activity: string }> = {
-  bumex_holding: { code: "HOLD", activity: "Holding · consolidation" },
-  bumex_sa: { code: "SA", activity: "Tax & Legal" },
-  bumex_audit: { code: "AUD", activity: "Audit" },
-  bumex_advisory: { code: "ADV", activity: "Conseil" },
-  bumex_mauritanie: { code: "MAU", activity: "Expertise comptable" },
-  bumex_avocat: { code: "AVO", activity: "Cabinet d'avocats" },
-  bumex_it: { code: "IT", activity: "Solutions IT" },
-  bumex_maroc: { code: "MAR", activity: "Casablanca Finance City" },
 };
 
 // BUMEX One's ERP modules → the rooms. Missions and tasks are open to everyone with ERP access.

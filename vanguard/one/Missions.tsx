@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { fmt, type Engagement, type Id } from '@bumex/domain';
 import { missionDetailsAction, missionOptionsAction, saveMissionAction, type MissionInput, type MissionOptions } from '@/lib/erp/vanguard/mission-actions';
 import type { VanguardData } from '@/lib/erp/vanguard/run';
@@ -8,25 +7,25 @@ import { Chip, D, Field, Icon } from '../ui/common';
 import { useSay } from './say';
 
 // BUMEX One's projects are Vanguard's missions: created and edited here, in the Missions room (ui/panels/Other.tsx).
-// Their board is the Tasks room's "Tableau" tab (vanguard/one/Board.tsx); notes, comments and milestones are on BUMEX One's
-// project page.
+// Their page is vanguard/one/Mission.tsx (BUMEX One's project page); their board, the Tasks room's "Tableau" tab
+// (vanguard/one/Board.tsx).
 
 type Mission = Engagement & { projectId?: string };
 
-const KINDS: [MissionInput['project_kind'], string, string][] = [
+export const KINDS: [MissionInput['project_kind'], string, string][] = [
   ['client_mission', 'Mission client', 'Client mission'],
   ['institutional_partnership', 'Partenariat institutionnel', 'Institutional partnership'],
   ['internal_product', 'Produit interne', 'Internal product'],
   ['internal_tool', 'Outil interne', 'Internal tool'],
 ];
-const STATUSES: [MissionInput['status'], string, string][] = [
+export const STATUSES: [MissionInput['status'], string, string][] = [
   ['draft', 'Planifiée', 'Planned'],
   ['active', 'En cours', 'Active'],
   ['on_hold', 'En pause', 'On hold'],
   ['completed', 'Terminée', 'Completed'],
   ['cancelled', 'Annulée', 'Cancelled'],
 ];
-const PRIORITIES: [MissionInput['priority'], string, string][] = [
+export const PRIORITIES: [MissionInput['priority'], string, string][] = [
   ['', '—', '—'],
   ['low', 'Basse', 'Low'],
   ['medium', 'Moyenne', 'Medium'],
@@ -116,7 +115,6 @@ export function MissionForm({ entityId, projectId, onClose }: { entityId: Id; pr
 export function MissionCard({ mission, onEdit, onClose }: { mission: Mission; onEdit: () => void; onClose: () => void }) {
   const { state } = useStore();
   const say = useSay();
-  const router = useRouter();
   const customer = state.customers.find((c) => c.id === mission.customerId);
   const invoices = state.salesInvoices.filter((i) => i.engagementId === mission.id && i.status !== 'draft');
   return (
@@ -127,7 +125,7 @@ export function MissionCard({ mission, onEdit, onClose }: { mission: Mission; on
         <span className="small muted">{customer?.name ?? mission.kind}</span>
         <div className="actions" style={{ marginLeft: 'auto' }}>
           {mission.projectId && <button className="btn sm" onClick={() => useStore.getState().openRoom('tasks', `board:${mission.id}`)}><Icon name="tasks" size={13} /> {say('Tableau', 'Board')}</button>}
-          {mission.projectId && <button className="btn sm" onClick={() => router.push(`/projects/${mission.projectId}`)}>{say('Page du projet', 'Project page')}</button>}
+          {mission.projectId && <button className="btn sm" onClick={() => useStore.getState().openRoom('missions', `mission:${mission.projectId}`)}>{say('Ouvrir la mission', 'Open the mission')}</button>}
           {mission.projectId && canEditMissions(state.session.role) && <button className="btn sm" onClick={onEdit}>{say('Modifier', 'Edit')}</button>}
           <button className="btn sm" onClick={onClose} aria-label={say('Fermer', 'Close')}>×</button>
         </div>

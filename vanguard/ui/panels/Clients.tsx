@@ -5,6 +5,9 @@ import {
 } from '@bumex/domain';
 import { useStore } from '../../store';
 import { ClientRelations } from '../../one/Clients'; // [bumex-one] one client, two sides
+import { ClientPanel } from '../../one/ClientPage'; // [bumex-one] a client's page
+import { ContractPanel, ContractsTab } from '../../one/Contracts'; // [bumex-one] BUMEX One's contracts
+import { useSay } from '../../one/say'; // [bumex-one]
 import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, DeleteButton, downloadXlsx } from '../common';
 
 // Withholding codes that a customer applies on our invoices (the receivable side), as opposed to the ones we apply on suppliers.
@@ -12,12 +15,13 @@ export function salesWithholdingCodes(codes: TaxCode[], entityId: Id): TaxCode[]
   return codes.filter((x) => x.entityId === entityId && x.kind === 'withholding' && !!x.deductibleAccountId);
 }
 
-type Tab = 'invoices' | 'new' | 'payments' | 'aging' | 'dunning' | 'customers' | 'withholding';
+type Tab = 'invoices' | 'new' | 'payments' | 'aging' | 'dunning' | 'customers' | 'withholding' | 'contracts'; // [bumex-one] contracts
 const CATEGORIES = [['AUDIT', 'Audit'], ['TAX', 'Fiscal'], ['LEGAL', 'Juridique'], ['ADVISORY', 'Conseil'], ['IT', 'IT'], ['OTHER', 'Autre']];
 const REGIMES: [CounterpartyRegime, string][] = [['standard', 'Standard'], ['gta', 'GTA · sous-traitant enregistré'], ['exempt', 'Exonéré'], ['non_resident', 'Non-résident · export'], ['public', 'Organisme public']];
 
 export function ClientsPanel({ entityId, initialTab }: { entityId: Id; initialTab?: string | null }) {
   const { state, t } = useStore();
+  const say = useSay(); // [bumex-one]
   const [tab, setTab] = useState<Tab>((initialTab as Tab) || 'invoices');
   useEffect(() => { if (initialTab) setTab(initialTab as Tab); }, [initialTab]);
   const [payFor, setPayFor] = useState<Id | null>(null);
@@ -25,7 +29,11 @@ export function ClientsPanel({ entityId, initialTab }: { entityId: Id; initialTa
   const tabs = [
     { id: 'invoices' as Tab, label: t('tab_invoices') }, { id: 'new' as Tab, label: t('tab_new_invoice') }, { id: 'payments' as Tab, label: t('tab_payments') },
     { id: 'aging' as Tab, label: <>{t('tab_aging')} <Chip kind={ag.overdueCount ? 'crit' : 'good'}>{ag.overdueCount}</Chip></> }, { id: 'dunning' as Tab, label: t('tab_dunning') }, { id: 'withholding' as Tab, label: 'Retenues subies' }, { id: 'customers' as Tab, label: t('tab_customers') },
+    { id: 'contracts' as Tab, label: say('Contrats', 'Contracts') }, // [bumex-one] BUMEX One's contracts (vanguard/one/Contracts.tsx)
   ];
+  // [bumex-one] "client:<id>" and "contract:<id>" open that client's or contract's page
+  const page = (tab as string).match(/^(client|contract):(.+)$/);
+  const closePage = (back: Tab) => { setTab(back); useStore.getState().setUi({ tab: null }); };
   return (
     <>
       <div className="sheet-head">
@@ -40,6 +48,9 @@ export function ClientsPanel({ entityId, initialTab }: { entityId: Id; initialTa
         {tab === 'dunning' && <Dunning entityId={entityId} />}
         {tab === 'withholding' && <WithholdingSuffered entityId={entityId} />}
         {tab === 'customers' && <Customers entityId={entityId} />}
+        {tab === 'contracts' && <ContractsTab />}
+        {page?.[1] === 'client' && <ClientPanel key={page[2]} clientId={page[2]} onClose={() => closePage('customers')} />}
+        {page?.[1] === 'contract' && <ContractPanel key={page[2]} contractId={page[2]} onClose={() => closePage('contracts')} />}
       </div>
     </>
   );

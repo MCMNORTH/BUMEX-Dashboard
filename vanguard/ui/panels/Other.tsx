@@ -7,10 +7,13 @@ import { PlanningView, AvailabilityView } from './Planning';
 import { MissionCard, MissionForm, canEditMissions } from '../../one/Missions'; // [bumex-one] missions are BUMEX One's projects
 import { useSay } from '../../one/say'; // [bumex-one]
 import { WeekView } from '../../one/Week'; // [bumex-one] BUMEX One's weekly planning
+import { MissionPanel } from '../../one/Mission'; // [bumex-one] a mission's page (BUMEX One's project page)
+import { CalendarView } from '../../one/Calendar'; // [bumex-one] BUMEX One's Calendar
+import { MilestonesView } from '../../one/Milestones'; // [bumex-one] BUMEX One's Roadmap
 
 const STAGES = ['Planification', 'Terrain', 'Revue associé', 'Rapport', 'Facturation'];
 
-type MissionsTab = 'board' | 'week' | 'planning' | 'availability'; // [bumex-one] week
+type MissionsTab = 'board' | 'week' | 'calendar' | 'milestones' | 'planning' | 'availability'; // [bumex-one] week, calendar, milestones
 
 export function MissionsPanel({ entityId, initialTab }: { entityId: Id; initialTab?: string | null }) {
   const { state, t } = useStore();
@@ -21,6 +24,8 @@ export function MissionsPanel({ entityId, initialTab }: { entityId: Id; initialT
   const tabs = [
     { id: 'board' as MissionsTab, label: 'Missions' },
     { id: 'week' as MissionsTab, label: say('Semaine', 'Week') }, // [bumex-one] the tickets' week (vanguard/one/Week.tsx)
+    { id: 'calendar' as MissionsTab, label: say('Calendrier', 'Calendar') }, // [bumex-one] vanguard/one/Calendar.tsx
+    { id: 'milestones' as MissionsTab, label: say('Jalons', 'Milestones') }, // [bumex-one] vanguard/one/Milestones.tsx
     { id: 'planning' as MissionsTab, label: <>Planning {cal.overloaded ? <Chip kind="crit">{cal.overloaded} surcharge</Chip> : cal.free ? <Chip kind="good">{cal.free} dispo.</Chip> : null}</> },
     { id: 'availability' as MissionsTab, label: 'Disponibilités' },
   ];
@@ -28,8 +33,12 @@ export function MissionsPanel({ entityId, initialTab }: { entityId: Id; initialT
     <>
       <div className="sheet-head"><h1>{t('room_missions')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
       <div className="sheet-body">
+        {/* [bumex-one] "mission:<project>[:rules]" opens that mission's page */}
+        {tab.startsWith('mission:') && <MissionPanel key={tab} projectId={tab.split(':')[1]} initialTab={tab.endsWith(':rules') ? 'rules' : undefined} onClose={() => { setTab('board'); useStore.getState().setUi({ tab: null }); }} />}
         {tab === 'board' && <Board entityId={entityId} />}
         {tab === 'week' && <WeekView entityId={entityId} />}
+        {tab === 'calendar' && <CalendarView entityId={entityId} />}
+        {tab === 'milestones' && <MilestonesView entityId={entityId} />}
         {tab === 'planning' && <PlanningView entityId={entityId} />}
         {tab === 'availability' && <AvailabilityView entityId={entityId} />}
       </div>

@@ -53,6 +53,19 @@ export async function updateTeamMemberAction(
   _prevState: TeamActionState,
   formData: FormData,
 ): Promise<TeamActionState> {
+  const result = await saveTeamMember(formData);
+  if (result.error) {
+    return result;
+  }
+  redirect(`/team/${getString(formData, "member_id")}?toast=team-updated`);
+}
+
+/** The person's form in BUMEX Vanguard's People tab (vanguard/one/Person.tsx): the same rules, an answer instead of a redirect. */
+export async function editTeamMemberAction(formData: FormData): Promise<TeamActionState & { success?: boolean }> {
+  return saveTeamMember(formData);
+}
+
+async function saveTeamMember(formData: FormData): Promise<TeamActionState & { success?: boolean }> {
   const auth = await requireRouteAccess("team");
   const memberId = getString(formData, "member_id");
 
@@ -99,5 +112,5 @@ export async function updateTeamMemberAction(
 
   revalidatePath("/team");
   revalidatePath(`/team/${memberId}`);
-  redirect(`/team/${memberId}?toast=team-updated`);
+  return { success: true };
 }

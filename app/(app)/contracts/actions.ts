@@ -88,25 +88,11 @@ export async function createContractAction(
   _prevState: ContractActionState,
   formData: FormData,
 ): Promise<ContractActionState> {
-  const auth = await requireRouteAccess("contracts");
-
-  if (auth.role === "shareholder" || auth.role === "supervisor") {
-    return { error: "You do not have permission to create contracts." };
+  formData.delete("contract_id");
+  const result = await saveContract(formData);
+  if (result.error) {
+    return result;
   }
-
-  const values = parseContractFormData(formData);
-  const validationError = validate(values);
-
-  if (validationError) {
-    return { error: validationError };
-  }
-
-  if (!(await canManageScope(auth.role, auth.profile.id, values.client_id, values.project_id || null))) {
-    return { error: "Managers and employees can only create contracts for assigned clients or managed projects." };
-  }
-
-  await createContract(values, auth.profile.id);
-  revalidatePath("/contracts");
   redirect("/contracts?toast=contract-created");
 }
 
@@ -114,15 +100,30 @@ export async function updateContractAction(
   _prevState: ContractActionState,
   formData: FormData,
 ): Promise<ContractActionState> {
-  const auth = await requireRouteAccess("contracts");
   const contractId = getString(formData, "contract_id");
 
   if (!contractId) {
     return { error: "Missing contract identifier." };
   }
 
+  const result = await saveContract(formData);
+  if (result.error) {
+    return result;
+  }
+  redirect(`/contracts/${contractId}?toast=contract-updated`);
+}
+
+/** Creates (no contract_id) or updates a contract, answering instead of redirecting (BUMEX Vanguard's Clients room). */
+export async function saveContractAction(formData: FormData): Promise<ContractActionState & { success?: boolean }> {
+  return saveContract(formData);
+}
+
+async function saveContract(formData: FormData): Promise<ContractActionState & { success?: boolean }> {
+  const auth = await requireRouteAccess("contracts");
+  const contractId = getString(formData, "contract_id");
+
   if (auth.role === "shareholder" || auth.role === "supervisor") {
-    return { error: "You do not have permission to edit contracts." };
+    return { error: contractId ? "You do not have permission to edit contracts." : "You do not have permission to create contracts." };
   }
 
   const values = parseContractFormData(formData);
@@ -130,6 +131,16 @@ export async function updateContractAction(
 
   if (validationError) {
     return { error: validationError };
+  }
+
+  if (!contractId) {
+    if (!(await canManageScope(auth.role, auth.profile.id, values.client_id, values.project_id || null))) {
+      return { error: "Managers and employees can only create contracts for assigned clients or managed projects." };
+    }
+
+    await createContract(values, auth.profile.id);
+    revalidatePath("/contracts");
+    return { success: true };
   }
 
   const existingContract = await getContractById(contractId, auth.role);
@@ -151,7 +162,28 @@ export async function updateContractAction(
   await updateContract(contractId, values, auth.profile.id);
   revalidatePath("/contracts");
   revalidatePath(`/contracts/${contractId}`);
-  redirect(`/contracts/${contractId}?toast=contract-updated`);
+  return { success: true };
+}
+
+/** Archiving a contract from BUMEX Vanguard: the same rules as archiveContractAction, an answer instead of a redirect. */
+export async function shelveContractAction(contractId: string): Promise<ContractActionState & { success?: boolean }> {
+  const auth = await requireRouteAccess("contracts");
+  const refused = { error: "You do not have permission to archive this contract." };
+
+  if (!contractId || auth.role === "shareholder" || auth.role === "supervisor") {
+    return refused;
+  }
+
+  const contract = await getContractById(String(contractId), auth.role);
+
+  if (!contract || !(await canManageScope(auth.role, auth.profile.id, contract.client_id, contract.project_id, contract.responsible_user_id))) {
+    return refused;
+  }
+
+  await archiveContract(contract.id, auth.profile.id);
+  revalidatePath("/contracts");
+  revalidatePath(`/contracts/${contract.id}`);
+  return { success: true };
 }
 
 export async function archiveContractAction(formData: FormData) {

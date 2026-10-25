@@ -1,14 +1,12 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { ErpAccessProvider } from "@/components/erp/erp-access-provider";
-import { AppShell } from "@/components/layout/app-shell";
+import { NoAccess } from "@/components/vanguard/no-access";
 import { VanguardShell } from "@/components/vanguard/vanguard-shell";
 import { requireAuthenticatedUser } from "@/lib/auth/server";
-import { getOrProvisionErpAccess } from "@/lib/erp/roles";
-import { resolveSidebarAppearance } from "@/lib/settings/appearance";
-import { sidebarCollapsedCookieName } from "@/lib/site";
+import { getVanguardEntry } from "@/lib/erp/roles";
 
+// The app is BUMEX Vanguard: everyone enters it with their Vanguard role (given on the first visit from their BUMEX One
+// role, lib/erp/roles.ts). Someone whose access was removed, or who signs in while the ERP database is down, is told so.
 export default async function ApplicationLayout({
   children,
 }: Readonly<{
@@ -20,26 +18,9 @@ export default async function ApplicationLayout({
     redirect("/select-entity");
   }
 
-  const cookieStore = await cookies();
-  const sidebarCollapsed = cookieStore.get(sidebarCollapsedCookieName)?.value === "1";
-  // everyone has a Vanguard role: given the first time from their BUMEX One role (lib/erp/roles.ts)
-  const erpAccess = await getOrProvisionErpAccess(auth.profile);
-
-  // People with ERP access work in Vanguard's frame, where BUMEX One's pages open; the others keep BUMEX One's shell.
-  if (erpAccess) {
-    return (
-      <ErpAccessProvider access={erpAccess}>
-        <VanguardShell initialAppearance={resolveSidebarAppearance(auth.profile)}>{children}</VanguardShell>
-      </ErpAccessProvider>
-    );
+  const entry = await getVanguardEntry(auth.profile);
+  if (!entry.access) {
+    return <NoAccess reason={entry.reason} email={auth.profile.email} />;
   }
-
-  // Rendered on the server from the profile, so a reload never flashes another theme.
-  return (
-    <ErpAccessProvider access={erpAccess}>
-      <AppShell initialCollapsed={sidebarCollapsed} initialAppearance={resolveSidebarAppearance(auth.profile)}>
-        {children}
-      </AppShell>
-    </ErpAccessProvider>
-  );
+  return <VanguardShell>{children}</VanguardShell>;
 }

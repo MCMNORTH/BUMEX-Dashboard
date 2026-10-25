@@ -110,6 +110,17 @@ export async function updateProjectAction(
   redirect(`/projects/${projectId}?toast=project-updated`);
 }
 
+/** Deleting a project from BUMEX Vanguard (vanguard/one/Mission.tsx): the same rule, an answer instead of a redirect. */
+export async function removeProjectAction(projectId: string): Promise<{ error?: string; success?: boolean }> {
+  const auth = await requireRouteAccess("projects");
+  if (!projectId || (auth.role !== "admin" && !isManagerLikeRole(auth.role))) {
+    return { error: (await getCurrentLocale()) === "fr" ? "Vous ne pouvez pas supprimer ce projet." : "You cannot delete this project." };
+  }
+  await deleteProject(String(projectId));
+  revalidatePath("/projects");
+  return { success: true };
+}
+
 export async function deleteProjectAction(formData: FormData) {
   const auth = await requireRouteAccess("projects");
   const projectId = getString(formData, "project_id");

@@ -39,7 +39,7 @@ const DEV_PREVIEW_USER: AuthUser = {
 };
 
 const profileSelectClause =
-  "id, email, full_name, role, is_super_admin, entity_code, avatar_url, job_title, department, skills, phone, availability_status, weekly_capacity_hours, sidebar_theme, logo_appearance, email_notifications, created_at, updated_at";
+  "id, email, full_name, role, is_super_admin, entity_code, avatar_url, job_title, department, skills, phone, availability_status, weekly_capacity_hours, email_notifications, created_at, updated_at";
 const legacyProfileSelectClause =
   "id, email, full_name, role, avatar_url, job_title, department, skills, phone, availability_status, weekly_capacity_hours, created_at, updated_at";
 

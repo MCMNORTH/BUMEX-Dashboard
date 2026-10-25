@@ -16,7 +16,7 @@ export default async function SelectEntityPage({
   const params = (await searchParams) ?? {};
 
   if (auth.profile.entity_code) {
-    redirect("/overview");
+    redirect("/");
   }
 
   return <EntitySelectionShell error={getString(params.error) ?? ""} />;

@@ -166,3 +166,66 @@ export async function deleteDocumentAction(formData: FormData) {
   revalidatePath("/documents");
   redirect("/documents?toast=document-deleted");
 }
+
+// ---- BUMEX Vanguard (vanguard/one/Documents.tsx): the same rules, an answer instead of a redirect ----
+
+/** Uploads a document (no document_id, a file) or updates one (document_id). */
+export async function saveDocumentAction(formData: FormData): Promise<DocumentActionState & { success?: boolean }> {
+  const auth = await requireRouteAccess("documents");
+  const documentId = getString(formData, "document_id");
+
+  if (!canManageDocument(auth.role)) {
+    return { error: documentId ? "You do not have permission to update documents." : "You do not have permission to upload documents." };
+  }
+
+  const values = parseDocumentFormData(formData);
+  const validationError = validate(values);
+
+  if (validationError) {
+    return { error: validationError };
+  }
+
+  try {
+    if (documentId) {
+      await updateDocument(documentId, values, auth.profile.id);
+    } else {
+      const file = formData.get("file");
+      if (!(file instanceof File)) {
+        return { error: "Please choose a file to upload." };
+      }
+      await createDocument(values, file, auth.profile.id);
+    }
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "The document could not be saved." };
+  }
+
+  revalidatePath("/documents");
+  return { success: true };
+}
+
+/** Archives, restores or deletes a document. */
+export async function changeDocumentAction(documentId: string, change: "archive" | "restore" | "delete"): Promise<DocumentActionState & { success?: boolean }> {
+  const auth = await requireRouteAccess("documents");
+  const refused = { error: "You do not have permission to change this document." };
+
+  if (!documentId || !canManageDocument(auth.role)) {
+    return refused;
+  }
+
+  try {
+    if (change === "delete") {
+      const document = await getDocumentById(String(documentId), auth.role);
+      if (!document) {
+        return refused;
+      }
+      await deleteDocument(document.id, auth.profile.id);
+    } else {
+      await setDocumentArchiveState(String(documentId), change === "archive", auth.profile.id);
+    }
+  } catch {
+    return { error: "The document could not be changed." };
+  }
+
+  revalidatePath("/documents");
+  return { success: true };
+}

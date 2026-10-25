@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import type { Engagement, Id, Task } from '@bumex/domain';
 import { missionBoardAction, type MissionBoard as Board } from '@/lib/erp/vanguard/board-actions';
 import type { TaskTicket } from '@/lib/erp/vanguard/tickets';
@@ -20,9 +19,8 @@ type Mission = Engagement & { projectId?: string };
 const NO_DUE_DATE = '9999-12-31';
 
 export function MissionBoard({ entityId, engagementId }: { entityId: Id; engagementId?: Id | null }) {
-  const { state, ui, setUi, toast } = useStore();
+  const { state, ui, setUi, toast, openRoom } = useStore();
   const say = useSay();
-  const router = useRouter();
   // a deleted project's mission is cancelled (missions.ts): no board
   const missions = useMemo(
     () => (state.engagements as Mission[]).filter((e) => e.entityId === entityId && e.projectId && (e.status as string) !== 'cancelled').sort((a, b) => Number(a.status === 'completed') - Number(b.status === 'completed') || a.code.localeCompare(b.code)),
@@ -96,8 +94,8 @@ export function MissionBoard({ entityId, engagementId }: { entityId: Id; engagem
         </select>
         <span className="small muted">{tasks.length} {say('ticket(s)', 'ticket(s)')}</span>
         <span style={{ marginLeft: 'auto' }} />
-        {projectId && <button className="btn sm" onClick={() => router.push(`/projects/${projectId}`)}>{say('Page du projet', 'Project page')}</button>}
-        {projectId && board?.data.canManage && <button className="btn sm" onClick={() => router.push(`/projects/${projectId}/workflow`)}>{say('Colonnes et règles du tableau', "Board's columns and rules")}</button>}
+        {projectId && <button className="btn sm" onClick={() => openRoom('missions', `mission:${projectId}`)}>{say('Ouvrir la mission', 'Open the mission')}</button>}
+        {projectId && board?.data.canManage && <button className="btn sm" onClick={() => openRoom('missions', `mission:${projectId}:rules`)}>{say('Colonnes et règles du tableau', "Board's columns and rules")}</button>}
       </div>
 
       {asking && (

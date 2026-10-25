@@ -3,8 +3,6 @@ import { allFloors, floorSignals, canOpenRoom, taskStats, archiveQueue } from '@
 import { useStore, MODULE_ROOM } from '../store';
 import type { Room } from '../i18n';
 import { Icon, Lamp } from './common';
-import { WorkMenu } from '@/components/vanguard/work-menu'; // [bumex-one]
-import { useVanguardFrame } from '@/components/vanguard/frame'; // [bumex-one]
 import { MyDayButton } from '../one/MyDay'; // [bumex-one]
 
 // The left rail: slim by default, expandable for labels. It routes to the existing modules and the new ones; the
@@ -21,8 +19,7 @@ export function Sidebar() {
   const ts = useMemo(() => taskStats(state, entityId), [state, entityId]);
   const toArchive = archiveQueue(state, entityId).length;
   const allowed = (r: string) => canOpenRoom(state, entityId, r);
-  const pageOpen = useVanguardFrame((s) => s.pageOpen); // [bumex-one] a BUMEX One page is open: its entry is the current one
-  const atOverview = ui.view === 'tower' && !ui.room && !pageOpen;
+  const atOverview = ui.view === 'tower' && !ui.room;
   const modules: Item[] = entity.isHolding
     ? [{ id: 'penthouse', icon: 'penthouse', label: t('room_penthouse'), room: 'penthouse', off: !allowed('penthouse') }]
     : [
@@ -37,6 +34,7 @@ export function Sidebar() {
       ];
   const work: Item[] = [
     { id: 'tasks', icon: 'tasks', label: t('nav_tasks'), badge: ts.overdue, room: 'tasks' },
+    { id: 'time', icon: 'clock', label: t('nav_time'), room: 'time' }, // [bumex-one] BUMEX One's timesheet (vanguard/one/Time.tsx)
     { id: 'archives', icon: 'archives', label: t('nav_archives'), badge: toArchive, room: 'archives', off: entity.isHolding || !allowed('archives') },
     { id: 'reports', icon: 'reports', label: t('nav_reports'), room: 'reports' },
   ];
@@ -72,7 +70,7 @@ export function Sidebar() {
           <span className="tip">{t('nav_overview')}<kbd>Échap</kbd></span>
         </button>
         <MyDayButton />{/* [bumex-one] the home's panel */}
-        <button className={`sb-item ${(ui.view === 'floor' && !ui.room && !pageOpen) || ui.flyout === 'floors' ? 'on' : ''}`} onClick={() => setUi({ flyout: ui.flyout === 'floors' ? null : 'floors' })} aria-label={t('nav_floors')} aria-haspopup="menu" aria-expanded={ui.flyout === 'floors'}>
+        <button className={`sb-item ${(ui.view === 'floor' && !ui.room) || ui.flyout === 'floors' ? 'on' : ''}`} onClick={() => setUi({ flyout: ui.flyout === 'floors' ? null : 'floors' })} aria-label={t('nav_floors')} aria-haspopup="menu" aria-expanded={ui.flyout === 'floors'}>
           <Icon name="floors" />
           <span className="lbl">{entity.name}</span>
           <span className="tip">{t('nav_floors')} · {entity.name}</span>
@@ -104,17 +102,15 @@ export function Sidebar() {
         </>
       )}
       <div className="grp">
-        {modules.map((m) => <Btn key={m.id} item={m} on={!pageOpen && ui.room === m.room} />)}
+        {modules.map((m) => <Btn key={m.id} item={m} on={ui.room === m.room} />)}
       </div>
       <div className="grp">
-        {work.map((m) => <Btn key={m.id} item={m} on={!pageOpen && ui.room === m.room} />)}
+        {work.map((m) => <Btn key={m.id} item={m} on={ui.room === m.room} />)}
       </div>
       <div className="grow" />
       <div className="grp">
         <div className="mini">{entity.name} · {entity.functionalCurrency}<br />{state.session.actorName} · {t(state.session.role)}</div>
-        {/* [bumex-one] "Travail": BUMEX One's pages that have no room here yet */}
-        <WorkMenu icon={<Icon name="box" />} />
-        <Btn item={{ id: 'settings', icon: 'settings', label: t('nav_settings'), room: 'settings' }} on={!pageOpen && ui.room === 'settings'} />
+        <Btn item={{ id: 'settings', icon: 'settings', label: t('nav_settings'), room: 'settings' }} on={ui.room === 'settings'} />
         <button className="sb-item" onClick={() => setUi({ sidebarOpen: !ui.sidebarOpen })} aria-label={ui.sidebarOpen ? t('collapse') : t('expand')} aria-expanded={ui.sidebarOpen}>
           <Icon name={ui.sidebarOpen ? 'chevronLeft' : 'chevronRight'} />
           <span className="lbl">{t('collapse')}</span>

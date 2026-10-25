@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { getAuthContext } from "@/lib/auth/server";
-import { getOrProvisionErpAccess } from "@/lib/erp/roles";
 
+// The app is BUMEX Vanguard (app/(app)/layout.tsx decides who enters it).
 export default async function Home() {
   const auth = await getAuthContext();
 
@@ -14,6 +14,5 @@ export default async function Home() {
     redirect("/select-entity");
   }
 
-  // Vanguard is the home of everyone with ERP access
-  redirect((await getOrProvisionErpAccess(auth.profile)) ? "/vanguard" : "/overview");
+  redirect("/vanguard");
 }

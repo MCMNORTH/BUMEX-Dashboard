@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { addDays, daysBetween, fmtDate, taskStats, type Id, type Task } from '@bumex/domain';
 import { reloadVanguardAction } from '@/lib/erp/vanguard/actions';
 import { missionOptionsAction, type MissionOptions } from '@/lib/erp/vanguard/mission-actions';
@@ -9,6 +8,7 @@ import { createTicketAction, moveTicketStageAction } from '@/app/(app)/tickets/a
 import { useStore } from '../store';
 import { Chip, D, Field, Icon, Tabs } from '../ui/common';
 import { MissionBoard } from './Board';
+import { TicketPanel } from './Ticket';
 import { useSay } from './say';
 
 // Vanguard's Tasks room on BUMEX One's tickets (lib/erp/vanguard/tickets.ts): the tickets of the floor's missions,
@@ -19,11 +19,12 @@ type TicketTask = Task & { ticket: TaskTicket };
 type Tab = 'open' | 'mine' | 'overdue' | 'done' | 'all' | 'board';
 
 const NO_DUE_DATE = '9999-12-31';
-const STATUS: Record<string, [string, string]> = { backlog: ['Backlog', 'Backlog'], todo: ['À faire', 'To do'], in_progress: ['En cours', 'In progress'], review: ['En revue', 'In review'], blocked: ['Bloqué', 'Blocked'], done: ['Terminé', 'Done'] };
-const PRIORITY: Record<string, [string, string]> = { low: ['Basse', 'Low'], medium: ['Moyenne', 'Medium'], high: ['Haute', 'High'], urgent: ['Urgente', 'Urgent'] };
-const TYPES: [string, string, string][] = [['task', 'Tâche', 'Task'], ['bug', 'Anomalie', 'Bug'], ['feature', 'Évolution', 'Feature'], ['support', 'Support', 'Support'], ['client_request', 'Demande client', 'Client request'], ['internal', 'Interne', 'Internal']];
-const label = (pair: [string, string] | undefined, fallback: string, say: (fr: string, en: string) => string) => (pair ? say(pair[0], pair[1]) : fallback);
-const typeLabel = (type: string, say: (fr: string, en: string) => string) => {
+const ticketOf = (tab?: string | null) => (tab?.startsWith('ticket:') ? tab.slice(7) : null);
+export const STATUS: Record<string, [string, string]> = { backlog: ['Backlog', 'Backlog'], todo: ['À faire', 'To do'], in_progress: ['En cours', 'In progress'], review: ['En revue', 'In review'], blocked: ['Bloqué', 'Blocked'], done: ['Terminé', 'Done'] };
+export const PRIORITY: Record<string, [string, string]> = { low: ['Basse', 'Low'], medium: ['Moyenne', 'Medium'], high: ['Haute', 'High'], urgent: ['Urgente', 'Urgent'] };
+export const TYPES: [string, string, string][] = [['task', 'Tâche', 'Task'], ['bug', 'Anomalie', 'Bug'], ['feature', 'Évolution', 'Feature'], ['support', 'Support', 'Support'], ['client_request', 'Demande client', 'Client request'], ['internal', 'Interne', 'Internal']];
+export const label = (pair: [string, string] | undefined, fallback: string, say: (fr: string, en: string) => string) => (pair ? say(pair[0], pair[1]) : fallback);
+export const typeLabel = (type: string, say: (fr: string, en: string) => string) => {
   const found = TYPES.find(([key]) => key === type);
   return found ? say(found[1], found[2]) : type;
 };
@@ -36,11 +37,18 @@ export async function reload() {
 
 export function TasksRoom({ entityId, initialTab }: { entityId: Id; initialTab?: string | null }) {
   const { state, t, ui, setUi, toast } = useStore();
-  const router = useRouter();
   const say = useSay();
   // "board:<mission>" opens that mission's board (the mission card's button, vanguard/one/Missions.tsx)
   const boardFor = initialTab?.startsWith('board:') ? initialTab.slice(6) : null;
   const [tab, setTab] = useState<Tab>((boardFor ? 'board' : ['open', 'mine', 'overdue', 'done', 'all', 'board'].includes(initialTab ?? '') ? initialTab : 'open') as Tab);
+  // "ticket:<id>" opens that ticket (BUMEX One's /tickets/<id> links, lib/erp/vanguard/retired.ts)
+  const [ticketId, setTicketId] = useState<string | null>(ticketOf(initialTab));
+  const [seenTab, setSeenTab] = useState(initialTab);
+  if (initialTab !== seenTab) {
+    setSeenTab(initialTab);
+    if (ticketOf(initialTab)) setTicketId(ticketOf(initialTab));
+    else if (boardFor) { setTab('board'); setTicketId(null); }
+  }
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const stats = useMemo(() => taskStats(state, entityId), [state, entityId]);
@@ -93,16 +101,17 @@ export function TasksRoom({ entityId, initialTab }: { entityId: Id; initialTab?:
         <div className="hright"><button className="btn sm primary" onClick={() => setCreating(true)}>{t('tsk_new')}</button></div>
       </div>
       <div className="sheet-body">
-        <div className="grid4">
+        {!ticketId && <div className="grid4">
           <div className="kpi"><div className="l">{t('bar_tasks')} {t('bar_active')}</div><div className="v">{stats.active}</div></div>
           <div className="kpi"><div className="l">{t('bar_progress')}</div><div className="v">{Math.round(stats.progress * 100)} %</div><div className="bar" style={{ marginTop: 6 }}><i style={{ width: `${stats.progress * 100}%` }} /></div></div>
           <div className="kpi"><div className="l">{t('bar_deadlines')} · {t('bar_upcoming')}</div><div className="v">{stats.dueSoon}</div></div>
           <div className="kpi"><div className="l">{t('bar_overdue')}</div><div className="v" style={{ color: stats.overdue ? 'var(--crit)' : undefined }}>{stats.overdue}</div></div>
-        </div>
-        {creating && <NewTask entityId={entityId} onDone={() => setCreating(false)} />}
-        <div className="cols">
+        </div>}
+        {ticketId && <TicketPanel id={ticketId} onClose={() => setTicketId(null)} />}
+        {creating && !ticketId && <NewTask entityId={entityId} onDone={() => setCreating(false)} />}
+        {!ticketId && <div className="cols">
           <div className="grow">
-            {tab === 'board' ? <MissionBoard entityId={entityId} engagementId={boardFor} /> : (
+            {tab === 'board' ? <MissionBoard key={boardFor ?? ''} entityId={entityId} engagementId={boardFor} /> : (
             <div className="card flush">
               <table>
                 <thead><tr><th></th><th>{t('label')}</th><th>{t('tsk_engagement')}</th><th>{t('tsk_assignee')}</th><th>{t('tsk_mine')}</th><th>{t('tsk_priority')}</th><th>{t('status')}</th><th></th></tr></thead>
@@ -150,13 +159,13 @@ export function TasksRoom({ entityId, initialTab }: { entityId: Id; initialTab?:
                 </div>
                 {selected.notes && <div className="banner info" style={{ marginTop: 10, whiteSpace: 'pre-wrap' }}>{selected.notes}</div>}
                 <div className="actions" style={{ marginTop: 12 }}>
-                  <button className="btn sm" onClick={() => router.push(`/tickets/${selected.id}`)}>{say('Ouvrir le ticket', 'Open the ticket')}</button>
+                  <button className="btn sm" onClick={() => setTicketId(selected.id)}>{say('Ouvrir le ticket', 'Open the ticket')}</button>
                   {actions(selected)}
                 </div>
               </div>
             </div>
           )}
-        </div>
+        </div>}
       </div>
     </>
   );

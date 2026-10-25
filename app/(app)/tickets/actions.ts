@@ -49,6 +49,7 @@ import type {
 
 export type TicketActionState = {
   error?: string;
+  success?: boolean;
   /** Set when the form asked to stay open for the next ticket instead of leaving. */
   created?: { id: string; title: string };
 };
@@ -230,6 +231,19 @@ export async function updateTicketAction(
   _prevState: TicketActionState,
   formData: FormData,
 ): Promise<TicketActionState> {
+  const result = await saveTicketEdit(formData);
+  if (result.error) {
+    return result;
+  }
+  redirect(`/tickets/${getString(formData, "ticket_id")}?toast=ticket-updated`);
+}
+
+/** The edit form's save, staying where it was sent from (BUMEX Vanguard's ticket, vanguard/one/Ticket.tsx). */
+export async function editTicketAction(formData: FormData): Promise<TicketActionState> {
+  return saveTicketEdit(formData);
+}
+
+async function saveTicketEdit(formData: FormData): Promise<TicketActionState> {
   const auth = await requireRouteAccess("tickets");
   const ticketId = getString(formData, "ticket_id");
 
@@ -273,7 +287,25 @@ export async function updateTicketAction(
   revalidatePath("/overview");
   revalidatePath(`/tickets/${ticketId}`);
   revalidatePath(`/projects/${currentTicket.project_id}`);
-  redirect(`/tickets/${ticketId}?toast=ticket-updated`);
+  return { success: true };
+}
+
+/** Deleting a ticket from BUMEX Vanguard: the same rules as deleteTicketAction, an answer instead of a redirect. */
+export async function removeTicketAction(ticketId: string): Promise<TicketActionState> {
+  const auth = await requireRouteAccess("tickets");
+  const locale = await getCurrentLocale();
+  const refused = { error: locale === "fr" ? "Vous ne pouvez pas supprimer ce ticket." : "You cannot delete this ticket." };
+  if (auth.role !== "admin" && !isManagerLikeRole(auth.role)) {
+    return refused;
+  }
+  const ticket = await getTicketById(String(ticketId), auth.role);
+  if (!ticket || (isManagerLikeRole(auth.role) && !(await canManageProjectScope(ticket.project_id, auth.profile.id)))) {
+    return refused;
+  }
+  await deleteTicket(ticket.id);
+  revalidatePath("/tickets");
+  revalidatePath(`/projects/${ticket.project_id}`);
+  return { success: true };
 }
 
 export async function deleteTicketAction(formData: FormData) {

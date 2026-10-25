@@ -104,30 +104,11 @@ export async function createClientAction(
   _prevState: ClientActionState,
   formData: FormData,
 ): Promise<ClientActionState> {
-  const auth = await requireRouteAccess("clients");
-
-  if (auth.role === "shareholder" || auth.role === "supervisor") {
-    return { error: "You do not have permission to create clients.", values: parseClientFormData(formData) };
+  formData.delete("client_id");
+  const result = await saveClient(formData);
+  if (result.error) {
+    return result;
   }
-
-  const values = normalizeClientOwnership(parseClientFormData(formData), auth.profile.id, auth.role);
-  const validationError = validate(values);
-
-  if (validationError) {
-    return { error: validationError, values };
-  }
-
-  if (!canManageClient(values.account_manager_id, auth.profile.id, auth.role)) {
-    return { error: "Managers and employees can only create clients assigned to themselves.", values };
-  }
-
-  try {
-    await createClientRecord(values, auth.profile.id);
-  } catch (error) {
-    return { error: getClientMutationErrorMessage(error), values };
-  }
-
-  revalidatePath("/clients");
   redirect("/clients?toast=client-created");
 }
 
@@ -135,15 +116,30 @@ export async function updateClientAction(
   _prevState: ClientActionState,
   formData: FormData,
 ): Promise<ClientActionState> {
-  const auth = await requireRouteAccess("clients");
   const clientId = getString(formData, "client_id");
 
   if (!clientId) {
     return { error: "Missing client identifier.", values: parseClientFormData(formData) };
   }
 
+  const result = await saveClient(formData);
+  if (result.error) {
+    return result;
+  }
+  redirect(`/clients/${clientId}?toast=client-updated`);
+}
+
+/** Creates (no client_id) or updates a client, answering instead of redirecting (BUMEX Vanguard's Clients room). */
+export async function saveClientAction(formData: FormData): Promise<ClientActionState & { success?: boolean }> {
+  return saveClient(formData);
+}
+
+async function saveClient(formData: FormData): Promise<ClientActionState & { success?: boolean }> {
+  const auth = await requireRouteAccess("clients");
+  const clientId = getString(formData, "client_id");
+
   if (auth.role === "shareholder" || auth.role === "supervisor") {
-    return { error: "You do not have permission to edit clients.", values: parseClientFormData(formData) };
+    return { error: clientId ? "You do not have permission to edit clients." : "You do not have permission to create clients.", values: parseClientFormData(formData) };
   }
 
   const values = normalizeClientOwnership(parseClientFormData(formData), auth.profile.id, auth.role);
@@ -154,18 +150,45 @@ export async function updateClientAction(
   }
 
   if (!canManageClient(values.account_manager_id, auth.profile.id, auth.role)) {
-    return { error: "Managers and employees can only update clients assigned to themselves.", values };
+    return { error: clientId ? "Managers and employees can only update clients assigned to themselves." : "Managers and employees can only create clients assigned to themselves.", values };
   }
 
   try {
-    await updateClient(clientId, values, auth.profile.id);
+    if (clientId) {
+      await updateClient(clientId, values, auth.profile.id);
+    } else {
+      await createClientRecord(values, auth.profile.id);
+    }
   } catch (error) {
     return { error: getClientMutationErrorMessage(error), values };
   }
 
   revalidatePath("/clients");
-  revalidatePath(`/clients/${clientId}`);
-  redirect(`/clients/${clientId}?toast=client-updated`);
+  if (clientId) {
+    revalidatePath(`/clients/${clientId}`);
+  }
+  return { success: true };
+}
+
+/** Archiving a client from BUMEX Vanguard: the same rules as archiveClientAction, an answer instead of a redirect. */
+export async function shelveClientAction(clientId: string): Promise<{ error?: string; success?: boolean }> {
+  const auth = await requireRouteAccess("clients");
+  const refused = { error: "You do not have permission to archive this client." };
+
+  if (!clientId || auth.role === "shareholder" || auth.role === "supervisor") {
+    return refused;
+  }
+
+  const client = await getClientById(String(clientId), auth.role);
+
+  if (!client || !canManageClient(client.account_manager_id ?? "", auth.profile.id, auth.role)) {
+    return refused;
+  }
+
+  await archiveClient(client.id, auth.profile.id);
+  revalidatePath("/clients");
+  revalidatePath(`/clients/${client.id}`);
+  return { success: true };
 }
 
 export async function archiveClientAction(formData: FormData) {

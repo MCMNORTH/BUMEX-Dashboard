@@ -17,7 +17,7 @@ export async function assignEntityAction(formData: FormData) {
   const auth = await requireAuthenticatedUser();
 
   if (auth.profile.entity_code) {
-    redirect("/overview");
+    redirect("/");
   }
 
   const entityCode = getString(formData, "entity_code");
@@ -50,5 +50,5 @@ export async function assignEntityAction(formData: FormData) {
   }
 
   revalidatePath("/", "layout");
-  redirect("/overview");
+  redirect("/");
 }

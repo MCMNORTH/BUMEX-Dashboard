@@ -3,7 +3,6 @@ import { useStore } from '../store';
 import type { Room } from '../i18n';
 import { Icon } from './common';
 import emblemImage from '../assets/emblem.png'; // [bumex-one] Next imports images as objects
-import { useVanguardFrame } from '@/components/vanguard/frame'; // [bumex-one]
 import { useBumexOneSearch } from '../one/search'; // [bumex-one] one search for everything
 const emblem = emblemImage.src;
 
@@ -20,9 +19,7 @@ export function Header() {
         e.preventDefault();
         inputRef.current?.focus();
       }
-      // [bumex-one] Escape and F belong to the BUMEX One page open in the frame (its dialogs, its fields)
-      const inPage = useVanguardFrame.getState().pageOpen;
-      if (e.key === 'Escape' && (!inPage || document.activeElement === inputRef.current)) {
+      if (e.key === 'Escape') {
         if (document.activeElement === inputRef.current) {
           setQ('');
           inputRef.current?.blur();
@@ -35,7 +32,7 @@ export function Header() {
         else if (s.ui.focusRoom) s.focusRoom(null);
         else if (s.ui.view === 'floor') s.goTower();
       }
-      if (e.key.toLowerCase() === 'f' && !inPage && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLSelectElement) && !e.ctrlKey && !e.metaKey) {
+      if (e.key.toLowerCase() === 'f' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLSelectElement) && !e.ctrlKey && !e.metaKey) {
         const s = useStore.getState();
         if (s.ui.view === 'flat' && s.ui.webgl) s.setUi({ view: 'tower', room: null, focusRoom: null, rackFocus: false });
         else if (s.ui.view !== 'flat') s.setUi({ view: 'flat' });

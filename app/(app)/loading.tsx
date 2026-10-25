@@ -1,5 +1,4 @@
-import { AppLoadingShell } from "@/components/layout/app-loading-shell";
-
+// While the server answers: Vanguard's night, until its own loading screen takes over (vanguard-loading.tsx).
 export default function Loading() {
-  return <AppLoadingShell />;
+  return <div aria-busy="true" style={{ position: "fixed", inset: 0, background: "#131d33" }} />;
 }

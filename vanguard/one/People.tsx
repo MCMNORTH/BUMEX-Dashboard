@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { canUseModule, fmt, r2, type Id } from '@bumex/domain';
 import { peopleAction, type PersonRow } from '@/lib/erp/vanguard/people-actions';
 import { useStore } from '../store';
 import { Chip, D } from '../ui/common';
+import { PersonPanel } from './Person';
 import { useSay } from './say';
 
 // The HR room's "Personnes" tab, open to everyone: BUMEX One's team (its Team page moved here), each person with their
@@ -23,10 +23,10 @@ const WORKLOAD: Record<string, [string, string, 'good' | 'warn' | 'crit' | 'dim'
   critical: ['Critique', 'Critical', 'crit'],
 };
 
-export function People({ entityId, onOpen }: { entityId: Id; onOpen: (employeeId: Id) => void }) {
+export function People({ entityId, onOpen, personId }: { entityId: Id; onOpen: (employeeId: Id) => void; personId?: string | null }) {
   const { state, t } = useStore();
   const say = useSay();
-  const router = useRouter();
+  const [person, setPerson] = useState<string | null>(personId ?? null);
   const [rows, setRows] = useState<PersonRow[] | null>(null);
   const [q, setQ] = useState('');
   const [floor, setFloor] = useState('all');
@@ -45,6 +45,7 @@ export function People({ entityId, onOpen }: { entityId: Id; onOpen: (employeeId
   }, [state.employees, state.users]);
   const shown = (rows ?? []).filter((p) => (floor === 'all' || p.floor === floor) && (!q.trim() || `${p.name} ${p.email} ${p.jobTitle ?? ''} ${p.department ?? ''}`.toLowerCase().includes(q.trim().toLowerCase())));
 
+  if (person) return <PersonPanel key={person} personId={person} onClose={() => setPerson(null)} />;
   return (
     <div className="card flush">
       <div style={{ display: 'flex', gap: 8, padding: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -72,7 +73,7 @@ export function People({ entityId, onOpen }: { entityId: Id; onOpen: (employeeId
             const availability = AVAILABILITY[p.availability] ?? AVAILABILITY.available;
             const workload = WORKLOAD[p.workload] ?? WORKLOAD.balanced;
             return (
-              <tr key={p.id} onClick={() => router.push(`/team/${p.id}`)} style={{ cursor: 'pointer' }}>
+              <tr key={p.id} onClick={() => setPerson(p.id)} style={{ cursor: 'pointer' }}>
                 <td><b>{p.name}</b><div className="small muted">{p.email}</div></td>
                 <td className="mono">{p.floor ?? '—'}</td>
                 <td>{record?.jobTitle || p.jobTitle || '—'}<div className="small muted">{record?.department || p.department || ''}</div></td>

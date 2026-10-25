@@ -161,7 +161,7 @@ async function reload() {
   return Boolean(result?.state);
 }
 
-export const MODULE_ONLY: Room[] = ['tasks', 'archives', 'reports', 'settings', 'penthouse', 'myday']; // [bumex-one] myday
+export const MODULE_ONLY: Room[] = ['tasks', 'archives', 'reports', 'settings', 'penthouse', 'myday', 'time', 'inbox']; // [bumex-one] myday, time, inbox
 
 export const useStore = create<Store>((set, get) => ({
   state: EMPTY,

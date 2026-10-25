@@ -19,8 +19,10 @@ export function HrPanel({ entityId, initialTab }: { entityId: Id; initialTab?: s
   // module's tabs stay with the people who have it
   const say = useSay();
   const hrModule = canUseModule(state, 'hr');
-  const [tab, setTab] = useState<Tab>(hrModule ? (initialTab as Tab) || 'employees' : 'people');
-  useEffect(() => { if (initialTab && (hrModule || initialTab === 'people')) setTab(initialTab as Tab); }, [initialTab, hrModule]);
+  // "person:<id>" opens that person's page on the People tab (BUMEX One's /team/<id> links)
+  const personId = initialTab?.startsWith('person:') ? initialTab.slice(7) : null;
+  const [tab, setTab] = useState<Tab>(personId || !hrModule ? 'people' : (initialTab as Tab) || 'employees');
+  useEffect(() => { if (initialTab && (hrModule || initialTab === 'people' || initialTab.startsWith('person:'))) setTab(initialTab.startsWith('person:') ? 'people' : initialTab as Tab); }, [initialTab, hrModule]);
   const [employeeId, setEmployeeId] = useState<Id | null>(null);
   const hc = headcount(state, entityId);
   const lastMonth = useMemo(() => { const d = new Date(state.today + 'T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7); }, [state.today]);
@@ -40,7 +42,7 @@ export function HrPanel({ entityId, initialTab }: { entityId: Id; initialTab?: s
     <>
       <div className="sheet-head"><h1>{t('room_hr')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
       <div className="sheet-body">
-        {tab === 'people' && <People entityId={entityId} onOpen={open} />}
+        {tab === 'people' && <People key={personId ?? ''} entityId={entityId} onOpen={open} personId={personId} />}
         {tab === 'employees' && <Employees entityId={entityId} onOpen={open} />}
         {tab === 'sheet' && <Sheet entityId={entityId} employeeId={employeeId} onSaved={(id) => setEmployeeId(id)} />}
         {tab === 'headcount' && <HeadcountView entityId={entityId} />}

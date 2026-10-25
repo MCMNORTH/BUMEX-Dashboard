@@ -1,14 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react'; // [bumex-one] useEffect
 import { archiveRows, archiveQueue, rackLayout, archiveEngagement, retrieveArchive, returnArchive, destroyArchive, fmtDate, fmt, RACK_CAPACITY, type Id, type ArchiveStatus, type ArchiveKind } from '@bumex/domain';
 import { useStore } from '../../store';
-import { Chip, Icon } from '../common';
+import { Chip, Icon, Tabs } from '../common'; // [bumex-one] Tabs
+import { DocumentsTab } from '../../one/Documents'; // [bumex-one] BUMEX One's documents
+import { useSay } from '../../one/say'; // [bumex-one]
 
 // The archive module: the list behind the rack. Selecting a row selects the box in 3D (and the camera goes to the
 // rack); selecting a box in 3D selects the row here. Actions change the records, so the rack changes too.
 
 const STATUS_KIND: Record<ArchiveStatus, 'good' | 'warn' | 'crit' | 'dim'> = { archived: 'good', retrieved: 'warn', pending_destruction: 'crit', destroyed: 'dim' };
 
-export function ArchivesPanel({ entityId, compact = false }: { entityId: Id; compact?: boolean }) {
+export function ArchivesPanel({ entityId, compact = false, initialTab }: { entityId: Id; compact?: boolean; initialTab?: string | null }) { // [bumex-one] initialTab
   const { state, t, apply, ui, setUi, openRoom, openArchive } = useStore();
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<ArchiveStatus | 'all' | ''>('');
@@ -24,10 +26,17 @@ export function ArchivesPanel({ entityId, compact = false }: { entityId: Id; com
   const place = (r: { bay: number; shelf: number; slot: number }) => `${r.bay}·${r.shelf}·${r.slot}`;
   const isPartner = state.session.role === 'partner' || state.session.role === 'admin';
   const openEngagement = (id: Id) => { setUi({ focusEngagementId: id }); if (ui.view === 'floor') useStore.getState().focusRoom('missions'); openRoom('missions'); };
+  // [bumex-one] two parts: the boxes, as delivered, and BUMEX One's documents (vanguard/one/Documents.tsx)
+  const say = useSay();
+  const [part, setPart] = useState<'boxes' | 'documents'>(initialTab === 'documents' ? 'documents' : 'boxes');
+  useEffect(() => { if (initialTab === 'documents') setPart('documents'); }, [initialTab]);
+  const parts = compact ? null : <Tabs tabs={[{ id: 'boxes' as const, label: say('Boîtes', 'Boxes') }, { id: 'documents' as const, label: 'Documents' }]} value={part} onChange={setPart} />;
+  if (part === 'documents' && !compact) return (<><div className="sheet-head"><h1>{t('arc_title')}</h1>{parts}</div><div className="sheet-body"><DocumentsTab /></div></>);
   return (
     <>
       <div className="sheet-head">
         <h1>{t('arc_title')}</h1>
+        {parts}
         <span className="muted small">{layout.used} / {RACK_CAPACITY} {t('arc_used')}</span>
         {ui.view === 'floor' && !compact && (
           <div className="hright">

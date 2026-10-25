@@ -26,7 +26,7 @@ compared. Changes we need go into new migrations / files of ours.
   **ERP role** — admin, partner, raf, manager, accountant, staff, intern — plus their entities (null = all) and
   modules (null = the role's modules, `lib/erp/config.ts`). Everyone gets one on their first visit, from their BUMEX One
   role (`lib/erp/roles.ts`); their BUMEX One role (`profiles.role`) then follows it. Someone whose access an
-  administrator removed is not given one again and keeps BUMEX One's own shell.
+  administrator removed is not given one again and sees a "no access" page (BUMEX One's own screens are retired).
 - Access is managed in Vanguard's Settings › accounts, or BUMEX One's Settings → Users (column "Rôle Vanguard"), by the
   BUMEX One super admin or an ERP admin.
 - The tables' row-level security is by entity; what each person's browser receives is then narrowed to their modules

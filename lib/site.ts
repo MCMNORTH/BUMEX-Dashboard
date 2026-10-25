@@ -10,4 +10,3 @@ export const siteConfig = {
   },
 } as const;
 
-export const sidebarCollapsedCookieName = "bumex-sidebar-collapsed";

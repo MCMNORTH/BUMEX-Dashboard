@@ -29,7 +29,7 @@ const dict: Record<string, [string, string]> = {
   posted: ['Comptabilisée', 'Posted'], draft: ['Brouillon', 'Draft'], reversed: ['Extournée', 'Reversed'], paid: ['Payée', 'Paid'],
   hash_ok: ['Hash OK', 'Hash OK'], hash_bad: ['Chaîne rompue', 'Chain broken'],
   // sidebar
-  nav_myday: ['Ma journée', 'My day'], /* [bumex-one] */ nav_overview: ["Vue d'ensemble", 'Overview'], nav_floors: ['Immeuble · étages', 'Building · floors'], nav_tasks: ['Tâches', 'Tasks'], nav_archives: ['Archives', 'Archives'], nav_reports: ['Rapports', 'Reports'], nav_settings: ['Paramètres', 'Settings'],
+  nav_myday: ['Ma journée', 'My day'], nav_time: ['Temps', 'Time'], nav_inbox: ['Notifications', 'Notifications'], /* [bumex-one] */ nav_overview: ["Vue d'ensemble", 'Overview'], nav_floors: ['Immeuble · étages', 'Building · floors'], nav_tasks: ['Tâches', 'Tasks'], nav_archives: ['Archives', 'Archives'], nav_reports: ['Rapports', 'Reports'], nav_settings: ['Paramètres', 'Settings'],
   nav_modules: ['Modules', 'Modules'], nav_work: ['Pilotage', 'Operations'], collapse: ['Réduire', 'Collapse'], expand: ['Développer', 'Expand'],
   // command bar
   bar_tasks: ['Tâches', 'Tasks'], bar_active: ['actives', 'active'], bar_progress: ['Avancement', 'Progress'], bar_done_of: ['terminées', 'done'], bar_engagements: ['Missions', 'Engagements'], bar_ongoing: ['en cours', 'ongoing'],
@@ -70,5 +70,5 @@ export function makeT(lang: Lang) {
 
 export const ROOM_KEYS = ['bank', 'accounting', 'clients', 'suppliers', 'missions', 'assets', 'hr', 'tax'] as const;
 // Rooms are the 3D spaces; the last four are modules without a room of their own (opened from the sidebar or the bar).
-export type Room = (typeof ROOM_KEYS)[number] | 'penthouse' | 'tasks' | 'archives' | 'reports' | 'settings' | 'myday'; // [bumex-one] myday: vanguard/one/MyDay.tsx
+export type Room = (typeof ROOM_KEYS)[number] | 'penthouse' | 'tasks' | 'archives' | 'reports' | 'settings' | 'myday' | 'time' | 'inbox'; // [bumex-one] myday: vanguard/one/MyDay.tsx, time: vanguard/one/Time.tsx, inbox: vanguard/one/Inbox.tsx
 export const MODULE_ROOMS = ['tasks', 'archives', 'reports', 'settings'] as const;

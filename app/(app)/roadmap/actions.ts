@@ -170,3 +170,51 @@ export async function completeMilestoneAction(formData: FormData) {
   revalidatePath(`/projects/${relatedProjectId}`);
   redirect(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}toast=milestone-completed`);
 }
+
+// ---- BUMEX Vanguard (vanguard/one/Milestones.tsx): the same rules, an answer instead of a redirect ----
+
+/** Creates (no milestone_id) or updates (milestone_id) a milestone. */
+export async function saveMilestoneAction(formData: FormData): Promise<MilestoneActionState & { success?: boolean }> {
+  const auth = await requireRouteAccess("roadmap");
+  const milestoneId = getString(formData, "milestone_id");
+
+  if (auth.role !== "admin" && !isManagerLikeRole(auth.role)) {
+    return { error: "You do not have permission to manage milestones." };
+  }
+
+  const values = parseMilestoneFormData(formData);
+  const validationError = validate(values);
+
+  if (validationError) {
+    return { error: validationError };
+  }
+
+  if (!(await canManageRoadmapProject(values.project_id, auth.profile.id, auth.role))) {
+    return { error: "Only entity-level leads can manage milestones for projects they own." };
+  }
+
+  const projectId = milestoneId
+    ? await updateMilestone(milestoneId, values, auth.profile.id)
+    : (await createMilestone(values, auth.profile.id)).project_id;
+  revalidatePath("/roadmap");
+  revalidatePath(`/projects/${projectId}`);
+  return { success: true };
+}
+
+/** Completes ("complete") or deletes ("delete") a milestone of a project the person manages. */
+export async function changeMilestoneAction(milestoneId: string, projectId: string, change: "complete" | "delete"): Promise<MilestoneActionState & { success?: boolean }> {
+  const auth = await requireRouteAccess("roadmap");
+
+  if (!milestoneId || !projectId || !(await canManageRoadmapProject(String(projectId), auth.profile.id, auth.role))) {
+    return { error: "Only entity-level leads can manage milestones for projects they own." };
+  }
+
+  const relatedProjectId = change === "complete"
+    ? await completeMilestone(String(milestoneId), auth.profile.id)
+    : await deleteMilestone(String(milestoneId));
+  revalidatePath("/roadmap");
+  if (relatedProjectId) {
+    revalidatePath(`/projects/${relatedProjectId}`);
+  }
+  return { success: true };
+}

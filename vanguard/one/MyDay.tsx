@@ -5,11 +5,13 @@ import { reloadVanguardAction } from '@/lib/erp/vanguard/actions';
 import { myDayAction, type MyDayData } from '@/lib/erp/vanguard/myday-actions';
 import type { VanguardData } from '@/lib/erp/vanguard/run';
 import { useStore } from '../store';
-import { Chip, D } from '../ui/common';
+import { Chip, D, Tabs } from '../ui/common';
+import { MyWork } from './MyWork';
 import { useSay } from './say';
 
 // "My day": the home's panel (the building stays the home), with what BUMEX One's overview showed: my tickets, what
-// waits for my sign-off, the missions at risk, the coming deadlines and the team's workload.
+// waits for my sign-off, the missions at risk, the coming deadlines and the team's workload; and, on its "Mon travail"
+// tab, BUMEX One's My Work page (vanguard/one/MyWork.tsx).
 
 const PRIORITY: Record<string, [string, string]> = { low: ['Basse', 'Low'], medium: ['Moyenne', 'Medium'], high: ['Haute', 'High'], urgent: ['Urgente', 'Urgent'] };
 const HEALTH: Record<string, [string, string, 'crit' | 'warn' | 'good']> = { delayed: ['En retard', 'Delayed', 'crit'], at_risk: ['À risque', 'At risk', 'crit'], warning: ['À surveiller', 'Watch', 'warn'], healthy: ['Sain', 'Healthy', 'good'] };
@@ -29,8 +31,9 @@ export function MyDayButton() {
   );
 }
 
-export function MyDay() {
-  const { state, toast, setUi, openRoom } = useStore();
+export function MyDay({ initialTab }: { initialTab?: string | null }) {
+  const { state, toast, openRoom } = useStore();
+  const [tab, setTab] = useState<'today' | 'work'>(initialTab === 'work' ? 'work' : 'today');
   const say = useSay();
   const router = useRouter();
   const loadedAt = useStore((s) => s.loadedAt);
@@ -45,14 +48,8 @@ export function MyDay() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadedAt]);
 
-  const openTask = (id: string) => {
-    const task = state.tasks.find((t) => t.id === id);
-    if (task) { setUi({ entityId: task.entityId, focusTaskId: id }); openRoom('tasks'); } else router.push(`/tickets/${id}`);
-  };
-  const openMission = (projectId: string) => {
-    const mission = state.engagements.find((e) => (e as { projectId?: string }).projectId === projectId);
-    if (mission) { setUi({ entityId: mission.entityId, focusEngagementId: mission.id }); openRoom('missions'); } else router.push(`/projects/${projectId}`);
-  };
+  const openTask = (id: string) => openRoom('tasks', `ticket:${id}`);
+  const openMission = (projectId: string) => openRoom('missions', `mission:${projectId}`);
   const signOff = async (id: string, stageId: string, title: string) => {
     setBusy(id);
     try {
@@ -68,9 +65,9 @@ export function MyDay() {
 
   return (
     <>
-      <div className="sheet-head"><h1>{say('Ma journée', 'My day')}</h1><span className="small muted">{state.session.actorName}</span></div>
+      <div className="sheet-head"><h1>{say('Ma journée', 'My day')}</h1><Tabs tabs={[{ id: 'today' as const, label: say("Aujourd'hui", 'Today') }, { id: 'work' as const, label: say('Mon travail', 'My work') }]} value={tab} onChange={setTab} /><span className="small muted">{state.session.actorName}</span></div>
       <div className="sheet-body">
-        {!data ? <span className="muted">{say('Chargement…', 'Loading…')}</span> : (
+        {tab === 'work' ? <MyWork /> : !data ? <span className="muted">{say('Chargement…', 'Loading…')}</span> : (
           <>
             <div className="grid4">
               <div className="kpi"><div className="l">{say('Mes tâches ouvertes', 'My open tasks')}</div><div className="v">{data.myTickets.total}</div></div>
