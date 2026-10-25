@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import { resolveErpModules } from "@/lib/erp/config";
 import { isErpDatabaseConfigured, withErpSession, withErpSystemSession, type ErpTransaction } from "@/lib/erp/db";
+import { syncBumexOneRoles } from "@/lib/erp/roles";
 import type { Profile } from "@/types/auth";
 import type { ErpAccess, ErpAccessGrant, ErpModuleKey, ErpRole } from "@/types/erp";
 import type { BumexEntityCode } from "@/types/entity";
@@ -80,6 +81,7 @@ function asManager<T>(actor: Pick<Profile, "id" | "is_super_admin">, work: (tx: 
   return actor.is_super_admin ? withErpSystemSession(actor.id, work) : withErpSession(actor.id, work);
 }
 
+// Saving a person's Vanguard role also sets the BUMEX One role that follows it (lib/erp/roles.ts).
 export async function saveErpAccess(actor: Pick<Profile, "id" | "is_super_admin">, userId: string, input: ErpAccessInput) {
   await asManager(actor, (tx) =>
     tx.query(
@@ -90,6 +92,7 @@ export async function saveErpAccess(actor: Pick<Profile, "id" | "is_super_admin"
       [userId, input.role, input.entityCodes, input.modules],
     ),
   );
+  await syncBumexOneRoles([userId]);
 }
 
 export async function removeErpAccess(actor: Pick<Profile, "id" | "is_super_admin">, userId: string) {

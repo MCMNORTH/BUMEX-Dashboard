@@ -1,0 +1,515 @@
+// BUMEX Vanguard on the real schema (every migration, on PGlite), the way production runs it: each change is made
+// by the engine in the "browser" (record), then replayed and written by the "server" in the person's ERP session
+// (erp_app, row-level security, the guards), and the state read again.
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+
+import { PGlite } from "@electric-sql/pglite";
+import { beforeAll, describe, expect, it } from "vitest";
+
+import { resolveErpModules } from "@/lib/erp/config";
+import type { ErpTransaction } from "@/lib/erp/db";
+import { DomainError, type DraftInput, type State } from "@/lib/erp/engine";
+import { vanguardCommands } from "@/lib/erp/vanguard/commands";
+import * as domain from "@/lib/erp/vanguard/domain";
+import { vanguardErrorMessage } from "@/lib/erp/vanguard/errors";
+import { loadVanguardState, type VanguardPerson } from "@/lib/erp/vanguard/load";
+import { mirrorClients } from "@/lib/erp/vanguard/clients";
+import { initialsOf, mirrorMissions, type MissionSource } from "@/lib/erp/vanguard/missions";
+import type { VanguardTicket } from "@/lib/erp/vanguard/tickets";
+import { record, type VanguardChange } from "@/lib/erp/vanguard/record";
+import { ReplayError } from "@/lib/erp/vanguard/replay";
+import { applyVanguardChange } from "@/lib/erp/vanguard/save";
+import type { ErpAccess, ErpModuleKey, ErpRole } from "@/types/erp";
+
+const migrations = join(process.cwd(), "db/erp/migrations");
+let db: PGlite;
+const tx: ErpTransaction = { query: async <T,>(sql: string, params?: unknown[]) => (await db.query(sql, params as never[])).rows as T[] };
+
+const people: VanguardPerson[] = [
+  { id: "awa", name: "Awa Associée", email: "awa@bumex.mr", entityCode: "bumex_audit", active: true, present: true },
+  { id: "aicha", name: "Aïcha Comptable", email: "aicha@bumex.mr", entityCode: "bumex_audit", active: true, present: false },
+  { id: "sidi", name: "Sidi Collaborateur", email: "sidi@bumex.mr", entityCode: "bumex_audit", active: true, present: true },
+  { id: "gone", name: "Ancien", email: "old@bumex.mr", entityCode: "bumex_audit", active: false, present: false },
+  { id: "adm", name: "Admin ERP", email: "adm@bumex.mr", entityCode: "bumex_holding", active: true, present: true },
+  { id: "nouveau", name: "Nouvelle Recrue", email: "nouveau@bumex.mr", entityCode: "bumex_sa", active: true, present: true },
+];
+// role, entities (null = all), modules (null = the role's)
+const grants: Record<string, [ErpRole, string[] | null, ErpModuleKey[] | null]> = {
+  awa: ["partner", null, null],
+  aicha: ["accountant", ["bumex_audit"], null],
+  sidi: ["staff", ["bumex_audit"], ["accounting"]],
+  adm: ["admin", null, null],
+};
+const accessOf = (uid: string): ErpAccess => {
+  const [role, entityCodes, modules] = grants[uid];
+  return { role, entityCodes: entityCodes as ErpAccess["entityCodes"], modules: resolveErpModules(role, modules) };
+};
+const who = (uid: string) => ({ id: uid, name: people.find((p) => p.id === uid)!.name });
+
+async function as<T>(uid: string, work: () => Promise<T>): Promise<T> {
+  await db.exec("begin");
+  try {
+    await db.exec("set local role erp_app");
+    await db.query("select erp.open_session($1)", [uid]);
+    const out = await work();
+    await db.exec("commit");
+    return out;
+  } catch (error) {
+    await db.exec("rollback");
+    throw error;
+  }
+}
+
+// The server's own work (the missions' mirror): every entity, the actor recorded.
+async function asSystem<T>(work: () => Promise<T>): Promise<T> {
+  await db.exec("begin");
+  try {
+    await db.exec("set local role erp_app");
+    await db.query("select erp.open_system_session('bumex-one')");
+    const out = await work();
+    await db.exec("commit");
+    return out;
+  } catch (error) {
+    await db.exec("rollback");
+    throw error;
+  }
+}
+
+const load = (uid: string) => as(uid, () => loadVanguardState(tx, who(uid), accessOf(uid), people));
+const send = (uid: string, change: VanguardChange) => as(uid, () => applyVanguardChange(tx, who(uid), accessOf(uid), people, change));
+
+// What the store does: the engine runs on the person's state (recorded), then the server replays and saves it.
+async function change<R>(uid: string, run: (state: State) => R) {
+  const { state } = await load(uid);
+  const { result, change } = record(state, run);
+  if (!change) throw new Error("nothing recorded");
+  return { browser: result, change, ...(await send(uid, change)) };
+}
+
+let audit: string;
+let it_: string;
+const auditOf = (s: State) => ({
+  accounts: s.accounts.filter((a) => a.entityId === audit),
+  journals: s.journals.filter((j) => j.entityId === audit),
+  entries: s.entries.filter((e) => e.entityId === audit),
+});
+
+// A two-line entry of BUMEX Audit in March 2026 (rent paid from the bank).
+const draft = (s: State, amount = 150000): DraftInput => {
+  const account = (code: string) => s.accounts.find((a) => a.entityId === audit && a.code === code)!.id;
+  return {
+    entityId: audit,
+    journalId: s.journals.find((j) => j.entityId === audit && j.code === "OD")!.id,
+    date: "2026-03-15",
+    description: "Loyer de mars",
+    currency: "MRU",
+    lines: [
+      { accountId: account("620000"), description: "Loyer", debitTxn: amount, creditTxn: 0 },
+      { accountId: account("550100"), description: "Banque", debitTxn: 0, creditTxn: amount },
+    ],
+  };
+};
+
+beforeAll(async () => {
+  db = new PGlite();
+  await db.exec(readdirSync(migrations).filter((f) => f.endsWith(".sql")).sort().map((f) => readFileSync(join(migrations, f), "utf8")).join("\n"));
+  for (const [uid, [role, codes, modules]] of Object.entries(grants)) {
+    await db.query("insert into erp.user_access (user_id, erp_role, entity_codes, modules, granted_by) values ($1, $2, $3, $4, 'test')", [uid, role, codes, modules]);
+  }
+  const rows = (await db.query<{ id: string; code: string }>("select id, code from erp.entity")).rows;
+  audit = rows.find((r) => r.code === "bumex_audit")!.id;
+  it_ = rows.find((r) => r.code === "bumex_it")!.id;
+});
+
+describe("recording in the browser", () => {
+  it("wraps every engine change the screens make, and only those", () => {
+    for (const name of Object.keys(vanguardCommands) as (keyof typeof vanguardCommands)[]) {
+      expect(typeof domain[name]).toBe("function");
+      expect(domain[name]).not.toBe(vanguardCommands[name]);
+    }
+    expect(domain.signInAs).toBeTypeOf("function");
+    expect("signInAs" in vanguardCommands).toBe(false);
+  });
+
+  it("refuses a change that does not go through the engine", async () => {
+    const { state } = await load("awa");
+    expect(() => record(state, (s) => ({ ...s, today: "2000-01-01" }))).toThrow(/ne passe pas par le moteur/);
+    expect(record(state, (s) => s).change).toBeNull();
+  });
+});
+
+describe("the state read from the database", () => {
+  it("lists every floor, with the ERP team's codes and BUMEX One's people", async () => {
+    const { state } = await load("aicha");
+    expect(state.entities.map((e) => e.code)).toEqual(["HOLD", "SA", "AUD", "ADV", "MAU", "AVO", "IT", "MAR"]);
+    const aud = state.entities.find((e) => e.code === "AUD")!;
+    expect([aud.staffTotal, aud.staffPresent]).toEqual([3, 2]); // "gone" is inactive in BUMEX One
+    expect(state.session).toMatchObject({ userId: "aicha", role: "accountant", entityIds: [audit] });
+    expect(state.session.modules).toEqual(expect.arrayContaining(["accounting", "reports", "missions", "tasks"]));
+    expect(state.users.map((u) => u.id)).toEqual(["aicha"]);
+    expect((await load("awa")).state.users.map((u) => u.id)).toEqual(["awa"]); // the list is the access administrator's
+  });
+});
+
+describe("changes made in Vanguard", () => {
+  it("a partner sets up the chart from the template: the database keeps the browser's ids", async () => {
+    const { browser, state } = await change("awa", (s) => domain.applyChartTemplate(s, audit, "PCM", "replace"));
+    const made = auditOf(browser[0]);
+    const saved = auditOf(state);
+    expect(saved.accounts.length).toBeGreaterThan(90);
+    expect(saved.journals.map((j) => j.code).sort()).toEqual(["AC", "BQ", "CA", "CL", "IM", "OD", "VT"]);
+    expect(new Set(saved.journals.map((j) => j.id))).toEqual(new Set(made.journals.map((j) => j.id)));
+    expect(new Set(saved.accounts.map((a) => a.id))).toEqual(new Set(made.accounts.map((a) => a.id)));
+    expect(state.mappings.filter((m) => m.entityId === audit).length).toBeGreaterThan(50);
+    expect(state.taxCodes.filter((t) => t.entityId === audit)).toHaveLength(7);
+    expect(state.taxRules.filter((t) => t.entityId === audit)).toHaveLength(5);
+    expect(state.bankRules.filter((r) => r.entityId === audit)).toHaveLength(4);
+  });
+
+  it("an accountant opens 2026 (twelve periods)", async () => {
+    const { state } = await change("aicha", (s) => domain.createFiscalYear(s, audit, 2026));
+    const fy = state.fiscalYears.find((f) => f.entityId === audit && f.label === "2026")!;
+    expect(state.periods.filter((p) => p.fiscalYearId === fy.id)).toHaveLength(12);
+  });
+
+  it("an accountant saves and posts in one go: the database numbers, chains and seals the entry", async () => {
+    const { browser, state, chainBreaks } = await change("aicha", (s) => {
+      const [s1, e] = domain.createDraft(s, draft(s));
+      return domain.postEntry(s1, e.id);
+    });
+    const id = browser[1].id;
+    const entry = state.entries.find((e) => e.id === id)!;
+    expect(entry).toMatchObject({ status: "posted", entryNo: 1, chainSeq: 1, prevHash: "", postedBy: "aicha" });
+    expect(entry.hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(entry.lines.map((l) => [l.debit, l.credit])).toEqual([[150000, 0], [0, 150000]]);
+    expect(chainBreaks).toEqual([]);
+    expect(domain.verifyChain(state, audit, entry.journalId).every((c) => c.ok)).toBe(true);
+  });
+
+  it("an accountant reverses it: a second entry, the first marked reversed", async () => {
+    const { state } = await load("aicha");
+    const original = auditOf(state).entries.find((e) => e.status === "posted")!;
+    const saved = (await change("aicha", (s) => domain.reverseEntry(s, original.id, "2026-03-20", "erreur de compte"))).state;
+    const reversal = saved.entries.find((e) => e.reversalOfId === original.id)!;
+    expect(reversal).toMatchObject({ status: "posted", entryNo: 2, chainSeq: 2 });
+    expect(saved.entries.find((e) => e.id === original.id)).toMatchObject({ status: "reversed", reversedById: reversal.id });
+  });
+
+  it("drafts are edited and deleted; posted entries are not", async () => {
+    const created = await change("aicha", (s) => domain.createDraft(s, draft(s, 1000)));
+    const id = created.browser[1].id;
+    const edited = await change("aicha", (s) => domain.updateDraft(s, id, { description: "Loyer corrigé", lines: draft(s, 2000).lines }));
+    expect(edited.state.entries.find((e) => e.id === id)).toMatchObject({ status: "draft", description: "Loyer corrigé" });
+    expect(edited.state.entries.find((e) => e.id === id)!.lines[0].debit).toBe(2000);
+    const removed = await change("aicha", (s) => domain.deleteDraft(s, id));
+    expect(removed.state.entries.some((e) => e.id === id)).toBe(false);
+  });
+});
+
+describe("what the server refuses", () => {
+  const forged = (calls: VanguardChange["calls"]): VanguardChange => ({ calls, result: calls.length });
+
+  it("a staff member cannot post, even with a change made by hand", async () => {
+    const { state } = await load("sidi");
+    const id = crypto.randomUUID();
+    const input = draft(state);
+    const attempt = send("sidi", forged([{ name: "createDraft", input: 0, args: [input], ids: [id] }, { name: "postEntry", input: 1, args: [id], ids: [] }]));
+    await expect(attempt).rejects.toBeInstanceOf(DomainError);
+    await expect(attempt).rejects.toThrow(/rôle/);
+  });
+
+  it("only the engine's changes, with new ids", async () => {
+    const { state } = await load("awa");
+    await expect(send("awa", forged([{ name: "signInAs", input: 0, args: ["x"], ids: [] }]))).rejects.toBeInstanceOf(ReplayError);
+    const taken = state.accounts.find((a) => a.entityId === audit)!.id;
+    await expect(send("awa", forged([{ name: "addAccount", input: 0, args: [audit, "6281", "Divers", "expense"], ids: [taken] }]))).rejects.toThrow(/Identifiant refusé/);
+    await expect(send("awa", forged([{ name: "addAccount", input: 0, args: [audit, "6281", "Divers", "expense"], ids: ["acc_00001"] }]))).rejects.toThrow(/Identifiant refusé/);
+  });
+
+  it("a room the person may not open refuses its changes", async () => {
+    const { state } = await load("sidi");
+    expect(state.session.modules).not.toContain("tax");
+    const attempt = send("sidi", forged([{ name: "addTaxCode", input: 0, args: [{ entityId: audit, code: "X", nameFr: "X", kind: "vat", rate: 0.1 }], ids: [crypto.randomUUID()] }]));
+    await expect(attempt).rejects.toThrow(/pas ouvert à votre accès/);
+  });
+
+  it("an entity the person does not see stays closed (row-level security)", async () => {
+    const attempt = send("aicha", forged([{ name: "createFiscalYear", input: 0, args: [it_, 2026], ids: Array.from({ length: 13 }, () => crypto.randomUUID()) }]));
+    const error = await attempt.catch((e: unknown) => e);
+    expect(vanguardErrorMessage(error, "fr")).toBe("Votre rôle ERP ne permet pas cette action.");
+  });
+
+  it("a period locked by a partner refuses a posting checked by the database too", async () => {
+    const { state } = await load("awa");
+    const march = state.periods.find((p) => p.entityId === audit && p.start === "2026-03-01")!;
+    const locked = (await change("awa", (s) => domain.setPeriodStatus(s, march.id, "locked"))).state;
+    expect(locked.periods.find((p) => p.id === march.id)).toMatchObject({ status: "locked", lockedBy: "awa" });
+    // the engine refuses first; the database refuses a change made by hand as well
+    const id = crypto.randomUUID();
+    const attempt = send("aicha", forged([{ name: "createDraft", input: 0, args: [draft(locked)], ids: [id] }, { name: "postEntry", input: 1, args: [id], ids: [] }]));
+    await expect(attempt).rejects.toThrow(/verrouillée/);
+  });
+});
+
+describe("deletions", () => {
+  it("an accountant asks, a partner approves, the account goes", async () => {
+    const added = await change("aicha", (s) => domain.addAccount(s, audit, "6288", "Divers à supprimer", "expense"));
+    const account = added.state.accounts.find((a) => a.entityId === audit && a.code === "628800")!;
+    const asked = await change("aicha", (s) => domain.requestDeletion(s, { table: "account", rowId: account.id, label: "628800", reason: "créé par erreur", entityId: audit }));
+    const request = asked.state.deletionRequests.find((r) => r.rowId === account.id)!;
+    expect(request).toMatchObject({ status: "pending", requestedBy: "aicha", requestedByName: "Aïcha Comptable" });
+    const decided = await change("awa", (s) => domain.decideDeletion(s, request.id, "approved"));
+    expect(decided.state.accounts.some((a) => a.id === account.id)).toBe(false);
+    expect(decided.state.deletionRequests.find((r) => r.id === request.id)).toMatchObject({ status: "approved", decidedBy: "awa" });
+    expect(decided.state.auditLog.some((a) => a.table === "account" && a.action === "D")).toBe(true);
+  });
+});
+
+describe("the modules", () => {
+  const account = (s: State, code: string) => s.accounts.find((a) => a.entityId === audit && a.code === code)!.id;
+  const journal = (s: State, code: string) => s.journals.find((j) => j.entityId === audit && j.code === code)!.id;
+  let customer: string;
+  let bank: string;
+  let employee: string;
+  let engagement: string;
+
+  it("clients: a customer with its auxiliary account, an invoice validated, numbered and posted, then paid", async () => {
+    const created = await change("aicha", (s) => domain.addCustomer(s, { entityId: audit, name: "SNIM", regime: "standard", country: "MR", defaultCurrency: "MRU", paymentTermsDays: 30 }));
+    const c = created.state.customers.find((x) => x.name === "SNIM")!;
+    customer = c.id;
+    expect(c.code).toBe("C001");
+    expect(created.state.accounts.find((a) => a.id === c.arAccountId)).toMatchObject({ code: "C001", isAuxiliary: true, requiresCustomer: true });
+
+    const banked = await change("aicha", (s) => domain.addBankAccount(s, { entityId: audit, name: "BNM compte MRU", bankName: "BNM", currency: "MRU", glAccountId: account(s, "550100"), journalId: journal(s, "BQ") }));
+    bank = banked.state.bankAccounts.find((b) => b.name === "BNM compte MRU")!.id;
+
+    const invoiced = await change("aicha", (s) => {
+      const [s1, inv] = domain.createInvoice(s, { entityId: audit, customerId: customer, date: "2026-05-12", currency: "MRU", lines: [{ description: "Audit légal 2025", quantity: 1, unitPrice: 450000, serviceCategory: "AUDIT" }] });
+      return domain.validateInvoice(s1, inv.id);
+    });
+    const invoice = invoiced.state.salesInvoices.find((i) => i.customerId === customer)!;
+    expect(invoice).toMatchObject({ number: "IN2605-0001", totalHt: 450000 });
+    expect(invoice.lines[0]).toMatchObject({ serviceCategory: "AUDIT", lineHt: 450000 });
+    const posted = invoiced.state.entries.find((e) => e.id === invoice.journalEntryId)!;
+    expect(posted).toMatchObject({ status: "posted", sourceType: "sales_invoice" });
+    expect(posted.entryNo).toBeGreaterThan(0);
+
+    const paid = await change("aicha", (s) => domain.recordPayment(s, { entityId: audit, customerId: customer, date: "2026-05-20", currency: "MRU", amountTxn: invoice.netPayable, bankAccountId: bank, invoiceId: invoice.id }));
+    expect(paid.state.salesInvoices.find((i) => i.id === invoice.id)!.amountPaidTxn).toBe(invoice.netPayable);
+    expect(paid.state.customerPayments).toHaveLength(1);
+    expect(paid.state.allocations).toMatchObject([{ invoiceId: invoice.id, amountTxn: invoice.netPayable }]);
+
+    // the next invoice takes the next number: the counter is kept in the database
+    const second = await change("aicha", (s) => {
+      const [s1, inv] = domain.createInvoice(s, { entityId: audit, customerId: customer, date: "2026-05-28", currency: "MRU", lines: [{ description: "Conseil", quantity: 2, unitPrice: 50000, serviceCategory: "ADVISORY" }] });
+      return domain.validateInvoice(s1, inv.id);
+    });
+    expect(second.state.salesInvoices.map((i) => i.number).sort()).toEqual(["IN2605-0001", "IN2605-0002"]);
+
+    const credited = await change("aicha", (s) => domain.createCreditNote(s, second.browser[1].id, "remise commerciale", "2026-05-30"));
+    expect(credited.state.creditNotes[0]).toMatchObject({ number: "AV2605-0001", status: "posted" });
+    expect(credited.state.creditNotes[0].lines[0].serviceCategory).toBe("ADVISORY");
+  });
+
+  it("bank: a statement imported, a fee booked by rule", async () => {
+    const imported = await change("aicha", (s) => domain.importStatement(s, bank, [
+      { date: "2026-05-31", amount: -2500, description: "FRAIS TENUE DE COMPTE MAI" },
+      { date: "2026-05-31", amount: 15000, description: "VIREMENT CLIENT DIVERS" },
+    ]));
+    expect(imported.state.bankTransactions).toHaveLength(2);
+    const fee = imported.state.bankTransactions.find((t) => t.amount === -2500)!;
+    const booked = await change("aicha", (s) => domain.bookByRule(s, fee.id, "BANK_FEES"));
+    const t = booked.state.bankTransactions.find((x) => x.id === fee.id)!;
+    expect(t.status).toBe("booked");
+    expect(booked.state.entries.find((e) => e.id === t.journalEntryId)).toMatchObject({ status: "posted" });
+  });
+
+  it("suppliers: a supplier, an invoice approved by a partner, then paid", async () => {
+    const made = await change("aicha", (s) => domain.addSupplier(s, { entityId: audit, name: "Mauritel", regime: "standard" }));
+    const supplier = made.state.suppliers[0];
+    expect(supplier.code).toBe("F001");
+    const invoiced = await change("aicha", (s) => domain.createSupplierInvoice(s, { entityId: audit, supplierId: supplier.id, supplierRef: "MT-2026-06", date: "2026-06-03", currency: "MRU", totalHt: 900000, taxCodeId: null, expenseAccountId: account(s, "620000"), description: "Location bureaux" }));
+    let invoice = invoiced.state.supplierInvoices[0];
+    if (invoice.status === "pending_approval") {
+      invoice = (await change("awa", (s) => domain.approveSupplierInvoice(s, invoice.id))).state.supplierInvoices[0];
+    }
+    expect(invoice.number).toMatch(/^FA2606-0001$/);
+    const paid = await change("aicha", (s) => domain.paySupplierInvoice(s, { invoiceId: invoice.id, date: "2026-06-10", bankAccountId: bank }));
+    expect(paid.state.supplierPayments).toMatchObject([{ invoiceId: invoice.id, amount: invoice.netPayable }]);
+    expect(paid.state.supplierInvoices[0]).toMatchObject({ status: "paid", amountPaid: invoice.netPayable });
+  });
+
+  it("loans: drawn down, the first instalment paid", async () => {
+    const made = await change("aicha", (s) => domain.addLoan(s, { entityId: audit, lender: "BNM", reference: "EMP-2026-1", currency: "MRU", principal: 1200000, annualRate: 0.1, months: 12, startDate: "2026-06-01", frequency: "monthly", method: "annuity", bankAccountId: bank, postDrawdown: true }));
+    const loan = made.state.loans[0];
+    expect(made.state.entries.find((e) => e.id === loan.drawdownEntryId)).toMatchObject({ status: "posted" });
+    const paid = await change("aicha", (s) => domain.payInstalment(s, { loanId: loan.id, instalmentNo: 1, date: "2026-07-01" }));
+    expect(paid.state.loanPayments).toMatchObject([{ loanId: loan.id, instalmentNo: 1 }]);
+    expect(paid.state.loanPayments[0].total).toBeCloseTo(paid.state.loanPayments[0].capital + paid.state.loanPayments[0].interest, 2);
+  });
+
+  it("assets: a category, an asset, the year's depreciation (the database keeps the total)", async () => {
+    const withCategory = await change("aicha", (s) => {
+      const mapped = (key: string) => s.mappings.find((m) => m.entityId === audit && m.key === key && m.qualifier === "IT")!.accountId;
+      return domain.addAssetCategory(s, { entityId: audit, code: "IT", name: "Matériel informatique", lifeMonths: 36, method: "linear", assetAccountId: mapped("ASSET"), accDeprAccountId: mapped("ACC_DEPR") });
+    });
+    const category = withCategory.state.assetCategories[0];
+    const bought = await change("aicha", (s) => domain.addAsset(s, { entityId: audit, name: "Portables audit", categoryId: category.id, acquisitionDate: "2026-01-15", cost: 360000, location: "Nouakchott" }));
+    const asset = bought.state.assets[0];
+    expect(asset).toMatchObject({ category: "Matériel informatique", accumulated: 0, lifeMonths: 36 });
+    const fy = bought.state.fiscalYears.find((f) => f.entityId === audit && f.label === "2026")!;
+    const run = await change("aicha", (s) => domain.postDepreciation(s, audit, fy.id, "2026-12-31"));
+    const total = run.state.depreciationRuns[0].total;
+    expect(total).toBeGreaterThan(0);
+    expect(run.state.assets[0].accumulated).toBe(total); // added once, by the database
+  });
+
+  it("people: an employee, the payroll rules, a payroll posted (a partner: HR is not among an accountant's modules)", async () => {
+    const hired = await change("awa", (s) => domain.addEmployee(s, { entityId: audit, firstName: "Mariem", lastName: "Sow", jobTitle: "Auditrice", department: "Audit", category: "senior", hireDate: "2026-01-01", contractType: "CDI", grossSalary: 60000, allowances: 5000 }));
+    employee = hired.state.employees[0].id;
+    expect(hired.state.employees[0]).toMatchObject({ status: "active", initials: "M.S." });
+    const ruled = await change("awa", (s) => domain.setPayrollRules(s, domain.defaultPayrollRules(audit, "MR")));
+    expect(ruled.state.payrollRules[0].labels.tax).toBe("ITS");
+    const paid = await change("awa", (s) => domain.postPayroll(s, audit, "2026-06", "2026-06-30"));
+    const run = paid.state.payrollRuns[0];
+    expect(run).toMatchObject({ month: "2026-06", status: "posted" });
+    expect(run.lines[0].employeeId).toBe(employee);
+    expect(run.totals.employerCost).toBeGreaterThan(run.totals.gross);
+  });
+
+  it("the HR room opens to whoever sees the floor (its People tab); its records and changes stay with the HR module", async () => {
+    const { state } = await load("aicha");
+    expect(domain.canUseModule(state, "hr")).toBe(false);
+    expect(domain.canOpenRoom(state, audit, "hr")).toBe(true);
+    expect(domain.canOpenRoom(state, it_, "hr")).toBe(false);
+    // the people, without their pay
+    expect(state.employees).toEqual([expect.objectContaining({ id: employee, initials: "M.S.", grossSalary: 0, allowances: 0 })]);
+    expect(state.payrollRuns.length).toBeGreaterThan(0);
+    expect(state.payrollRuns.every((r) => r.lines.length === 0 && r.totals.gross > 0)).toBe(true);
+    const forged: VanguardChange = {
+      calls: [{ name: "addEmployee", input: 0, args: [{ entityId: audit, firstName: "X", lastName: "Y", jobTitle: "", department: "Audit", category: "senior", hireDate: "2026-01-01", contractType: "CDI", grossSalary: 1, allowances: 0 }], ids: [crypto.randomUUID()] }],
+      result: 1,
+    };
+    await expect(send("aicha", forged)).rejects.toThrow(/pas ouvert à votre accès/);
+  });
+
+  it("the browser gets the rows of the person's modules, and what their rooms read of the others", async () => {
+    const full = await as("sidi", () => loadVanguardState(tx, who("sidi"), accessOf("sidi"), people, { full: true }));
+    expect(full.state.salesInvoices.length).toBeGreaterThan(0);
+    // a staff member with the accounting module: the ledger, the third parties its pickers name, no sales or payroll
+    const { state } = await load("sidi");
+    expect(state.entries.length).toBe(full.state.entries.length);
+    expect(state.customers.length).toBe(full.state.customers.length);
+    expect(state.suppliers.length).toBe(full.state.suppliers.length);
+    expect(state.salesInvoices).toEqual([]);
+    expect(state.customerPayments).toEqual([]);
+    expect(state.bankTransactions).toEqual([]);
+    expect(state.supplierInvoices).toEqual([]);
+    expect(state.assets).toEqual([]);
+    expect(state.payrollRuns.every((r) => r.lines.length === 0)).toBe(true);
+    expect(state.auditLog.some((r) => r.table === "sales_invoice" || r.table === "employee")).toBe(false);
+    expect(full.state.auditLog.some((r) => r.table === "sales_invoice")).toBe(true);
+    // the accountant has the reports: every module but pay
+    const accountant = (await load("aicha")).state;
+    expect(accountant.salesInvoices.length).toBe(full.state.salesInvoices.length);
+    expect(accountant.employees.every((e) => e.grossSalary === 0)).toBe(true);
+    expect(accountant.auditLog.some((r) => r.table === "employee" || r.table === "payroll_run")).toBe(false);
+  });
+
+  const project = (more: Partial<MissionSource> = {}): MissionSource => ({
+    projectId: "prj-1", entityCode: "bumex_audit", name: "Audit légal 2025", kind: "client_mission", status: "active", startDate: "2026-05-01",
+    endDate: "2026-07-31", budget: 900000, progress: 45, hours: 12.5, staff: ["M.S."],
+    client: { id: "cli-snim", name: "snim", email: "dg@snim.mr", country: "MR", taxId: null }, ...more,
+  });
+  const version = async () => (await db.query<{ v: number }>("select max(id)::int as v from erp.audit_log")).rows[0].v;
+
+  it("missions are BUMEX One's projects: mirrored with their client's customer, read-only in Vanguard", async () => {
+    expect(initialsOf("Mariem  Sow")).toBe("M.S.");
+    await asSystem(() => mirrorMissions(tx, [project(), project({ projectId: "prj-2", name: "Conseil fiscal", client: { id: "cli-new", name: "Banque Populaire", email: null, country: "Mauritanie", taxId: "123" } }), project({ projectId: "prj-int", kind: "client_mission", entityCode: "bumex_nowhere" })]));
+    const { state } = await load("aicha");
+    const audit2025 = state.engagements.find((e) => e.name === "Audit légal 2025")!;
+    engagement = audit2025.id;
+    // the customer created in Vanguard under the same name is the client's (no duplicate); a new client gets one
+    expect(audit2025).toMatchObject({ code: "M-001", customerId: customer, status: "active", stage: 3, actualHours: 12.5, staff: ["M.S."], fixedFee: 900000 });
+    const bp = state.customers.find((c) => c.name === "Banque Populaire")!;
+    expect(bp).toMatchObject({ nif: "123", defaultCurrency: "MRU" });
+    expect(bp.country).toBeUndefined(); // not a country code
+    expect(state.engagements.find((e) => e.name === "Conseil fiscal")).toMatchObject({ code: "M-002", customerId: bp.id });
+
+    // the same projects again write nothing (the screens' version does not move)
+    const before = await version();
+    await asSystem(() => mirrorMissions(tx, [project(), project({ projectId: "prj-2", name: "Conseil fiscal", client: { id: "cli-new", name: "Banque Populaire", email: null, country: null, taxId: "123" } })]));
+    expect(await version()).toBe(before);
+
+    // a project gone from BUMEX One is cancelled here, and no longer shown
+    await asSystem(() => mirrorMissions(tx, [project()]));
+    expect((await load("aicha")).state.engagements.map((e) => e.name)).toEqual(["Audit légal 2025"]);
+
+    await expect(change("aicha", (s) => domain.createTask(s, { entityId: audit, title: "x", module: "missions", assignee: "M.S.", dueDate: "2026-06-15", engagementId: "nope" }))).rejects.toThrow(/Mission inconnue/);
+    await expect(change("awa", (s) => domain.requestDeletion(s, { table: "engagement", rowId: engagement, label: "M-001", reason: "test de suppression", entityId: audit }))).rejects.toThrow(/BUMEX One/);
+  });
+
+  it("a client edited in BUMEX One updates its customer accounts (name, e-mail, tax id) and their ledger account", async () => {
+    await asSystem(() => mirrorClients(tx, [{ id: "cli-snim", name: "SNIM SA", email: "finance@snim.mr", country: "MR", taxId: "NIF-9" }]));
+    const { state } = await load("aicha");
+    const snim = state.customers.find((c) => c.id === customer)!;
+    expect(snim).toMatchObject({ name: "SNIM SA", email: "finance@snim.mr", nif: "NIF-9", clientId: "cli-snim" });
+    expect(state.accounts.find((a) => a.id === snim.arAccountId)?.nameFr).toBe("SNIM SA");
+    const before = await version();
+    await asSystem(() => mirrorClients(tx, [{ id: "cli-snim", name: "SNIM SA", email: "finance@snim.mr", country: "MR", taxId: "NIF-9" }]));
+    expect(await version()).toBe(before);
+  });
+
+  it("missions in the ERP's work: an assignment, a task, the file archived once completed", async () => {
+    const assigned = await change("awa", (s) => domain.assign(s, { entityId: audit, engagementId: engagement, employeeId: employee, start: "2026-06-01", end: "2026-06-30", load: 0.5 }));
+    expect(assigned.state.engagements.find((e) => e.id === engagement)!.staff).toEqual(["M.S."]);
+
+    // the tasks are BUMEX One's tickets: the engine's own task changes are not saved
+    await expect(change("aicha", (s) => domain.createTask(s, { entityId: audit, title: "Confirmations", module: "missions", assignee: "M.S.", dueDate: "2026-06-15", engagementId: engagement }))).rejects.toThrow(/tickets de BUMEX One/);
+
+    // completed in BUMEX One, then boxed in the archive rack here
+    await asSystem(() => mirrorMissions(tx, [project({ status: "completed", progress: 100 })]));
+    const archived = await change("aicha", (s) => domain.archiveEngagement(s, { engagementId: engagement, kind: "box", boxCount: 2 }));
+    expect(archived.state.archives[0]).toMatchObject({ engagementId: engagement, status: "archived", boxCount: 2 });
+    expect(archived.state.archives[0].reference).toMatch(/^ARC-\d{4}-0001$/);
+    expect(archived.state.engagements.find((e) => e.id === engagement)!.archiveId).toBe(archived.state.archives[0].id);
+  });
+
+  it("tasks are the tickets of the missions, read from BUMEX One", async () => {
+    const ticket = (id: string, more: Partial<VanguardTicket> = {}): VanguardTicket => ({
+      id, title: `Ticket ${id}`, description: null, project_id: "prj-1", assignee_id: "aicha", reporter_id: "awa", status: "todo", stage_id: null, priority: "medium",
+      type: "task", due_date: null, created_at: "2026-06-01T08:00:00Z", updated_at: "2026-06-02T08:00:00Z", ...more,
+    });
+    const tickets = [
+      ticket("t1", { due_date: "2026-06-10", priority: "urgent", status: "review" }),
+      ticket("t2", { status: "done" }),
+      ticket("t3", { project_id: "prj-elsewhere" }),
+    ];
+    const { state } = await as("aicha", () => loadVanguardState(tx, who("aicha"), accessOf("aicha"), people, { tickets }));
+    expect(state.tasks.map((t) => [t.id, t.status, t.priority, t.dueDate, t.assignee, t.engagementId === engagement])).toEqual([
+      ["t1", "in_progress", "high", "2026-06-10", "Aïcha Comptable", true],
+      ["t2", "done", "normal", "9999-12-31", "Aïcha Comptable", true],
+    ]);
+    expect(domain.taskStats(state, audit)).toMatchObject({ active: 1, done: 1 });
+  });
+
+  it("access: the ERP administrator opens the ERP to a BUMEX One person, changes it, closes it", async () => {
+    const granted = await change("adm", (s) => domain.createUser(s, { name: "Nouvelle Recrue", email: "nouveau@bumex.mr", role: "accountant", entityIds: [audit] }));
+    expect(granted.state.users.find((u) => u.id === "nouveau")).toMatchObject({ role: "accountant", entityIds: [audit] });
+    expect((await db.query("select entity_codes, modules from erp.user_access where user_id = 'nouveau'")).rows).toEqual([{ entity_codes: ["bumex_audit"], modules: null }]);
+    const changed = await change("adm", (s) => domain.updateUserAccess(s, "nouveau", { role: "manager" }));
+    expect(changed.state.users.find((u) => u.id === "nouveau")!.role).toBe("manager");
+    const closed = await change("adm", (s) => domain.setUserStatus(s, "nouveau", "disabled"));
+    expect(closed.state.users.some((u) => u.id === "nouveau")).toBe(false);
+    await expect(change("adm", (s) => domain.createUser(s, { name: "Inconnu", email: "inconnu@bumex.mr", role: "staff", entityIds: "*" }))).rejects.toThrow(/BUMEX One/);
+    await expect(change("aicha", (s) => domain.createUser(s, { name: "X", email: "nouveau@bumex.mr", role: "staff", entityIds: "*" }))).rejects.toThrow(/administrateur/);
+  });
+
+  it("a partner deletes a customer without documents; its auxiliary account stays in the ledger history", async () => {
+    const made = await change("aicha", (s) => domain.addCustomer(s, { entityId: audit, name: "Prospect", regime: "standard", country: "MR", defaultCurrency: "MRU", paymentTermsDays: 30 }));
+    const prospect = made.state.customers.find((c) => c.name === "Prospect")!;
+    const gone = await change("awa", (s) => domain.requestDeletion(s, { table: "customer", rowId: prospect.id, label: prospect.name, reason: "doublon", entityId: audit }));
+    expect(gone.state.customers.some((c) => c.id === prospect.id)).toBe(false);
+  });
+});

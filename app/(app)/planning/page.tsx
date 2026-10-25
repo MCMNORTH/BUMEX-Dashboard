@@ -2,6 +2,7 @@ import { AlertTriangle, CalendarDays, Clock3, FolderKanban } from "lucide-react"
 
 import { PlanningRiskPanel } from "@/components/alerts/planning-risk-panel";
 import { requireRouteAccess } from "@/lib/auth/server";
+import { movedToVanguard } from "@/lib/erp/vanguard/retired";
 import { getPlanningAlerts } from "@/lib/alerts/service";
 import { getPlanningActualTime, getPlanningSummary, getUpcomingDeadlines, getWeeklyTasks, getOverdueTasks, getTeamWorkloadPreview } from "@/lib/planning/service";
 import { formatDateKey, getWeekStart } from "@/lib/planning/helpers";
@@ -40,6 +41,7 @@ export default async function PlanningPage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await movedToVanguard("planning");
   const locale = await getCurrentLocale();
   const isFr = locale === "fr";
   const auth = await requireRouteAccess("planning");

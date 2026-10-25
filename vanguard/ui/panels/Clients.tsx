@@ -4,6 +4,7 @@ import {
   fmt, r2, parseAmount, type Id, type Currency, type CounterpartyRegime, type SalesInvoice, type TaxCode, DomainError, REVENUE_STATUS_LABEL,
 } from '@bumex/domain';
 import { useStore } from '../../store';
+import { ClientRelations } from '../../one/Clients'; // [bumex-one] one client, two sides
 import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, DeleteButton, downloadXlsx } from '../common';
 
 // Withholding codes that a customer applies on our invoices (the receivable side), as opposed to the ones we apply on suppliers.
@@ -380,13 +381,14 @@ function Customers({ entityId }: { entityId: Id }) {
   const open = openInvoices(state, entityId);
   return (
     <div className="cols">
-      <div className="grow">
+      <div className="grow" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div className="card flush">
           <table>
             <thead><tr><th>Code auxiliaire</th><th>Nom</th><th>Compte collectif</th><th>Régime TVA</th><th>Retenue à la source</th><th>Devise</th><th>Conditions</th><th className="num">Solde auxiliaire</th><th className="num">En retard</th><th></th></tr></thead>
             <tbody>{rows.map((c) => { const o = open.filter((x) => x.customer.id === c.id); const w = whtCodes.find((x) => x.id === c.withholdingCodeId); const aux = auxOf(c); const col = aux?.collectiveId ? state.accounts.find((a) => a.id === aux.collectiveId) : undefined; return <tr key={c.id} className={c.id === editId ? 'sel' : ''}><td className="mono">{c.code}</td><td>{c.name}{c.groupEntityId && <Chip kind="dim"> groupe</Chip>}{!c.active && <Chip kind="dim"> inactif</Chip>}<div className="small muted">{c.email ?? ''}{c.nif ? ` · NIF ${c.nif}` : ''}</div></td><td className="mono small">{col ? `${col.code} ${col.nameFr}` : '—'}</td><td>{REGIMES.find((r) => r[0] === c.regime)?.[1]}</td><td>{w ? <Chip kind="warn">{w.code} · {Math.round(w.rate * 1000) / 10} %</Chip> : <span className="muted">aucune</span>}</td><td>{c.defaultCurrency}</td><td>{c.paymentTermsDays} j</td><td className="num">{aux ? fmt(accountBalance(state, entityId, aux.id), 0) : fmt(r2(o.reduce((a, x) => a + x.openFunctional, 0)), 0)}</td><td className="num">{fmt(r2(o.filter((x) => x.daysOverdue > 0).reduce((a, x) => a + x.openFunctional, 0)))}</td><td style={{ whiteSpace: 'nowrap' }}><button className="btn sm" onClick={() => load(c.id)}>{t('edit')}</button> <DeleteButton table="customer" rowId={c.id} label={`Client ${c.name}`} entityId={entityId} /></td></tr>; })}</tbody>
           </table>
         </div>
+        <ClientRelations entityId={entityId} />{/* [bumex-one] the relationship side, BUMEX One's clients */}
       </div>
       <aside className="side">
         <div className="card">

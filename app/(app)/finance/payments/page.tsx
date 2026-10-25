@@ -1,3 +1,4 @@
+import { FINANCE_ARCHIVED } from "@/lib/finance/archive";
 import Link from "next/link";
 import { AlertTriangle, ArrowDownCircle, Clock3, Landmark, WalletCards } from "lucide-react";
 
@@ -66,7 +67,7 @@ export default async function FinancePaymentsPage({
   const commentsByPaymentId = (await getCommentsForEntities("payment", payments.map((payment) => payment.id))) as Record<string, CommentRecord[]>;
 
   const summary = getPaymentSummary(payments);
-  const canManage = auth.role === "admin" || auth.role === "manager" || auth.role === "employee";
+  const canManage = !FINANCE_ARCHIVED && (auth.role === "admin" || auth.role === "manager" || auth.role === "employee");
   return (
     <div className="space-y-6">
       <PageRefresh tables={["payments", "invoices", "comments"]} />

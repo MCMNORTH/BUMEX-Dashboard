@@ -9,10 +9,11 @@ The ERP (BUMEX VANGUARD, delivered by the ERP team) is being integrated into BUM
 | `db/erp/migrations/0004_bumex_one.sql` | Our adaptation: ERP access per BUMEX One user, session functions, role `erp_app`, the 8 entities with BUMEX One codes |
 | `db/erp/migrations/0005_no_session_no_data.sql` | No session = no data for `erp_app`; app logins switch to the role, never inherit it |
 | `db/erp/migrations/0006_accounting.sql` | Customer / supplier required by an account, who may post (checked by the database), fiscal years with their 12 periods, row-level security on the last ledger tables |
-| `lib/erp/accounting/` | Accounting (step 2): setup from the engine's chart, entries, reports, closing, chart and import, journals; tests in `test/` run on the real schema |
+| `db/erp/migrations/0007_vanguard.sql` | The fields Vanguard keeps that the schema lacked, the invoices' service categories, row-level security on the remaining open tables (document lines, bank lines, counters…) |
+| `lib/erp/vanguard/` | BUMEX Vanguard on this database: the state read for a person, their changes replayed with the engine and written (see `vanguard/VENDOR.md`); tests in `test/` run on the real schema |
 | `db/erp/test/guarantees.test.mjs` | The ERP team's 35 guarantee tests (now run against every migration, 0004 included) |
 | `db/erp/test/bumex-one.test.mjs` | Tests of 0004 |
-| `lib/erp/engine/` | The ERP team's TypeScript engine, **as delivered** (65 tests in `lib/erp/engine/test`) |
+| `lib/erp/engine/` | The ERP team's TypeScript engine, **as delivered** but for one marked change (`withIdSource` in `core.ts`); 65 tests in `lib/erp/engine/test` |
 | `lib/erp/*.ts` | Our code: connection, access, pages' data |
 | `scripts/erp-migrate.mjs` | Applies pending migrations |
 
@@ -21,11 +22,15 @@ compared. Changes we need go into new migrations / files of ours.
 
 ## Who sees what
 
-- People sign in with BUMEX One. Their BUMEX One role (`profiles.role`) is not touched by the ERP.
-- `erp.user_access` gives a person (Firebase uid) an **ERP role** — admin, partner, raf, manager, accountant, staff,
-  intern — plus their entities (null = all) and modules (null = the role's modules, `lib/erp/config.ts`).
-  No row = no ERP: the sidebar has no ERP tab and `/erp` redirects.
-- Access is managed in Settings → Users (column "ERP access") by the BUMEX One super admin or an ERP admin.
+- People sign in with BUMEX One. One person, one role: Vanguard's. `erp.user_access` gives a person (Firebase uid) an
+  **ERP role** — admin, partner, raf, manager, accountant, staff, intern — plus their entities (null = all) and
+  modules (null = the role's modules, `lib/erp/config.ts`). Everyone gets one on their first visit, from their BUMEX One
+  role (`lib/erp/roles.ts`); their BUMEX One role (`profiles.role`) then follows it. Someone whose access an
+  administrator removed is not given one again and keeps BUMEX One's own shell.
+- Access is managed in Vanguard's Settings › accounts, or BUMEX One's Settings → Users (column "Rôle Vanguard"), by the
+  BUMEX One super admin or an ERP admin.
+- The tables' row-level security is by entity; what each person's browser receives is then narrowed to their modules
+  (`lib/erp/vanguard/visible.ts`).
 - Every transaction the app opens does `set local role erp_app` (never bypasses row-level security) and
   `select erp.open_session(<uid>)`, which sets `erp.actor_id`, `erp.actor_role` and `erp.entity_ids` for that
   transaction only. Access management by the super admin uses `erp.open_system_session(<uid>)`.

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { floorSignals } from '@bumex/domain';
+import { canOpenRoom, floorSignals } from '@bumex/domain';
 import { useStore } from '../store';
 import type { Room } from '../i18n';
 import { AccountingPanel } from './panels/Accounting';
@@ -10,7 +10,8 @@ import { SuppliersPanel } from './panels/Suppliers';
 import { AssetsPanel } from './panels/Assets';
 import { HrPanel } from './panels/Hr';
 import { TaxPanel } from './panels/Tax';
-import { TasksPanel } from './panels/Tasks';
+import { TasksRoom } from '../one/Tasks'; // [bumex-one] the tasks are BUMEX One's tickets
+import { MyDay } from '../one/MyDay'; // [bumex-one] the home's panel
 import { ArchivesPanel } from './panels/Archives';
 import { ReportsPanel } from './panels/Reports';
 import { SettingsPanel } from './panels/Settings';
@@ -27,10 +28,11 @@ export function RoomContent({ room, entityId, tab, compact }: { room: Room; enti
     case 'hr': return <HrPanel entityId={entityId} initialTab={tab} />;
     case 'tax': return <TaxPanel entityId={entityId} initialTab={tab} />;
     case 'penthouse': return <PenthousePanel />;
-    case 'tasks': return <TasksPanel entityId={entityId} initialTab={tab} />;
+    case 'tasks': return <TasksRoom entityId={entityId} initialTab={tab} />;
     case 'archives': return <ArchivesPanel entityId={entityId} compact={compact} />;
     case 'reports': return <ReportsPanel entityId={entityId} />;
     case 'settings': return <SettingsPanel initialTab={tab} />;
+    case 'myday': return <MyDay />; // [bumex-one]
   }
 }
 
@@ -60,7 +62,8 @@ export function FlatLayout() {
   const { state, ui, t, setUi, openRoom } = useStore();
   const entityId = ui.entityId ?? state.entities.find((e) => e.code === 'AUD')!.id;
   const entity = state.entities.find((e) => e.id === entityId)!;
-  const room: Room = ui.room ?? (entity.isHolding ? 'penthouse' : 'accounting');
+  // [bumex-one] the first room the person may open (the missions are open to everyone)
+  const room: Room = ui.room ?? (entity.isHolding ? (canOpenRoom(state, entityId, 'penthouse') ? 'penthouse' : 'tasks') : canOpenRoom(state, entityId, 'accounting') ? 'accounting' : 'missions');
   return (
     <div className="page">
       <nav className="nav" aria-label="Entités et salles">

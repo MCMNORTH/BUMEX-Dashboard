@@ -1,7 +1,12 @@
 import { create } from 'zustand';
-import { buildDemo, DomainError, SEED_VERSION, signInAs, activateInvite, canSee, type State, type Id } from '@bumex/domain';
+import { DomainError, canSee, setChainBreaks, type State, type Id } from '@bumex/domain';
 import type { Lang, Room } from './i18n';
 import { makeT } from './i18n';
+// [bumex-one] The state is the ERP database's: the page brings it (hydrate), each change is recorded and sent to the
+// server, which replays it and answers with the database's state (lib/erp/vanguard). Nothing is kept in the browser.
+import { reloadVanguardAction, runVanguardChangeAction, vanguardVersionAction } from '@/lib/erp/vanguard/actions';
+import { record, type VanguardChange } from '@/lib/erp/vanguard/record';
+import type { VanguardData, VanguardResult } from '@/lib/erp/vanguard/run';
 
 export type View = 'tower' | 'floor' | 'flat';
 export type BarTab = 'tasks' | 'deadlines' | 'activity' | 'alerts';
@@ -50,9 +55,13 @@ interface UI {
 
 interface Store {
   state: State;
+  loadedAt: number; // [bumex-one] when the server read the state shown
+  version: number; // [bumex-one] the database's version of that state (refreshIfChanged)
   ui: UI;
   t: (k: string) => string;
   apply: (fn: (s: State) => State | [State, unknown], okMessage?: string) => boolean;
+  hydrate: (data: VanguardData) => void; // [bumex-one]
+  refreshIfChanged: () => void; // [bumex-one] reads the database again when someone else changed it
   setUi: (patch: Partial<UI>) => void;
   goTower: () => void;
   goFloor: (entityId: Id) => void;
@@ -67,7 +76,6 @@ interface Store {
   toast: (kind: Toast['kind'], text: string) => void;
 }
 
-const STORAGE_KEY = `bumex-vanguard-v${SEED_VERSION}`;
 const PREFS_KEY = 'bumex-vanguard-prefs';
 
 function todayISO(): string {
@@ -80,18 +88,6 @@ function webglAvailable(): boolean {
     return !!(c.getContext('webgl2') || c.getContext('webgl'));
   } catch {
     return false;
-  }
-}
-
-function load(): { state: State; lang: Lang } | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { state: State; lang: Lang };
-    if (!parsed.state?.entities?.length || !Array.isArray(parsed.state.tasks) || !Array.isArray(parsed.state.archives)) return null;
-    return { state: { ...parsed.state, today: todayISO() }, lang: parsed.lang ?? 'fr' };
-  } catch {
-    return null;
   }
 }
 
@@ -118,50 +114,62 @@ function savePrefs(ui: UI) {
   }
 }
 
-let saveTimer: number | undefined;
-function save(state: State, lang: Lang) {
-  try {
-    if (saveTimer) window.clearTimeout(saveTimer);
-    saveTimer = window.setTimeout(() => {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ state, lang }));
-      } catch {
-        /* storage full or blocked: the session keeps working in memory */
-      }
-    }, 300);
-  } catch {
-    /* ignore */
-  }
-}
-
-const initial = load();
-let initialState = initial?.state ?? buildDemo(todayISO());
-let welcome: string | null = null;
-// An invitation link (#invite=<token>) activates the account and signs the person in.
-try {
-  const m = location.hash.match(/invite=([a-f0-9]+)/);
-  if (m) {
-    const [s1, u] = activateInvite(initialState, m[1]);
-    initialState = s1;
-    welcome = `Bienvenue ${u.name} · compte activé`;
-    history.replaceState(null, '', location.pathname + location.search);
-  }
-} catch (e) {
-  welcome = e instanceof Error ? e.message : String(e);
-}
-const initialLang: Lang = initial?.lang ?? 'fr';
-const audit = initialState.entities.find((e) => e.code === 'AUD' && canSee(initialState, e.id)) ?? initialState.entities.find((e) => canSee(initialState, e.id)) ?? initialState.entities[0];
-const currentFy = initialState.fiscalYears.find((f) => f.entityId === audit.id && initialState.today >= f.start && initialState.today <= f.end)?.label ?? String(new Date().getFullYear());
+// [bumex-one] Until hydrate(): VanguardApp hydrates the store before anything renders.
+const EMPTY: State = {
+  group: { id: '', name: '', presentationCurrency: 'MRU' },
+  session: { userId: '', actorId: '', actorName: '', role: 'intern', entityIds: [], modules: [] },
+  today: todayISO(),
+  entities: [], fxRates: [], fiscalYears: [], periods: [], accounts: [], journals: [], mappings: [], taxCodes: [], taxRules: [], entries: [],
+  chains: {}, counters: {}, customers: [], salesInvoices: [], creditNotes: [], customerPayments: [], allocations: [], suppliers: [],
+  supplierInvoices: [], supplierPayments: [], loans: [], loanPayments: [], bankAccounts: [], bankTransactions: [], bankRules: [], engagements: [],
+  assignments: [], assetCategories: [], assets: [], depreciationRuns: [], employees: [], payrollRules: [], payrollRuns: [], users: [],
+  deletionRequests: [], tasks: [], archives: [], auditLog: [], seq: 0,
+};
+// BUMEX One's language (it keeps the two apps on the same one: components/vanguard/vanguard-app.tsx)
+const initialLang: Lang = typeof document !== 'undefined' && document.documentElement.lang === 'en' ? 'en' : 'fr';
 const webgl = typeof document !== 'undefined' ? webglAvailable() : false;
 const prefs = loadPrefs();
 
-export const MODULE_ONLY: Room[] = ['tasks', 'archives', 'reports', 'settings', 'penthouse'];
+// The floor shown first: BUMEX Audit when the person sees it, else the first floor they see.
+function defaultEntity(state: State) {
+  return state.entities.find((e) => e.code === 'AUD' && canSee(state, e.id)) ?? state.entities.find((e) => canSee(state, e.id)) ?? state.entities[0];
+}
+
+// [bumex-one] Changes reach the server one after the other. Its answer replaces the screen's state once no other
+// change is on its way (a later one was made on top of this one and is replayed on the database's state as well).
+let pending = 0;
+let checking = false;
+let queue: Promise<void> = Promise.resolve();
+function send(change: VanguardChange) {
+  pending++;
+  queue = queue.then(async () => {
+    const lang = useStore.getState().ui.lang;
+    const result: VanguardResult = await runVanguardChangeAction(change).catch(() => ({
+      ok: false as const,
+      error: lang === 'fr' ? 'Serveur injoignable : la modification n\'est pas enregistrée.' : 'Server unreachable: the change was not saved.',
+    }));
+    pending--;
+    if (!result.ok) useStore.getState().toast('error', result.error);
+    if (pending > 0) return;
+    if (result.state) useStore.getState().hydrate(result as VanguardData);
+    else if (!result.ok) await reload();
+  });
+}
+async function reload() {
+  const result = await reloadVanguardAction().catch(() => null);
+  if (result?.state) useStore.getState().hydrate(result as VanguardData);
+  return Boolean(result?.state);
+}
+
+export const MODULE_ONLY: Room[] = ['tasks', 'archives', 'reports', 'settings', 'penthouse', 'myday']; // [bumex-one] myday
 
 export const useStore = create<Store>((set, get) => ({
-  state: initialState,
+  state: EMPTY,
+  loadedAt: 0,
+  version: 0,
   ui: {
     view: webgl ? 'tower' : 'flat',
-    entityId: audit.id,
+    entityId: null,
     room: null,
     tab: null,
     focusRoom: null,
@@ -173,9 +181,9 @@ export const useStore = create<Store>((set, get) => ({
     lang: initialLang,
     hoverFloor: null,
     hoverRoom: null,
-    toast: welcome ? { kind: 'info', text: welcome, at: Date.now() } : webgl ? null : { kind: 'info', text: makeT(initialLang)('no_webgl'), at: Date.now() },
+    toast: webgl ? null : { kind: 'info', text: makeT(initialLang)('no_webgl'), at: Date.now() },
     webgl,
-    fiscalYearLabel: currentFy,
+    fiscalYearLabel: String(new Date().getFullYear()),
     transition: 'none',
     search: '',
     sidebarOpen: prefs.sidebarOpen,
@@ -191,10 +199,10 @@ export const useStore = create<Store>((set, get) => ({
   t: makeT(initialLang),
   apply: (fn, okMessage) => {
     try {
-      const r = fn(get().state);
+      const { result: r, change } = record(get().state, fn); // [bumex-one] the engine calls, for the server
       const next = Array.isArray(r) ? r[0] : r;
       set({ state: next });
-      save(next, get().ui.lang);
+      if (change) send(change);
       if (okMessage) get().toast('ok', okMessage);
       return true;
     } catch (e) {
@@ -202,6 +210,26 @@ export const useStore = create<Store>((set, get) => ({
       get().toast('error', msg);
       return false;
     }
+  },
+  // [bumex-one] The database's state, unless the store already shows a newer one. The floor stays when the person
+  // still sees it; the fiscal year is chosen on the first state.
+  hydrate: (data) => {
+    if (data.loadedAt <= get().loadedAt) return;
+    setChainBreaks(data.chainBreaks);
+    const state = data.state;
+    const { ui, loadedAt } = get();
+    const keep = ui.entityId && state.entities.some((e) => e.id === ui.entityId) && canSee(state, ui.entityId);
+    const entity = keep ? state.entities.find((e) => e.id === ui.entityId) : defaultEntity(state);
+    const fiscalYearLabel = loadedAt ? ui.fiscalYearLabel : state.fiscalYears.find((f) => f.entityId === entity?.id && state.today >= f.start && state.today <= f.end)?.label ?? ui.fiscalYearLabel;
+    set({ state, loadedAt: data.loadedAt, version: data.version, ui: { ...ui, entityId: entity?.id ?? null, fiscalYearLabel } });
+  },
+  refreshIfChanged: () => {
+    if (pending > 0 || checking) return;
+    checking = true;
+    void vanguardVersionAction()
+      .then((version) => (version > get().version && pending === 0 ? reload() : false))
+      .catch(() => false)
+      .finally(() => (checking = false));
   },
   setUi: (patch) => {
     set((s) => ({ ui: { ...s.ui, ...patch } }));
@@ -214,34 +242,19 @@ export const useStore = create<Store>((set, get) => ({
   openArchive: (archiveId, focus = true) => set((s) => ({ ui: { ...s.ui, archiveId, room: archiveId || s.ui.room === 'archives' ? 'archives' : s.ui.room, rackFocus: focus && s.ui.view === 'floor' ? true : s.ui.rackFocus, focusRoom: s.ui.view === 'floor' ? 'clients' : s.ui.focusRoom } })),
   setLang: (lang) => {
     set((s) => ({ ui: { ...s.ui, lang }, t: makeT(lang) }));
-    save(get().state, lang);
   },
-  signIn: (userId) => {
-    try {
-      const next = signInAs(get().state, userId);
-      const entityId = get().ui.entityId;
-      const visible = entityId && canSee(next, entityId) ? entityId : next.entities.find((e) => canSee(next, e.id))?.id ?? null;
-      set((s) => ({ state: next, ui: { ...s.ui, entityId: visible, room: null, focusRoom: null, rackFocus: false, archiveId: null } }));
-      save(next, get().ui.lang);
-      get().toast('ok', `${next.session.actorName} · ${get().t(next.session.role)}`);
-    } catch (e) {
-      get().toast('error', e instanceof Error ? e.message : String(e));
-    }
+  // [bumex-one] The person is the one signed in to BUMEX One, with their ERP access.
+  signIn: () => {
+    get().toast('info', get().ui.lang === 'fr' ? 'Votre compte et vos accès ERP viennent de BUMEX One.' : 'Your account and ERP access come from BUMEX One.');
   },
   askDeletion: (d) => set((s) => ({ ui: { ...s.ui, deletion: d } })),
   setQuality: (patch) => {
     set((s) => ({ ui: { ...s.ui, quality: { ...s.ui.quality, ...patch } } }));
     savePrefs(get().ui);
   },
+  // [bumex-one] Reads the database again.
   reset: () => {
-    const next = buildDemo(todayISO());
-    set({ state: next });
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* ignore */
-    }
-    get().toast('ok', get().ui.lang === 'fr' ? 'Démo réinitialisée' : 'Demo reset');
+    void reload().then((ok) => get().toast(ok ? 'ok' : 'error', get().ui.lang === 'fr' ? (ok ? 'Données rechargées' : 'Serveur injoignable') : ok ? 'Data reloaded' : 'Server unreachable'));
   },
   toast: (kind, text) => {
     set((s) => ({ ui: { ...s.ui, toast: { kind, text, at: Date.now() } } }));

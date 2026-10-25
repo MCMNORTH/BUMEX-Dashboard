@@ -1,3 +1,4 @@
+import { FINANCE_ARCHIVED } from "@/lib/finance/archive";
 import Link from "next/link";
 import { ArrowRightLeft, BanknoteArrowDown, CircleCheckBig, CircleDashed, CircleX } from "lucide-react";
 
@@ -95,7 +96,7 @@ export default async function FinanceTransfersPage({
   ]);
   const commentsByTransferId = (await getCommentsForEntities("transfer", transfers.map((transfer) => transfer.id))) as Record<string, CommentRecord[]>;
 
-  const canManage = auth.role === "admin" || auth.role === "manager";
+  const canManage = !FINANCE_ARCHIVED && (auth.role === "admin" || auth.role === "manager");
   const summary = getTransferSummary(transfers);
   const structuredGroups = buildStructuredTransferGroups(transfers, locale);
   const entitySummary = ["bumex_it", "insec", "cnam_intec", "ltm_yh", "unassigned"].map((entity) => {

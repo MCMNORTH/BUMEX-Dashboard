@@ -47,7 +47,8 @@ function parentPath(pathname: string) {
   return parent || "/overview";
 }
 
-export function PageBackButton() {
+// topLevel: more pages that are destinations of their own (in Vanguard's frame, those of its "Travail" menu).
+export function PageBackButton({ topLevel }: { topLevel?: readonly string[] }) {
   const { locale, t } = useI18n();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -62,7 +63,7 @@ export function PageBackButton() {
     setPrevious(visits.length > 1 ? visits[visits.length - 2] : null);
   }, [pathname, query]);
 
-  if (mainPaths.has(pathname)) {
+  if (mainPaths.has(pathname) || topLevel?.includes(pathname)) {
     return null;
   }
 

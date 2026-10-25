@@ -1,4 +1,5 @@
 import { requireRouteAccess } from "@/lib/auth/server";
+import { movedToVanguard } from "@/lib/erp/vanguard/retired";
 import { getActivityLogs } from "@/lib/activity/service";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { PageHeader } from "@/components/layout/page-header";
@@ -12,6 +13,7 @@ import { PageRefresh } from "@/components/layout/page-refresh";
 export const unstable_dynamicStaleTime = 120;
 
 export default async function ActivityPage() {
+  await movedToVanguard("activity");
   const auth = await requireRouteAccess("activity");
   const locale = await getCurrentLocale();
   const isFr = locale === "fr";

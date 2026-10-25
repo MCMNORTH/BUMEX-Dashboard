@@ -1,5 +1,6 @@
 import "server-only";
 
+import { ARCHIVED_FINANCE_TABLES, FINANCE_ARCHIVED } from "@/lib/finance/archive";
 import { adminDb } from "@/lib/firebase/admin";
 import { isCachedTable, readCachedTable } from "@/lib/firebase/table-cache";
 import { getTableVersions, type TableVersions } from "@/lib/firebase/table-versions";
@@ -687,6 +688,11 @@ export class AccessPolicy {
 
   allows(table: string, command: Command, row: Row, phase: "using" | "check" = "using"): boolean {
     const policy = this.policies[table];
+
+    // the old finance records are an archive: read only (lib/finance/archive.ts)
+    if (FINANCE_ARCHIVED && command !== "select" && ARCHIVED_FINANCE_TABLES.has(table)) {
+      return false;
+    }
 
     if (!policy) {
       return false;

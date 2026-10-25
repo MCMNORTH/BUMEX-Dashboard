@@ -558,15 +558,17 @@ function parseProjectPayload(values: ProjectFormValues) {
   };
 }
 
-export async function createProject(values: ProjectFormValues, actorUserId: string) {
+// floor: the entity the project belongs to when it is created from Vanguard (one of its floors), recorded whether or
+// not entity scoping is on; otherwise the person's current entity, as before.
+export async function createProject(values: ProjectFormValues, actorUserId: string, floor?: BumexEntityCode) {
   const db = await createClient();
 
   if (!db) {
     throw new Error("Firebase is not configured.");
   }
 
-  const entityCode = await getCurrentEntityCode();
-  const payload = extendWithEntityCode(parseProjectPayload(values), entityCode);
+  const entityCode = floor ?? await getCurrentEntityCode();
+  const payload = floor ? { ...parseProjectPayload(values), entity_code: floor } : extendWithEntityCode(parseProjectPayload(values), entityCode);
 
   let { data, error } = await db
     .from("projects")

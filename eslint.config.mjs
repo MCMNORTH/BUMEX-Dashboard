@@ -14,7 +14,11 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // The ERP team's engine, interface (vanguard/) and schema tests, kept as delivered so their updates diff cleanly.
     "lib/erp/engine/**",
-    "vanguard/**",
+    "vanguard/*.ts",
+    "vanguard/*.tsx",
+    "vanguard/three/**",
+    "vanguard/ui/**",
+    // (vanguard/one/ is ours: BUMEX One's features rebuilt in Vanguard)
     "db/erp/test/guarantees.test.mjs",
   ]),
 ]);

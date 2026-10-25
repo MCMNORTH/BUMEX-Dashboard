@@ -119,14 +119,6 @@
         "label": "BUMEX Vanguard",
         "description": "L'ERP en immeuble : étages, salles et modules."
       },
-      "erp": {
-        "label": "Accueil ERP",
-        "description": "Votre accès ERP, vos entités et vos modules."
-      },
-      "erp-accounting": {
-        "label": "Comptabilité",
-        "description": "Écritures, grand livre, balance, clôture et plan comptable."
-      },
       "activity": {
         "label": "Activité",
         "description": "Actions récentes, traces et événements."

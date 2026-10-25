@@ -41,6 +41,7 @@ export function CommandBar() {
     } else openRoom(target);
   };
   const dayLabel = (iso: string) => {
+    if (iso >= '9999') return '—'; // [bumex-one] a ticket with no due date
     const d = daysBetween(state.today, iso);
     return d === 0 ? "auj." : d === 1 ? 'demain' : d < 0 ? `${-d} j de retard` : `J+${d}`;
   };

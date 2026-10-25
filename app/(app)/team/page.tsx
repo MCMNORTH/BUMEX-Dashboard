@@ -8,6 +8,7 @@ import { TeamToast } from "@/components/team/team-toast";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireRouteAccess } from "@/lib/auth/server";
+import { movedToVanguard } from "@/lib/erp/vanguard/retired";
 import { formatNumber } from "@/lib/formatters";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { getTeamCapacitySummary, getTeamFiltersData, getTeamMembers } from "@/lib/team/service";
@@ -55,6 +56,7 @@ export default async function TeamPage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await movedToVanguard("team");
   const auth = await requireRouteAccess("team");
   const locale = await getCurrentLocale();
   const isFr = locale === "fr";

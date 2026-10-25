@@ -12,7 +12,7 @@ export default async function LoginPage() {
   const auth = await getAuthContext();
 
   if (auth.user && auth.profile) {
-    redirect(auth.profile?.entity_code ? "/overview" : "/select-entity");
+    redirect(auth.profile?.entity_code ? "/" : "/select-entity");
   }
 
   const isFr = (await getCurrentLocale()) === "fr";

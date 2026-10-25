@@ -13,6 +13,7 @@ import { OfficeFloor } from './Floor';
 import { labelRegistry, labelCamera } from './textures';
 import { BUILDING, CAM, COMMON_ROOMS, floorY, roomRect } from './plan';
 import emblemImage from '../assets/emblem.png'; // [bumex-one] Next imports images as objects
+import { useVanguardFrame } from '@/components/vanguard/frame'; // [bumex-one]
 const emblem = emblemImage.src;
 
 // Night. Environment map rendered from the procedural sky, so glass and metal reflect a dark sky and the ground glow.
@@ -426,6 +427,7 @@ function Loading() {
 }
 
 export function Scene() {
+  const paused = useVanguardFrame((s) => s.pageOpen); // [bumex-one] a BUMEX One page covers the building: it stops drawing
   const transition = useStore((s) => s.ui.transition);
   const setUi = useStore((s) => s.setUi);
   const toast = useStore((s) => s.toast);
@@ -445,6 +447,7 @@ export function Scene() {
     <div className="canvas-wrap">
       <SceneBoundary onError={(msg) => { setUi({ view: 'flat', sceneError: msg }); toast('error', `Scène 3D indisponible (${msg}) : mode Plat`); }}>
         <Canvas
+          frameloop={paused ? 'never' : 'always'} // [bumex-one]
           camera={{ fov: 40, near: 0.3, far: 1600, position: CAM.exterior.pos }}
           shadows={false}
           gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0, powerPreference: 'high-performance' }}

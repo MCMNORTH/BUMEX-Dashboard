@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 
 import { requireRouteAccess } from "@/lib/auth/server";
 import { isManagerLikeRole } from "@/lib/auth/permissions";
-import { parseFormattedNumber } from "@/lib/formatters";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { validateProjectValues } from "@/lib/projects/form";
 import { createProject, deleteProject, updateProject } from "@/lib/projects/service";
 import type { ProjectFormValues, ProjectKind, ProjectPriority, ProjectStatus } from "@/types/project";
 
@@ -41,39 +42,6 @@ function parseProjectFormData(formData: FormData): ProjectFormValues {
   };
 }
 
-function validate(values: ProjectFormValues) {
-  const isInternalProject = values.project_kind === "internal_product" || values.project_kind === "internal_tool";
-
-  if (!values.name || !values.owner_id || !values.status || !values.project_kind) {
-    return "Project name, owner, status, and project type are required.";
-  }
-
-  if (!isInternalProject && !values.client_id) {
-    return "Select the external client or partner linked to this project.";
-  }
-
-  if (!values.description) {
-    return "Add a short description so the team can understand the project at a glance.";
-  }
-
-  if (values.start_date && values.end_date && values.end_date < values.start_date) {
-    return "End date must be after start date.";
-  }
-
-  if (values.budget_amount && parseFormattedNumber(values.budget_amount) === null) {
-    return "Budget amount must be a valid number.";
-  }
-
-  if (values.manual_progress) {
-    const progress = Number(values.manual_progress);
-    if (!Number.isInteger(progress) || progress < 0 || progress > 100) {
-      return "Project progress must be a whole number between 0 and 100.";
-    }
-  }
-
-  return null;
-}
-
 export async function createProjectAction(
   _prevState: ProjectActionState,
   formData: FormData,
@@ -85,7 +53,7 @@ export async function createProjectAction(
   }
 
   const values = parseProjectFormData(formData);
-  const validationError = validate(values);
+  const validationError = validateProjectValues(values, await getCurrentLocale());
 
   if (validationError) {
     return { error: validationError };
@@ -117,7 +85,7 @@ export async function updateProjectAction(
 
   const projectId = getString(formData, "project_id");
   const values = parseProjectFormData(formData);
-  const validationError = validate(values);
+  const validationError = validateProjectValues(values, await getCurrentLocale());
 
   if (!projectId) {
     return { error: "Missing project identifier." };

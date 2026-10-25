@@ -3,6 +3,7 @@ import Link from "next/link";
 import { UserRoundPlus } from "lucide-react";
 
 import { requireRouteAccess } from "@/lib/auth/server";
+import { movedToVanguard } from "@/lib/erp/vanguard/retired";
 import { isManagerLikeRole } from "@/lib/auth/permissions";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { getProjectQuickCounts, getProjects, getProjectsFilterData } from "@/lib/projects/service";
@@ -36,6 +37,7 @@ export default async function ProjectsPage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await movedToVanguard("projects");
   const locale = await getCurrentLocale();
   return (
     <div className="space-y-4">

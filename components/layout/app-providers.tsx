@@ -15,6 +15,7 @@ export function AppProviders({
   initialActiveEntityCode,
   initialAvailableEntityCodes,
   initialLocale,
+  forcedTheme,
 }: {
   children: React.ReactNode;
   initialUser: AuthUser | null;
@@ -22,6 +23,8 @@ export function AppProviders({
   initialActiveEntityCode: BumexEntityCode | null;
   initialAvailableEntityCodes: BumexEntityCode[];
   initialLocale: Locale;
+  /** "light" in Vanguard's frame, whose design has no dark variant. */
+  forcedTheme?: string;
 }) {
   return (
     <ThemeProvider
@@ -29,6 +32,7 @@ export function AppProviders({
       defaultTheme="system"
       enableSystem
       disableTransitionOnChange
+      forcedTheme={forcedTheme}
     >
       <I18nProvider key={initialLocale} initialLocale={initialLocale}>
         <AuthProvider

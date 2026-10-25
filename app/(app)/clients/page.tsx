@@ -2,6 +2,7 @@ import { ArrowRight, Building2, FolderKanban, Handshake, ShieldAlert, UserRound 
 import Link from "next/link";
 
 import { requireRouteAccess } from "@/lib/auth/server";
+import { movedToVanguard } from "@/lib/erp/vanguard/retired";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { getClients, getClientsFilterData } from "@/lib/clients/service";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ export default async function ClientsPage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await movedToVanguard("clients");
   const auth = await requireRouteAccess("clients");
   const locale = await getCurrentLocale();
   const isFr = locale === "fr";

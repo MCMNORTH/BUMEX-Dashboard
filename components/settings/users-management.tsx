@@ -1,4 +1,4 @@
-import { updateSettingsUserEntityAction, updateSettingsUserRoleAction } from "@/app/(app)/settings/users/actions";
+import { updateSettingsUserEntityAction } from "@/app/(app)/settings/users/actions";
 import { availableEntityCodes, bumexEntities } from "@/lib/entities/config";
 import { roleLabels } from "@/lib/auth/permissions";
 import { getCurrentLocale } from "@/lib/i18n/server";
@@ -11,7 +11,6 @@ import type { AppRole } from "@/types/auth";
 import type { ErpAccessGrant } from "@/types/erp";
 import type { SettingsUserRecord } from "@/lib/settings/users";
 
-const editableRoleOptions: AppRole[] = ["admin", "manager", "employee"];
 
 const frenchRoleLabels: Record<AppRole, string> = {
   admin: "Administrateur",
@@ -51,7 +50,7 @@ export async function UsersManagement({
         <h1 className="text-2xl font-semibold tracking-tight">{tr("Utilisateurs", "Users")}</h1>
         <p className="text-sm text-muted-foreground">
           {isSuperAdmin
-            ? tr("Modifiez le rôle ou l’entité d’une personne, puis enregistrez la ligne.", "Change a person’s role or entity, then save that row.")
+            ? tr("Le rôle d’une personne est son rôle Vanguard ; modifiez-le, ou son entité, puis enregistrez la ligne.", "A person’s role is their Vanguard role; change it, or their entity, then save that row.")
             : tr("Seul un super administrateur peut modifier les rôles et entités.", "Only a super administrator can change roles and entities.")}
         </p>
       </div>
@@ -74,9 +73,9 @@ export async function UsersManagement({
             <thead className="border-b border-border bg-muted/50 text-xs text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-medium">{tr("Utilisateur", "User")}</th>
-                <th className="px-4 py-3 font-medium">{tr("Rôle", "Role")}</th>
+                <th className="px-4 py-3 font-medium">{tr("Rôle BUMEX One (suit Vanguard)", "BUMEX One role (follows Vanguard)")}</th>
                 <th className="px-4 py-3 font-medium">{tr("Entité", "Entity")}</th>
-                {erpAccess ? <th className="px-4 py-3 font-medium">{tr("Accès ERP", "ERP access")}</th> : null}
+                {erpAccess ? <th className="px-4 py-3 font-medium">{tr("Rôle Vanguard", "Vanguard role")}</th> : null}
                 <th className="px-4 py-3 font-medium">{tr("Disponibilité", "Availability")}</th>
                 <th className="px-4 py-3 font-medium">{tr("Créé le", "Created")}</th>
               </tr>
@@ -90,24 +89,8 @@ export async function UsersManagement({
                       <p className="text-xs text-muted-foreground">{user.email}</p>
                     </td>
                     <td className="px-4 py-3">
-                      {isSuperAdmin ? (
-                        <form action={updateSettingsUserRoleAction} className="flex min-w-[220px] items-center gap-2">
-                          <input type="hidden" name="user_id" value={user.id} />
-                          <ModernSelect
-                            name="role"
-                            defaultValue={user.role}
-                            className="flex-1"
-                            options={editableRoleOptions.map((role) => ({ value: role, label: roleLabel(role) }))}
-                          />
-                          <Button type="submit" variant="secondary">
-                            {tr("Enregistrer", "Save")}
-                          </Button>
-                        </form>
-                      ) : (
-                        <Badge variant="secondary">
-                          {roleLabel(user.role)}
-                        </Badge>
-                      )}
+                      {/* follows the Vanguard role (lib/erp/roles.ts) */}
+                      <Badge variant="secondary">{roleLabel(user.role)}</Badge>
                     </td>
                     <td className="px-4 py-3">
                       {isSuperAdmin && supportsEntityManagement ? (

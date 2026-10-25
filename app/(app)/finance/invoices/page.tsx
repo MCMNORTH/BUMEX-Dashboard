@@ -1,3 +1,4 @@
+import { FINANCE_ARCHIVED } from "@/lib/finance/archive";
 import Link from "next/link";
 import { ArrowRight, CalendarClock, Download, FilePenLine, FileText, Landmark, ShieldCheck, Wallet } from "lucide-react";
 
@@ -59,7 +60,7 @@ export default async function FinanceInvoicesPage({
   const commentsByInvoiceId = (await getCommentsForEntities("invoice", invoices.map((invoice) => invoice.id))) as Record<string, CommentRecord[]>;
 
   const summary = getInvoiceSummary(invoices);
-  const canManage = auth.role === "admin" || auth.role === "manager" || auth.role === "employee";
+  const canManage = !FINANCE_ARCHIVED && (auth.role === "admin" || auth.role === "manager" || auth.role === "employee");
   const pendingInvoices = invoices.filter((invoice) => invoice.approval_status === "pending" && !hasActiveRevisionRequest(invoice));
   const pendingApprovalCount = pendingInvoices.length;
   const changesRequestedCount = invoices.filter(hasActiveRevisionRequest).length;

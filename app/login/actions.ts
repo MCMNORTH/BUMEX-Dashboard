@@ -99,7 +99,8 @@ export async function signInAction(
     .eq("id", userId)
     .maybeSingle<{ entity_code: string | null }>();
 
-  redirect(ownProfile?.entity_code ? "/overview" : "/select-entity");
+  // the home page sends each person to theirs (Vanguard with ERP access)
+  redirect(ownProfile?.entity_code ? "/" : "/select-entity");
 }
 
 export async function signUpAction(

@@ -21,7 +21,9 @@ function accountOf(state: State, entityId: Id, code: string): Account | undefine
 
 export function AccountingPanel({ entityId, initialTab }: { entityId: Id; initialTab?: string | null }) {
   const { state, t, apply, ui } = useStore();
-  const [tab, setTab] = useState<Tab>((initialTab as Tab) || 'entry');
+  // [bumex-one] an entity whose chart is not set up yet has no journal to post in: it opens on its chart
+  const ready = state.journals.some((j) => j.entityId === entityId);
+  const [tab, setTab] = useState<Tab>((initialTab as Tab) || (ready ? 'entry' : 'coa'));
   useEffect(() => { if (initialTab) setTab(initialTab as Tab); }, [initialTab]);
   const tabs = [
     { id: 'entry' as Tab, label: t('tab_entry') },
@@ -36,7 +38,8 @@ export function AccountingPanel({ entityId, initialTab }: { entityId: Id; initia
         <Tabs tabs={tabs} value={tab} onChange={setTab} />
       </div>
       <div className="sheet-body">
-        {tab === 'entry' && <EntryForm entityId={entityId} editing={editing} onDone={() => setEditing(null)} />}
+        {tab === 'entry' && !ready && <div className="banner info">Le plan comptable de cette entité n'est pas encore installé : choisissez-le dans l'onglet « {t('tab_coa')} ». <button className="btn sm" onClick={() => setTab('coa')}>{t('tab_coa')}</button></div>}{/* [bumex-one] */}
+        {tab === 'entry' && ready && <EntryForm entityId={entityId} editing={editing} onDone={() => setEditing(null)} />}
         {tab === 'journals' && <Journals entityId={entityId} onEdit={(id) => { setEditing(id); setTab('entry'); }} />}
         {tab === 'gl' && <Ledger entityId={entityId} />}
         {tab === 'tb' && <TrialBalance entityId={entityId} />}

@@ -1,6 +1,7 @@
 import { OverviewDashboard } from "@/components/dashboard/overview-dashboard";
 import { PageRefresh } from "@/components/layout/page-refresh";
 import { requireRouteAccess } from "@/lib/auth/server";
+import { movedToVanguard } from "@/lib/erp/vanguard/retired";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { getOverviewDashboardData } from "@/lib/overview/service";
 
@@ -9,6 +10,7 @@ import { getOverviewDashboardData } from "@/lib/overview/service";
 export const unstable_dynamicStaleTime = 120;
 
 export default async function OverviewPage() {
+  await movedToVanguard("overview");
   const auth = await requireRouteAccess("overview");
   const [dashboardData, locale] = await Promise.all([
     getOverviewDashboardData(auth.role, auth.profile.id),

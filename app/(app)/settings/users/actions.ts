@@ -6,10 +6,7 @@ import { redirect } from "next/navigation";
 import { requireAuthenticatedUser } from "@/lib/auth/server";
 import { isBumexEntityCode } from "@/lib/entities/config";
 import { normalizeEntityMutationError } from "@/lib/entities/errors";
-import { updateSettingsUserEntity, updateSettingsUserRole } from "@/lib/settings/users";
-import type { AppRole } from "@/types/auth";
-
-const roleOptions: AppRole[] = ["admin", "manager", "employee"];
+import { updateSettingsUserEntity } from "@/lib/settings/users";
 
 export type SettingsUsersInlineActionState = {
   error?: string;
@@ -42,51 +39,8 @@ async function requireSuperAdminEditor() {
   return auth;
 }
 
-export async function updateSettingsUserRoleInlineAction(
-  _prevState: SettingsUsersInlineActionState,
-  formData: FormData,
-): Promise<SettingsUsersInlineActionState> {
-  try {
-    const auth = await requireSuperAdminEditor();
-
-    const userId = getString(formData, "user_id");
-    const role = getString(formData, "role") as AppRole;
-
-    if (!userId) {
-      throw new Error("Missing user identifier.");
-    }
-
-    if (!roleOptions.includes(role)) {
-      throw new Error("This role is not available in the current production database.");
-    }
-
-    if (userId === auth.profile.id) {
-      throw new Error("The super admin cannot change their own role from this screen.");
-    }
-
-    await updateSettingsUserRole(userId, role);
-    revalidatePath("/settings/users");
-
-    return {
-      success: "Role updated",
-      value: role,
-    };
-  } catch (error) {
-    return {
-      error: normalizeInlineError(error, "The role could not be updated."),
-    };
-  }
-}
-
-export async function updateSettingsUserRoleAction(formData: FormData) {
-  const result = await updateSettingsUserRoleInlineAction({}, formData);
-
-  if (result.error) {
-    redirect(buildSettingsUsersRedirect({ error: result.error }));
-  }
-
-  redirect(buildSettingsUsersRedirect({ success: result.success ?? "User role updated." }));
-}
+// Roles are not changed here any more: a person's role is their Vanguard role (the ERP access column, erp-actions.ts)
+// and the BUMEX One role follows it (lib/erp/roles.ts).
 
 export async function updateSettingsUserEntityInlineAction(
   _prevState: SettingsUsersInlineActionState,

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ROLES, MODULE_KEYS, ROLE_DEFAULT_MODULES, createUser, updateUserAccess, setUserStatus, decideDeletion, pendingDeletions, isAccessAdmin, canDecideDeletions, type Role, type AppUser, type Id } from '@bumex/domain';
 import { useStore } from '../../store';
 import { Field, Tabs, Chip, saveFile, Icon, DeleteButton } from '../common';
+import { History } from '../../one/History'; // [bumex-one] one history: the ERP's audit and BUMEX One's activity
 import logoImage from '../../assets/logo.jpg'; // [bumex-one] Next imports images as objects
 const logo = logoImage.src;
 
@@ -60,7 +61,7 @@ export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
             <Field label={t('fiscal_year')}><select className="in" value={ui.fiscalYearLabel} onChange={(e) => setUi({ fiscalYearLabel: e.target.value })}>{fys.map((f) => <option key={f} value={f}>{f}</option>)}</select></Field>
             <Field label={t('set_entity')}><select className="in" value={ui.entityId ?? ''} onChange={(e) => setUi({ entityId: e.target.value, room: e.target.value === state.entities.find((x) => x.isHolding)?.id ? 'penthouse' : ui.room === 'penthouse' ? 'settings' : ui.room })}>{entities.filter((e) => state.session.entityIds === '*' || state.session.entityIds.includes(e.id)).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></Field>
           </div>
-          <DemoSignIn />
+          {/* [bumex-one] no demo sign-in: the person is the one signed in to BUMEX One */}
         </div>
         <div className="card">
           <h2>{t('set_display')}</h2>
@@ -87,7 +88,7 @@ export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
           <div className="small muted">{t('demo_note')} · {state.entries.length} écritures · {state.employees.length} collaborateurs · {state.assets.length} immobilisations · {state.tasks.length} tâches</div>
           <div className="actions" style={{ marginTop: 10, justifyContent: 'flex-start' }}>
             <button className="btn sm" onClick={exportJson}>Exporter les données (JSON)</button>
-            <button className="btn sm danger" onClick={() => { if (confirm(t('reset') + ' ?')) reset(); }}>{t('reset')}</button>
+            <button className="btn sm" onClick={() => reset()}>{t('reset')}</button>{/* [bumex-one] reloads the database's state */}
           </div>
         </div>
       </div>
@@ -121,7 +122,8 @@ function Access() {
   const employee = (u: AppUser) => state.employees.find((e) => e.id === u.employeeId);
   return (
     <>
-      <div className="banner info">Vous créez le compte, l'application vous donne le lien de connexion à transmettre ; la personne l'ouvre, son compte s'active et elle entre avec le rôle, les entités et les modules que vous avez fixés. Ce qui n'est pas autorisé reste éteint dans l'immeuble.</div>
+      {/* [bumex-one] accounts are BUMEX One's: an access opens the ERP to one of its people (no invitation link) */}
+      <div className="banner info">Les personnes viennent de BUMEX One : saisissez l'adresse e-mail d'une personne de BUMEX One pour lui ouvrir l'ERP, avec le rôle, les entités et les modules que vous fixez. Ce qui n'est pas autorisé reste éteint dans l'immeuble. Désactiver retire l'accès.</div>
       <div className="actions" style={{ justifyContent: 'flex-start' }}><button className="btn primary" onClick={() => setEditing('new')}><Icon name="plus" size={14} /> Nouveau compte</button></div>
       {editing && <UserForm id={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
       <div className="card flush">
@@ -185,9 +187,8 @@ function UserForm({ id, onClose }: { id: Id | null; onClose: () => void }) {
     const input = { name, email, role, entityIds: allEntities ? ('*' as const) : entityIds, modules: customModules ? modules : undefined, employeeId: employeeId || undefined };
     const ok = apply((s) => {
       if (existing) return updateUserAccess(s, existing.id, input);
-      const [s1, u] = createUser(s, input);
-      const link = `${location.origin + location.pathname + location.search}#invite=${u.inviteToken}`;
-      window.setTimeout(() => { navigator.clipboard?.writeText(link).then(() => toast('ok', `Compte créé · lien d'invitation copié pour ${u.name}`)).catch(() => toast('info', `Lien : ${link}`)); }, 0);
+      const [s1, u] = createUser(s, { ...input, status: 'active' }); // [bumex-one] no invitation: the person signs in to BUMEX One
+      window.setTimeout(() => toast('ok', `Accès ERP ouvert à ${u.name}`), 0);
       return s1;
     }, existing ? 'Accès mis à jour' : undefined);
     if (ok) onClose();
@@ -215,7 +216,7 @@ function UserForm({ id, onClose }: { id: Id | null; onClose: () => void }) {
       </div>
       <div className="actions" style={{ marginTop: 10 }}>
         <button className="btn" onClick={onClose}>Annuler</button>
-        <button className="btn primary" onClick={save}>{existing ? 'Enregistrer' : 'Créer le compte et obtenir le lien'}</button>
+        <button className="btn primary" onClick={save}>{existing ? 'Enregistrer' : "Ouvrir l'ERP à cette personne" /* [bumex-one] no invitation link */}</button>
       </div>
     </div>
   );
@@ -261,33 +262,3 @@ function Deletions() {
   );
 }
 
-function History() {
-  const { state, t, ui } = useStore();
-  const [q, setQ] = useState('');
-  const [action, setAction] = useState<'' | 'I' | 'U' | 'D'>('');
-  const [scope, setScope] = useState<'entity' | 'all'>('entity');
-  const rows = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    return [...state.auditLog]
-      .filter((r) => (scope === 'all' || !r.entityId || r.entityId === ui.entityId) && (!action || r.action === action) && (!s || r.summary.toLowerCase().includes(s) || r.table.includes(s) || r.actorId.toLowerCase().includes(s)))
-      .sort((a, b) => (a.at < b.at ? 1 : -1))
-      .slice(0, 200);
-  }, [state.auditLog, q, action, scope, ui.entityId]);
-  const A: Record<string, [string, 'good' | 'warn' | 'crit']> = { I: ['Création', 'good'], U: ['Modification', 'warn'], D: ['Suppression', 'crit'] };
-  return (
-    <>
-      <div className="actions" style={{ justifyContent: 'flex-start' }}>
-        <input className="in" style={{ maxWidth: 320 }} placeholder="Filtrer l'historique…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="in" style={{ maxWidth: 160 }} value={action} onChange={(e) => setAction(e.target.value as '' | 'I' | 'U' | 'D')}><option value="">Toutes les actions</option><option value="I">Créations</option><option value="U">Modifications · validations</option><option value="D">Suppressions</option></select>
-        <select className="in" style={{ maxWidth: 160 }} value={scope} onChange={(e) => setScope(e.target.value as 'entity' | 'all')}><option value="entity">Entité courante</option><option value="all">Tout le groupe</option></select>
-        <span className="small muted">{rows.length} lignes · chaque création, modification, validation et suppression est journalisée avec son auteur</span>
-      </div>
-      <div className="card flush">
-        <table>
-          <thead><tr><th>Quand</th><th>Qui</th><th>{t('role')}</th><th>Action</th><th>Objet</th><th>Détail</th></tr></thead>
-          <tbody>{rows.map((r, i) => <tr key={i}><td className="small mono">{r.at.slice(0, 16).replace('T', ' ')}</td><td>{r.actorId}</td><td className="small">{t(r.role)}</td><td><Chip kind={A[r.action][1]}>{A[r.action][0]}</Chip></td><td className="small">{r.table}<div className="muted mono">{r.rowId}</div></td><td className="small">{r.summary}</td></tr>)}</tbody>
-        </table>
-      </div>
-    </>
-  );
-}

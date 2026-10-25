@@ -9,7 +9,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": root,
-      "server-only": fileURLToPath(new URL("./lib/erp/accounting/test/server-only.ts", import.meta.url)),
+      "server-only": fileURLToPath(new URL("./lib/erp/vanguard/test/server-only.ts", import.meta.url)),
     },
   },
   test: {

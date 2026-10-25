@@ -2,23 +2,32 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   headcount, addEmployee, updateEmployee, simulatePayroll, postPayroll, payrollStatement, payrollRulesFor, setPayrollRules, computePayLine, CATEGORY_FR, planningCalendar, accountBalance, effectiveExemptions,
   fmt, r2, parseAmount, type Id, type Employee, type EmployeeCategory, type PayrollRules, type PayrollRegime,
+  canUseModule, // [bumex-one]
 } from '@bumex/domain';
 import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, DeleteButton, downloadXlsx, entryRef } from '../common';
+import { People } from '../../one/People'; // [bumex-one] BUMEX One's team, for everyone
+import { useSay } from '../../one/say'; // [bumex-one]
 
-type Tab = 'employees' | 'sheet' | 'headcount' | 'payroll' | 'statements' | 'rules';
+type Tab = 'people' | 'employees' | 'sheet' | 'headcount' | 'payroll' | 'statements' | 'rules'; // [bumex-one] people
 const CATS = Object.keys(CATEGORY_FR) as EmployeeCategory[];
 const CONTRACTS = ['CDI', 'CDD', 'Stage', 'Prestataire', 'Associé'];
 
 export function HrPanel({ entityId, initialTab }: { entityId: Id; initialTab?: string | null }) {
   const { state, t } = useStore();
-  const [tab, setTab] = useState<Tab>((initialTab as Tab) || 'employees');
-  useEffect(() => { if (initialTab) setTab(initialTab as Tab); }, [initialTab]);
+  // [bumex-one] the room opens to everyone on its "Personnes" tab (lib/erp/vanguard/domain.ts, canOpenRoom); the HR
+  // module's tabs stay with the people who have it
+  const say = useSay();
+  const hrModule = canUseModule(state, 'hr');
+  const [tab, setTab] = useState<Tab>(hrModule ? (initialTab as Tab) || 'employees' : 'people');
+  useEffect(() => { if (initialTab && (hrModule || initialTab === 'people')) setTab(initialTab as Tab); }, [initialTab, hrModule]);
   const [employeeId, setEmployeeId] = useState<Id | null>(null);
   const hc = headcount(state, entityId);
   const lastMonth = useMemo(() => { const d = new Date(state.today + 'T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7); }, [state.today]);
   const unposted = !state.payrollRuns.some((r) => r.entityId === entityId && r.month === lastMonth && r.status === 'posted') && hc.active > 0;
-  const tabs = [
+  const people = { id: 'people' as Tab, label: say('Personnes', 'People') }; // [bumex-one]
+  const tabs = !hrModule ? [people] : [
+    people,
     { id: 'employees' as Tab, label: `Collaborateurs · ${hc.active}` },
     { id: 'sheet' as Tab, label: employeeId ? `Fiche · ${state.employees.find((e) => e.id === employeeId)?.initials ?? ''}` : 'Nouvelle fiche' },
     { id: 'headcount' as Tab, label: 'Effectifs' },
@@ -31,6 +40,7 @@ export function HrPanel({ entityId, initialTab }: { entityId: Id; initialTab?: s
     <>
       <div className="sheet-head"><h1>{t('room_hr')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
       <div className="sheet-body">
+        {tab === 'people' && <People entityId={entityId} onOpen={open} />}
         {tab === 'employees' && <Employees entityId={entityId} onOpen={open} />}
         {tab === 'sheet' && <Sheet entityId={entityId} employeeId={employeeId} onSaved={(id) => setEmployeeId(id)} />}
         {tab === 'headcount' && <HeadcountView entityId={entityId} />}

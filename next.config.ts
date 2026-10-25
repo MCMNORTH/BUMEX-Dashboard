@@ -11,6 +11,13 @@ const nextConfig: NextConfig = {
     // fetched again on the next visit.
     staleTimes: { dynamic: 30 },
   },
+  // The first ERP pages (ERP home, accounting screens) gave way to BUMEX Vanguard, the ERP's own interface.
+  async redirects() {
+    return [
+      { source: "/erp", destination: "/vanguard", permanent: false },
+      { source: "/erp/:path*", destination: "/vanguard", permanent: false },
+    ];
+  },
   async headers() {
     return [
       {

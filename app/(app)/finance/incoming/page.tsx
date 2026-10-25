@@ -1,3 +1,4 @@
+import { FINANCE_ARCHIVED } from "@/lib/finance/archive";
 import Link from "next/link";
 import { CircleDollarSign, FileText, Landmark } from "lucide-react";
 
@@ -34,7 +35,7 @@ export default async function FinanceIncomingPage() {
   const invoiceSummary = getInvoiceSummary(invoices);
   const paymentSummary = getPaymentSummary(payments);
 
-  const canManage = auth.role === "admin" || auth.role === "manager" || auth.role === "employee";
+  const canManage = !FINANCE_ARCHIVED && (auth.role === "admin" || auth.role === "manager" || auth.role === "employee");
 
   return (
     <div className="space-y-6">

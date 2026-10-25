@@ -1,13 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { floorSignals, groupFigures, trialBalance, cashForecast, verifyChain, loanSummaries, planningCalendar, yearDepreciation, headcount, withholdingStatement, vatStatement, pendingDeletions, fmt, r2, type Id } from '@bumex/domain';
 import { useStore, MODULE_ROOM } from '../../store';
 import type { Room } from '../../i18n';
-import { Icon } from '../common';
+import { Icon, Tabs } from '../common';
+import { ActivityReports } from '../../one/ActivityReports'; // [bumex-one] BUMEX One's activity reports, same room
+import { useSay } from '../../one/say'; // [bumex-one]
 
 // Reports: each card carries a live figure and opens the module that produces the report, on the right tab.
 
 export function ReportsPanel({ entityId }: { entityId: Id }) {
   const { state, t, ui, setUi, openRoom } = useStore();
+  const say = useSay(); // [bumex-one]
+  const [part, setPart] = useState<'finance' | 'activity'>(ui.tab === 'activity' ? 'activity' : 'finance'); // [bumex-one] financial reports, activity reports
   const entity = state.entities.find((e) => e.id === entityId)!;
   const f = useMemo(() => floorSignals(state, entityId), [state, entityId]);
   const g = useMemo(() => groupFigures(state), [state]);
@@ -62,8 +66,9 @@ export function ReportsPanel({ entityId }: { entityId: Id }) {
       ];
   return (
     <>
-      <div className="sheet-head"><h1>{t('rep_title')}</h1><span className="muted small">{t('rep_sub')}</span></div>
+      <div className="sheet-head"><h1>{t('rep_title')}</h1><Tabs tabs={[{ id: 'finance' as const, label: say('Pilotage', 'Management') }, { id: 'activity' as const, label: say("Rapports d'activité", 'Activity reports') }]} value={part} onChange={setPart} />{part === 'finance' && <span className="muted small">{t('rep_sub')}</span>}</div>
       <div className="sheet-body">
+        {part === 'activity' ? <ActivityReports /> : (
         <div className="grid3">
           {cards.map((c, i) => (
             <button key={i} className="card" style={{ textAlign: 'left', cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start' }} onClick={() => go(c.room, c.tab)}>
@@ -77,6 +82,7 @@ export function ReportsPanel({ entityId }: { entityId: Id }) {
             </button>
           ))}
         </div>
+        )}
       </div>
     </>
   );

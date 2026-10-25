@@ -4,7 +4,7 @@ const dict: Record<string, [string, string]> = {
   tower: ['Tour', 'Tower'], flat: ['Plat', 'Flat'], floor: ['Étage', 'Floor'], penthouse: ['Penthouse', 'Penthouse'],
   enter: ["Entrer dans l'étage", 'Enter the floor'], back_tower: ['Échap · Tour', 'Esc · Tower'], close: ['Échap · Fermer', 'Esc · Close'],
   search_ph: ['Rechercher un client, une facture, un compte… (Ctrl+K)', 'Search a customer, an invoice, an account… (Ctrl+K)'],
-  fiscal_year: ['Exercice', 'Fiscal year'], role: ['Rôle', 'Role'], reset: ['Réinitialiser la démo', 'Reset the demo'], lang: ['EN', 'FR'],
+  fiscal_year: ['Exercice', 'Fiscal year'], role: ['Rôle', 'Role'], reset: ['Recharger les données', 'Reload the data'] /* [bumex-one] */, lang: ['EN', 'FR'],
   partner: ['Associé', 'Partner'], manager: ['Manager', 'Manager'], accountant: ['Comptable', 'Accountant'], staff: ['Collaborateur', 'Staff'], intern: ['Stagiaire', 'Intern'], admin: ['Administrateur', 'Administrator'], raf: ['Responsable administratif et financier', 'Finance & administration lead'],
   room_bank: ['Trésorerie', 'Treasury'], room_accounting: ['Comptabilité', 'Accounting'], room_clients: ['Clients', 'Clients'], room_suppliers: ['Fournisseurs', 'Suppliers'],
   room_missions: ['Missions', 'Engagements'], room_assets: ['Immobilisations', 'Fixed assets'], room_hr: ['Ressources humaines', 'Human resources'], room_tax: ['Fiscalité', 'Tax'], room_penthouse: ['Holding · consolidé', 'Holding · consolidated'],
@@ -17,7 +17,7 @@ const dict: Record<string, [string, string]> = {
   decor_title: ['Ce que montre le décor', 'What the decor shows'], periods: ['Périodes', 'Periods'], open: ['Ouverte', 'Open'], soft: ['Clôture douce', 'Soft-closed'], locked: ['Verrouillée', 'Locked'], closed: ['Clôturé', 'Closed'],
   shortcuts: ['Raccourcis', 'Shortcuts'], ok: ['OK', 'OK'], action: ['Action', 'Action'], attention: ['Attention', 'Attention'], todo: ['À traiter', 'To do'],
   no_webgl: ["Votre navigateur n'a pas d'accélération 3D : mode Plat activé.", 'Your browser has no 3D acceleration: Flat mode enabled.'],
-  entities: ['Entités', 'Entities'], rooms: ['Salles', 'Rooms'], phase2: ['phase 2', 'phase 2'], demo_note: ['Données de démonstration · tout est enregistré dans ce navigateur', 'Demo data · everything is kept in this browser'],
+  entities: ['Entités', 'Entities'], rooms: ['Salles', 'Rooms'], phase2: ['phase 2', 'phase 2'], demo_note: ['Données de la base ERP du groupe · chaque modification est enregistrée sur le serveur', 'ERP database of the group · every change is saved on the server'] /* [bumex-one] */,
   tab_entry: ['Saisie', 'Entry'], tab_journals: ['Journaux', 'Journals'], tab_gl: ['Grand livre', 'General ledger'], tab_tb: ['Balance', 'Trial balance'], tab_closing: ['Clôture', 'Closing'], tab_coa: ['Plan comptable', 'Chart of accounts'], tab_integrity: ['Intégrité', 'Integrity'],
   tab_invoices: ['Factures', 'Invoices'], tab_new_invoice: ['Nouvelle facture', 'New invoice'], tab_payments: ['Encaissements', 'Receipts'], tab_aging: ['Balance âgée', 'Aging'], tab_dunning: ['Relances', 'Dunning'], tab_customers: ['Fiches', 'Customers'],
   tab_accounts: ['Comptes', 'Accounts'], tab_recon: ['Rapprochement', 'Reconciliation'], tab_import: ['Import relevé', 'Statement import'], tab_forecast: ['Prévision', 'Forecast'], tab_payables: ['Fournisseurs à payer', 'Payables'], tab_loans: ['Emprunts', 'Loans'],
@@ -29,7 +29,7 @@ const dict: Record<string, [string, string]> = {
   posted: ['Comptabilisée', 'Posted'], draft: ['Brouillon', 'Draft'], reversed: ['Extournée', 'Reversed'], paid: ['Payée', 'Paid'],
   hash_ok: ['Hash OK', 'Hash OK'], hash_bad: ['Chaîne rompue', 'Chain broken'],
   // sidebar
-  nav_overview: ["Vue d'ensemble", 'Overview'], nav_floors: ['Immeuble · étages', 'Building · floors'], nav_tasks: ['Tâches', 'Tasks'], nav_archives: ['Archives', 'Archives'], nav_reports: ['Rapports', 'Reports'], nav_settings: ['Paramètres', 'Settings'],
+  nav_myday: ['Ma journée', 'My day'], /* [bumex-one] */ nav_overview: ["Vue d'ensemble", 'Overview'], nav_floors: ['Immeuble · étages', 'Building · floors'], nav_tasks: ['Tâches', 'Tasks'], nav_archives: ['Archives', 'Archives'], nav_reports: ['Rapports', 'Reports'], nav_settings: ['Paramètres', 'Settings'],
   nav_modules: ['Modules', 'Modules'], nav_work: ['Pilotage', 'Operations'], collapse: ['Réduire', 'Collapse'], expand: ['Développer', 'Expand'],
   // command bar
   bar_tasks: ['Tâches', 'Tasks'], bar_active: ['actives', 'active'], bar_progress: ['Avancement', 'Progress'], bar_done_of: ['terminées', 'done'], bar_engagements: ['Missions', 'Engagements'], bar_ongoing: ['en cours', 'ongoing'],
@@ -70,5 +70,5 @@ export function makeT(lang: Lang) {
 
 export const ROOM_KEYS = ['bank', 'accounting', 'clients', 'suppliers', 'missions', 'assets', 'hr', 'tax'] as const;
 // Rooms are the 3D spaces; the last four are modules without a room of their own (opened from the sidebar or the bar).
-export type Room = (typeof ROOM_KEYS)[number] | 'penthouse' | 'tasks' | 'archives' | 'reports' | 'settings';
+export type Room = (typeof ROOM_KEYS)[number] | 'penthouse' | 'tasks' | 'archives' | 'reports' | 'settings' | 'myday'; // [bumex-one] myday: vanguard/one/MyDay.tsx
 export const MODULE_ROOMS = ['tasks', 'archives', 'reports', 'settings'] as const;

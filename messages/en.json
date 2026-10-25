@@ -119,14 +119,6 @@
         "label": "BUMEX Vanguard",
         "description": "The ERP as a building: floors, rooms and modules."
       },
-      "erp": {
-        "label": "ERP home",
-        "description": "Your ERP access, entities and modules."
-      },
-      "erp-accounting": {
-        "label": "Accounting",
-        "description": "Entries, ledger, trial balance, closing and chart of accounts."
-      },
       "activity": {
         "label": "Activity",
         "description": "Recent actions, operational trails, and events."

@@ -1,6 +1,5 @@
 import type { LucideIcon } from "lucide-react";
 import type { AppRole } from "@/types/auth";
-import type { ErpModuleKey } from "@/types/erp";
 
 export type AppRouteKey =
   | "overview"
@@ -25,13 +24,11 @@ export type AppRouteKey =
   | "settings";
 
 export type NavigationItemConfig = {
-  href: `/${AppRouteKey}` | `/erp/${string}` | "/vanguard";
+  href: `/${AppRouteKey}` | "/vanguard";
   label: string;
   icon: LucideIcon;
   description: string;
   allowedRoles: AppRole[];
-  // ERP pages: shown only to people whose ERP access opens this module (lib/erp/config.ts)
-  erpModule?: ErpModuleKey;
 };
 
 export type NavigationGroup = {

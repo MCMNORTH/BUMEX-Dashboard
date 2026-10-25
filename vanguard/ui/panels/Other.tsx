@@ -1,21 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { groupFigures, archiveEngagement, planningCalendar, fmt, r2, type Id } from '@bumex/domain';
 import { useStore } from '../../store';
-import { Chip, D, STATUS_KIND, STATUS_FR, Lamp, Tabs } from '../common';
+import { Chip, D, STATUS_KIND, STATUS_FR, Lamp, Tabs, Icon } from '../common';
 import { worstSignal } from '../../three/Building';
 import { PlanningView, AvailabilityView } from './Planning';
+import { MissionCard, MissionForm, canEditMissions } from '../../one/Missions'; // [bumex-one] missions are BUMEX One's projects
+import { useSay } from '../../one/say'; // [bumex-one]
+import { WeekView } from '../../one/Week'; // [bumex-one] BUMEX One's weekly planning
 
 const STAGES = ['Planification', 'Terrain', 'Revue associé', 'Rapport', 'Facturation'];
 
-type MissionsTab = 'board' | 'planning' | 'availability';
+type MissionsTab = 'board' | 'week' | 'planning' | 'availability'; // [bumex-one] week
 
 export function MissionsPanel({ entityId, initialTab }: { entityId: Id; initialTab?: string | null }) {
   const { state, t } = useStore();
+  const say = useSay(); // [bumex-one]
   const [tab, setTab] = useState<MissionsTab>((initialTab as MissionsTab) || 'board');
   useEffect(() => { if (initialTab) setTab(initialTab as MissionsTab); }, [initialTab]);
   const cal = planningCalendar(state, entityId, state.today, 1);
   const tabs = [
     { id: 'board' as MissionsTab, label: 'Missions' },
+    { id: 'week' as MissionsTab, label: say('Semaine', 'Week') }, // [bumex-one] the tickets' week (vanguard/one/Week.tsx)
     { id: 'planning' as MissionsTab, label: <>Planning {cal.overloaded ? <Chip kind="crit">{cal.overloaded} surcharge</Chip> : cal.free ? <Chip kind="good">{cal.free} dispo.</Chip> : null}</> },
     { id: 'availability' as MissionsTab, label: 'Disponibilités' },
   ];
@@ -24,6 +29,7 @@ export function MissionsPanel({ entityId, initialTab }: { entityId: Id; initialT
       <div className="sheet-head"><h1>{t('room_missions')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
       <div className="sheet-body">
         {tab === 'board' && <Board entityId={entityId} />}
+        {tab === 'week' && <WeekView entityId={entityId} />}
         {tab === 'planning' && <PlanningView entityId={entityId} />}
         {tab === 'availability' && <AvailabilityView entityId={entityId} />}
       </div>
@@ -41,8 +47,17 @@ function Board({ entityId }: { entityId: Id }) {
   const focusRef = useRef<HTMLDivElement>(null);
   useEffect(() => { focusRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, [focus]);
   const tasksOf = (id: Id) => state.tasks.filter((x) => x.engagementId === id && x.status !== 'done').length;
+  // [bumex-one] creating and editing missions (vanguard/one/Missions.tsx)
+  const [editing, setEditing] = useState<string | 'new' | null>(null);
+  const say = useSay();
+  const focused = focus ? rows.find((e) => e.id === focus) : undefined;
   return (
     <>
+        {canEditMissions(state.session.role) && !editing && (
+          <div className="actions" style={{ justifyContent: 'flex-start' }}><button className="btn primary" onClick={() => setEditing('new')}><Icon name="plus" size={14} /> {say('Nouvelle mission', 'New mission')}</button></div>
+        )}
+        {editing && <MissionForm entityId={entityId} projectId={editing === 'new' ? null : editing} onClose={(saved) => { setEditing(null); const m = saved && useStore.getState().state.engagements.find((e) => (e as { projectId?: string }).projectId === saved); if (m) setUi({ focusEngagementId: m.id }); }} />}
+        {focused && !editing && <MissionCard mission={focused} onEdit={() => setEditing((focused as { projectId?: string }).projectId ?? null)} onClose={() => setUi({ focusEngagementId: null })} />}
         <div className="kanban">
           {STAGES.map((name, i) => (
             <div className="col" key={name}>

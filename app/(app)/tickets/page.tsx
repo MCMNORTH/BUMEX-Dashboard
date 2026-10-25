@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Settings2 } from "lucide-react";
 
 import { requireRouteAccess } from "@/lib/auth/server";
+import { movedToVanguard } from "@/lib/erp/vanguard/retired";
 import { isManagerLikeRole } from "@/lib/auth/permissions";
 import { getCurrentLocale, getDictionary, getMessage } from "@/lib/i18n/server";
 import { getTeamWorkload } from "@/lib/team/service";
@@ -51,11 +52,12 @@ const quickFilterKeys = ["status", "priority", "assignee", "due", "attention"] a
 // filters live in the URL), checked for changes every 20 seconds while open.
 export const unstable_dynamicStaleTime = 120;
 
-export default function TicketsPage({
+export default async function TicketsPage({
   searchParams,
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await movedToVanguard("tickets");
   return (
     <div className="space-y-4">
       <PageRefresh tables={["tasks", "subtasks", "project_workflows", "projects", "project_members", "profiles"]} live="fast" />

@@ -222,6 +222,57 @@
 }
 
 /*
+ * BUMEX Vanguard's design for every page in its frame: <html class="vanguard-app"> for people with ERP access
+ * (app/layout.tsx), with the light theme only. Its palette, surfaces and type are vanguard/styles.css's.
+ * Choice of 2026-10-25: Vanguard's design only, no dark variant, no colour themes.
+ */
+html.vanguard-app,
+html.vanguard-app [data-app-theme] {
+  --theme: #2b3f66;
+  --theme-tint: #6b8dc1;
+  --theme-light: #a9bddc;
+  --theme-hero-dark: #1d2c49;
+  --background: #f2f3f5;
+  --foreground: #1c2231;
+  --card: #ffffff;
+  --card-foreground: #1c2231;
+  --popover: #ffffff;
+  --popover-foreground: #1c2231;
+  --primary-foreground: #ffffff;
+  --secondary: #f2f3f5;
+  --secondary-foreground: #1c2231;
+  --muted: #f2f3f5;
+  --muted-foreground: #6a7382;
+  --border: #d9dde4;
+  --input: #d9dde4;
+  --success: #2e7d4f;
+  --warning: #b07a1e;
+  --danger: #b4232c;
+  --brand: #2b3f66;
+  --chart-1: #2b3f66;
+  --chart-2: #6b8dc1;
+  --chart-3: #d9a13e;
+  --chart-4: #cdbfa6;
+  --chart-5: #94a3b8;
+  --radius: 10px;
+  --shadow-soft-token: 0 1px 2px rgba(16, 24, 40, 0.06), 0 2px 8px rgba(16, 24, 40, 0.06);
+  --shadow-glow-token: 0 0 0 1px rgba(107, 141, 193, 0.25), 0 8px 18px rgba(16, 24, 40, 0.08);
+  --shadow-elevated-token: 0 1px 2px rgba(16, 24, 40, 0.06), 0 10px 30px rgba(16, 24, 40, 0.12);
+  --shadow-inner-token: inset 0 0 0 1px rgba(28, 34, 49, 0.06);
+  --primary: var(--theme);
+  --accent: #e6edf7;
+  --accent-foreground: #1d2c49;
+  --ring: rgba(107, 141, 193, 0.4);
+  --hero: #1d2c49;
+  --hero-border: rgba(107, 141, 193, 0.35);
+}
+
+html.vanguard-app body,
+html.vanguard-app .bumex-page {
+  font-family: "Aptos", "Aptos Narrow", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/*
  * Sidebar themes. The shell puts data-sidebar-theme on the sidebar, and the settings
  * previews put it on their thumbnails, so both read the same tokens. Each theme sets
  * the base colors; the rule below derives the rest from them. Text and muted text
@@ -434,25 +485,94 @@ body::after {
   background: color-mix(in srgb, var(--primary) 26%, transparent);
 }
 
-/* Vanguard keeps the browser's own scrollbars and selects (vanguard/vanguard.css). */
-:where(:not(.vanguard, .vanguard *)) {
+/* BUMEX One's pages inside Vanguard's frame (components/vanguard/vanguard-shell.tsx): Vanguard's rules leave them out
+   (scripts/vanguard-css.mjs); what the .vanguard container passes down by inheritance is set back here. */
+.bumex-page {
+  font-size: 1rem;
+  line-height: 1.5;
+  letter-spacing: normal;
+  color-scheme: light;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dark .bumex-page {
+  color-scheme: dark;
+}
+
+/* Vanguard names three of its colours like BUMEX One's tokens, on its container (vanguard/styles.css: --muted is a
+   text grey there, --accent its navy): the pages in the frame get BUMEX One's back, as the root resolves them. */
+:root {
+  --page-accent: var(--accent);
+  --page-border: var(--border);
+  --page-muted: var(--muted);
+}
+
+.bumex-page-frame {
+  --accent: var(--page-accent);
+  --border: var(--page-border);
+  --muted: var(--page-muted);
+}
+
+/* The page area (right of Vanguard's rail, under its header) and BUMEX One's controls in that header. */
+.bumex-page-frame {
+  position: absolute;
+  top: 52px;
+  left: 60px;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  overflow: auto;
+}
+
+.bumex-page-frame.wide {
+  left: 232px;
+}
+
+.bumex-tools {
+  position: absolute;
+  top: 0;
+  right: 16px;
+  z-index: 31;
+  display: flex;
+  height: 52px;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 900px) {
+  .bumex-page-frame {
+    left: 52px;
+  }
+
+  .bumex-page-frame.wide {
+    left: 200px;
+  }
+
+  .bumex-tools {
+    right: 10px;
+  }
+}
+
+/* Vanguard keeps the browser's own scrollbars and selects (vanguard/vanguard.css); BUMEX One's pages in its frame
+   keep BUMEX One's. */
+:where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *) {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.72) transparent;
 }
 
-:where(:not(.vanguard, .vanguard *))::-webkit-scrollbar {
+:where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *)::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
-:where(:not(.vanguard, .vanguard *))::-webkit-scrollbar-track {
+:where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *)::-webkit-scrollbar-track {
   margin-block: 10px;
   margin-inline: 10px;
   border-radius: 999px;
   background: transparent;
 }
 
-:where(:not(.vanguard, .vanguard *))::-webkit-scrollbar-thumb {
+:where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *)::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
   background:
@@ -462,16 +582,16 @@ body::after {
     0 8px 18px rgba(15, 23, 42, 0.12);
 }
 
-:where(:not(.vanguard, .vanguard *))::-webkit-scrollbar-thumb:hover {
+:where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *)::-webkit-scrollbar-thumb:hover {
   background:
     linear-gradient(180deg, rgba(96, 136, 192, 0.85), rgba(96, 136, 192, 0.85)) padding-box;
 }
 
-.dark :where(:not(.vanguard, .vanguard *)) {
+.dark :where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *) {
   scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
 }
 
-.dark :where(:not(.vanguard, .vanguard *))::-webkit-scrollbar-thumb {
+.dark :where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *)::-webkit-scrollbar-thumb {
   background:
     linear-gradient(180deg, rgba(148, 163, 184, 0.5), rgba(71, 85, 105, 0.82)) padding-box;
   box-shadow:
@@ -479,7 +599,7 @@ body::after {
     0 10px 22px rgba(2, 8, 23, 0.34);
 }
 
-.dark :where(:not(.vanguard, .vanguard *))::-webkit-scrollbar-thumb:hover {
+.dark :where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *)::-webkit-scrollbar-thumb:hover {
   background:
     linear-gradient(180deg, rgba(96, 136, 192, 0.85), rgba(96, 136, 192, 0.85)) padding-box;
 }
@@ -489,20 +609,20 @@ input[type="password"]::-ms-clear {
   display: none;
 }
 
-select:where(:not(.vanguard *)) {
+select:where(:not(.vanguard *), .bumex-page *) {
   color-scheme: light;
 }
 
-select:where(:not(.vanguard *)) option {
+select:where(:not(.vanguard *), .bumex-page *) option {
   background-color: var(--popover);
   color: var(--popover-foreground);
 }
 
-.dark select:where(:not(.vanguard *)) {
+.dark select:where(:not(.vanguard *), .bumex-page *) {
   color-scheme: dark;
 }
 
-.dark select:where(:not(.vanguard *)) option {
+.dark select:where(:not(.vanguard *), .bumex-page *) option {
   background-color: var(--popover);
   color: var(--popover-foreground);
 }

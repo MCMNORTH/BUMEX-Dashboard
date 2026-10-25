@@ -14,7 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-function persistLocale(nextLocale: Locale) {
+export function persistLocale(nextLocale: Locale) {
+  window.localStorage.setItem(localeCookieName, nextLocale);
   document.cookie = `${localeCookieName}=${nextLocale}; path=/; max-age=31536000; samesite=lax`;
   document.documentElement.setAttribute("lang", nextLocale);
 }
@@ -29,7 +30,6 @@ export function LanguageSwitcher() {
       return;
     }
 
-    window.localStorage.setItem(localeCookieName, nextLocale);
     persistLocale(nextLocale);
     setLocale(nextLocale);
     startTransition(() => {

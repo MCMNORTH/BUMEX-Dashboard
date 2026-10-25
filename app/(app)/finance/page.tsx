@@ -1,3 +1,4 @@
+import { FINANCE_ARCHIVED } from "@/lib/finance/archive";
 import { FinanceWorkspace } from "@/components/finance/finance-workspace";
 import { requireRouteAccess } from "@/lib/auth/server";
 import {
@@ -86,9 +87,9 @@ export default async function FinancePage() {
     <PageRefresh tables={["invoices", "payments", "transfers", "bank_statements", "clients"]} />
     <FinanceWorkspace
       isAdmin={auth.role === "admin"}
-      canManageIncomingFinance={canManageIncomingFinance}
-      canManageOutgoingFinance={canManageOutgoingFinance}
-      canManageBankFinance={canManageBankFinance}
+      canManageIncomingFinance={!FINANCE_ARCHIVED && canManageIncomingFinance}
+      canManageOutgoingFinance={!FINANCE_ARCHIVED && canManageOutgoingFinance}
+      canManageBankFinance={!FINANCE_ARCHIVED && canManageBankFinance}
       loadWarnings={loadWarnings}
       invoices={invoices}
       invoiceSummary={getInvoiceSummary(invoices)}

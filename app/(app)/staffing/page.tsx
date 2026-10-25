@@ -1,5 +1,6 @@
 import { StaffingWorkspace } from "@/components/staffing/staffing-workspace";
 import { requireRouteAccess } from "@/lib/auth/server";
+import { movedToVanguard } from "@/lib/erp/vanguard/retired";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { getStaffingWorkspace } from "@/lib/staffing/service";
 import { getTickets } from "@/lib/tickets/service";
@@ -9,6 +10,7 @@ import { PageRefresh } from "@/components/layout/page-refresh";
 export const unstable_dynamicStaleTime = 300;
 
 export default async function StaffingPage({ searchParams }: { searchParams: Promise<{ created?: string; updated?: string; error?: string; project?: string; person?: string }> }) {
+  await movedToVanguard("staffing");
   const auth = await requireRouteAccess("staffing");
   const [data, locale, params, tickets] = await Promise.all([
     getStaffingWorkspace(),

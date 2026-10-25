@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { BriefcaseBusiness, Blocks, ChevronsUpDown, Landmark, PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import { useEntitySwitch } from "@/components/entities/entity-switch-dialog";
 import { useErpAccess } from "@/components/erp/erp-access-provider";
@@ -79,6 +79,7 @@ function SidebarContent({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const { role } = usePermissions();
   const erpAccess = useErpAccess();
@@ -91,9 +92,8 @@ function SidebarContent({
   const visibleGroups = useMemo(
     () =>
       (role ? filterNavigationGroupsByRole(navigationGroups, role) : navigationGroups)
-        // The ERP tab and its pages follow the ERP access (role and modules), not the BUMEX One role.
-        .filter((group) => group.title !== "ERP" || erpAccess !== null)
-        .map((group) => ({ ...group, items: group.items.filter((item) => !item.erpModule || Boolean(erpAccess?.modules.includes(item.erpModule))) })),
+        // The ERP tab follows the ERP access, not the BUMEX One role.
+        .filter((group) => group.title !== "ERP" || erpAccess !== null),
     [role, erpAccess],
   );
   const managementItems = role === "admin" || role === "manager"
@@ -161,7 +161,7 @@ function SidebarContent({
     };
   }, [activeEntityCode]);
 
-  // The most specific item wins: on /erp/accounting, "Accounting" is active, not "ERP home" (/erp).
+  // The most specific item wins when one item's path starts with another's.
   const hrefs = visibleGroups.flatMap((group) => group.items.map((item) => item.href as string));
   const isActive = (href: string) =>
     (matchesNavigationPath(pathname, href) && !hrefs.some((other) => other.length > href.length && other.startsWith(`${href}/`) && matchesNavigationPath(pathname, other))) ||
@@ -250,7 +250,8 @@ function SidebarContent({
               <button
                 key={key}
                 type="button"
-                onClick={() => setSelectedSection({ key, pathname })}
+                // The ERP tab opens BUMEX Vanguard itself, the main app (its own rail keeps this menu at hand).
+                onClick={() => (key === "erp" ? router.push("/vanguard") : setSelectedSection({ key, pathname }))}
                 className={cn(
                   "flex min-w-0 items-center justify-center rounded-md py-1.5 transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
                   sectionEntries.length > 3 ? "px-0.5" : "px-1",

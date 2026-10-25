@@ -3,6 +3,8 @@ import { useStore } from '../store';
 import type { Room } from '../i18n';
 import { Icon } from './common';
 import emblemImage from '../assets/emblem.png'; // [bumex-one] Next imports images as objects
+import { useVanguardFrame } from '@/components/vanguard/frame'; // [bumex-one]
+import { useBumexOneSearch } from '../one/search'; // [bumex-one] one search for everything
 const emblem = emblemImage.src;
 
 export function Header() {
@@ -18,7 +20,9 @@ export function Header() {
         e.preventDefault();
         inputRef.current?.focus();
       }
-      if (e.key === 'Escape') {
+      // [bumex-one] Escape and F belong to the BUMEX One page open in the frame (its dialogs, its fields)
+      const inPage = useVanguardFrame.getState().pageOpen;
+      if (e.key === 'Escape' && (!inPage || document.activeElement === inputRef.current)) {
         if (document.activeElement === inputRef.current) {
           setQ('');
           inputRef.current?.blur();
@@ -31,7 +35,7 @@ export function Header() {
         else if (s.ui.focusRoom) s.focusRoom(null);
         else if (s.ui.view === 'floor') s.goTower();
       }
-      if (e.key.toLowerCase() === 'f' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLSelectElement) && !e.ctrlKey && !e.metaKey) {
+      if (e.key.toLowerCase() === 'f' && !inPage && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLSelectElement) && !e.ctrlKey && !e.metaKey) {
         const s = useStore.getState();
         if (s.ui.view === 'flat' && s.ui.webgl) s.setUi({ view: 'tower', room: null, focusRoom: null, rackFocus: false });
         else if (s.ui.view !== 'flat') s.setUi({ view: 'flat' });
@@ -54,6 +58,8 @@ export function Header() {
     for (const tk of state.tasks) if (tk.title.toLowerCase().includes(s)) out.push({ label: tk.title, sub: `Tâche · ${tk.assignee} · ${tk.dueDate}`, go: () => { setUi({ focusTaskId: tk.id }); enter(tk.entityId, 'tasks', 'all'); } });
     return out.slice(0, 12);
   }, [q, state, ui.entityId, goFloor, openRoom, setUi, openArchive]);
+  const oneResults = useBumexOneSearch(q); // [bumex-one] BUMEX One's records after Vanguard's
+  const allResults = [...results, ...oneResults];
 
   const roomLabel = (r: Room) => (t(`room_${r}`) === `room_${r}` ? t(`nav_${r}`) : t(`room_${r}`));
   return (
@@ -96,9 +102,9 @@ export function Header() {
         <label htmlFor="search" style={{ position: 'absolute', left: -9999 }}>Rechercher</label>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.3-4.3" /></svg>
         <input id="search" ref={inputRef} type="search" placeholder={t('search_ph')} value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" />
-        {results.length > 0 && (
+        {allResults.length > 0 && (
           <div className="search-results">
-            {results.map((r, i) => (
+            {allResults.map((r, i) => (
               <button key={i} onClick={() => { r.go(); setQ(''); }}>
                 <span>{r.label}</span>
                 <span className="muted small">{r.sub}</span>
@@ -131,6 +137,8 @@ export function Header() {
           <span>{t(state.session.role)}</span>
           <Icon name="settings" size={15} />
         </button>
+        {/* [bumex-one] room for BUMEX One's controls (refresh, notifications, theme, account: vanguard-shell.tsx) */}
+        <span aria-hidden="true" style={{ flex: 'none', width: 'var(--bumex-tools, 132px)' }} />
       </div>
     </header>
   );

@@ -4,7 +4,20 @@ import { DomainError } from './types';
 // Deterministic ids: a counter in the state, so the seed and the tests are reproducible.
 export function nextId(state: State, prefix: string): [State, Id] {
   const seq = state.seq + 1;
-  return [{ ...state, seq }, `${prefix}_${seq.toString(36).padStart(5, '0')}`];
+  return [{ ...state, seq }, idSource ? idSource(prefix) : `${prefix}_${seq.toString(36).padStart(5, '0')}`];
+}
+
+// [bumex-one] On real data the ids are database UUIDs: BUMEX Vanguard makes them in the browser and the server replays
+// the same change with the same ids (lib/erp/vanguard). The engine is synchronous, so the source is set for one run.
+let idSource: ((prefix: string) => Id) | null = null;
+export function withIdSource<T>(source: (prefix: string) => Id, run: () => T): T {
+  const previous = idSource;
+  idSource = source;
+  try {
+    return run();
+  } finally {
+    idSource = previous;
+  }
 }
 
 export function audit(state: State, table: string, rowId: Id, action: 'I' | 'U' | 'D', summary: string, entityId?: Id): State {

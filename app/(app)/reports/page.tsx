@@ -6,6 +6,7 @@ import { ReportBuilder } from "@/components/reports/report-builder";
 import { ReportPreview } from "@/components/reports/report-preview";
 import { Badge } from "@/components/ui/badge";
 import { requireRouteAccess } from "@/lib/auth/server";
+import { movedToVanguard } from "@/lib/erp/vanguard/retired";
 import { formatNumber } from "@/lib/formatters";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { generateReport, getDefaultDateRange, getReportBuilderData } from "@/lib/reports/service";
@@ -34,6 +35,7 @@ export default async function ReportsPage({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await movedToVanguard("reports");
   const auth = await requireRouteAccess("reports");
   const locale = await getCurrentLocale();
   const isFr = locale === "fr";

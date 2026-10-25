@@ -27,7 +27,7 @@
         "./*"
       ],
       "@bumex/domain": [
-        "./lib/erp/engine/index.ts"
+        "./lib/erp/vanguard/domain.ts"
       ]
     }
   },

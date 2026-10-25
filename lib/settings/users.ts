@@ -85,26 +85,6 @@ export async function getSettingsUsers(filters: SettingsUserFilters = {}) {
   } satisfies SettingsUsersResult;
 }
 
-export async function updateSettingsUserRole(userId: string, role: AppRole) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { error } = await db
-    .from("profiles")
-    .update({
-      role,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", userId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-}
-
 export async function updateSettingsUserEntity(userId: string, entityCode: BumexEntityCode) {
   const db = await createClient();
 
