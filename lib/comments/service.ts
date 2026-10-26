@@ -2,47 +2,18 @@ import "server-only";
 
 import { logActivity } from "@/lib/activity/service";
 import { createMentionNotifications } from "@/lib/notifications/service";
-import { createClient } from "@/lib/firebase/server";
+import { asPerson, select, selectOne } from "@/lib/work/db";
 import type { AppRole } from "@/types/auth";
-import type { CommentActionState, CommentAttachmentRecord, CommentEntityType, CommentFormValues, CommentRecord } from "@/types/comment";
+import type { CommentActionState, CommentEntityType, CommentFormValues, CommentRecord } from "@/types/comment";
 
-type CommentAttachmentRow = CommentAttachmentRecord;
-
-type CommentRow = Omit<CommentRecord, "author" | "attachments"> & {
-  author:
-    | {
-        id: string;
-        full_name: string;
-        email: string;
-        avatar_url: string | null;
-        role: AppRole;
-      }
-    | Array<{
-        id: string;
-        full_name: string;
-        email: string;
-        avatar_url: string | null;
-        role: AppRole;
-      }>
-    | null;
-  attachments: CommentAttachmentRow[] | null;
-};
-
-function single<T>(value: T | T[] | null): T | null {
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-
-  return value;
-}
-
-function mapComment(row: CommentRow): CommentRecord {
-  return {
-    ...row,
-    author: single(row.author),
-    attachments: row.attachments ?? [],
-  };
-}
+// Comments: work.comment (0008), seen by whoever may see their subject (a shareholder never an internal one). They have
+// no attachments (BUMEX One never wrote any).
+const COMMENT_SQL = `
+  select c.id, c.subject_type as entity_type, c.subject_id as entity_id, c.author_id, c.body, c.is_internal, c.created_at, c.updated_at, c.deleted_at,
+         (select jsonb_build_object('id', p.id, 'full_name', p.full_name, 'email', p.email, 'avatar_url', p.avatar_url, 'role', work.person_role(p.id))
+            from work.person p where p.id = c.author_id) as author,
+         '[]'::jsonb as attachments
+    from work.comment c`;
 
 function toActivityEntityType(entityType: CommentEntityType) {
   if (entityType === "ticket") {
@@ -70,57 +41,15 @@ export async function getCommentsForEntity(entityType: CommentEntityType, entity
 }
 
 export async function getCommentsForEntities(entityType: CommentEntityType, entityIds: string[]) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
   if (!entityIds.length) {
     return {} as Record<string, CommentRecord[]>;
   }
 
-  const { data, error } = await db
-    .from("comments")
-    .select(
-      `
-        id,
-        entity_type,
-        entity_id,
-        author_id,
-        body,
-        is_internal,
-        created_at,
-        updated_at,
-        deleted_at,
-        author:profiles!comments_author_id_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        ),
-        attachments:comment_attachments (
-          id,
-          comment_id,
-          document_id,
-          file_url,
-          file_name,
-          file_size,
-          created_at
-        )
-      `,
-    )
-    .eq("entity_type", entityType)
-    .in("entity_id", entityIds)
-    .order("created_at", { ascending: true })
-    .returns<CommentRow[]>();
+  const rows = await asPerson((tx) =>
+    select<CommentRecord>(tx, `${COMMENT_SQL} where c.subject_type = $1 and c.subject_id = any($2::uuid[]) order by c.created_at`, [entityType, entityIds]),
+  );
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data ?? []).map(mapComment).reduce<Record<string, CommentRecord[]>>((acc, comment) => {
+  return rows.reduce<Record<string, CommentRecord[]>>((acc, comment) => {
     const current = acc[comment.entity_id] ?? [];
     current.push(comment);
     acc[comment.entity_id] = current;
@@ -133,12 +62,6 @@ export async function createComment(values: CommentFormValues, actor: { id: stri
     throw new Error("You do not have permission to comment on this entity.");
   }
 
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
   const payload = {
     entity_type: values.entity_type,
     entity_id: values.entity_id,
@@ -147,15 +70,13 @@ export async function createComment(values: CommentFormValues, actor: { id: stri
     is_internal: values.is_internal,
   };
 
-  const { data, error } = await db
-    .from("comments")
-    .insert(payload)
-    .select("id")
-    .maybeSingle<{ id: string }>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  const data = await asPerson((tx) =>
+    selectOne<{ id: string }>(
+      tx,
+      "insert into work.comment (subject_type, subject_id, author_id, body, is_internal) values ($1, $2::uuid, $3, $4, $5) returning id",
+      [payload.entity_type, payload.entity_id, payload.author_id, payload.body, payload.is_internal],
+    ),
+  );
 
   if (data?.id) {
     await createMentionNotifications({
@@ -185,23 +106,13 @@ export async function createComment(values: CommentFormValues, actor: { id: stri
 }
 
 async function getCommentById(id: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db
-    .from("comments")
-    .select("id, entity_type, entity_id, author_id, body, is_internal, deleted_at")
-    .eq("id", id)
-    .maybeSingle<Pick<CommentRecord, "id" | "entity_type" | "entity_id" | "author_id" | "body" | "is_internal" | "deleted_at">>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data ?? null;
+  return asPerson((tx) =>
+    selectOne<Pick<CommentRecord, "id" | "entity_type" | "entity_id" | "author_id" | "body" | "is_internal" | "deleted_at">>(
+      tx,
+      "select id, subject_type as entity_type, subject_id as entity_id, author_id, body, is_internal, deleted_at from work.comment where id = $1::uuid",
+      [id],
+    ),
+  );
 }
 
 export async function updateComment(commentId: string, body: string, actor: { id: string; role: AppRole }) {
@@ -219,23 +130,7 @@ export async function updateComment(commentId: string, body: string, actor: { id
     throw new Error("Deleted comments cannot be edited.");
   }
 
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { error } = await db
-    .from("comments")
-    .update({
-      body: body.trim(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", commentId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  await asPerson((tx) => tx.run("update work.comment set body = $2 where id = $1::uuid", [commentId, body.trim()]));
 
   await logActivity({
     userId: actor.id,
@@ -261,23 +156,7 @@ export async function deleteComment(commentId: string, actor: { id: string; role
     throw new Error("You do not have permission to delete this comment.");
   }
 
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { error } = await db
-    .from("comments")
-    .update({
-      deleted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", commentId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  await asPerson((tx) => tx.run("update work.comment set deleted_at = now() where id = $1::uuid", [commentId]));
 
   await logActivity({
     userId: actor.id,

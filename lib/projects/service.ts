@@ -6,32 +6,20 @@ import {
   createStatusChangeNotification,
   getNotificationRecipientsForProject,
 } from "@/lib/notifications/service";
-import { getCached, invalidateCached } from "@/lib/server-cache";
-import { createClient } from "@/lib/firebase/server";
 import { createDefaultBoardWorkflow } from "@/lib/tickets/workflow-service";
 import {
-  applyEntityScope,
-  extendWithEntityCode,
-  getCurrentEntityCode,
-  getEntityScopedCacheKey,
-  isEntityScopingEnabled,
-} from "@/lib/entities/scope";
-import { getBumexEntity } from "@/lib/entities/config";
-import {
   calculateProjectHealth,
-  calculateProjectProgress,
   getProjectOverdueTasks,
   getProjectStatusBreakdown,
   getProjectUpcomingDeadlines,
 } from "@/lib/projects/helpers";
 import { parseFormattedNumber } from "@/lib/formatters";
+import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
+import { asPerson, select, selectOne, type Tx } from "@/lib/work/db";
 import type {
-  ProjectActivity,
   ProjectClient,
   ProjectFilters,
-  ProjectFiltersData,
   ProjectFormValues,
-  ProjectKind,
   ProjectMember,
   ProjectOwner,
   ProjectRecord,
@@ -39,360 +27,86 @@ import type {
 } from "@/types/project";
 import type { BumexEntityCode } from "@/types/entity";
 
-export type ProjectStaffingSummary = {
-  activePeople: number;
-  totalAllocation: number;
-  assignments: Array<{ id: string; userId: string; name: string; role: string; allocation: number; startDate: string; endDate: string; status: string }>;
+// A project is a mission: an erp.engagement (0008), seen with BUMEX One's rules (row-level security). The ERP's
+// "planned" is BUMEX One's draft; the deadline is the project's end date, the fixed fee its budget.
+
+type ProjectRow = Omit<ProjectRecord, "recentActivity" | "health" | "completedTasks" | "totalTasks" | "deadlineState" | "overdueTasks" | "upcomingDeadlines" | "statusBreakdown"> & {
+  client: ProjectClient | null;
+  owner: ProjectOwner | null;
+  members: ProjectMember[];
+  tasks: ProjectTaskPreview[];
 };
 
-export async function getProjectStaffingSummary(projectId: string): Promise<ProjectStaffingSummary> {
-  const db = await createClient();
-  if (!db) return { activePeople: 0, totalAllocation: 0, assignments: [] };
-  const today = new Date().toISOString().slice(0, 10);
-  const { data, error } = await db
-    .from("staffing_assignments")
-    .select("id, user_id, project_role, allocation_percent, start_date, end_date, status, person:profiles!staffing_assignments_user_id_fkey(full_name)")
-    .eq("project_id", projectId)
-    .in("status", ["requested", "confirmed"])
-    .gte("end_date", today)
-    .order("start_date");
-  if (error) return { activePeople: 0, totalAllocation: 0, assignments: [] };
-  const assignments = (data ?? []).map((item) => ({
-    id: item.id,
-    userId: item.user_id,
-    name: single(item.person)?.full_name ?? "—",
-    role: item.project_role,
-    allocation: Number(item.allocation_percent),
-    startDate: item.start_date,
-    endDate: item.end_date,
-    status: item.status,
-  }));
-  return { activePeople: new Set(assignments.map((item) => item.userId)).size, totalAllocation: assignments.reduce((sum, item) => sum + item.allocation, 0), assignments };
-}
+// The project as the screens read it; `e` is the engagement.
+export const PROJECT_COLUMNS = `
+  e.id, e.name, e.description, e.client_id, case when e.status = 'planned' then 'draft' else e.status::text end as status,
+  e.owner_id, e.start_date, e.deadline as end_date, e.created_at, e.fixed_fee::float8 as budget_amount, e.priority,
+  coalesce(e.project_kind, 'client_mission') as project_kind, e.manual_progress,
+  (select x.code from erp.entity x where x.id = e.entity_id) as entity_code`;
 
-type ProjectRow = {
-  id: string;
-  name: string;
-  description?: string | null;
-  client_id: string | null;
-  status: ProjectRecord["status"];
-  owner_id: string;
-  start_date: string | null;
-  end_date: string | null;
-  created_at: string;
-  budget_amount?: number | null;
-  priority?: ProjectRecord["priority"];
-  project_kind?: ProjectKind;
-  manual_progress?: number | null;
-  entity_code?: BumexEntityCode | null;
-  client: ProjectClient | ProjectClient[] | null;
-  owner: ProjectOwner | ProjectOwner[] | null;
-  members:
-    | Array<{
-        id: string;
-        role: ProjectMember["role"];
-        user: ProjectMember["user"] | Array<NonNullable<ProjectMember["user"]>>;
-      }>
-    | null;
-  tasks: ProjectTaskPreview[] | null;
-};
+const PROJECT_SQL = `
+  select ${PROJECT_COLUMNS}, work.mission_progress(e.id) as progress,
+         (select jsonb_build_object('id', c.id, 'name', c.name, 'contact_email', c.contact_email) from work.client c where c.id = e.client_id) as client,
+         work.person_card(e.owner_id) as owner,
+         coalesce((select jsonb_agg(jsonb_build_object('id', s.user_id, 'role', s.role, 'user', work.person_card(s.user_id)) order by s.user_id)
+                     from erp.engagement_staff s where s.engagement_id = e.id), '[]'::jsonb) as members,
+         coalesce((select jsonb_agg(jsonb_build_object('id', t.id, 'title', t.title, 'status', t.status,
+                                                       'priority', case when t.priority = 'normal' then 'medium' else t.priority end,
+                                                       'due_date', t.due_date, 'assignee_id', t.assignee_id, 'created_at', t.created_at) order by t.created_at)
+                     from erp.task t where t.engagement_id = e.id), '[]'::jsonb) as tasks
+    from erp.engagement e`;
 
-function single<T>(value: T | T[] | null): T | null {
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-
-  return value;
-}
-
-function normalizeMembers(
-  members: ProjectRow["members"],
-): ProjectMember[] {
-  return (members ?? []).map((member) => ({
-    id: member.id,
-    role: member.role,
-    user: single(member.user),
-  }));
-}
-
-function mapProject(row: ProjectRow, recentActivity: ProjectActivity[] = []): ProjectRecord {
+function mapProject(row: ProjectRow, recentActivity: ProjectRecord["recentActivity"] = []): ProjectRecord {
   const tasks = row.tasks ?? [];
-  const automaticProgress = row.status === "completed" ? 100 : calculateProjectProgress(tasks);
-  const progress = row.manual_progress ?? automaticProgress;
-  const statusBreakdown = getProjectStatusBreakdown(tasks);
-  const overdueTasks = getProjectOverdueTasks(tasks);
-  const upcomingDeadlines = getProjectUpcomingDeadlines(tasks);
-  const { health, deadlineState } = calculateProjectHealth(
-    progress,
-    row.end_date,
-    row.status,
-    tasks,
-  );
+  const { health, deadlineState } = calculateProjectHealth(row.progress, row.end_date, row.status, tasks);
 
   return {
-    id: row.id,
-    name: row.name,
-    description: row.description ?? null,
-    client_id: row.client_id,
-    status: row.status,
-    owner_id: row.owner_id,
-    start_date: row.start_date,
-    end_date: row.end_date,
-    created_at: row.created_at,
-    budget_amount: row.budget_amount ?? null,
+    ...row,
     priority: row.priority ?? "medium",
-    project_kind: row.project_kind ?? "client_mission",
-    manual_progress: row.manual_progress ?? null,
-    entity_code: row.entity_code ?? null,
-    client: single(row.client),
-    owner: single(row.owner),
-    members: normalizeMembers(row.members),
     tasks,
     recentActivity,
-    progress,
     health,
     completedTasks: tasks.filter((task) => task.status === "done").length,
-    totalTasks: tasks.filter((task) => task.status !== "archived" && task.status !== "cancelled").length,
+    totalTasks: tasks.filter((task) => task.status !== "archived").length,
     deadlineState,
-    overdueTasks,
-    upcomingDeadlines,
-    statusBreakdown,
+    overdueTasks: getProjectOverdueTasks(tasks),
+    upcomingDeadlines: getProjectUpcomingDeadlines(tasks),
+    statusBreakdown: getProjectStatusBreakdown(tasks),
   };
 }
 
-const FULL_PROJECT_SELECT = `
-  id,
-  name,
-  description,
-  client_id,
-  status,
-  owner_id,
-  start_date,
-  end_date,
-  created_at,
-  budget_amount,
-  priority,
-  project_kind,
-  manual_progress,
-  entity_code,
-  client:clients (
-    id,
-    name,
-    contact_email
-  ),
-  owner:profiles!projects_owner_id_fkey (
-    id,
-    full_name,
-    email,
-    avatar_url,
-    role,
-    entity_code
-  ),
-  members:project_members (
-    id,
-    role,
-    user:profiles (
-      id,
-      full_name,
-      email,
-      avatar_url,
-      role,
-      entity_code,
-      job_title
-    )
-  ),
-  tasks (
-    id,
-    title,
-    status,
-    priority,
-    due_date,
-    assignee_id
-  )
-`;
+const day = (offset = 0) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+  return date.toISOString().slice(0, 10);
+};
 
-const LEGACY_PROJECT_SELECT = `
-  id,
-  name,
-  client_id,
-  status,
-  owner_id,
-  start_date,
-  end_date,
-  created_at,
-  client:clients (
-    id,
-    name,
-    contact_email
-  ),
-  owner:profiles!projects_owner_id_fkey (
-    id,
-    full_name,
-    email,
-    avatar_url,
-    role,
-    entity_code
-  ),
-  members:project_members (
-    id,
-    role,
-    user:profiles (
-      id,
-      full_name,
-      email,
-      avatar_url,
-      role,
-      entity_code,
-      job_title
-    )
-  ),
-  tasks (
-    id,
-    title,
-    status,
-    priority,
-    due_date,
-    assignee_id
-  )
-`;
-
-const FULL_PROJECT_PREVIOUS_SELECT = "name, description, client_id, owner_id, status, start_date, end_date, project_kind, manual_progress";
-const LEGACY_PROJECT_PREVIOUS_SELECT = "name, client_id, owner_id, status, start_date, end_date";
-
-function isMissingProjectExtensionColumn(message: string) {
-  return [
-    "projects.description",
-    "projects.budget_amount",
-    "projects.priority",
-    "projects.project_kind",
-    "projects.manual_progress",
-  ].some((column) => message.includes(`column ${column} does not exist`));
-}
-
-function isMissingProjectExtensionSchemaCacheColumn(message: string) {
-  return [
-    "description",
-    "budget_amount",
-    "priority",
-    "project_kind",
-    "manual_progress",
-  ].some((column) => message.includes(`'${column}' column of 'projects'`));
-}
-
-function isMissingOptionalProjectField(message: string) {
-  return isMissingProjectExtensionColumn(message) || isMissingProjectExtensionSchemaCacheColumn(message);
-}
-
-function projectFiltersKey(filters: ProjectFilters = {}) {
-  return JSON.stringify({
-    search: filters.search ?? "",
-    status: filters.status ?? "",
-    clientId: filters.clientId ?? "",
-    ownerId: filters.ownerId ?? "",
-    health: filters.health ?? "",
-    deadline: filters.deadline ?? "",
-    kind: filters.kind ?? "",
-  });
-}
-
-export function invalidateProjectReadCache() {
-  invalidateCached(
-    (key) =>
-      key.startsWith("projects:")
-      || key === "projects-filter-data"
-      || key.startsWith("tickets:")
-      || key === "tickets-filter-data",
-  );
-}
-
+// Every mission the person sees (deleted projects are gone; the ERP's cancelled ones are BUMEX One's cancelled ones).
 export async function getProjects(filters: ProjectFilters = {}): Promise<ProjectRecord[]> {
-  const entityCode = await getCurrentEntityCode();
-  return getCached(
-    getEntityScopedCacheKey(`projects:list:${projectFiltersKey(filters)}`, entityCode),
-    12_000,
-    () => getFreshProjects(filters, entityCode),
-  );
-}
-
-async function getFreshProjects(filters: ProjectFilters = {}, entityCode?: string): Promise<ProjectRecord[]> {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const today = new Date();
-  const sevenDays = new Date(today);
-  sevenDays.setDate(today.getDate() + 7);
-  const monthEnd = new Date(today);
-  monthEnd.setDate(today.getDate() + 30);
-
-  const runQuery = async (selectClause: string) => {
-    let query = db
-      .from("projects")
-      .select(selectClause)
-      .order("created_at", { ascending: false });
-
-    if (entityCode) {
-      query = applyEntityScope(query, entityCode);
-    }
-
-    if (filters.search) {
-      query = query.matchText(["name"], filters.search);
-    }
-
-    if (filters.status) {
-      query = query.eq("status", filters.status);
-    }
-
-    if (filters.clientId) {
-      query = query.eq("client_id", filters.clientId);
-    }
-
-    if (filters.ownerId) {
-      query = query.eq("owner_id", filters.ownerId);
-    }
-
-    if (filters.kind) {
-      query = query.eq("project_kind", filters.kind);
-    }
-
-    if (filters.deadline === "overdue") {
-      query = query.lt("end_date", today.toISOString().slice(0, 10));
-    }
-
-    if (filters.deadline === "this_week") {
-      query = query
-        .gte("end_date", today.toISOString().slice(0, 10))
-        .lte("end_date", sevenDays.toISOString().slice(0, 10));
-    }
-
-    if (filters.deadline === "this_month") {
-      query = query
-        .gte("end_date", today.toISOString().slice(0, 10))
-        .lte("end_date", monthEnd.toISOString().slice(0, 10));
-    }
-
-    if (filters.deadline === "none") {
-      query = query.is("end_date", null);
-    }
-
-    return query.returns<ProjectRow[]>();
+  const where: string[] = [];
+  const params: unknown[] = [];
+  const param = (value: unknown) => {
+    params.push(value);
+    return `$${params.length}`;
   };
 
-  let { data, error } = await runQuery(FULL_PROJECT_SELECT);
+  if (filters.status) where.push(`e.status = (case when ${param(filters.status)} = 'draft' then 'planned' else $${params.length} end)::erp.engagement_status`);
+  if (filters.clientId) where.push(`e.client_id = ${param(filters.clientId)}::uuid`);
+  if (filters.ownerId) where.push(`e.owner_id = ${param(filters.ownerId)}`);
+  if (filters.kind) where.push(`coalesce(e.project_kind, 'client_mission') = ${param(filters.kind)}`);
+  if (filters.deadline === "overdue") where.push(`e.deadline < ${param(day())}::date`);
+  if (filters.deadline === "this_week") where.push(`e.deadline between ${param(day())}::date and ${param(day(7))}::date`);
+  if (filters.deadline === "this_month") where.push(`e.deadline between ${param(day())}::date and ${param(day(30))}::date`);
+  if (filters.deadline === "none") where.push("e.deadline is null");
 
-  if (error && isMissingOptionalProjectField(error.message)) {
-    ({ data, error } = await runQuery(LEGACY_PROJECT_SELECT));
-  }
+  const rows = await asPerson((tx) =>
+    select<ProjectRow>(tx, `${PROJECT_SQL} ${where.length ? `where ${where.join(" and ")}` : ""} order by e.created_at desc`, params),
+  );
+  const terms = filters.search ? searchTerms(filters.search) : [];
+  let projects = rows.filter((row) => matchesSearchTerms(terms, [row.name])).map((row) => mapProject(row));
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  let projects = (data ?? []).map((row) => mapProject(row));
-  // A deadline view is about outstanding delivery, so closed projects are left out
-  // unless the user explicitly filtered on a status.
+  // A deadline view is about outstanding delivery, so closed projects are left out unless the user explicitly
+  // filtered on a status.
   if (filters.deadline === "overdue" || (!filters.status && (filters.deadline === "this_week" || filters.deadline === "this_month"))) {
     projects = projects.filter(isOpenProject);
   }
@@ -413,131 +127,11 @@ export function projectNeedsAttention(project: Pick<ProjectRecord, "health">) {
   return project.health === "at_risk" || project.health === "delayed";
 }
 
-export function getProjectQuickCounts(projects: ProjectRecord[], currentUserId: string) {
-  const today = new Date().toISOString().slice(0, 10);
-  const weekEnd = new Date();
-  weekEnd.setDate(weekEnd.getDate() + 7);
-  const weekEndKey = weekEnd.toISOString().slice(0, 10);
-
-  return {
-    all: projects.length,
-    active: projects.filter((project) => project.status === "active").length,
-    mine: projects.filter((project) => project.owner_id === currentUserId).length,
-    attention: projects.filter(projectNeedsAttention).length,
-    overdue: projects.filter((project) => isOpenProject(project) && Boolean(project.end_date && project.end_date < today)).length,
-    dueThisWeek: projects.filter((project) => isOpenProject(project) && Boolean(project.end_date && project.end_date >= today && project.end_date <= weekEndKey)).length,
-    onHold: projects.filter((project) => project.status === "on_hold").length,
-  };
-}
-
-export async function getProjectsFilterData(): Promise<ProjectFiltersData> {
-  const entityCode = await getCurrentEntityCode();
-  return getCached(getEntityScopedCacheKey("projects-filter-data", entityCode), 30_000, () =>
-    getFreshProjectsFilterData(entityCode),
-  );
-}
-
-async function getFreshProjectsFilterData(entityCode?: string): Promise<ProjectFiltersData> {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const shouldScopeByEntity = isEntityScopingEnabled() && Boolean(entityCode);
-  let clientsQuery = db
-    .from("clients")
-    .select("id, name, contact_email")
-    .order("name", { ascending: true });
-  let ownersQuery = db
-    .from("profiles")
-    .select("id, full_name, email, avatar_url, role")
-    .in("role", ["admin", "manager"])
-    .order("full_name", { ascending: true });
-
-  if (shouldScopeByEntity) {
-    clientsQuery = clientsQuery.eq("entity_code", entityCode ?? "");
-    ownersQuery = ownersQuery.eq("entity_code", entityCode ?? "");
-  }
-
-  const [{ data: clients, error: clientsError }, { data: owners, error: ownersError }] =
-    await Promise.all([
-      clientsQuery.returns<ProjectClient[]>(),
-      ownersQuery.returns<ProjectOwner[]>(),
-    ]);
-
-  if (clientsError) {
-    throw new Error(clientsError.message);
-  }
-
-  if (ownersError) {
-    throw new Error(ownersError.message);
-  }
-
-  return {
-    clients: clients ?? [],
-    owners: owners ?? [],
-    activeEntity: {
-      code: entityCode as BumexEntityCode,
-      name: getBumexEntity(entityCode as BumexEntityCode)?.name ?? entityCode ?? "BUMEX",
-    },
-  };
-}
-
 export async function getProjectById(id: string): Promise<ProjectRecord | null> {
-  const entityCode = await getCurrentEntityCode();
-  return getCached(getEntityScopedCacheKey(`projects:detail:${id}`, entityCode), 12_000, () =>
-    getFreshProjectById(id, entityCode),
-  );
-}
-
-async function getFreshProjectById(id: string, entityCode?: string): Promise<ProjectRecord | null> {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const scopedEntityCode = entityCode ?? await getCurrentEntityCode();
-  const runQuery = async (selectClause: string) =>
-    applyEntityScope(
-      db
-        .from("projects")
-        .select(selectClause)
-        .eq("id", id),
-      scopedEntityCode,
-    ).maybeSingle();
-
-  let response = await runQuery(FULL_PROJECT_SELECT);
-  let { data, error } = response as {
-    data: ProjectRow | null;
-    error: { message: string } | null;
-  };
-
-  if (error && isMissingOptionalProjectField(error.message)) {
-    response = await runQuery(LEGACY_PROJECT_SELECT);
-    ({ data, error } = response as {
-      data: ProjectRow | null;
-      error: { message: string } | null;
-    });
-  }
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
-    return null;
-  }
-
-  const normalizedActivity = await getProjectActivity(
-    id,
-    (data.tasks ?? []).map((task) => task.id),
-    [],
-    8,
-  );
-
-  return mapProject(data, normalizedActivity);
+  const row = await asPerson((tx) => selectOne<ProjectRow>(tx, `${PROJECT_SQL} where e.id = $1::uuid`, [id])).catch(() => null);
+  if (!row) return null;
+  const activity = await getProjectActivity(id, row.tasks.map((task) => task.id), [], 8);
+  return mapProject(row, activity);
 }
 
 function parseProjectPayload(values: ProjectFormValues) {
@@ -545,7 +139,7 @@ function parseProjectPayload(values: ProjectFormValues) {
   return {
     name: values.name.trim(),
     // An internal BUMEX product/tool must not be represented as an external client relationship.
-    client_id: isInternalProject ? null : values.client_id,
+    client_id: isInternalProject ? null : values.client_id || null,
     description: values.description.trim() || null,
     owner_id: values.owner_id,
     status: values.status,
@@ -558,36 +152,32 @@ function parseProjectPayload(values: ProjectFormValues) {
   };
 }
 
-// floor: the entity the project belongs to when it is created from Vanguard (one of its floors), recorded whether or
-// not entity scoping is on; otherwise the person's current entity, as before.
-export async function createProject(values: ProjectFormValues, actorUserId: string, floor?: BumexEntityCode) {
-  const db = await createClient();
+type Payload = ReturnType<typeof parseProjectPayload>;
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
+const payloadParams = (p: Payload) => [
+  p.name, p.description, p.client_id, p.owner_id, p.status, p.start_date, p.end_date, p.budget_amount, p.priority, p.project_kind, p.manual_progress,
+];
 
-  const entityCode = floor ?? await getCurrentEntityCode();
-  const payload = floor ? { ...parseProjectPayload(values), entity_code: floor } : extendWithEntityCode(parseProjectPayload(values), entityCode);
+// floor: the entity (Vanguard's floor) the mission belongs to
+export async function createProject(values: ProjectFormValues, actorUserId: string, floor: BumexEntityCode) {
+  const payload = parseProjectPayload(values);
+  const created = await asPerson((tx) =>
+    selectOne<{ id: string }>(
+      tx,
+      `insert into erp.engagement (entity_id, name, description, client_id, owner_id, status, start_date, deadline, fixed_fee, priority, project_kind,
+                                   manual_progress)
+       values ((select id from erp.entity where code = $12), $1, $2, $3::uuid, $4, (case when $5 = 'draft' then 'planned' else $5 end)::erp.engagement_status,
+               $6::date, $7::date, $8::numeric, $9, $10, $11::smallint)
+       returning id`,
+      [...payloadParams(payload), floor],
+    ),
+  );
+  if (!created) throw new Error("Project creation did not return an id.");
 
-  let { data, error } = await db
-    .from("projects")
-    .insert(payload)
-    .select("id")
-    .single<{ id: string }>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
-    throw new Error("Project creation did not return an id.");
-  }
-
-  // Boards created from now on start with the restrictive default workflow. If this
-  // fails the board simply keeps the built-in, unrestricted one.
+  // Boards created from now on start with the restrictive default workflow. If this fails the board simply keeps the
+  // built-in, unrestricted one.
   try {
-    await createDefaultBoardWorkflow(data.id, actorUserId);
+    await createDefaultBoardWorkflow(created.id, actorUserId);
   } catch (workflowError) {
     console.error("[projects:create] default workflow not saved", workflowError);
   }
@@ -596,11 +186,8 @@ export async function createProject(values: ProjectFormValues, actorUserId: stri
     userId: actorUserId,
     action: `Created project ${payload.name}`,
     entityType: "project",
-    entityId: data.id,
-    metadata: {
-      kind: "create",
-      summary: "Project created",
-    },
+    entityId: created.id,
+    metadata: { kind: "create", summary: "Project created" },
   });
 
   await createAssignmentNotification({
@@ -608,73 +195,31 @@ export async function createProject(values: ProjectFormValues, actorUserId: stri
     title: "Project ownership assigned",
     body: `You are now the owner of ${payload.name}.`,
     entityType: "project",
-    entityId: data.id,
+    entityId: created.id,
     skipUserId: actorUserId,
   });
 
-  invalidateProjectReadCache();
-
-  return data.id;
+  return created.id;
 }
 
+type PreviousProject = Pick<ProjectRecord, "name" | "description" | "project_kind" | "client_id" | "owner_id" | "status" | "start_date" | "end_date">;
+
 export async function updateProject(id: string, values: ProjectFormValues, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  type PreviousProjectRow = {
-    name: string;
-    description?: string | null;
-    project_kind?: ProjectKind;
-    client_id: string | null;
-    owner_id: string;
-    status: string;
-    start_date: string | null;
-    end_date: string | null;
-  };
-
-  const entityCode = await getCurrentEntityCode();
-  const runPreviousQuery = async (selectClause: string) =>
-    applyEntityScope(
-      db
-        .from("projects")
-        .select(selectClause)
-        .eq("id", id),
-      entityCode,
-    ).maybeSingle();
-
-  let previousResponse = await runPreviousQuery(
-    FULL_PROJECT_PREVIOUS_SELECT,
-  );
-  let { data: previousProject, error: previousError } = previousResponse as {
-    data: PreviousProjectRow | null;
-    error: { message: string } | null;
-  };
-
-  if (previousError && isMissingOptionalProjectField(previousError.message)) {
-    previousResponse = await runPreviousQuery(
-      LEGACY_PROJECT_PREVIOUS_SELECT,
-    );
-    ({ data: previousProject, error: previousError } = previousResponse as {
-      data: PreviousProjectRow | null;
-      error: { message: string } | null;
-    });
-  }
-
-  if (previousError) {
-    throw new Error(previousError.message);
-  }
-
   const payload = parseProjectPayload(values);
-  let { error } = await applyEntityScope(db.from("projects").update(payload).eq("id", id), entityCode);
+  const previousProject = await asPerson(async (tx) => {
+    const previous = await selectOne<PreviousProject>(tx, `select ${PROJECT_COLUMNS} from erp.engagement e where e.id = $1::uuid`, [id]);
+    const updated = await tx.run(
+      `update erp.engagement
+          set name = $1, description = $2, client_id = $3::uuid, owner_id = $4, status = (case when $5 = 'draft' then 'planned' else $5 end)::erp.engagement_status,
+              start_date = $6::date, deadline = $7::date, fixed_fee = $8::numeric, priority = $9, project_kind = $10, manual_progress = $11::smallint
+        where id = $12::uuid`,
+      [...payloadParams(payload), id],
+    );
+    if (!updated) throw new Error("You cannot edit this project.");
+    return previous;
+  });
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const activityTasks = [];
+  const activityTasks: Promise<unknown>[] = [];
 
   if (!previousProject) {
     activityTasks.push(
@@ -683,10 +228,7 @@ export async function updateProject(id: string, values: ProjectFormValues, actor
         action: `Updated project ${payload.name}`,
         entityType: "project",
         entityId: id,
-        metadata: {
-          kind: "update",
-          summary: "Project updated",
-        },
+        metadata: { kind: "update", summary: "Project updated" },
       }),
     );
   } else {
@@ -703,18 +245,7 @@ export async function updateProject(id: string, values: ProjectFormValues, actor
     for (const [field, from, to, action] of changes) {
       if (from !== to) {
         activityTasks.push(
-          logActivity({
-            userId: actorUserId,
-            action,
-            entityType: "project",
-            entityId: id,
-            metadata: {
-              kind: "update",
-              field,
-              from,
-              to,
-            },
-          }),
+          logActivity({ userId: actorUserId, action, entityType: "project", entityId: id, metadata: { kind: "update", field, from, to } }),
         );
       }
     }
@@ -749,25 +280,27 @@ export async function updateProject(id: string, values: ProjectFormValues, actor
   }
 
   await Promise.all(activityTasks);
-
-  invalidateProjectReadCache();
-
   return id;
 }
 
+// The ERP's own fields of a mission (how it is billed, its hours budget).
+export async function setMissionTerms(tx: Tx, id: string, feeType: "fixed" | "time", budgetHours: number | null) {
+  await tx.query("update erp.engagement set fee_type = $2, budget_hours = $3 where id = $1::uuid", [id, feeType, budgetHours]);
+}
+
+// A project goes with its tickets, milestones, board and team; one with time entered, archived boxes or invoices stays
+// (BUMEX One kept time entries the same way).
 export async function deleteProject(id: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  const { error } = await applyEntityScope(db.from("projects").delete().eq("id", id), entityCode);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  invalidateProjectReadCache();
+  await asPerson(async (tx) => {
+    const [used] = await tx.query<{ used: boolean }>(
+      `select exists (select 1 from erp.sales_invoice where engagement_id = $1::uuid)
+           or exists (select 1 from erp.supplier_invoice where engagement_id = $1::uuid)
+           or exists (select 1 from erp.journal_line where engagement_id = $1::uuid) as used`,
+      [id],
+    );
+    if (used?.used) throw new Error("invoiced");
+    await tx.query("delete from erp.task where engagement_id = $1::uuid", [id]);
+    const deleted = await tx.query("delete from erp.engagement where id = $1::uuid returning id", [id]);
+    if (!deleted.length) throw new Error("You cannot delete this project.");
+  });
 }

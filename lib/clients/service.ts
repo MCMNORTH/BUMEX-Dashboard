@@ -1,14 +1,9 @@
 import "server-only";
 
-import { logActivity } from "@/lib/activity/service";
+import { getScopedActivity, getSubjectsActivity, logActivity } from "@/lib/activity/service";
 import { calculateProjectHealth, calculateProjectProgress } from "@/lib/projects/helpers";
-import { createClient } from "@/lib/firebase/server";
-import {
-  applyEntityScope,
-  extendWithEntityCode,
-  getCurrentEntityCode,
-  isEntityScopingEnabled,
-} from "@/lib/entities/scope";
+import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
+import { asPerson, select, selectOne } from "@/lib/work/db";
 import { getDocuments } from "@/lib/documents/service";
 import { getContracts } from "@/lib/contracts/service";
 import type { AppRole } from "@/types/auth";
@@ -73,30 +68,6 @@ type ClientRow = {
   projects: ProjectRow[] | null;
 };
 
-type ActivityRow = {
-  id: string;
-  user_id: string | null;
-  action: string;
-  entity_type: ActivityLogRecord["entity_type"];
-  entity_id: string;
-  metadata: ActivityLogRecord["metadata"];
-  created_at: string;
-  user:
-    | {
-        id: string;
-        full_name: string;
-        email: string;
-        avatar_url: string | null;
-      }
-    | Array<{
-        id: string;
-        full_name: string;
-        email: string;
-        avatar_url: string | null;
-      }>
-    | null;
-};
-
 type TicketRow = {
   id: string;
   title: string;
@@ -126,19 +97,6 @@ function single<T>(value: T | T[] | null): T | null {
   return value;
 }
 
-function mapActivity(row: ActivityRow): ActivityLogRecord {
-  return {
-    id: row.id,
-    user_id: row.user_id,
-    action: row.action,
-    entity_type: row.entity_type,
-    entity_id: row.entity_id,
-    metadata: row.metadata ?? {},
-    created_at: row.created_at,
-    user: single(row.user),
-  };
-}
-
 function mapProjectPreview(project: ProjectRow): ClientProjectPreview {
   const tasks = (project.tasks ?? []).map((task) => ({
     id: task.id,
@@ -160,6 +118,16 @@ function mapProjectPreview(project: ProjectRow): ClientProjectPreview {
     end_date: project.end_date,
   };
 }
+
+// A client's mission as its pages preview it (`e` the engagement), with its tickets for the progress and health.
+const PROJECT_PREVIEW_SQL = `
+  select e.created_at, jsonb_build_object(
+           'id', e.id, 'name', e.name, 'status', case when e.status = 'planned' then 'draft' else e.status::text end, 'end_date', e.deadline,
+           'tasks', coalesce((select jsonb_agg(jsonb_build_object('id', t.id, 'title', t.title, 'status', t.status,
+                                                                  'priority', case when t.priority = 'normal' then 'medium' else t.priority end,
+                                                                  'due_date', t.due_date, 'assignee_id', t.assignee_id))
+                                from erp.task t where t.engagement_id = e.id), '[]'::jsonb)) as project
+    from erp.engagement e`;
 
 function getClientTimelineType(entityType: ActivityLogRecord["entity_type"]): ClientTimelineFilter {
   if (entityType === "project") {
@@ -284,62 +252,14 @@ function getDaysUntil(value: string | null) {
   return Math.ceil((date.getTime() - today.getTime()) / 86400000);
 }
 
-async function getClientActivityMap(clientIds: string[], projectIds: string[]) {
-  const db = await createClient();
-
-  if (!db || (!clientIds.length && !projectIds.length)) {
-    return new Map<string, ActivityLogRecord[]>();
-  }
-
-  const clientFilter = clientIds.length
-    ? `and(entity_type.eq.client,entity_id.in.(${clientIds.join(",")}))`
-    : "";
-  const projectFilter = projectIds.length
-    ? `and(entity_type.eq.project,entity_id.in.(${projectIds.join(",")}))`
-    : "";
-  const orFilter = [clientFilter, projectFilter].filter(Boolean).join(",");
-
-  const { data, error } = await db
-    .from("activity_logs")
-    .select(
-      `
-        id,
-        user_id,
-        action,
-        entity_type,
-        entity_id,
-        metadata,
-        created_at,
-        user:profiles (
-          id,
-          full_name,
-          email,
-          avatar_url
-        )
-      `,
-    )
-    .or(orFilter)
-    .order("created_at", { ascending: false })
-    .limit(120)
-    .returns<ActivityRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const activityMap = new Map<string, ActivityLogRecord[]>();
-  const mapped = (data ?? []).map(mapActivity);
-
-  for (const activity of mapped) {
-    if (activity.entity_type === "client") {
-      const current = activityMap.get(activity.entity_id) ?? [];
-      current.push(activity);
-      activityMap.set(activity.entity_id, current);
-    }
-  }
-
-  return activityMap;
-}
+// The client (the group's relationship side: work.client, 0008) with its account manager and its missions.
+const CLIENT_SQL = `
+  select c.id, c.name, c.legal_name, c.type, c.industry, c.contact_email, c.contact_phone, c.address, c.country, c.city, c.website, c.tax_id,
+         c.status, c.prospect_stage, c.next_follow_up_at, c.account_manager_id, c.notes, c.created_at, c.updated_at,
+         (select jsonb_build_object('id', p.id, 'full_name', p.full_name, 'email', p.email, 'avatar_url', p.avatar_url, 'role', work.person_role(p.id))
+            from work.person p where p.id = c.account_manager_id) as "accountManager",
+         coalesce((select jsonb_agg(project order by created_at desc) from (${PROJECT_PREVIEW_SQL} where e.client_id = c.id) pr), '[]'::jsonb) as projects
+    from work.client c`;
 
 function mapClient(
   row: ClientRow,
@@ -380,241 +300,55 @@ function mapClient(
 }
 
 export async function getClients(role: AppRole, filters: ClientFilters = {}) {
-  const db = await createClient();
+  const where: string[] = [];
+  const params: unknown[] = [];
+  const param = (value: unknown) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+  if (filters.status) where.push(`c.status = ${param(filters.status)}`);
+  if (filters.prospectStage) where.push(`c.prospect_stage = ${param(filters.prospectStage)}`);
+  if (filters.type) where.push(`c.type = ${param(filters.type)}`);
+  if (filters.accountManagerId) where.push(`c.account_manager_id = ${param(filters.accountManagerId)}`);
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
+  const rows = await asPerson((tx) =>
+    select<ClientRow>(tx, `${CLIENT_SQL} ${where.length ? `where ${where.join(" and ")}` : ""} order by c.updated_at desc`, params),
+  );
+  const terms = filters.search ? searchTerms(filters.search) : [];
+  const found = rows.filter((row) => matchesSearchTerms(terms, [row.name, row.legal_name, row.industry]));
+  const activityMap = await getSubjectsActivity("client", found.map((client) => client.id), 8);
 
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("clients")
-    .select(
-      `
-        id,
-        name,
-        legal_name,
-        type,
-        industry,
-        contact_email,
-        contact_phone,
-        address,
-        country,
-        city,
-        website,
-        tax_id,
-        status,
-        prospect_stage,
-        next_follow_up_at,
-        account_manager_id,
-        notes,
-        created_at,
-        updated_at,
-        accountManager:profiles!clients_account_manager_id_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        ),
-        projects (
-          id,
-          name,
-          status,
-          end_date,
-          tasks (
-            id,
-            title,
-            status,
-            priority,
-            due_date,
-            assignee_id
-          )
-        )
-      `,
-    )
-    .order("updated_at", { ascending: false });
-
-  query = applyEntityScope(query, entityCode);
-
-  if (filters.search) {
-    query = query.matchText(["name", "legal_name", "industry"], filters.search);
-  }
-
-  if (filters.status) {
-    query = query.eq("status", filters.status);
-  }
-
-  if (filters.prospectStage) {
-    query = query.eq("prospect_stage", filters.prospectStage);
-  }
-
-  if (filters.type) {
-    query = query.eq("type", filters.type);
-  }
-
-  if (filters.accountManagerId) {
-    query = query.eq("account_manager_id", filters.accountManagerId);
-  }
-
-  const { data, error } = await query.returns<ClientRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const rows = data ?? [];
-  const projectIds = rows.flatMap((client) => (client.projects ?? []).map((project) => project.id));
-  const activityMap = await getClientActivityMap(rows.map((client) => client.id), projectIds);
-
-  return rows.map((row) => mapClient(row, role, activityMap.get(row.id) ?? []));
+  return found.map((row) => mapClient(row, role, activityMap.get(row.id) ?? []));
 }
 
 export async function getClientsFilterData(): Promise<ClientFiltersData> {
-  const db = await createClient();
+  const accountManagers = await asPerson((tx) =>
+    select<ClientAccountManager>(
+      tx,
+      `select p.id, p.full_name, p.email, p.avatar_url, work.person_role(p.id) as role from work.person p
+        where work.person_role(p.id) in ('admin', 'manager') order by p.full_name`,
+    ),
+  );
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("profiles")
-    .select("id, full_name, email, avatar_url, role")
-    .in("role", ["admin", "manager"])
-    .order("full_name", { ascending: true });
-
-  if (isEntityScopingEnabled()) {
-    query = query.eq("entity_code", entityCode);
-  }
-
-  const { data, error } = await query.returns<ClientAccountManager[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return {
-    accountManagers: data ?? [],
-  };
+  return { accountManagers };
 }
 
 export async function getClientById(id: string, role: AppRole) {
-  const db = await createClient();
+  const row = await asPerson((tx) => selectOne<ClientRow>(tx, `${CLIENT_SQL} where c.id = $1::uuid`, [id])).catch(() => null);
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("clients")
-    .select(
-      `
-        id,
-        name,
-        legal_name,
-        type,
-        industry,
-        contact_email,
-        contact_phone,
-        address,
-        country,
-        city,
-        website,
-        tax_id,
-        status,
-        prospect_stage,
-        next_follow_up_at,
-        account_manager_id,
-        notes,
-        created_at,
-        updated_at,
-        accountManager:profiles!clients_account_manager_id_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        ),
-        projects (
-          id,
-          name,
-          status,
-          end_date,
-          tasks (
-            id,
-            title,
-            status,
-            priority,
-            due_date,
-            assignee_id
-          )
-        )
-      `,
-    )
-    .eq("id", id);
-
-  query = applyEntityScope(query, entityCode);
-
-  const { data, error } = await query.maybeSingle<ClientRow>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
+  if (!row) {
     return null;
   }
 
-  const activityMap = await getClientActivityMap(
-    [id],
-    (data.projects ?? []).map((project) => project.id),
-  );
-
-  return mapClient(data, role, activityMap.get(id) ?? []);
+  const activityMap = await getSubjectsActivity("client", [id], 8);
+  return mapClient(row, role, activityMap.get(id) ?? []);
 }
 
 export async function getClientLinkedProjects(clientId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("projects")
-    .select(
-      `
-        id,
-        name,
-        status,
-        end_date,
-        tasks (
-          id,
-          title,
-          status,
-          priority,
-          due_date,
-          assignee_id
-        )
-      `,
-    )
-    .eq("client_id", clientId)
-    .order("created_at", { ascending: false });
-
-  if (isEntityScopingEnabled()) {
-    query = query.eq("entity_code", entityCode);
-  }
-
-  const { data, error } = await query.returns<ProjectRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data ?? []).map(mapProjectPreview);
+  const rows = await asPerson((tx) =>
+    select<{ project: ProjectRow }>(tx, `${PROJECT_PREVIEW_SQL} where e.client_id = $1::uuid order by e.created_at desc`, [clientId]),
+  );
+  return rows.map((row) => mapProjectPreview(row.project));
 }
 
 export async function getClientLinkedContracts(clientId: string, role: AppRole) {
@@ -677,74 +411,23 @@ export async function getClientLinkedDocuments(clientId: string, role: AppRole) 
 }
 
 export async function getClientLinkedTickets(clientId: string, role: AppRole) {
-  const db = await createClient();
+  const rows = await asPerson((tx) =>
+    select<TicketRow>(
+      tx,
+      `select t.id, t.title, t.notes as description, t.engagement_id as project_id, t.assignee_id, t.reporter_id, t.status,
+              case when t.priority = 'normal' then 'medium' else t.priority end as priority, t.type, t.due_date,
+              t.estimated_hours::float8 as estimated_hours, t.actual_hours::float8 as actual_hours, t.github_issue_url, t.created_at, t.updated_at,
+              jsonb_build_object('id', e.id, 'name', e.name, 'status', case when e.status = 'planned' then 'draft' else e.status::text end, 'end_date', e.deadline,
+                                 'client', (select jsonb_build_object('id', c.id, 'name', c.name, 'contact_email', c.contact_email) from work.client c where c.id = e.client_id)) as project,
+              work.person_card(t.assignee_id) as assignee, work.person_card(t.reporter_id) as reporter
+         from erp.task t join erp.engagement e on e.id = t.engagement_id
+        where e.client_id = $1::uuid
+        order by t.updated_at desc`,
+      [clientId],
+    ),
+  );
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const projects = await getClientLinkedProjects(clientId);
-  const projectIds = projects.map((project) => project.id);
-
-  if (!projectIds.length) {
-    return [];
-  }
-
-  const { data, error } = await db
-    .from("tasks")
-    .select(
-      `
-        id,
-        title,
-        description,
-        project_id,
-        assignee_id,
-        reporter_id,
-        status,
-        priority,
-        type,
-        due_date,
-        estimated_hours,
-        actual_hours,
-        github_issue_url,
-        created_at,
-        updated_at,
-        project:projects (
-          id,
-          name,
-          status,
-          end_date,
-          client:clients (
-            id,
-            name,
-            contact_email
-          )
-        ),
-        assignee:profiles!tasks_assignee_id_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        ),
-        reporter:profiles!tasks_reporter_id_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        )
-      `,
-    )
-    .in("project_id", projectIds)
-    .order("updated_at", { ascending: false })
-    .returns<TicketRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data ?? []).map((row) => {
+  return rows.map((row) => {
     const ticket = mapTicketForClient(row, role);
 
     return {
@@ -804,58 +487,18 @@ export async function getClientTimeline(clientId: string, role: AppRole, filter:
     return [];
   }
 
-  const db = await createClient();
+  const activity = await getScopedActivity(
+    [
+      { type: "client", ids: [clientId] },
+      { type: "project", ids: projects.map((project) => project.id) },
+      { type: "task", ids: tickets.map((ticket) => ticket.id) },
+      { type: "contract", ids: contracts.map((contract) => contract.id) },
+      { type: "document", ids: documents.map((document) => document.id) },
+    ],
+    250,
+  );
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const projectIds = projects.map((project) => project.id);
-  const ticketIds = tickets.map((ticket) => ticket.id);
-  const contractIds = contracts.map((contract) => contract.id);
-  const documentIds = documents.map((document) => document.id);
-
-  const scopes = [
-    `and(entity_type.eq.client,entity_id.eq.${clientId})`,
-    projectIds.length ? `and(entity_type.eq.project,entity_id.in.(${projectIds.join(",")}))` : "",
-    ticketIds.length ? `and(entity_type.eq.task,entity_id.in.(${ticketIds.join(",")}))` : "",
-    contractIds.length ? `and(entity_type.eq.contract,entity_id.in.(${contractIds.join(",")}))` : "",
-    documentIds.length ? `and(entity_type.eq.document,entity_id.in.(${documentIds.join(",")}))` : "",
-  ].filter(Boolean);
-
-  if (!scopes.length) {
-    return [];
-  }
-
-  const { data, error } = await db
-    .from("activity_logs")
-    .select(
-      `
-        id,
-        user_id,
-        action,
-        entity_type,
-        entity_id,
-        metadata,
-        created_at,
-        user:profiles (
-          id,
-          full_name,
-          email,
-          avatar_url
-        )
-      `,
-    )
-    .or(scopes.join(","))
-    .order("created_at", { ascending: false })
-    .limit(250)
-    .returns<ActivityRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  let items = (data ?? []).map(mapActivity).map(mapTimelineItem);
+  let items = activity.map(mapTimelineItem);
 
   if (role === "employee") {
     items = items.filter((item) => item.type === "projects" || item.type === "tickets" || item.type === "client");
@@ -955,23 +598,26 @@ function parseClientPayload(values: ClientFormValues) {
   };
 }
 
+const payloadParams = (p: ReturnType<typeof parseClientPayload>) => [
+  p.name, p.legal_name, p.type, p.industry, p.contact_email, p.contact_phone, p.address, p.country, p.city, p.website, p.tax_id, p.status,
+  p.prospect_stage, p.next_follow_up_at, p.account_manager_id, p.notes,
+];
+
 export async function createClientRecord(values: ClientFormValues, actorUserId: string) {
-  const db = await createClient();
+  const payload = parseClientPayload(values);
+  const data = await asPerson((tx) =>
+    selectOne<{ id: string }>(
+      tx,
+      `insert into work.client (name, legal_name, type, industry, contact_email, contact_phone, address, country, city, website, tax_id, status,
+                                prospect_stage, next_follow_up_at, account_manager_id, notes, entity_code)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::date, $15, $16, (select entity_code from work.person where id = erp.actor_id()))
+       returning id`,
+      payloadParams(payload),
+    ),
+  );
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  const payload = extendWithEntityCode(parseClientPayload(values), entityCode);
-  const { data, error } = await db
-    .from("clients")
-    .insert(payload)
-    .select("id")
-    .single<{ id: string }>();
-
-  if (error) {
-    throw new Error(error.message);
+  if (!data) {
+    throw new Error("Client creation did not return an id.");
   }
 
   await logActivity({
@@ -979,53 +625,30 @@ export async function createClientRecord(values: ClientFormValues, actorUserId: 
     action: `Created client ${payload.name}`,
     entityType: "client",
     entityId: data.id,
-    metadata: {
-      kind: "create",
-      summary: "Client created",
-    },
+    metadata: { kind: "create", summary: "Client created" },
   });
 
   return data.id;
 }
 
 export async function updateClient(id: string, values: ClientFormValues, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  const previousQuery = applyEntityScope(db
-    .from("clients")
-    .select("name, status, account_manager_id, contact_email, type")
-    .eq("id", id), entityCode);
-  const previousResponse = await previousQuery.maybeSingle();
-  const { data: previous, error: previousError } = previousResponse as {
-    data: {
-      name: string;
-      status: ClientStatus;
-      account_manager_id: string | null;
-      contact_email: string | null;
-      type: ClientRecord["type"];
-    } | null;
-    error: { message: string } | null;
-  };
-
-  if (previousError) {
-    throw new Error(previousError.message);
-  }
-
-  const payload = {
-    ...parseClientPayload(values),
-    updated_at: new Date().toISOString(),
-  };
-
-  const { error } = await applyEntityScope(db.from("clients").update(payload).eq("id", id), entityCode);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  const payload = parseClientPayload(values);
+  const previous = await asPerson(async (tx) => {
+    const before = await selectOne<{ name: string; status: ClientStatus; account_manager_id: string | null; contact_email: string | null; type: ClientRecord["type"] }>(
+      tx,
+      "select name, status, account_manager_id, contact_email, type from work.client where id = $1::uuid",
+      [id],
+    );
+    const updated = await tx.run(
+      `update work.client
+          set name = $1, legal_name = $2, type = $3, industry = $4, contact_email = $5, contact_phone = $6, address = $7, country = $8, city = $9,
+              website = $10, tax_id = $11, status = $12, prospect_stage = $13, next_follow_up_at = $14::date, account_manager_id = $15, notes = $16
+        where id = $17::uuid`,
+      [...payloadParams(payload), id],
+    );
+    if (!updated) throw new Error("You cannot edit this client.");
+    return before;
+  });
 
   const activityTasks = [];
 
@@ -1036,10 +659,7 @@ export async function updateClient(id: string, values: ClientFormValues, actorUs
         action: `Updated client ${payload.name}`,
         entityType: "client",
         entityId: id,
-        metadata: {
-          kind: "update",
-          summary: "Client updated",
-        },
+        metadata: { kind: "update", summary: "Client updated" },
       }),
     );
   } else {
@@ -1054,18 +674,7 @@ export async function updateClient(id: string, values: ClientFormValues, actorUs
     for (const [field, from, to, action] of changes) {
       if (from !== to) {
         activityTasks.push(
-          logActivity({
-            userId: actorUserId,
-            action,
-            entityType: "client",
-            entityId: id,
-            metadata: {
-              kind: "update",
-              field,
-              from,
-              to,
-            },
-          }),
+          logActivity({ userId: actorUserId, action, entityType: "client", entityId: id, metadata: { kind: "update", field, from, to } }),
         );
       }
     }
@@ -1077,26 +686,12 @@ export async function updateClient(id: string, values: ClientFormValues, actorUs
 }
 
 export async function archiveClient(id: string, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  const { error } = await applyEntityScope(
-    db
-      .from("clients")
-      .update({
-        status: "archived",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id),
-    entityCode,
+  const archived = await asPerson((tx) =>
+    tx.run("update work.client set status = 'archived', prospect_stage = null, next_follow_up_at = null where id = $1::uuid", [id]),
   );
 
-  if (error) {
-    throw new Error(error.message);
+  if (!archived) {
+    throw new Error("You cannot archive this client.");
   }
 
   await logActivity({
@@ -1104,11 +699,6 @@ export async function archiveClient(id: string, actorUserId: string) {
     action: "Archived client",
     entityType: "client",
     entityId: id,
-    metadata: {
-      kind: "update",
-      field: "status",
-      to: "archived",
-      summary: "Client archived",
-    },
+    metadata: { kind: "update", field: "status", to: "archived", summary: "Client archived" },
   });
 }

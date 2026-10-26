@@ -1,12 +1,13 @@
 import "server-only";
 
-import { createClient } from "@/lib/firebase/server";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { getLegacyWorkflow, getNewBoardWorkflow, type WorkflowDraft } from "@/lib/tickets/workflow";
+import { asPerson, select } from "@/lib/work/db";
 import type { BoardWorkflow, WorkflowStage } from "@/types/workflow";
 
+// A mission's board: work.board (0008), one row per mission that saved its workflow.
 const WORKFLOW_COLUMNS =
-  "id, project_id, stages, transitions, allow_backward, allow_skip_forward, allow_reopen, require_reason, custom_transitions_enabled, updated_at";
+  "engagement_id as id, engagement_id as project_id, stages, transitions, allow_backward, allow_skip_forward, allow_reopen, require_reason, custom_transitions_enabled, updated_at";
 
 type WorkflowRow = {
   id: string;
@@ -20,16 +21,6 @@ type WorkflowRow = {
   custom_transitions_enabled: boolean | null;
   updated_at: string | null;
 };
-
-async function getClient() {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  return db;
-}
 
 function mapWorkflow(row: WorkflowRow): BoardWorkflow {
   return {
@@ -62,18 +53,8 @@ export async function getConfiguredWorkflows(projectIds: string[]): Promise<Map<
     return new Map();
   }
 
-  const db = await getClient();
-  const { data, error } = await db
-    .from("project_workflows")
-    .select(WORKFLOW_COLUMNS)
-    .in("id", ids)
-    .returns<WorkflowRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return new Map((data ?? []).map((row) => [row.project_id, mapWorkflow(row)]));
+  const rows = await asPerson((tx) => select<WorkflowRow>(tx, `select ${WORKFLOW_COLUMNS} from work.board where engagement_id = any($1::uuid[])`, [ids]));
+  return new Map(rows.map((row) => [row.project_id, mapWorkflow(row)]));
 }
 
 export async function getBoardWorkflow(projectId: string): Promise<BoardWorkflow> {
@@ -94,49 +75,36 @@ export async function getBoardWorkflows(projectIds: string[]): Promise<Record<st
 export async function createDefaultBoardWorkflow(projectId: string, actorUserId: string) {
   const locale = await getCurrentLocale();
   const workflow = getNewBoardWorkflow(projectId, locale);
-  const db = await getClient();
-  const { error } = await db.from("project_workflows").insert({
-    id: projectId,
-    project_id: projectId,
-    stages: workflow.stages,
-    transitions: workflow.transitions,
-    allow_backward: workflow.allow_backward,
-    allow_skip_forward: workflow.allow_skip_forward,
-    allow_reopen: workflow.allow_reopen,
-    require_reason: workflow.require_reason,
-    custom_transitions_enabled: workflow.custom_transitions_enabled,
-    updated_by: actorUserId,
-  });
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  await asPerson((tx) =>
+    tx.query(
+      `insert into work.board (engagement_id, stages, transitions, allow_backward, allow_skip_forward, allow_reopen, require_reason,
+                               custom_transitions_enabled, updated_by)
+       values ($1::uuid, $2::jsonb, $3::jsonb, $4, $5, $6, $7, $8, $9)`,
+      [projectId, JSON.stringify(workflow.stages), JSON.stringify(workflow.transitions), workflow.allow_backward, workflow.allow_skip_forward,
+        workflow.allow_reopen, workflow.require_reason, workflow.custom_transitions_enabled, actorUserId],
+    ),
+  );
 }
 
 /** Writes a draft that already passed validateWorkflowDraft. */
 export async function saveBoardWorkflow(previous: BoardWorkflow, draft: WorkflowDraft, actorUserId: string) {
-  const db = await getClient();
-  const payload = {
-    stages: draft.stages,
-    transitions: draft.transitions,
-    allow_backward: draft.allow_backward,
-    allow_skip_forward: draft.allow_skip_forward,
-    allow_reopen: draft.allow_reopen,
-    require_reason: draft.require_reason,
-    custom_transitions_enabled: draft.custom_transitions_enabled,
-    updated_by: actorUserId,
-  };
+  const written = await asPerson((tx) =>
+    tx.query(
+      `insert into work.board (engagement_id, stages, transitions, allow_backward, allow_skip_forward, allow_reopen, require_reason,
+                               custom_transitions_enabled, updated_by)
+       values ($1::uuid, $2::jsonb, $3::jsonb, $4, $5, $6, $7, $8, $9)
+       on conflict (engagement_id) do update
+         set stages = excluded.stages, transitions = excluded.transitions, allow_backward = excluded.allow_backward,
+             allow_skip_forward = excluded.allow_skip_forward, allow_reopen = excluded.allow_reopen, require_reason = excluded.require_reason,
+             custom_transitions_enabled = excluded.custom_transitions_enabled, updated_by = excluded.updated_by
+       returning engagement_id`,
+      [previous.project_id, JSON.stringify(draft.stages), JSON.stringify(draft.transitions), draft.allow_backward, draft.allow_skip_forward,
+        draft.allow_reopen, draft.require_reason, draft.custom_transitions_enabled, actorUserId],
+    ),
+  );
 
-  const { data, error } = previous.is_configured
-    ? await db.from("project_workflows").update(payload).eq("id", previous.project_id).select("id")
-    : await db.from("project_workflows").insert({ id: previous.project_id, project_id: previous.project_id, ...payload }).select("id");
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  // Row policies skip rows the caller may not update instead of failing.
-  if (!data?.length) {
+  // The rules refuse the write of someone who does not manage the mission.
+  if (!written.length) {
     throw new Error("You do not have permission to change this board's workflow.");
   }
 }

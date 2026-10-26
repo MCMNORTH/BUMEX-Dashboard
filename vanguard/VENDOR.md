@@ -18,32 +18,33 @@ PostgreSQL; the engine and the UI do not change"). Here:
 - entry numbers, hashes, chains and the history are the database's own; the integrity check is `erp.verify_chain`;
   document numbers (invoices, receipts, assets, archive boxes) follow the engine's counters, kept in the database;
 - every room is connected: accounting in `save.ts`, the other modules through one description per table
-  (`tables.ts`, read and written the same way); people and staff counts come from BUMEX One's profiles;
-- one person, one role: Vanguard's (`erp.user_access`). Everyone gets one on their first visit, from their BUMEX One
-  role (`lib/erp/roles.ts`); BUMEX One's role then follows it. Vanguard's Settings › accounts and BUMEX One's Settings ›
-  Users (Vanguard role column) both change it; an access an administrator removed is not given again;
-- every 30 seconds (and on coming back to the page) the screen asks for the database's version (last audit row) and
-  reads the state again when someone else changed it;
+  (`tables.ts`, read and written the same way); people and staff counts come from the people (`work.person`);
+- one person, one role: Vanguard's (`erp.user_access`). A newcomer gets staff on their entity on their first visit
+  (`lib/erp/roles.ts`; everyone else got theirs from their BUMEX One role when the data was copied); Vanguard's
+  Settings › accounts changes it; an access an administrator removed is not given again;
+- every 30 seconds (and on coming back to the page) the screen asks for the database's version (last audit row, plus
+  the work's counter for people and mission members) and reads the state again when someone else changed it;
 - the browser receives the rows of the person's modules and what those rooms read of the others
   (`lib/erp/vanguard/visible.ts`; pay only with the HR module; reports and consolidation see every module but pay),
   while the server replays on everything the person's entities hold (row-level security is by entity). Figures
   computed from rows not sent (floor signals, badges, report cards) count nothing.
 
-Tasks are BUMEX One's tickets of the missions (`lib/erp/vanguard/tickets.ts`): read into the engine's tasks (bottom bar,
-floor signals, mission cards), created and moved in the Tasks room with BUMEX One's ticket actions (its rules, workflows
-and notifications), on a list or on each mission's board; each ticket's page (comments, sub-tasks, history) is in the Tasks room (`vanguard/one/Ticket.tsx`). The engine's own task changes are refused.
+Tasks are the tickets of the missions (`erp.task`, migration 0008; `lib/erp/vanguard/tickets.ts`): read into the engine's
+tasks (bottom bar, floor signals, mission cards), created and moved in the Tasks room with the ticket actions (BUMEX
+One's rules, workflows and notifications), on a list or on each mission's board; each ticket's page (comments,
+sub-tasks, history) is in the Tasks room (`vanguard/one/Ticket.tsx`). The engine's own task changes are refused.
 
-Clients have two sides (`lib/erp/vanguard/clients.ts`): the relationship side is BUMEX One's client, one for the group;
-the accounting side is the customer account of each entity that bills it, linked by `bumex_client_id`. A customer saved in
-Vanguard gets or updates its client (same name, else a new one); a client edited in BUMEX One updates its customers'
-name, e-mail and tax id. The Clients room lists the clients and opens an account for one on the floor.
+Clients have two sides: the relationship side is the group's client (`work.client`); the accounting side is the
+customer account of each entity that bills it (`erp.customer.client_id`). The database keeps them in step: a customer
+saved in Vanguard gets its client (same name, else a new one) and passes on its name, e-mail and tax id; a client edited
+updates its customers'. The Clients room lists the clients and opens an account for one on the floor.
 
-Missions are BUMEX One's projects (every kind): created and edited in Vanguard's Missions room (`vanguard/one/Missions.tsx`,
-`lib/erp/vanguard/mission-actions.ts`, saved with BUMEX One's project code and on the floor they are created on); their
-board is the Tasks room's "Tableau" tab (its BUMEX One workflow, `vanguard/one/Board.tsx`); its page (team, notes, comments, history, the board's rules) is `vanguard/one/Mission.tsx`. Client projects are mirrored in `erp.engagement` (`lib/erp/vanguard/missions.ts`) so that
-invoices, planning lines and archive boxes can point to them: name, status, dates, fee, progress (→ the five stages),
-timesheet hours, members' initials; the client becomes the ERP customer of the same name, or a new one once the entity
-has its chart. The mirror runs when Vanguard loads and with the 30-second check, only when BUMEX One's tables moved.
+Missions are the ERP's engagements, every kind of project (`erp.engagement`, migration 0008): created and edited in the
+Missions room (`vanguard/one/Missions.tsx`, `lib/erp/vanguard/mission-actions.ts`, `lib/projects/service.ts`), on the
+floor they are created on; their board is the Tasks room's "Tableau" tab (`work.board`, `vanguard/one/Board.tsx`); their
+page (team, notes, comments, history, the board's rules) is `vanguard/one/Mission.tsx`. The engine reads their progress
+(→ the five stages), hours and members' initials from the database (`work.mission_*`), the same for everyone who sees
+them; a mission's client becomes the ERP customer of its entity once the entity has its chart.
 
 ## Local changes
 

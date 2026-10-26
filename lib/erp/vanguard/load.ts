@@ -4,7 +4,7 @@ import type { AccountMapping, AppUser, AuditRow, BankRule, DeletionRequest, Enti
 import { resolveErpModules } from "@/lib/erp/config";
 import type { ErpTransaction } from "@/lib/erp/db";
 import { moduleTables, readTable } from "@/lib/erp/vanguard/tables";
-import { ticketTasks, type VanguardTicket } from "@/lib/erp/vanguard/tickets";
+import { listTickets, ticketTasks } from "@/lib/erp/vanguard/tickets";
 import { visibleState } from "@/lib/erp/vanguard/visible";
 import { floors } from "@/lib/erp/vanguard/floors";
 import type { ErpAccess, ErpModuleKey } from "@/types/erp";
@@ -16,11 +16,21 @@ export type VanguardPerson = {
   name: string;
   email: string;
   entityCode: string | null;
-  active: boolean; // not marked inactive in BUMEX One
-  present: boolean; // available, busy or overloaded in BUMEX One
+  active: boolean; // not marked inactive
+  present: boolean; // available, busy or overloaded
 };
 
-// BUMEX One's ERP modules → the rooms. Missions and tasks are open to everyone with ERP access.
+// The people: names for the ERP's user ids, and who works on each floor.
+export async function listPeople(tx: ErpTransaction): Promise<VanguardPerson[]> {
+  return rows<VanguardPerson>(
+    tx,
+    `select id, coalesce(nullif(trim(full_name), ''), email) as name, email, entity_code as "entityCode",
+            availability_status <> 'inactive' as active, availability_status in ('available', 'busy', 'overloaded') as present
+       from work.person order by full_name`,
+  );
+}
+
+// The ERP modules → the rooms. Missions and tasks are open to everyone with access.
 export const roomOf: Record<ErpModuleKey, ModuleKey> = {
   accounting: "accounting",
   clients: "clients",
@@ -42,9 +52,10 @@ const bankRules = (entityId: string): BankRule[] => [
   { entityId, pattern: "VIR INTERNE|VIREMENT INTERNE", mappingKey: "TRANSFER", label: "Virement interne" },
 ];
 
-// Every change of the ERP database leaves a row in the audit log: its last id tells a screen whether to read again.
+// Every change of the database leaves a row in the audit log, or moves the work's counter (people, mission members:
+// 0008): together they tell a screen whether to read again.
 export async function vanguardVersion(tx: ErpTransaction): Promise<number> {
-  const [{ version }] = await tx.query<{ version: number }>("select coalesce(max(id), 0)::float8 as version from erp.audit_log");
+  const [{ version }] = await tx.query<{ version: number }>("select (coalesce(max(id), 0) + work.version())::float8 as version from erp.audit_log");
   return version;
 }
 
@@ -66,7 +77,7 @@ export async function loadVanguardState(
   people: VanguardPerson[],
   // full: every row the person's entities hold, for the server's replay (save.ts); otherwise what the browser may
   // receive of it (visible.ts)
-  { checkChains = true, tickets = [] as VanguardTicket[], full = false } = {},
+  { checkChains = true, full = false } = {},
 ): Promise<{ state: State; chainBreaks: string[]; version: number }> {
   const names = new Map(people.map((p) => [p.id, p.name]));
 
@@ -239,12 +250,12 @@ export async function loadVanguardState(
   );
 
   // every hash recomputed: only for a state the person will see
-  // the modules' collections (tables.ts); the tasks are BUMEX One's tickets of the missions (tickets.ts)
+  // the modules' collections (tables.ts); the tasks are the tickets of the missions (tickets.ts)
   const modules: Partial<State> = {};
   for (const spec of moduleTables) {
     Object.assign(modules, { [spec.collection]: await readTable(tx, spec) });
   }
-  modules.tasks = ticketTasks(tickets, (modules.engagements ?? []) as Parameters<typeof ticketTasks>[1], names);
+  modules.tasks = ticketTasks(await listTickets(tx), (modules.engagements ?? []) as Parameters<typeof ticketTasks>[1], names);
 
   const chainBreaks = checkChains
     ? await rows<{ id: string }>(tx, `select c.entry_id as id from erp.ledger_chain l, lateral erp.verify_chain(l.entity_id, l.journal_id) c where not c.ok`)

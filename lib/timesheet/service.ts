@@ -1,27 +1,30 @@
 import "server-only";
 
 import { requireCurrentEntityContext } from "@/lib/entities/scope";
-import { createClient } from "@/lib/firebase/server";
 import { weekBounds } from "@/lib/timesheet/validation";
+import { asPerson, select, selectOne } from "@/lib/work/db";
 import type { TimeEntry, TimeProject, TimeMission, TimeMissionFavorite, TimesheetProfile, TimesheetWeekEvent, TimesheetWeekStatus } from "@/types/timesheet";
 
-type QueryFailure = { code?: string; message?: string };
+// Timesheets: lines are erp.time_entry (minutes on a mission), weeks work.timesheet_week and their history
+// work.timesheet_week_event (0008), each in the person's current entity. The rules let a person read their own, their
+// entity's managers and the administrators everyone's.
 
-async function readWithRetry<T>(label: string, query: () => PromiseLike<{ data: T | null; error: QueryFailure | null }>) {
-  let lastError: QueryFailure | null = null;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      const { data, error } = await query();
-      if (!error) return data;
-      lastError = error;
-    } catch (error) {
-      lastError = error instanceof Error ? { message: error.message } : { message: "Unknown connection error" };
-    }
-    if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 150 * (attempt + 1)));
-  }
-  console.error(`[timesheet:${label}]`, lastError?.code ?? "connection", lastError?.message ?? "Query failed");
-  throw new Error("Timesheet unavailable");
-}
+// a line as the screens read it (`t` the line, `x` its entity)
+export const TIME_ENTRY_COLUMNS = `
+  t.id, t.user_id, x.code as entity_code, t.engagement_id as project_id, t.work_date, t.minutes as duration_minutes, coalesce(t.description, '') as note,
+  t.mission, t.updated_at, (select jsonb_build_object('name', e.name) from erp.engagement e where e.id = t.engagement_id) as project`;
+
+export const WEEK_COLUMNS = `w.user_id, w.week_start, x.code as entity_code, w.status, w.submitted_at, w.reviewed_at, w.reviewed_by, w.review_note`;
+
+const EVENT_SQL = `
+  select v.id, v.user_id, v.week_start, x.code as entity_code, v.status, v.actor_id, (select p.full_name from work.person p where p.id = v.actor_id) as actor_name,
+         v.note, v.created_at
+    from work.timesheet_week_event v join erp.entity x on x.id = v.entity_id`;
+
+// The missions of the entity a person enters time on (BUMEX One's timesheet_projects view).
+export const TIMESHEET_PROJECTS_SQL = `
+  select e.id, e.name from erp.engagement e join erp.entity x on x.id = e.entity_id
+   where x.code = $1 and work.is_timesheet_project(e.id)`;
 
 export async function getTimesheet(week: string): Promise<{
   entries: TimeEntry[];
@@ -32,140 +35,94 @@ export async function getTimesheet(week: string): Promise<{
   events: TimesheetWeekEvent[];
 }> {
   const { auth, entityCode } = await requireCurrentEntityContext();
-  const db = await createClient();
   const bounds = weekBounds(week);
-  if (!db || !bounds) throw new Error("Timesheet unavailable");
+  if (!bounds) throw new Error("Timesheet unavailable");
 
-  // Page through results so totals never stop at a single page.
-  const entries: TimeEntry[] = [];
-  const projects: TimeProject[] = [];
-  const missions: TimeMission[] = [];
-  const favorites: TimeMissionFavorite[] = [];
-  const events: TimesheetWeekEvent[] = [];
-  let weekStatus: TimesheetWeekStatus | null = null;
-  await Promise.all([
-    (async () => {
-      for (let offset = 0; ; offset += 500) {
-        const data = await readWithRetry<TimeEntry[]>("read", () => db.from("time_entries")
-          .select("id, project_id, work_date, duration_minutes, mission, note, updated_at, project:projects(name)")
-          .eq("user_id", auth.user.id).eq("entity_code", entityCode)
-          .gte("work_date", bounds.start).lt("work_date", bounds.end)
-          .order("work_date", { ascending: false }).order("id")
-          .range(offset, offset + 499).returns<TimeEntry[]>());
-        entries.push(...(data ?? []));
-        if ((data?.length ?? 0) < 500) break;
-      }
-    })(),
-    (async () => {
-      for (let offset = 0; ; offset += 500) {
-        const data = await readWithRetry<TimeProject[]>("projects", () => db.from("timesheet_projects").select("id, name")
-          .eq("entity_code", entityCode).order("name").order("id")
-          .range(offset, offset + 499).returns<TimeProject[]>());
-        projects.push(...(data ?? []));
-        if ((data?.length ?? 0) < 500) break;
-      }
-    })(),
-    (async () => {
-      for (let offset = 0; ; offset += 500) {
-        const data = await readWithRetry<TimeMission[]>("missions", () => db.from("timesheet_missions").select("project_id, mission")
-          .eq("entity_code", entityCode).order("project_id").order("mission")
-          .range(offset, offset + 499).returns<TimeMission[]>());
-        missions.push(...(data ?? []));
-        if ((data?.length ?? 0) < 500) break;
-      }
-    })(),
-    (async () => {
-      for (let offset = 0; ; offset += 500) {
-        const data = await readWithRetry<TimeMissionFavorite[]>("favorites", () => db.from("time_mission_favorites").select("project_id, mission")
-          .eq("user_id", auth.user.id).eq("entity_code", entityCode)
-          .order("created_at", { ascending: false })
-          .range(offset, offset + 499).returns<TimeMissionFavorite[]>());
-        favorites.push(...(data ?? []));
-        if ((data?.length ?? 0) < 500) break;
-      }
-    })(),
-    (async () => {
-      const data = await readWithRetry<TimesheetWeekStatus>("week-status", () => db.from("timesheet_week_status")
-        .select("user_id, week_start, entity_code, status, submitted_at, reviewed_at, reviewed_by, review_note")
-        .eq("user_id", auth.user.id).eq("week_start", bounds.start).maybeSingle<TimesheetWeekStatus>());
-      weekStatus = data;
-    })(),
-    (async () => {
-      const data = await readWithRetry<Array<Omit<TimesheetWeekEvent, "actor_name"> & { actor: { full_name: string } | null }>>("events", () => db.from("timesheet_week_events")
-        .select("id, user_id, week_start, entity_code, status, actor_id, note, created_at, actor:profiles!timesheet_week_events_actor_id_fkey(full_name)")
-        .eq("user_id", auth.user.id).eq("week_start", bounds.start)
-        .order("created_at", { ascending: false }).order("id") as unknown as PromiseLike<{ data: Array<Omit<TimesheetWeekEvent, "actor_name"> & { actor: { full_name: string } | null }> | null; error: QueryFailure | null }>);
-      const rows = data ?? [];
-      events.push(...rows.map(({ actor, ...event }) => ({ ...event, actor_name: actor?.full_name ?? null })));
-    })(),
-  ]);
-  const projectIds = new Set(projects.map(project => project.id));
-  return { entries, projects, missions: missions.filter(mission => projectIds.has(mission.project_id)), favorites: favorites.filter(favorite => projectIds.has(favorite.project_id)), weekStatus, events };
+  try {
+    return await asPerson(async (tx) => {
+      const entries = await select<TimeEntry>(
+        tx,
+        `select ${TIME_ENTRY_COLUMNS} from erp.time_entry t join erp.entity x on x.id = t.entity_id
+          where t.user_id = $1 and x.code = $2 and t.work_date >= $3::date and t.work_date < $4::date
+          order by t.work_date desc, t.id`,
+        [auth.user.id, entityCode, bounds.start, bounds.end],
+      );
+      const projects = await select<TimeProject>(tx, `${TIMESHEET_PROJECTS_SQL} order by e.name, e.id`, [entityCode]);
+      // the mission labels used on the entity's lines the person may read
+      const missions = await select<TimeMission>(
+        tx,
+        `select distinct t.engagement_id as project_id, t.mission from erp.time_entry t join erp.entity x on x.id = t.entity_id
+          where x.code = $1 and t.mission <> '' order by 1, 2`,
+        [entityCode],
+      );
+      const favorites = await select<TimeMissionFavorite>(
+        tx,
+        `select f.engagement_id as project_id, f.mission from work.mission_favorite f join erp.entity x on x.id = f.entity_id
+          where f.user_id = $1 and x.code = $2 order by f.created_at desc`,
+        [auth.user.id, entityCode],
+      );
+      const weekStatus = await selectOne<TimesheetWeekStatus>(
+        tx,
+        `select ${WEEK_COLUMNS} from work.timesheet_week w join erp.entity x on x.id = w.entity_id where w.user_id = $1 and w.week_start = $2::date`,
+        [auth.user.id, bounds.start],
+      );
+      const events = await select<TimesheetWeekEvent>(
+        tx,
+        `${EVENT_SQL} where v.user_id = $1 and v.week_start = $2::date order by v.created_at desc, v.id`,
+        [auth.user.id, bounds.start],
+      );
+      const projectIds = new Set(projects.map((project) => project.id));
+      return {
+        entries,
+        projects,
+        missions: missions.filter((mission) => projectIds.has(mission.project_id)),
+        favorites: favorites.filter((favorite) => projectIds.has(favorite.project_id)),
+        weekStatus,
+        events,
+      };
+    });
+  } catch (error) {
+    console.error("[timesheet:read]", error instanceof Error ? error.message : "connection");
+    throw new Error("Timesheet unavailable");
+  }
 }
 
 export async function getAdminTimesheetOverview(week: string) {
   const { auth, entityCode } = await requireCurrentEntityContext();
-  const db = await createClient();
   const bounds = weekBounds(week);
-  if (!db || !bounds || (auth.role !== "admin" && auth.role !== "manager")) throw new Error("Timesheet unavailable");
-  const acrossEntities = auth.role === "admin";
+  if (!bounds || (auth.role !== "admin" && auth.role !== "manager")) throw new Error("Timesheet unavailable");
+  // an administrator reviews every entity; a manager their own
+  const scope = auth.role === "admin" ? null : entityCode;
 
-  const profiles: TimesheetProfile[] = [];
-  const entries: TimeEntry[] = [];
-  const statuses: TimesheetWeekStatus[] = [];
-  const events: TimesheetWeekEvent[] = [];
-  await Promise.all([
-    (async () => {
-      for (let offset = 0; ; offset += 500) {
-        let query = db.from("profiles").select("id, full_name, role, entity_code, weekly_capacity_hours");
-        if (!acrossEntities) query = query.eq("entity_code", entityCode);
-        const { data, error } = await query.order("full_name").order("id")
-          .range(offset, offset + 499).returns<TimesheetProfile[]>();
-        if (error) { console.error("[timesheet:admin-profiles]", error.code); throw new Error("Timesheet unavailable"); }
-        profiles.push(...data);
-        if (data.length < 500) break;
-      }
-    })(),
-    (async () => {
-      for (let offset = 0; ; offset += 500) {
-        let query = db.from("time_entries")
-          .select("id, user_id, entity_code, project_id, work_date, duration_minutes, mission, note, updated_at, project:projects(name)")
-          .gte("work_date", bounds.start).lt("work_date", bounds.end);
-        if (!acrossEntities) query = query.eq("entity_code", entityCode);
-        const { data, error } = await query.order("work_date").order("user_id").order("id")
-          .range(offset, offset + 499).returns<TimeEntry[]>();
-        if (error) { console.error("[timesheet:admin-entries]", error.code); throw new Error("Timesheet unavailable"); }
-        entries.push(...data);
-        if (data.length < 500) break;
-      }
-    })(),
-    (async () => {
-      for (let offset = 0; ; offset += 500) {
-        let query = db.from("timesheet_week_status")
-          .select("user_id, week_start, entity_code, status, submitted_at, reviewed_at, reviewed_by, review_note")
-          .eq("week_start", bounds.start);
-        if (!acrossEntities) query = query.eq("entity_code", entityCode);
-        const { data, error } = await query.order("user_id")
-          .range(offset, offset + 499).returns<TimesheetWeekStatus[]>();
-        if (error) { console.error("[timesheet:admin-statuses]", error.code); throw new Error("Timesheet unavailable"); }
-        statuses.push(...data);
-        if (data.length < 500) break;
-      }
-    })(),
-    (async () => {
-      for (let offset = 0; ; offset += 500) {
-        let query = db.from("timesheet_week_events")
-          .select("id, user_id, week_start, entity_code, status, actor_id, note, created_at, actor:profiles!timesheet_week_events_actor_id_fkey(full_name)")
-          .eq("week_start", bounds.start);
-        if (!acrossEntities) query = query.eq("entity_code", entityCode);
-        const { data, error } = await query.order("created_at", { ascending: false }).order("id")
-          .range(offset, offset + 499);
-        if (error) { console.error("[timesheet:admin-events]", error.code); throw new Error("Timesheet unavailable"); }
-        const rows = (data ?? []) as unknown as Array<Omit<TimesheetWeekEvent, "actor_name"> & { actor: { full_name: string } | null }>;
-        events.push(...rows.map(({ actor, ...event }) => ({ ...event, actor_name: actor?.full_name ?? null })));
-        if (rows.length < 500) break;
-      }
-    })(),
-  ]);
-  return { profiles, entries, statuses, events };
+  try {
+    return await asPerson(async (tx) => ({
+      profiles: await select<TimesheetProfile>(
+        tx,
+        `select p.id, p.full_name, work.person_role(p.id) as role, p.entity_code, p.weekly_capacity_hours from work.person p
+          where $1::text is null or p.entity_code = $1 order by p.full_name, p.id`,
+        [scope],
+      ),
+      entries: await select<TimeEntry>(
+        tx,
+        `select ${TIME_ENTRY_COLUMNS} from erp.time_entry t join erp.entity x on x.id = t.entity_id
+          where t.work_date >= $1::date and t.work_date < $2::date and ($3::text is null or x.code = $3)
+          order by t.work_date, t.user_id, t.id`,
+        [bounds.start, bounds.end, scope],
+      ),
+      statuses: await select<TimesheetWeekStatus>(
+        tx,
+        `select ${WEEK_COLUMNS} from work.timesheet_week w join erp.entity x on x.id = w.entity_id
+          where w.week_start = $1::date and ($2::text is null or x.code = $2) order by w.user_id`,
+        [bounds.start, scope],
+      ),
+      events: await select<TimesheetWeekEvent>(
+        tx,
+        `${EVENT_SQL} where v.week_start = $1::date and ($2::text is null or x.code = $2) order by v.created_at desc, v.id`,
+        [bounds.start, scope],
+      ),
+    }));
+  } catch (error) {
+    console.error("[timesheet:overview]", error instanceof Error ? error.message : "connection");
+    throw new Error("Timesheet unavailable");
+  }
 }

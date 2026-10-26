@@ -1,1922 +1,254 @@
 import "server-only";
 
-import { randomBytes } from "node:crypto";
-
-import type { DataClient } from "@/lib/firebase/server";
-
-import { logActivity } from "@/lib/activity/service";
+import { getSubjectsActivity } from "@/lib/activity/service";
 import { getContracts } from "@/lib/contracts/service";
-import {
-  applyEntityScope,
-  extendWithEntityCode,
-  getCurrentEntityCode,
-  isEntityScopingEnabled,
-} from "@/lib/entities/scope";
-import { buildTransferNotes, getDueWindowDates, parseTransferNotesMetadata } from "@/lib/finance/helpers";
-import { parseFormattedNumber } from "@/lib/formatters";
-import { createClient } from "@/lib/firebase/server";
+import { getDueWindowDates, parseTransferNotesMetadata } from "@/lib/finance/helpers";
+import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
+import { asPerson, asSystem, personId, select } from "@/lib/work/db";
 import type { AppRole } from "@/types/auth";
 import type { ActivityLogRecord } from "@/types/activity";
 import type {
-  FinanceClientPreview,
-  FinanceContractPreview,
+  BankStatementRecord,
+  FinanceFilters,
   FinanceOverview,
   FinanceRiskItem,
-  FinanceFilters,
   InvoiceFilters,
-  InvoiceFiltersData,
-  InvoiceFormValues,
-  InvoiceStatusPoint,
-  PaymentFiltersData,
-  PaymentFormValues,
-  ReceiptFormValues,
-  ReceiptRecord,
-  FinanceProjectPreview,
-  FinanceSupportingDocument,
-  FinanceUserPreview,
   InvoiceRecord,
-  InvoiceSummary,
   InvoiceStatus,
-  InvoicePaymentSummary,
-  MonthlyFinancePoint,
   OverdueClientPoint,
-  PaymentInvoicePreview,
   PaymentRecord,
-  PaymentSummary,
+  ReceiptRecord,
   ShareholderFinanceSummary,
-  BankStatementFormValues,
-  BankStatementLineRecord,
-  BankStatementMatchStatus,
-  BankStatementRecord,
-  BankStatementSummary,
-  TransferCategory,
   TransferEntity,
   TransferFilters,
-  TransferFiltersData,
-  TransferFormValues,
   TransferRecord,
   UpcomingFinanceDeadline,
-  TransferSummary,
 } from "@/types/finance";
 
-type ActivityRow = {
-  id: string;
-  user_id: string | null;
-  action: string;
-  entity_type: ActivityLogRecord["entity_type"];
-  entity_id: string;
-  metadata: ActivityLogRecord["metadata"];
-  created_at: string;
-  user:
-    | {
-        id: string;
-        full_name: string;
-        email: string;
-        avatar_url: string | null;
-      }
-    | Array<{
-        id: string;
-        full_name: string;
-        email: string;
-        avatar_url: string | null;
-      }>
-    | null;
-};
+// BUMEX One's finance records (invoices, payments, receipts, transfers, bank statements) are an archive since the ERP
+// keeps the books: work.finance_* (0008), read only. They are read in the person's session, where BUMEX One's rules are
+// row-level security (administrators read them all, managers those of their clients, missions and contracts). A
+// record's project is its mission (engagement_id).
 
-type InvoiceRow = Omit<
-  InvoiceRecord,
-  | "client"
-  | "project"
-  | "contract"
-  | "createdBy"
-  | "approvedBy"
-  | "linkedPayments"
-  | "receipts"
-  | "supportingDocuments"
-  | "totalPaid"
-  | "remainingBalance"
-  | "paymentStatus"
-  | "recentActivity"
-  | "viewMode"
-> & {
-  client: FinanceClientPreview | FinanceClientPreview[] | null;
-  project: FinanceProjectPreview | FinanceProjectPreview[] | null;
-  contract: FinanceContractPreview | FinanceContractPreview[] | null;
-  createdBy: FinanceUserPreview | FinanceUserPreview[] | null;
-  approvedBy: FinanceUserPreview | FinanceUserPreview[] | null;
-};
+// How many of its latest activity entries a record carries.
+const ACTIVITY_PER_RECORD = 20;
 
-type PaymentRow = Omit<PaymentRecord, "client" | "project" | "contract" | "invoice" | "createdBy" | "recentActivity" | "supportingDocuments" | "viewMode"> & {
-  client: FinanceClientPreview | FinanceClientPreview[] | null;
-  project: FinanceProjectPreview | FinanceProjectPreview[] | null;
-  contract: FinanceContractPreview | FinanceContractPreview[] | null;
-  invoice: PaymentInvoicePreview | PaymentInvoicePreview[] | null;
-  createdBy: FinanceUserPreview | FinanceUserPreview[] | null;
-};
+type InvoiceRow = Omit<InvoiceRecord, "linkedPayments" | "receipts" | "totalPaid" | "remainingBalance" | "paymentStatus" | "recentActivity" | "viewMode">;
+type PaymentRow = Omit<PaymentRecord, "recentActivity" | "viewMode">;
+type ReceiptRow = Omit<ReceiptRecord, "viewMode">;
+type TransferRow = Omit<TransferRecord, "entity" | "renewal" | "recentActivity" | "viewMode">;
 
-type TransferRow = Omit<TransferRecord, "relatedProject" | "relatedClient" | "createdBy" | "recentActivity" | "supportingDocuments" | "viewMode"> & {
-  relatedProject: FinanceProjectPreview | FinanceProjectPreview[] | null;
-  relatedClient: FinanceClientPreview | FinanceClientPreview[] | null;
-  createdBy: FinanceUserPreview | FinanceUserPreview[] | null;
-};
+// A record's links as the pages show them; one the person may not see reads as none.
+const clientJson = (column: string) =>
+  `(select jsonb_build_object('id', c.id, 'name', c.name, 'status', c.status, 'contact_email', c.contact_email) from work.client c where c.id = ${column})`;
+const projectJson = (column: string) =>
+  `(select jsonb_build_object('id', e.id, 'name', e.name, 'status', case when e.status = 'planned' then 'draft' else e.status::text end, 'end_date', e.deadline)
+      from erp.engagement e where e.id = ${column})`;
+const contractJson = (column: string) =>
+  `(select jsonb_build_object('id', k.id, 'title', k.title, 'status', k.status, 'renewal_date', k.renewal_date, 'end_date', k.end_date)
+      from work.contract k where k.id = ${column})`;
+const personJson = (column: string) =>
+  `(select jsonb_build_object('id', p.id, 'full_name', p.full_name, 'email', p.email, 'avatar_url', p.avatar_url, 'role', work.person_role(p.id))
+      from work.person p where p.id = ${column})`;
+// the files attached to a record, latest first
+const documentsJson = (relatedType: "invoice" | "payment" | "transfer", column: string) =>
+  `coalesce((select jsonb_agg(jsonb_build_object('id', d.id, 'title', d.title, 'file_name', d.file_name, 'document_type', d.document_type,
+                                                 'created_at', d.created_at) order by d.created_at desc)
+               from work.document d where d.related_type = '${relatedType}' and d.related_id = ${column}), '[]'::jsonb)`;
 
-type SupportingDocumentRow = FinanceSupportingDocument & {
-  related_type: "invoice" | "payment" | "transfer";
-  related_id: string;
-};
+// An invoice without an entity (production wrote them unscoped) is shown as the reader's entity's, as BUMEX One did.
+const INVOICE_SQL = `
+  select i.id, coalesce(i.entity_code, (select entity_code from work.person where id = erp.actor_id())) as entity_code, i.invoice_number, i.client_id,
+         i.engagement_id as project_id, i.contract_id, i.issue_date, i.due_date, i.amount_ht, i.tax_amount, i.amount_ttc, i.currency, i.status, i.notes,
+         i.created_by, i.created_at, i.updated_at, i.approval_status, i.approved_by, i.approved_at,
+         ${clientJson("i.client_id")} as client, ${projectJson("i.engagement_id")} as project, ${contractJson("i.contract_id")} as contract,
+         ${personJson("i.created_by")} as "createdBy", ${personJson("i.approved_by")} as "approvedBy",
+         ${documentsJson("invoice", "i.id")} as "supportingDocuments"
+    from work.finance_invoice i`;
 
-type ReceiptRow = Omit<ReceiptRecord, "payment" | "document" | "createdBy" | "viewMode"> & {
-  payment:
-    | {
-        id: string;
-        reference: string | null;
-        amount: number;
-        currency: string;
-        status: PaymentRecord["status"];
-      }
-    | Array<{
-        id: string;
-        reference: string | null;
-        amount: number;
-        currency: string;
-        status: PaymentRecord["status"];
-      }>
-    | null;
-  document:
-    | {
-        id: string;
-        title: string;
-        document_type: string;
-      }
-    | Array<{
-        id: string;
-        title: string;
-        document_type: string;
-      }>
-    | null;
-  createdBy: FinanceUserPreview | FinanceUserPreview[] | null;
-};
+const PAYMENT_SQL = `
+  select x.id, x.invoice_id, x.client_id, x.engagement_id as project_id, x.contract_id, x.amount, x.currency, x.payment_date, x.due_date, x.method,
+         x.status, x.reference, x.notes, x.created_by, x.created_at, x.updated_at,
+         ${clientJson("x.client_id")} as client, ${projectJson("x.engagement_id")} as project, ${contractJson("x.contract_id")} as contract,
+         (select jsonb_build_object('id', i.id, 'invoice_number', i.invoice_number, 'status', i.status, 'due_date', i.due_date, 'amount_ttc', i.amount_ttc)
+            from work.finance_invoice i where i.id = x.invoice_id) as invoice,
+         ${personJson("x.created_by")} as "createdBy", ${documentsJson("payment", "x.id")} as "supportingDocuments"
+    from work.finance_payment x`;
 
-type BankStatementLineRow = Omit<BankStatementLineRecord, "amount">;
+const RECEIPT_SQL = `
+  select r.id, r.receipt_number, r.payment_id, r.issue_date, r.amount, r.document_id, r.notes, r.created_by, r.created_at, r.updated_at,
+         (select jsonb_build_object('id', x.id, 'reference', x.reference, 'amount', x.amount, 'currency', x.currency, 'status', x.status)
+            from work.finance_payment x where x.id = r.payment_id) as payment,
+         (select jsonb_build_object('id', d.id, 'title', d.title, 'document_type', d.document_type) from work.document d where d.id = r.document_id) as document,
+         ${personJson("r.created_by")} as "createdBy"
+    from work.finance_receipt r`;
 
-type BankStatementRow = Omit<BankStatementRecord, "createdBy" | "lines"> & {
-  createdBy: FinanceUserPreview | FinanceUserPreview[] | null;
-};
+const TRANSFER_SQL = `
+  select t.id, t.transfer_reference, t.beneficiary_name, t.beneficiary_bank, t.beneficiary_account, t.amount, t.currency, t.transfer_date, t.status,
+         t.category, t.engagement_id as related_project_id, t.client_id as related_client_id, t.notes, t.created_by, t.created_at, t.updated_at,
+         ${projectJson("t.engagement_id")} as "relatedProject", ${clientJson("t.client_id")} as "relatedClient", ${personJson("t.created_by")} as "createdBy",
+         ${documentsJson("transfer", "t.id")} as "supportingDocuments"
+    from work.finance_transfer t`;
 
-type ScopedFinanceQuery<T> = {
-  or: (filters: string) => T;
-  matchText: (columns: string[], query: string) => T;
-  eq: (column: string, value: string) => T;
-  lt: (column: string, value: string) => T;
-  gte: (column: string, value: string) => T;
-  lte: (column: string, value: string) => T;
-};
+// a statement with its lines (latest first), each line's amount signed: credit in, debit out
+const BANK_STATEMENT_SQL = `
+  select s.id, s.account_label, s.statement_label, s.statement_date, s.currency, s.raw_content, s.notes, s.created_by, s.created_at, s.updated_at,
+         ${personJson("s.created_by")} as "createdBy",
+         coalesce((select jsonb_agg((to_jsonb(l) - 'entity_code') || jsonb_build_object('amount', l.credit_amount - l.debit_amount) order by l.line_date desc)
+                     from work.finance_bank_statement_line l where l.statement_id = s.id), '[]'::jsonb) as lines
+    from work.finance_bank_statement s`;
 
-function isMissingActivityEntityCodeError(error: { message?: string | null } | null | undefined) {
-  const message = error?.message?.toLowerCase() ?? "";
-  return message.includes("activity_logs")
-    && message.includes("entity_code")
-    && (message.includes("schema cache") || message.includes("does not exist"));
-}
-
-function single<T>(value: T | T[] | null): T | null {
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-
-  return value;
-}
-
-function mapActivity(row: ActivityRow): ActivityLogRecord {
-  return {
-    id: row.id,
-    user_id: row.user_id,
-    action: row.action,
-    entity_type: row.entity_type,
-    entity_id: row.entity_id,
-    metadata: row.metadata ?? {},
-    created_at: row.created_at,
-    user: single(row.user),
+// A query's conditions and their parameters ($1, $2, …).
+function sqlFilter() {
+  const where: string[] = [];
+  const params: unknown[] = [];
+  const param = (value: unknown) => {
+    params.push(value);
+    return `$${params.length}`;
   };
+
+  return { where, params, param, sql: () => (where.length ? `where ${where.join(" and ")}` : "") };
 }
 
-function mapPaymentRow(
-  row: PaymentRow,
-  role: AppRole,
-  recentActivity: ActivityLogRecord[] = [],
-  supportingDocuments: FinanceSupportingDocument[] = [],
-): PaymentRecord {
-  return {
-    ...row,
-    client: single(row.client),
-    project: single(row.project),
-    contract: single(row.contract),
-    invoice: single(row.invoice),
-    createdBy: single(row.createdBy),
-    recentActivity,
-    supportingDocuments,
-    viewMode: role === "shareholder" ? "summary" : "full",
-  };
+function dueWindowCondition(column: string, window: FinanceFilters["dueWindow"], param: (value: unknown) => string) {
+  const { today, next7, next30 } = getDueWindowDates(window);
+
+  if (window === "overdue") return `${column} < ${param(today)}::date`;
+  if (window === "next_7_days") return `${column} between ${param(today)}::date and ${param(next7)}::date`;
+  if (window === "next_30_days") return `${column} between ${param(today)}::date and ${param(next30)}::date`;
+  return null;
 }
 
-function mapTransferRow(
-  row: TransferRow,
-  role: AppRole,
-  recentActivity: ActivityLogRecord[] = [],
-  supportingDocuments: FinanceSupportingDocument[] = [],
-): TransferRecord {
-  const parsedMetadata = parseTransferNotesMetadata(row.notes);
-
-  return {
-    ...row,
-    entity: parsedMetadata.entity as TransferEntity,
-    notes: parsedMetadata.notes,
-    renewal: parsedMetadata.renewal,
-    relatedProject: single(row.relatedProject),
-    relatedClient: single(row.relatedClient),
-    createdBy: single(row.createdBy),
-    recentActivity,
-    supportingDocuments,
-    viewMode: role === "shareholder" ? "summary" : "full",
-  };
-}
-
-async function getActivityMap(entityType: ActivityLogRecord["entity_type"], ids: string[]) {
-  const db = await createClient();
-
-  if (!db || !ids.length) {
-    return new Map<string, ActivityLogRecord[]>();
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("activity_logs")
-    .select(
-      `
-        id,
-        user_id,
-        action,
-        entity_type,
-        entity_id,
-        metadata,
-        created_at,
-        user:profiles (
-          id,
-          full_name,
-          email,
-          avatar_url
-        )
-      `,
-    )
-    .or(`and(entity_type.eq.${entityType},entity_id.in.(${ids.join(",")}))`)
-    .order("created_at", { ascending: false })
-    .limit(150);
-
-  query = applyEntityScope(query, entityCode);
-
-  let { data, error } = await query.returns<ActivityRow[]>();
-
-  if (error && isMissingActivityEntityCodeError(error)) {
-    ({ data, error } = await db
-      .from("activity_logs")
-      .select(
-        `
-          id,
-          user_id,
-          action,
-          entity_type,
-          entity_id,
-          metadata,
-          created_at,
-          user:profiles (
-            id,
-            full_name,
-            email,
-            avatar_url
-          )
-        `,
-      )
-      .or(`and(entity_type.eq.${entityType},entity_id.in.(${ids.join(",")}))`)
-      .order("created_at", { ascending: false })
-      .limit(150)
-      .returns<ActivityRow[]>());
-  }
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const map = new Map<string, ActivityLogRecord[]>();
-
-  for (const activity of (data ?? []).map(mapActivity)) {
-    const current = map.get(activity.entity_id) ?? [];
-    current.push(activity);
-    map.set(activity.entity_id, current);
-  }
-
-  return map;
-}
-
-async function getSupportingDocumentsMap(
-  relatedType: SupportingDocumentRow["related_type"],
-  relatedIds: string[],
-) {
-  const db = await createClient();
-
-  if (!db || !relatedIds.length) {
-    return new Map<string, FinanceSupportingDocument[]>();
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("documents")
-    .select("id, title, file_name, document_type, created_at, related_type, related_id")
-    .eq("related_type", relatedType)
-    .in("related_id", relatedIds)
-    .order("created_at", { ascending: false });
-
-  query = applyEntityScope(query, entityCode);
-
-  const { data, error } = await query.returns<SupportingDocumentRow[]>();
-
-  if (error) {
-    if (error.message.includes("invalid input value for enum document_related_type")) {
-      return new Map<string, FinanceSupportingDocument[]>();
-    }
-
-    throw new Error(error.message);
-  }
-
-  const map = new Map<string, FinanceSupportingDocument[]>();
-
-  for (const document of data ?? []) {
-    const current = map.get(document.related_id) ?? [];
-    current.push({
-      id: document.id,
-      title: document.title,
-      file_name: document.file_name,
-      document_type: document.document_type,
-      created_at: document.created_at,
-    });
-    map.set(document.related_id, current);
-  }
-
-  return map;
-}
-
-function mapReceipt(row: ReceiptRow, role: AppRole): ReceiptRecord {
-  return {
-    ...row,
-    payment: single(row.payment),
-    document: single(row.document),
-    createdBy: single(row.createdBy),
-    viewMode: role === "shareholder" ? "summary" : "full",
-  };
-}
-
-function mapBankStatementLine(row: BankStatementLineRow): BankStatementLineRecord {
-  return {
-    ...row,
-    amount: Number(row.credit_amount ?? 0) - Number(row.debit_amount ?? 0),
-  };
-}
-
-async function getReceiptsByPaymentMap(paymentIds: string[], role: AppRole) {
-  const db = await createClient();
-
-  if (!db || !paymentIds.length) {
-    return new Map<string, ReceiptRecord[]>();
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("receipts")
-    .select(
-      `
-        id,
-        receipt_number,
-        payment_id,
-        issue_date,
-        amount,
-        document_id,
-        notes,
-        created_by,
-        created_at,
-        updated_at,
-        payment:payments (
-          id,
-          reference,
-          amount,
-          currency,
-          status
-        ),
-        document:documents (
-          id,
-          title,
-          document_type
-        ),
-        createdBy:profiles!receipts_created_by_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        )
-      `,
-    )
-    .in("payment_id", paymentIds)
-    .order("created_at", { ascending: false })
-    ;
-
-  query = applyEntityScope(query, entityCode);
-
-  const { data, error } = await query.returns<ReceiptRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const map = new Map<string, ReceiptRecord[]>();
-
-  for (const receipt of (data ?? []).map((row) => mapReceipt(row, role))) {
-    const current = map.get(receipt.payment_id) ?? [];
-    current.push(receipt);
-    map.set(receipt.payment_id, current);
-  }
-
-  return map;
-}
-
-async function getPaymentsByInvoiceMap(invoiceIds: string[], role: AppRole) {
-  const db = await createClient();
-
-  if (!db || !invoiceIds.length) {
-    return {
-      paymentMap: new Map<string, PaymentRecord[]>(),
-      receiptMap: new Map<string, ReceiptRecord[]>(),
-    };
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("payments")
-    .select(
-      `
-        id,
-        invoice_id,
-        client_id,
-        project_id,
-        contract_id,
-        amount,
-        currency,
-        payment_date,
-        due_date,
-        method,
-        status,
-        reference,
-        notes,
-        created_by,
-        created_at,
-        updated_at,
-        client:clients (
-          id,
-          name,
-          status,
-          contact_email
-        ),
-        project:projects (
-          id,
-          name,
-          status,
-          end_date
-        ),
-        contract:contracts (
-          id,
-          title,
-          status,
-          renewal_date,
-          end_date
-        ),
-        invoice:invoices (
-          id,
-          invoice_number,
-          status,
-          due_date,
-          amount_ttc
-        ),
-        createdBy:profiles!payments_created_by_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        )
-      `,
-    )
-    .in("invoice_id", invoiceIds)
-    .order("created_at", { ascending: false })
-    ;
-
-  query = applyEntityScope(query, entityCode);
-
-  const { data, error } = await query.returns<PaymentRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const scopedPayments = (data ?? []).map((row) => mapPaymentRow(row, role));
-  const paymentIds = scopedPayments.map((payment) => payment.id);
-  const [receiptMap, supportingDocumentsMap] = await Promise.all([
-    getReceiptsByPaymentMap(paymentIds, role),
-    getSupportingDocumentsMap("payment", paymentIds),
-  ]);
-
-  const map = new Map<string, PaymentRecord[]>();
-
-  for (const payment of scopedPayments) {
-    if (!payment.invoice_id) {
-      continue;
-    }
-
-    const current = map.get(payment.invoice_id) ?? [];
-    current.push({
-      ...payment,
-      supportingDocuments: supportingDocumentsMap.get(payment.id) ?? [],
-    });
-    map.set(payment.invoice_id, current);
-  }
-
-  return {
-    paymentMap: map,
-    receiptMap,
-  };
-}
-
-function applyScopedFilters<T extends ScopedFinanceQuery<T>>(
-  query: T,
-  filters: FinanceFilters,
-  dueColumn: "due_date" | "transfer_date",
-) {
-  if (filters.search) {
-    query = query.matchText(["reference", "notes"], filters.search);
-  }
-
-  if (filters.clientId) {
-    query = query.eq("client_id", filters.clientId);
-  }
-
-  if (filters.projectId) {
-    query = query.eq("project_id", filters.projectId);
-  }
-
-  if (filters.contractId) {
-    query = query.eq("contract_id", filters.contractId);
-  }
-
-  if (filters.invoiceId) {
-    query = query.eq("invoice_id", filters.invoiceId);
-  }
-
-  if (filters.status) {
-    query = query.eq("status", filters.status);
-  }
-
-  if (filters.method) {
-    query = query.eq("method", filters.method);
-  }
-
-  const { today, next7, next30 } = getDueWindowDates(filters.dueWindow);
-
-  if (filters.dueWindow === "overdue") {
-    query = query.lt(dueColumn, today);
-  }
-
-  if (filters.dueWindow === "next_7_days") {
-    query = query.gte(dueColumn, today).lte(dueColumn, next7);
-  }
-
-  if (filters.dueWindow === "next_30_days") {
-    query = query.gte(dueColumn, today).lte(dueColumn, next30);
-  }
-
-  return query;
-}
-
-function applyPaymentStatusSuggestion(values: {
-  due_date: string | null;
-  payment_date: string | null;
-  status: PaymentRecord["status"];
-}) {
+// this month so far, the next or the past 30 days (UTC dates, as BUMEX One compared them)
+function transferDateWindow(window: TransferFilters["dateWindow"]) {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  if (values.status === "reconciled") {
-    return "reconciled" as PaymentRecord["status"];
-  }
-
-  if (values.payment_date) {
-    return "received" as PaymentRecord["status"];
-  }
-
-  if (values.due_date) {
-    const due = new Date(values.due_date);
-    due.setHours(0, 0, 0, 0);
-
-    if (due.getTime() < today.getTime() && values.status === "expected") {
-      return "late" as PaymentRecord["status"];
-    }
-  }
-
-  return values.status;
-}
-
-function parsePaymentPayload(values: PaymentFormValues) {
-  const dueDate = values.due_date || null;
-  const paymentDate = values.payment_date || null;
-  const status = applyPaymentStatusSuggestion({
-    due_date: dueDate,
-    payment_date: paymentDate,
-    status: values.status,
-  });
-
-  return {
-    client_id: values.client_id,
-    project_id: values.project_id || null,
-    contract_id: values.contract_id || null,
-    invoice_id: values.invoice_id || null,
-    amount: Number(values.amount),
-    currency: values.currency.trim() || "USD",
-    due_date: dueDate,
-    payment_date: paymentDate,
-    method: values.method,
-    status,
-    reference: values.reference.trim() || null,
-    notes: values.notes.trim() || null,
+  const day = (date: Date) => date.toISOString().slice(0, 10);
+  const shifted = (days: number) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() + days);
+    return day(date);
   };
+
+  if (window === "this_month") return [day(new Date(today.getFullYear(), today.getMonth(), 1)), day(today)];
+  if (window === "next_30_days") return [day(today), shifted(30)];
+  if (window === "past_30_days") return [shifted(-30), day(today)];
+  return null;
 }
 
-function parseInvoicePayload(values: InvoiceFormValues) {
-  return {
-    invoice_number: values.invoice_number.trim(),
-    client_id: values.client_id,
-    project_id: values.project_id || null,
-    contract_id: values.contract_id || null,
-    issue_date: values.issue_date,
-    due_date: values.due_date,
-    amount_ht: parseFormattedNumber(values.amount_ht) ?? 0,
-    tax_amount: parseFormattedNumber(values.tax_amount) ?? 0,
-    amount_ttc: parseFormattedNumber(values.amount_ttc) ?? 0,
-    currency: values.currency.trim() || "USD",
-    status: values.status,
-    notes: values.notes.trim() || null,
-  };
-}
+function groupBy<T>(items: T[], key: (item: T) => string | null) {
+  const groups = new Map<string, T[]>();
 
-async function generateInvoiceNumber(db: DataClient) {
-  void db;
-
-  const raw = randomBytes(8).toString("base64url").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-  const token = raw.slice(0, 10).padEnd(10, "X");
-
-  return `INV-${token.slice(0, 5)}-${token.slice(5, 10)}`;
-}
-
-function isDuplicateInvoiceNumberError(error: { code?: string; message?: string } | null | undefined) {
-  if (!error) {
-    return false;
+  for (const item of items) {
+    const value = key(item);
+    if (!value) continue;
+    const group = groups.get(value);
+    if (group) group.push(item);
+    else groups.set(value, [item]);
   }
 
-  return error.code === "23505" && error.message?.includes("invoices_invoice_number_key") === true;
+  return groups;
 }
 
-function parseReceiptPayload(values: ReceiptFormValues) {
-  return {
-    receipt_number: values.receipt_number.trim(),
-    payment_id: values.payment_id,
-    issue_date: values.issue_date,
-    amount: Number(values.amount),
-    document_id: values.document_id || null,
-    notes: values.notes.trim() || null,
-  };
+// A shareholder reads the records' figures, the others everything.
+function viewModeFor(role: AppRole): InvoiceRecord["viewMode"] {
+  return role === "shareholder" ? "summary" : "full";
 }
 
-export function calculateInvoicePaymentStatus(params: {
-  status: InvoiceStatus;
-  dueDate: string;
-  amountTtc: number;
-  linkedPayments: Array<Pick<PaymentRecord, "amount" | "status">>;
-}) {
-  if (params.status === "cancelled" || params.status === "archived") {
-    return params.status;
+const isReceived = (payment: Pick<PaymentRecord, "status">) => payment.status === "received" || payment.status === "reconciled";
+
+// An invoice's status as its payments make it: paid, partially paid, overdue once its due date is past, or as it was set.
+function getInvoicePaymentStatus(invoice: Pick<InvoiceRow, "status" | "due_date" | "amount_ttc">, totalPaid: number): InvoiceStatus {
+  if (invoice.status === "cancelled" || invoice.status === "archived") {
+    return invoice.status;
   }
 
-  const totalPaid = params.linkedPayments
-    .filter((payment) => payment.status === "received" || payment.status === "reconciled")
-    .reduce((sum, payment) => sum + payment.amount, 0);
-
-  if (totalPaid >= params.amountTtc && params.amountTtc > 0) {
-    return "paid" satisfies InvoiceStatus;
+  if (totalPaid >= invoice.amount_ttc && invoice.amount_ttc > 0) {
+    return "paid";
   }
 
-  if (totalPaid > 0 && totalPaid < params.amountTtc) {
-    return "partially_paid" satisfies InvoiceStatus;
+  if (totalPaid > 0 && totalPaid < invoice.amount_ttc) {
+    return "partially_paid";
   }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const due = new Date(params.dueDate);
+  const due = new Date(invoice.due_date);
   due.setHours(0, 0, 0, 0);
 
-  if (due.getTime() < today.getTime()) {
-    return "overdue" satisfies InvoiceStatus;
-  }
-
-  return params.status;
+  return due.getTime() < today.getTime() ? "overdue" : invoice.status;
 }
 
-function buildInvoicePaymentSummary(invoice: {
-  amount_ttc: number;
-  due_date: string;
-  status: InvoiceStatus;
-  linkedPayments: PaymentRecord[];
-  receipts: ReceiptRecord[];
-}): InvoicePaymentSummary {
-  const totalPaid = invoice.linkedPayments
-    .filter((payment) => payment.status === "received" || payment.status === "reconciled")
-    .reduce((sum, payment) => sum + payment.amount, 0);
-
-  const paymentStatus = calculateInvoicePaymentStatus({
-    status: invoice.status,
-    dueDate: invoice.due_date,
-    amountTtc: invoice.amount_ttc,
-    linkedPayments: invoice.linkedPayments,
+// Invoices with their payments (and those payments' receipts), files and activity.
+async function readInvoices(role: AppRole, whereSql: string, params: unknown[], search = ""): Promise<InvoiceRecord[]> {
+  const terms = searchTerms(search);
+  const { rows, payments, receipts } = await asPerson(async (tx) => {
+    const rows = (await select<InvoiceRow>(tx, `${INVOICE_SQL} ${whereSql} order by i.created_at desc`, params))
+      .filter((row) => matchesSearchTerms(terms, [row.invoice_number, row.notes]));
+    const payments = await select<PaymentRow>(tx, `${PAYMENT_SQL} where x.invoice_id = any($1::uuid[]) order by x.created_at desc`, [rows.map((row) => row.id)]);
+    const receipts = await select<ReceiptRow>(tx, `${RECEIPT_SQL} where r.payment_id = any($1::uuid[]) order by r.created_at desc`, [payments.map((payment) => payment.id)]);
+    return { rows, payments, receipts };
   });
+  const activity = await getSubjectsActivity("invoice", rows.map((row) => row.id), ACTIVITY_PER_RECORD);
+  const viewMode = viewModeFor(role);
+  const paymentsByInvoice = groupBy(payments, (payment) => payment.invoice_id);
+  const receiptsByPayment = groupBy(receipts, (receipt) => receipt.payment_id);
 
-  return {
-    totalPaid,
-    remainingBalance: Math.max(invoice.amount_ttc - totalPaid, 0),
-    linkedPaymentsCount: invoice.linkedPayments.length,
-    receiptCount: invoice.receipts.length,
-    paymentStatus,
-  };
+  return rows.map((row): InvoiceRecord => {
+    const linkedPayments = (paymentsByInvoice.get(row.id) ?? []).map((payment): PaymentRecord => ({ ...payment, recentActivity: [], viewMode }));
+    const totalPaid = linkedPayments.filter(isReceived).reduce((sum, payment) => sum + payment.amount, 0);
+
+    return {
+      ...row,
+      linkedPayments,
+      receipts: linkedPayments.flatMap((payment) => (receiptsByPayment.get(payment.id) ?? []).map((receipt) => ({ ...receipt, viewMode }))),
+      totalPaid,
+      remainingBalance: Math.max(row.amount_ttc - totalPaid, 0),
+      paymentStatus: getInvoicePaymentStatus(row, totalPaid),
+      recentActivity: activity.get(row.id) ?? [],
+      viewMode,
+    };
+  });
 }
 
 export async function getInvoices(role: AppRole, filters: InvoiceFilters = {}) {
-  const db = await createClient();
+  const filter = sqlFilter();
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("invoices")
-    .select(
-      `
-        id,
-        invoice_number,
-        client_id,
-        project_id,
-        contract_id,
-        issue_date,
-        due_date,
-        amount_ht,
-        tax_amount,
-        amount_ttc,
-        currency,
-        status,
-        approval_status,
-        approved_by,
-        approved_at,
-        notes,
-        created_by,
-        created_at,
-        updated_at,
-        client:clients (
-          id,
-          name,
-          status,
-          contact_email
-        ),
-        project:projects (
-          id,
-          name,
-          status,
-          end_date
-        ),
-        contract:contracts (
-          id,
-          title,
-          status,
-          renewal_date,
-          end_date
-        ),
-        createdBy:profiles!invoices_created_by_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        ),
-        approvedBy:profiles!invoices_approved_by_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        )
-      `,
-    )
-    .order("created_at", { ascending: false });
-
-  query = applyEntityScope(query, entityCode);
-
-  if (filters.search) {
-    query = query.matchText(["invoice_number", "notes"], filters.search);
-  }
-
-  if (filters.clientId) {
-    query = query.eq("client_id", filters.clientId);
-  }
-
-  if (filters.projectId) {
-    query = query.eq("project_id", filters.projectId);
-  }
-
-  if (filters.contractId) {
-    query = query.eq("contract_id", filters.contractId);
-  }
-
-  if (filters.status) {
-    query = query.eq("status", filters.status);
-  }
-
+  if (filters.clientId) filter.where.push(`i.client_id = ${filter.param(filters.clientId)}::uuid`);
+  if (filters.projectId) filter.where.push(`i.engagement_id = ${filter.param(filters.projectId)}::uuid`);
+  if (filters.contractId) filter.where.push(`i.contract_id = ${filter.param(filters.contractId)}::uuid`);
+  if (filters.status) filter.where.push(`i.status = ${filter.param(filters.status)}`);
   if (filters.approvalStatus) {
-    query = query.eq("approval_status", filters.approvalStatus === "changes_requested" ? "pending" : filters.approvalStatus);
+    filter.where.push(`i.approval_status = ${filter.param(filters.approvalStatus === "changes_requested" ? "pending" : filters.approvalStatus)}`);
   }
+  const due = dueWindowCondition("i.due_date", filters.dueWindow, filter.param);
+  if (due) filter.where.push(due);
 
-  const { today, next7, next30 } = getDueWindowDates(filters.dueWindow);
-
-  if (filters.dueWindow === "overdue") {
-    query = query.lt("due_date", today);
-  }
-
-  if (filters.dueWindow === "next_7_days") {
-    query = query.gte("due_date", today).lte("due_date", next7);
-  }
-
-  if (filters.dueWindow === "next_30_days") {
-    query = query.gte("due_date", today).lte("due_date", next30);
-  }
-
-  const { data, error } = await query.returns<InvoiceRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const rows = data ?? [];
-  const invoiceIds = rows.map((item) => item.id);
-  const [activity, { paymentMap, receiptMap }, supportingDocumentsMap] = await Promise.all([
-    getActivityMap("invoice", invoiceIds),
-    getPaymentsByInvoiceMap(invoiceIds, role),
-    getSupportingDocumentsMap("invoice", invoiceIds),
-  ]);
-
-  return rows.map((row): InvoiceRecord => {
-      const linkedPayments = paymentMap.get(row.id) ?? [];
-      const receipts = linkedPayments.flatMap((payment) => receiptMap.get(payment.id) ?? []);
-      const summary = buildInvoicePaymentSummary({
-        amount_ttc: row.amount_ttc,
-        due_date: row.due_date,
-        status: row.status,
-        linkedPayments,
-        receipts,
-      });
-
-      return {
-      ...row,
-      entity_code: row.entity_code ?? entityCode,
-      client: single(row.client),
-      project: single(row.project),
-      contract: single(row.contract),
-      createdBy: single(row.createdBy),
-      approvedBy: single(row.approvedBy),
-      linkedPayments,
-      receipts,
-      supportingDocuments: supportingDocumentsMap.get(row.id) ?? [],
-      totalPaid: summary.totalPaid,
-      remainingBalance: summary.remainingBalance,
-      paymentStatus: summary.paymentStatus,
-      recentActivity: activity.get(row.id) ?? [],
-      viewMode: role === "shareholder" ? "summary" : "full",
-    };
-  });
+  return readInvoices(role, filter.sql(), filter.params, filters.search);
 }
 
 export async function getInvoiceById(id: string, role: AppRole) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("invoices")
-    .select(
-      `
-        id,
-        invoice_number,
-        client_id,
-        project_id,
-        contract_id,
-        issue_date,
-        due_date,
-        amount_ht,
-        tax_amount,
-        amount_ttc,
-        currency,
-        status,
-        notes,
-        created_by,
-        created_at,
-        updated_at,
-        approval_status,
-        approved_by,
-        approved_at,
-        client:clients (
-          id,
-          name,
-          status,
-          contact_email
-        ),
-        project:projects (
-          id,
-          name,
-          status,
-          end_date
-        ),
-        contract:contracts (
-          id,
-          title,
-          status,
-          renewal_date,
-          end_date
-        ),
-        createdBy:profiles!invoices_created_by_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        ),
-        approvedBy:profiles!invoices_approved_by_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        )
-      `,
-    )
-    .eq("id", id);
-
-  query = applyEntityScope(query, entityCode);
-
-  const { data, error } = await query.maybeSingle<InvoiceRow>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
-    return null;
-  }
-
-  const [activity, { paymentMap, receiptMap }, supportingDocumentsMap] = await Promise.all([
-    getActivityMap("invoice", [id]),
-    getPaymentsByInvoiceMap([id], role),
-    getSupportingDocumentsMap("invoice", [id]),
-  ]);
-  const linkedPayments = paymentMap.get(id) ?? [];
-  const receipts = linkedPayments.flatMap((payment) => receiptMap.get(payment.id) ?? []);
-  const summary = buildInvoicePaymentSummary({
-    amount_ttc: data.amount_ttc,
-    due_date: data.due_date,
-    status: data.status,
-    linkedPayments,
-    receipts,
-  });
-
-  return {
-    ...data,
-    entity_code: data.entity_code ?? entityCode,
-    client: single(data.client),
-    project: single(data.project),
-    contract: single(data.contract),
-    createdBy: single(data.createdBy),
-    approvedBy: single(data.approvedBy),
-    linkedPayments,
-    receipts,
-    supportingDocuments: supportingDocumentsMap.get(id) ?? [],
-    totalPaid: summary.totalPaid,
-    remainingBalance: summary.remainingBalance,
-    paymentStatus: summary.paymentStatus,
-    recentActivity: activity.get(id) ?? [],
-    viewMode: role === "shareholder" ? "summary" : "full",
-  } satisfies InvoiceRecord;
-}
-
-export async function getInvoiceFiltersData(): Promise<InvoiceFiltersData> {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let clientsQuery = db.from("clients").select("id, name, status, contact_email");
-  let projectsQuery = db.from("projects").select("id, name, status, end_date");
-  let contractsQuery = db.from("contracts").select("id, title, status, renewal_date, end_date");
-  let documentsQuery = db.from("documents").select("id, title, document_type");
-
-  if (isEntityScopingEnabled()) {
-    clientsQuery = clientsQuery.eq("entity_code", entityCode);
-    projectsQuery = projectsQuery.eq("entity_code", entityCode);
-    contractsQuery = contractsQuery.eq("entity_code", entityCode);
-    documentsQuery = documentsQuery.eq("entity_code", entityCode);
-  }
-
-  const [clientsResult, projectsResult, contractsResult, documentsResult] = await Promise.allSettled([
-    clientsQuery.order("name", { ascending: true }).returns<FinanceClientPreview[]>(),
-    projectsQuery.order("name", { ascending: true }).returns<FinanceProjectPreview[]>(),
-    contractsQuery.order("title", { ascending: true }).returns<FinanceContractPreview[]>(),
-    documentsQuery.in("document_type", ["invoice", "receipt"]).order("created_at", { ascending: false }).returns<Array<{ id: string; title: string; document_type: string }>>(),
-  ]);
-
-  const clients = clientsResult.status === "fulfilled" && !clientsResult.value.error ? clientsResult.value.data ?? [] : [];
-  const projects = projectsResult.status === "fulfilled" && !projectsResult.value.error ? projectsResult.value.data ?? [] : [];
-  const contracts = contractsResult.status === "fulfilled" && !contractsResult.value.error ? contractsResult.value.data ?? [] : [];
-  const documents = documentsResult.status === "fulfilled" && !documentsResult.value.error ? documentsResult.value.data ?? [] : [];
-
-  return {
-    clients,
-    projects,
-    contracts,
-    documents,
-  };
-}
-
-export async function getInvoicePayments(invoiceId: string, role: AppRole) {
-  const invoice = await getInvoiceById(invoiceId, role);
-  return invoice?.linkedPayments ?? [];
+  const [invoice] = await readInvoices(role, "where i.id = $1::uuid", [id]).catch(() => []);
+  return invoice ?? null;
 }
 
 export async function getPayments(role: AppRole, filters: FinanceFilters = {}) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("payments")
-    .select(
-      `
-        id,
-        invoice_id,
-        client_id,
-        project_id,
-        contract_id,
-        amount,
-        currency,
-        payment_date,
-        due_date,
-        method,
-        status,
-        reference,
-        notes,
-        created_by,
-        created_at,
-        updated_at,
-        client:clients (
-          id,
-          name,
-          status,
-          contact_email
-        ),
-        project:projects (
-          id,
-          name,
-          status,
-          end_date
-        ),
-        contract:contracts (
-          id,
-          title,
-          status,
-          renewal_date,
-          end_date
-        ),
-        invoice:invoices (
-          id,
-          invoice_number,
-          status,
-          due_date,
-          amount_ttc
-        ),
-        createdBy:profiles!payments_created_by_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        )
-      `,
-    )
-    .order("created_at", { ascending: false });
-
-  query = applyEntityScope(query, entityCode);
-
-  query = applyScopedFilters(query, filters, "due_date");
-
-  const { data, error } = await query.returns<PaymentRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const paymentIds = (data ?? []).map((item) => item.id);
-  const [activity, supportingDocumentsMap] = await Promise.all([
-    getActivityMap("payment", paymentIds),
-    getSupportingDocumentsMap("payment", paymentIds),
-  ]);
-
-  return (data ?? []).map((row) =>
-    mapPaymentRow(row, role, activity.get(row.id) ?? [], supportingDocumentsMap.get(row.id) ?? []),
-  );
-}
-
-export async function getPaymentById(id: string, role: AppRole) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db
-    .from("payments")
-    .select(
-      `
-        id,
-        invoice_id,
-        client_id,
-        project_id,
-        contract_id,
-        amount,
-        currency,
-        payment_date,
-        due_date,
-        method,
-        status,
-        reference,
-        notes,
-        created_by,
-        created_at,
-        updated_at,
-        client:clients (
-          id,
-          name,
-          status,
-          contact_email
-        ),
-        project:projects (
-          id,
-          name,
-          status,
-          end_date
-        ),
-        contract:contracts (
-          id,
-          title,
-          status,
-          renewal_date,
-          end_date
-        ),
-        invoice:invoices (
-          id,
-          invoice_number,
-          status,
-          due_date,
-          amount_ttc
-        ),
-        createdBy:profiles!payments_created_by_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        )
-      `,
-    )
-    .eq("id", id)
-    .maybeSingle<PaymentRow>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
-    return null;
-  }
-
-  const [activity, supportingDocumentsMap] = await Promise.all([
-    getActivityMap("payment", [id]),
-    getSupportingDocumentsMap("payment", [id]),
-  ]);
-
-  return mapPaymentRow(data, role, activity.get(id) ?? [], supportingDocumentsMap.get(id) ?? []);
-}
-
-export async function getPaymentsFilterData(): Promise<PaymentFiltersData> {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let clientsQuery = db.from("clients").select("id, name, status, contact_email");
-  let projectsQuery = db.from("projects").select("id, name, status, end_date");
-  let contractsQuery = db.from("contracts").select("id, title, status, renewal_date, end_date");
-  let invoicesQuery = db.from("invoices").select("id, invoice_number, status, due_date, amount_ttc");
-  let usersQuery = db.from("profiles").select("id, full_name, email, avatar_url, role");
-
-  if (isEntityScopingEnabled()) {
-    clientsQuery = clientsQuery.eq("entity_code", entityCode);
-    projectsQuery = projectsQuery.eq("entity_code", entityCode);
-    contractsQuery = contractsQuery.eq("entity_code", entityCode);
-    invoicesQuery = invoicesQuery.eq("entity_code", entityCode);
-    usersQuery = usersQuery.eq("entity_code", entityCode);
-  }
-
-  const [clientsResult, projectsResult, contractsResult, invoicesResult, usersResult] = await Promise.allSettled([
-    clientsQuery.order("name", { ascending: true }).returns<FinanceClientPreview[]>(),
-    projectsQuery.order("name", { ascending: true }).returns<FinanceProjectPreview[]>(),
-    contractsQuery.order("title", { ascending: true }).returns<FinanceContractPreview[]>(),
-    invoicesQuery.order("created_at", { ascending: false }).returns<PaymentInvoicePreview[]>(),
-    usersQuery.in("role", ["admin", "manager"]).order("full_name", { ascending: true }).returns<FinanceUserPreview[]>(),
-  ]);
-
-  const clients = clientsResult.status === "fulfilled" && !clientsResult.value.error ? clientsResult.value.data ?? [] : [];
-  const projects = projectsResult.status === "fulfilled" && !projectsResult.value.error ? projectsResult.value.data ?? [] : [];
-  const contracts = contractsResult.status === "fulfilled" && !contractsResult.value.error ? contractsResult.value.data ?? [] : [];
-  const invoices = invoicesResult.status === "fulfilled" && !invoicesResult.value.error ? invoicesResult.value.data ?? [] : [];
-  const users = usersResult.status === "fulfilled" && !usersResult.value.error ? usersResult.value.data ?? [] : [];
-
-  return {
-    clients,
-    projects,
-    contracts,
-    invoices,
-    users,
-  };
-}
-
-async function syncInvoiceStatus(invoiceId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let invoiceQuery = db
-    .from("invoices")
-    .select("id, due_date, amount_ttc, status")
-    .eq("id", invoiceId);
-
-  if (isEntityScopingEnabled()) {
-    invoiceQuery = invoiceQuery.eq("entity_code", entityCode);
-  }
-
-  const invoiceResponse = await invoiceQuery.maybeSingle();
-  const { data: invoice, error: invoiceError } = invoiceResponse as {
-    data: { id: string; due_date: string; amount_ttc: number; status: InvoiceStatus } | null;
-    error: { message: string } | null;
-  };
-
-  if (invoiceError) {
-    throw new Error(invoiceError.message);
-  }
-
-  if (!invoice) {
-    return;
-  }
-
-  let paymentsQuery = db
-    .from("payments")
-    .select("amount, status")
-    .eq("invoice_id", invoiceId);
-
-  if (isEntityScopingEnabled()) {
-    paymentsQuery = paymentsQuery.eq("entity_code", entityCode);
-  }
-
-  const paymentsResponse = await paymentsQuery.returns();
-  const { data: payments, error: paymentsError } = paymentsResponse as {
-    data: Array<{ amount: number; status: PaymentRecord["status"] }> | null;
-    error: { message: string } | null;
-  };
-
-  if (paymentsError) {
-    throw new Error(paymentsError.message);
-  }
-
-  const suggestedStatus = calculateInvoicePaymentStatus({
-    status: invoice.status,
-    dueDate: invoice.due_date,
-    amountTtc: invoice.amount_ttc,
-    linkedPayments: payments ?? [],
-  });
-
-  if (suggestedStatus !== invoice.status) {
-    let invoiceUpdateQuery = db
-      .from("invoices")
-      .update({
-        status: suggestedStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", invoiceId);
-
-    if (isEntityScopingEnabled()) {
-      invoiceUpdateQuery = invoiceUpdateQuery.eq("entity_code", entityCode);
-    }
-
-    const { error } = await invoiceUpdateQuery;
-
-    if (error) {
-      throw new Error(error.message);
-    }
-  }
-}
-
-export async function createInvoice(values: InvoiceFormValues, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  const payload = extendWithEntityCode(parseInvoicePayload({
-    ...values,
-    invoice_number: values.invoice_number.trim(),
-  }), entityCode);
-  const suggestedStatus = calculateInvoicePaymentStatus({
-    status: payload.status,
-    dueDate: payload.due_date,
-    amountTtc: payload.amount_ttc,
-    linkedPayments: [],
-  });
-
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const invoiceNumber = payload.invoice_number || await generateInvoiceNumber(db);
-
-    const { data, error } = await db
-      .from("invoices")
-      .insert({
-        ...payload,
-        invoice_number: invoiceNumber,
-        status: suggestedStatus,
-        approval_status: "pending",
-        approved_by: null,
-        approved_at: null,
-        created_by: actorUserId,
-      })
-      .select("id, invoice_number")
-      .single<{ id: string; invoice_number: string }>();
-
-    if (error) {
-      if (!payload.invoice_number && isDuplicateInvoiceNumberError(error) && attempt < 3) {
-        continue;
-      }
-
-      throw new Error(error.message);
-    }
-
-    await logInvoiceCreated(data.id, actorUserId, data.invoice_number);
-    return data.id;
-  }
-
-  throw new Error("Unable to generate a unique invoice number.");
-}
-
-export async function updateInvoice(id: string, values: InvoiceFormValues, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let previousInvoiceQuery = db
-    .from("invoices")
-    .select("invoice_number, due_date, amount_ht, tax_amount, amount_ttc, status, client_id, project_id, contract_id, notes")
-    .eq("id", id);
-
-  if (isEntityScopingEnabled()) {
-    previousInvoiceQuery = previousInvoiceQuery.eq("entity_code", entityCode);
-  }
-
-  const previousInvoiceResponse = await previousInvoiceQuery.maybeSingle();
-  const { data: previous, error: previousError } = previousInvoiceResponse as {
-    data: {
-      invoice_number: string;
-      due_date: string;
-      amount_ht: number;
-      tax_amount: number;
-      amount_ttc: number;
-      status: InvoiceStatus;
-      client_id: string;
-      project_id: string | null;
-      contract_id: string | null;
-      notes: string | null;
-    } | null;
-    error: { message: string } | null;
-  };
-
-  if (previousError) {
-    throw new Error(previousError.message);
-  }
-
-  const payload = parseInvoicePayload(values);
-  const linkedPayments = await getInvoicePayments(id, "admin");
-  const suggestedStatus = calculateInvoicePaymentStatus({
-    status: payload.status,
-    dueDate: payload.due_date,
-    amountTtc: payload.amount_ttc,
-    linkedPayments,
-  });
-
-  let invoiceUpdateQuery = db
-    .from("invoices")
-    .update({
-      ...payload,
-      status: suggestedStatus,
-      approval_status: "pending",
-      approved_by: null,
-      approved_at: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id);
-
-  if (isEntityScopingEnabled()) {
-    invoiceUpdateQuery = invoiceUpdateQuery.eq("entity_code", entityCode);
-  }
-
-  const { error } = await invoiceUpdateQuery;
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const activityTasks: Promise<void>[] = [];
-
-  if (!previous) {
-    activityTasks.push(logInvoiceUpdated(id, actorUserId));
-  } else {
-    const changes: Array<[string, string | number | null, string | number | null, string]> = [
-      ["invoice_number", previous.invoice_number, payload.invoice_number, `Updated invoice number to ${payload.invoice_number}`],
-      ["due_date", previous.due_date, payload.due_date, "Updated invoice due date"],
-      ["amount_ht", previous.amount_ht, payload.amount_ht, "Updated invoice net amount"],
-      ["tax_amount", previous.tax_amount, payload.tax_amount, "Updated invoice tax amount"],
-      ["amount_ttc", previous.amount_ttc, payload.amount_ttc, "Updated invoice gross amount"],
-      ["status", previous.status, suggestedStatus, `Changed invoice status to ${suggestedStatus}`],
-      ["client_id", previous.client_id, payload.client_id, "Updated linked client"],
-      ["project_id", previous.project_id, payload.project_id, "Updated linked project"],
-      ["contract_id", previous.contract_id, payload.contract_id, "Updated linked contract"],
-      ["notes", previous.notes, payload.notes, "Updated invoice notes"],
-    ];
-
-    for (const [field, from, to, action] of changes) {
-      if (from === to) {
-        continue;
-      }
-
-      activityTasks.push(logInvoiceUpdated(id, actorUserId, field, from, to));
-      activityTasks.push(
-        logActivity({
-          userId: actorUserId,
-          action,
-          entityType: "invoice",
-          entityId: id,
-          metadata: {
-            kind: field === "status" ? "status_change" : field === "due_date" ? "due_date_change" : "update",
-            field,
-            from,
-            to,
-            summary: field === "status" ? action : undefined,
-          },
-        }),
-      );
-    }
-  }
-
-  await Promise.all(activityTasks);
-  return id;
-}
-
-export async function approveInvoice(id: string, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("invoices")
-    .update({
-      approval_status: "approved",
-      approved_by: actorUserId,
-      approved_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id);
-
-  if (isEntityScopingEnabled()) {
-    query = query.eq("entity_code", entityCode);
-  }
-
-  const { error } = await query;
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  await logActivity({
-    userId: actorUserId,
-    action: "Invoice approved",
-    entityType: "invoice",
-    entityId: id,
-    metadata: { kind: "status_change", summary: "Invoice approved by an administrator" },
-  });
-}
-
-export async function revokeInvoiceApproval(id: string, actorUserId: string, reason: string) {
-  const db = await createClient();
-  if (!db) throw new Error("Firebase is not configured.");
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("invoices")
-    .update({
-      approval_status: "pending",
-      approved_by: null,
-      approved_at: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("approval_status", "approved");
-
-  if (isEntityScopingEnabled()) query = query.eq("entity_code", entityCode);
-  const { error } = await query;
-  if (error) throw new Error(error.message);
-
-  await logActivity({
-    userId: actorUserId,
-    action: "Invoice approval revoked",
-    entityType: "invoice",
-    entityId: id,
-    metadata: { kind: "status_change", summary: reason },
-  });
-}
-
-export async function deleteInvoice(id: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let deleteInvoiceQuery = db.from("invoices").delete().eq("id", id);
-
-  if (isEntityScopingEnabled()) {
-    deleteInvoiceQuery = deleteInvoiceQuery.eq("entity_code", entityCode);
-  }
-
-  const { error } = await deleteInvoiceQuery;
-
-  if (error) {
-    throw new Error(error.message);
-  }
-}
-
-export async function createReceipt(values: ReceiptFormValues, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  const payload = extendWithEntityCode(parseReceiptPayload(values), entityCode);
-
-  const { data, error } = await db
-    .from("receipts")
-    .insert({
-      ...payload,
-      created_by: actorUserId,
-    })
-    .select("id")
-    .single<{ id: string }>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  await logActivity({
-    userId: actorUserId,
-    action: `Created receipt ${payload.receipt_number}`,
-    entityType: "receipt",
-    entityId: data.id,
-    metadata: {
-      kind: "create",
-      summary: "Receipt created",
-    },
-  });
-
-  return data.id;
-}
-
-export async function createPayment(values: PaymentFormValues, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  const payload = extendWithEntityCode({
-    ...parsePaymentPayload(values),
-    created_by: actorUserId,
-  }, entityCode);
-
-  const { data, error } = await db
-    .from("payments")
-    .insert(payload)
-    .select("id, status")
-    .single<{ id: string; status: PaymentRecord["status"] }>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  await logActivity({
-    userId: actorUserId,
-    action: "Created payment",
-    entityType: "payment",
-    entityId: data.id,
-    metadata: {
-      kind: "create",
-      summary: "Payment created",
-    },
-  });
-
-  if (data.status === "received") {
-    await logPaymentReceived(data.id, actorUserId);
-  }
-
-  if (data.status === "late") {
-    await logActivity({
-      userId: actorUserId,
-      action: "Payment marked late",
-      entityType: "payment",
-      entityId: data.id,
-      metadata: {
-        kind: "status_change",
-        field: "status",
-        to: "late",
-        summary: "Payment marked late",
-      },
-    });
-  }
-
-  if (payload.invoice_id) {
-    await syncInvoiceStatus(payload.invoice_id);
-  }
-
-  return data.id;
-}
-
-export async function updatePayment(id: string, values: PaymentFormValues, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let previousPaymentQuery = db
-    .from("payments")
-    .select("invoice_id, status, due_date, payment_date, amount, method, reference, notes")
-    .eq("id", id);
-
-  if (isEntityScopingEnabled()) {
-    previousPaymentQuery = previousPaymentQuery.eq("entity_code", entityCode);
-  }
-
-  const previousPaymentResponse = await previousPaymentQuery.maybeSingle();
-  const { data: previous, error: previousError } = previousPaymentResponse as {
-    data: {
-      invoice_id: string | null;
-      status: PaymentRecord["status"];
-      due_date: string | null;
-      payment_date: string | null;
-      amount: number;
-      method: PaymentRecord["method"];
-      reference: string | null;
-      notes: string | null;
-    } | null;
-    error: { message: string } | null;
-  };
-
-  if (previousError) {
-    throw new Error(previousError.message);
-  }
-
-  const payload = {
-    ...parsePaymentPayload(values),
-    updated_at: new Date().toISOString(),
-  };
-
-  let updatePaymentQuery = db.from("payments").update(payload).eq("id", id);
-
-  if (isEntityScopingEnabled()) {
-    updatePaymentQuery = updatePaymentQuery.eq("entity_code", entityCode);
-  }
-
-  const { error } = await updatePaymentQuery;
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const activityTasks: Promise<void>[] = [];
-
-  if (!previous) {
-    activityTasks.push(
-      logActivity({
-        userId: actorUserId,
-        action: "Updated payment",
-        entityType: "payment",
-        entityId: id,
-        metadata: {
-          kind: "update",
-          summary: "Payment updated",
-        },
-      }),
-    );
-  } else {
-    const changes: Array<[string, string | number | null, string | number | null, string]> = [
-      ["status", previous.status, payload.status, `Changed payment status to ${payload.status}`],
-      ["due_date", previous.due_date, payload.due_date, "Updated payment due date"],
-      ["payment_date", previous.payment_date, payload.payment_date, "Updated payment date"],
-      ["amount", previous.amount, payload.amount, "Updated payment amount"],
-      ["method", previous.method, payload.method, `Changed payment method to ${payload.method}`],
-      ["reference", previous.reference, payload.reference, "Updated payment reference"],
-      ["notes", previous.notes, payload.notes, "Updated payment notes"],
-    ];
-
-    for (const [field, from, to, action] of changes) {
-      if (from === to) {
-        continue;
-      }
-
-      const kind =
-        field === "status"
-          ? "status_change"
-          : field === "due_date"
-            ? "due_date_change"
-            : "update";
-
-      activityTasks.push(
-        logActivity({
-          userId: actorUserId,
-          action,
-          entityType: "payment",
-          entityId: id,
-          metadata: {
-            kind,
-            field,
-            from,
-            to,
-          },
-        }),
-      );
-    }
-
-    if (previous.status !== "received" && payload.status === "received") {
-      activityTasks.push(logPaymentReceived(id, actorUserId));
-    }
-
-    if (previous.status !== "late" && payload.status === "late") {
-      activityTasks.push(
-        logActivity({
-          userId: actorUserId,
-          action: "Payment marked late",
-          entityType: "payment",
-          entityId: id,
-          metadata: {
-            kind: "status_change",
-            field: "status",
-            from: previous.status,
-            to: "late",
-            summary: "Payment marked late",
-          },
-        }),
-      );
-    }
-
-    if (previous.status !== "reconciled" && payload.status === "reconciled") {
-      activityTasks.push(
-        logActivity({
-          userId: actorUserId,
-          action: "Payment reconciled",
-          entityType: "payment",
-          entityId: id,
-          metadata: {
-            kind: "status_change",
-            field: "status",
-            from: previous.status,
-            to: "reconciled",
-            summary: "Payment reconciled",
-          },
-        }),
-      );
-    }
-  }
-
-  await Promise.all(activityTasks);
-
-  if (previous?.invoice_id && previous.invoice_id !== payload.invoice_id) {
-    await syncInvoiceStatus(previous.invoice_id);
-  }
-
-  if (payload.invoice_id) {
-    await syncInvoiceStatus(payload.invoice_id);
-  }
-
-  return id;
-}
-
-export async function deletePayment(id: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let existingPaymentQuery = db
-    .from("payments")
-    .select("invoice_id")
-    .eq("id", id);
-
-  if (isEntityScopingEnabled()) {
-    existingPaymentQuery = existingPaymentQuery.eq("entity_code", entityCode);
-  }
-
-  const existingPaymentResponse = await existingPaymentQuery.maybeSingle();
-  const { data: existing, error: existingError } = existingPaymentResponse as {
-    data: { invoice_id: string | null } | null;
-    error: { message: string } | null;
-  };
-
-  if (existingError) {
-    throw new Error(existingError.message);
-  }
-
-  let deletePaymentQuery = db.from("payments").delete().eq("id", id);
-
-  if (isEntityScopingEnabled()) {
-    deletePaymentQuery = deletePaymentQuery.eq("entity_code", entityCode);
-  }
-
-  const { error } = await deletePaymentQuery;
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (existing?.invoice_id) {
-    await syncInvoiceStatus(existing.invoice_id);
-  }
+  const filter = sqlFilter();
+
+  if (filters.clientId) filter.where.push(`x.client_id = ${filter.param(filters.clientId)}::uuid`);
+  if (filters.projectId) filter.where.push(`x.engagement_id = ${filter.param(filters.projectId)}::uuid`);
+  if (filters.contractId) filter.where.push(`x.contract_id = ${filter.param(filters.contractId)}::uuid`);
+  if (filters.invoiceId) filter.where.push(`x.invoice_id = ${filter.param(filters.invoiceId)}::uuid`);
+  if (filters.status) filter.where.push(`x.status = ${filter.param(filters.status)}`);
+  if (filters.method) filter.where.push(`x.method = ${filter.param(filters.method)}`);
+  const due = dueWindowCondition("x.due_date", filters.dueWindow, filter.param);
+  if (due) filter.where.push(due);
+
+  const terms = searchTerms(filters.search ?? "");
+  const rows = (await asPerson((tx) => select<PaymentRow>(tx, `${PAYMENT_SQL} ${filter.sql()} order by x.created_at desc`, filter.params)))
+    .filter((row) => matchesSearchTerms(terms, [row.reference, row.notes]));
+  const activity = await getSubjectsActivity("payment", rows.map((row) => row.id), ACTIVITY_PER_RECORD);
+
+  return rows.map((row): PaymentRecord => ({ ...row, recentActivity: activity.get(row.id) ?? [], viewMode: viewModeFor(role) }));
 }
 
 export async function getOverduePayments(role: AppRole) {
@@ -1927,1043 +259,57 @@ export async function getExpectedPayments(role: AppRole) {
   return getPayments(role, { status: "expected" });
 }
 
-export async function getReceivedPayments(role: AppRole) {
-  return getPayments(role, { status: "received" });
-}
+// A transfer's notes carry its entity and renewal settings (lib/finance/helpers.ts).
+function mapTransfer(row: TransferRow, role: AppRole, recentActivity: ActivityLogRecord[]): TransferRecord {
+  const metadata = parseTransferNotesMetadata(row.notes);
 
-export function getPaymentSummary(payments: PaymentRecord[]): PaymentSummary {
   return {
-    total: payments.length,
-    overdueCount: payments.filter((payment) => payment.status === "late").length,
-    expectedCount: payments.filter((payment) => payment.status === "expected").length,
-    receivedCount: payments.filter((payment) => payment.status === "received" || payment.status === "reconciled").length,
-    totalExpectedAmount: payments
-      .filter((payment) => payment.status === "expected" || payment.status === "late")
-      .reduce((sum, payment) => sum + payment.amount, 0),
-    totalReceivedAmount: payments
-      .filter((payment) => payment.status === "received" || payment.status === "reconciled")
-      .reduce((sum, payment) => sum + payment.amount, 0),
+    ...row,
+    entity: metadata.entity as TransferEntity,
+    notes: metadata.notes,
+    renewal: metadata.renewal,
+    recentActivity,
+    viewMode: viewModeFor(role),
   };
 }
 
 export async function getTransfers(role: AppRole, filters: TransferFilters = {}) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("transfers")
-    .select(
-      `
-        id,
-        transfer_reference,
-        beneficiary_name,
-        beneficiary_bank,
-        beneficiary_account,
-        amount,
-        currency,
-        transfer_date,
-        status,
-        category,
-        related_project_id,
-        related_client_id,
-        notes,
-        created_by,
-        created_at,
-        updated_at,
-        relatedProject:projects!transfers_related_project_id_fkey (
-          id,
-          name,
-          status,
-          end_date
-        ),
-        relatedClient:clients!transfers_related_client_id_fkey (
-          id,
-          name,
-          status,
-          contact_email
-        ),
-        createdBy:profiles!transfers_created_by_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        )
-      `,
-    )
-    .order("created_at", { ascending: false });
-
-  query = applyEntityScope(query, entityCode);
-
-  query = applyTransferFilters(query, filters);
-
-  const { data, error } = await query.returns<TransferRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const transferIds = (data ?? []).map((item) => item.id);
-  const [activity, supportingDocumentsMap] = await Promise.all([
-    getActivityMap("transfer", transferIds),
-    getSupportingDocumentsMap("transfer", transferIds),
-  ]);
-
-  const mappedTransfers = (data ?? []).map((row) =>
-    mapTransferRow(row, role, activity.get(row.id) ?? [], supportingDocumentsMap.get(row.id) ?? []),
-  );
-
-  if (filters.entity) {
-    return mappedTransfers.filter((transfer) => transfer.entity === filters.entity);
-  }
-
-  return mappedTransfers;
-}
-
-function parseTransferPayload(values: TransferFormValues) {
-  return {
-    transfer_reference: values.transfer_reference.trim(),
-    beneficiary_name: values.beneficiary_name.trim(),
-    beneficiary_bank: values.beneficiary_bank.trim() || null,
-    beneficiary_account: values.beneficiary_account.trim() || null,
-    amount: Number(values.amount),
-    currency: values.currency.trim() || "USD",
-    transfer_date: values.transfer_date,
-    status: values.status,
-    category: values.category,
-    notes: buildTransferNotes(values.entity, values.notes, {
-      enabled: values.renewal_enabled,
-      next_due_date: values.renewal_next_due_date || null,
-      reminder_days: Number(values.renewal_reminder_days) || 30,
-      interval_months: Number(values.renewal_interval_months) || 12,
-    }),
-    related_project_id: values.related_project_id || null,
-    related_client_id: values.related_client_id || null,
-  };
-}
-
-function applyTransferFilters<T extends ScopedFinanceQuery<T> & { ilike: (column: string, value: string) => T }>(
-  query: T,
-  filters: TransferFilters,
-) {
-  if (filters.search) {
-    query = query.matchText(["transfer_reference", "beneficiary_name", "beneficiary_bank", "notes"], filters.search);
-  }
-
-  if (filters.clientId) {
-    query = query.eq("related_client_id", filters.clientId);
-  }
-
-  if (filters.projectId) {
-    query = query.eq("related_project_id", filters.projectId);
-  }
-
-  if (filters.status) {
-    query = query.eq("status", filters.status);
-  }
-
-  if (filters.category) {
-    query = query.eq("category", filters.category);
-  }
-
-  const today = new Date();
-  const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-  const next30 = new Date(today);
-  next30.setDate(today.getDate() + 30);
-  const past30 = new Date(today);
-  past30.setDate(today.getDate() - 30);
-
-  const todayString = today.toISOString().slice(0, 10);
-  const monthStart = currentMonthStart.toISOString().slice(0, 10);
-  const next30String = next30.toISOString().slice(0, 10);
-  const past30String = past30.toISOString().slice(0, 10);
-
-  if (filters.dateWindow === "this_month") {
-    query = query.gte("transfer_date", monthStart).lte("transfer_date", todayString);
-  }
-
-  if (filters.dateWindow === "next_30_days") {
-    query = query.gte("transfer_date", todayString).lte("transfer_date", next30String);
-  }
-
-  if (filters.dateWindow === "past_30_days") {
-    query = query.gte("transfer_date", past30String).lte("transfer_date", todayString);
-  }
-
-  return query;
-}
-
-export async function getTransferById(id: string, role: AppRole) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("transfers")
-    .select(
-      `
-        id,
-        transfer_reference,
-        beneficiary_name,
-        beneficiary_bank,
-        beneficiary_account,
-        amount,
-        currency,
-        transfer_date,
-        status,
-        category,
-        related_project_id,
-        related_client_id,
-        notes,
-        created_by,
-        created_at,
-        updated_at,
-        relatedProject:projects!transfers_related_project_id_fkey (
-          id,
-          name,
-          status,
-          end_date
-        ),
-        relatedClient:clients!transfers_related_client_id_fkey (
-          id,
-          name,
-          status,
-          contact_email
-        ),
-        createdBy:profiles!transfers_created_by_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        )
-      `,
-    )
-    .eq("id", id);
-
-  query = applyEntityScope(query, entityCode);
-
-  const { data, error } = await query.maybeSingle<TransferRow>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
-    return null;
-  }
-
-  const [activity, supportingDocumentsMap] = await Promise.all([
-    getActivityMap("transfer", [id]),
-    getSupportingDocumentsMap("transfer", [id]),
-  ]);
-
-  return mapTransferRow(data, role, activity.get(id) ?? [], supportingDocumentsMap.get(id) ?? []);
-}
-
-export async function getTransfersFilterData(): Promise<TransferFiltersData> {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let clientsQuery = db.from("clients").select("id, name, status, contact_email");
-  let projectsQuery = db.from("projects").select("id, name, status, end_date");
-
-  if (isEntityScopingEnabled()) {
-    clientsQuery = clientsQuery.eq("entity_code", entityCode);
-    projectsQuery = projectsQuery.eq("entity_code", entityCode);
-  }
-
-  const [clientsResult, projectsResult] = await Promise.allSettled([
-    clientsQuery.order("name", { ascending: true }).returns<FinanceClientPreview[]>(),
-    projectsQuery.order("name", { ascending: true }).returns<FinanceProjectPreview[]>(),
-  ]);
-
-  const clients = clientsResult.status === "fulfilled" && !clientsResult.value.error ? clientsResult.value.data ?? [] : [];
-  const projects = projectsResult.status === "fulfilled" && !projectsResult.value.error ? projectsResult.value.data ?? [] : [];
-
-  return {
-    clients,
-    projects,
-  };
-}
-
-export async function createTransfer(values: TransferFormValues, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  const payload = extendWithEntityCode({
-    ...parseTransferPayload(values),
-    created_by: actorUserId,
-  }, entityCode);
-
-  const { data, error } = await db
-    .from("transfers")
-    .insert(payload)
-    .select("id, transfer_reference, status")
-    .single<{ id: string; transfer_reference: string; status: TransferRecord["status"] }>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  await logTransferCreated(data.id, actorUserId, data.transfer_reference);
-
-  if (data.status === "confirmed") {
-    await logTransferConfirmed(data.id, actorUserId);
-  }
-
-  if (data.status === "sent" || data.status === "failed" || data.status === "cancelled") {
-    await logActivity({
-      userId: actorUserId,
-      action: `Transfer ${data.status}`,
-      entityType: "transfer",
-      entityId: data.id,
-      metadata: {
-        kind: "status_change",
-        field: "status",
-        to: data.status,
-        summary: `Transfer ${data.status}`,
-      },
-    });
-  }
-
-  return data.id;
-}
-
-export async function updateTransfer(id: string, values: TransferFormValues, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let previousTransferQuery = db
-    .from("transfers")
-    .select("status, transfer_date, amount, category, beneficiary_name, related_project_id, related_client_id, notes")
-    .eq("id", id);
-
-  if (isEntityScopingEnabled()) {
-    previousTransferQuery = previousTransferQuery.eq("entity_code", entityCode);
-  }
-
-  const previousTransferResponse = await previousTransferQuery.maybeSingle();
-  const { data: previous, error: previousError } = previousTransferResponse as {
-    data: {
-      status: TransferRecord["status"];
-      transfer_date: string;
-      amount: number;
-      category: TransferCategory;
-      beneficiary_name: string;
-      related_project_id: string | null;
-      related_client_id: string | null;
-      notes: string | null;
-    } | null;
-    error: { message: string } | null;
-  };
-
-  if (previousError) {
-    throw new Error(previousError.message);
-  }
-
-  const payload = {
-    ...parseTransferPayload(values),
-    updated_at: new Date().toISOString(),
-  };
-
-  let updateTransferQuery = db.from("transfers").update(payload).eq("id", id);
-
-  if (isEntityScopingEnabled()) {
-    updateTransferQuery = updateTransferQuery.eq("entity_code", entityCode);
-  }
-
-  const { error } = await updateTransferQuery;
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const activityTasks: Promise<void>[] = [];
-
-  if (!previous) {
-    activityTasks.push(
-      logActivity({
-        userId: actorUserId,
-        action: "Updated transfer",
-        entityType: "transfer",
-        entityId: id,
-        metadata: {
-          kind: "update",
-          summary: "Transfer updated",
-        },
-      }),
-    );
-  } else {
-    const changes: Array<
-      [string, string | number | null, string | number | null, string, "update" | "status_change"]
-    > = [
-      ["status", previous.status, payload.status, `Transfer ${payload.status}`, "status_change"],
-      ["transfer_date", previous.transfer_date, payload.transfer_date, "Updated transfer date", "update"],
-      ["amount", previous.amount, payload.amount, "Updated transfer amount", "update"],
-      ["category", previous.category, payload.category, `Changed transfer category to ${payload.category}`, "update"],
-      ["beneficiary_name", previous.beneficiary_name, payload.beneficiary_name, "Updated beneficiary", "update"],
-      ["related_project_id", previous.related_project_id, payload.related_project_id, "Updated related project", "update"],
-      ["related_client_id", previous.related_client_id, payload.related_client_id, "Updated related client", "update"],
-      ["notes", previous.notes, payload.notes, "Updated transfer notes", "update"],
-    ];
-
-    for (const [field, from, to, action, kind] of changes) {
-      if (from === to) {
-        continue;
-      }
-
-      activityTasks.push(
-        logActivity({
-          userId: actorUserId,
-          action,
-          entityType: "transfer",
-          entityId: id,
-          metadata: {
-            kind,
-            field,
-            from,
-            to,
-            summary: field === "status" ? action : undefined,
-          },
-        }),
-      );
-    }
-
-    if (previous.status !== "confirmed" && payload.status === "confirmed") {
-      activityTasks.push(logTransferConfirmed(id, actorUserId));
-    }
-  }
-
-  await Promise.all(activityTasks);
-  return id;
-}
-
-export async function deleteTransfer(id: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let deleteTransferQuery = db.from("transfers").delete().eq("id", id);
-
-  if (isEntityScopingEnabled()) {
-    deleteTransferQuery = deleteTransferQuery.eq("entity_code", entityCode);
-  }
-
-  const { error } = await deleteTransferQuery;
-
-  if (error) {
-    throw new Error(error.message);
-  }
-}
-
-export async function getMonthlyOutgoingTransfers(role: AppRole) {
-  return getTransfers(role, { dateWindow: "this_month" });
-}
-
-export function getTransferSummary(transfers: TransferRecord[]): TransferSummary {
-  return {
-    plannedCount: transfers.filter((transfer) => transfer.status === "planned").length,
-    pendingCount: transfers.filter((transfer) => transfer.status === "pending").length,
-    confirmedCount: transfers.filter((transfer) => transfer.status === "confirmed").length,
-    failedCount: transfers.filter((transfer) => transfer.status === "failed").length,
-    totalOutgoingThisMonth: transfers.reduce((sum, transfer) => sum + transfer.amount, 0),
-  };
-}
-
-function parseStatementLineDate(value: string) {
-  const trimmed = value.trim();
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return trimmed;
-  }
-
-  const slashMatch = trimmed.match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/);
-  if (slashMatch) {
-    const [, day, month, year] = slashMatch;
-    return `${year}-${month}-${day}`;
-  }
-
-  return null;
-}
-
-function parseStatementAmount(value: string) {
-  const cleaned = value.replace(/[A-Za-z]/g, "").trim();
-  return parseFormattedNumber(cleaned);
-}
-
-function parseBankStatementLines(rawContent: string, currency: string) {
-  const lines = rawContent
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  return lines.flatMap((line) => {
-    const columns = line.split(/\t|;|\|/).map((part) => part.trim());
-    if (columns.length < 3) {
-      return [];
-    }
-
-    const lineDate = parseStatementLineDate(columns[0]);
-    if (!lineDate) {
-      return [];
-    }
-
-    const description = columns[1];
-    if (!description) {
-      return [];
-    }
-
-    let reference: string | null = null;
-    let creditAmount = 0;
-    let debitAmount = 0;
-
-    if (columns.length >= 5) {
-      reference = columns[2] || null;
-      creditAmount = parseStatementAmount(columns[3]) ?? 0;
-      debitAmount = parseStatementAmount(columns[4]) ?? 0;
-    } else if (columns.length === 4) {
-      const possibleAmount = parseStatementAmount(columns[3]);
-
-      if (possibleAmount !== null && /[-(]/.test(columns[3])) {
-        reference = columns[2] || null;
-        debitAmount = Math.abs(possibleAmount);
-      } else if (possibleAmount !== null) {
-        reference = columns[2] || null;
-        creditAmount = possibleAmount;
-      } else {
-        creditAmount = parseStatementAmount(columns[2]) ?? 0;
-        debitAmount = parseStatementAmount(columns[3]) ?? 0;
-      }
-    } else {
-      const amount = parseStatementAmount(columns[2]) ?? 0;
-      if (amount >= 0) {
-        creditAmount = amount;
-      } else {
-        debitAmount = Math.abs(amount);
-      }
-    }
-
-    if (creditAmount === 0 && debitAmount === 0) {
-      return [];
-    }
-
-    return [
-      {
-        line_date: lineDate,
-        description,
-        reference,
-        credit_amount: creditAmount,
-        debit_amount: debitAmount,
-        currency,
-      },
-    ];
-  });
-}
-
-function buildSearchableLineText(line: { description: string; reference: string | null }) {
-  return `${line.description} ${line.reference ?? ""}`.toLowerCase();
-}
-
-function getInvoiceMatchScore(
-  line: { amount: number; description: string; reference: string | null },
-  invoice: InvoiceRecord,
-) {
-  if (line.amount <= 0) {
-    return { score: 0, reason: null as string | null };
-  }
-
-  let score = 0;
-  const reasons: string[] = [];
-  const searchable = buildSearchableLineText(line);
-
-  if (Math.abs(line.amount - invoice.remainingBalance) < 0.01) {
-    score += 70;
-    reasons.push("exact remaining balance");
-  } else if (Math.abs(line.amount - invoice.amount_ttc) < 0.01) {
-    score += 55;
-    reasons.push("exact invoice amount");
-  } else if (line.amount < invoice.remainingBalance && line.amount > 0) {
-    score += 35;
-    reasons.push("partial payment amount");
-  }
-
-  if (searchable.includes(invoice.invoice_number.toLowerCase())) {
-    score += 25;
-    reasons.push("invoice number found");
-  }
-
-  if (invoice.client?.name && searchable.includes(invoice.client.name.toLowerCase())) {
-    score += 18;
-    reasons.push("client name found");
-  }
-
-  if (invoice.paymentStatus === "overdue") {
-    score += 6;
-  }
-
-  return {
-    score,
-    reason: reasons.length ? reasons.join(", ") : null,
-  };
-}
-
-function getTransferMatchScore(
-  line: { amount: number; description: string; reference: string | null },
-  transfer: TransferRecord,
-) {
-  if (line.amount >= 0) {
-    return { score: 0, reason: null as string | null };
-  }
-
-  let score = 0;
-  const reasons: string[] = [];
-  const searchable = buildSearchableLineText(line);
-  const outgoingAmount = Math.abs(line.amount);
-
-  if (Math.abs(outgoingAmount - transfer.amount) < 0.01) {
-    score += 70;
-    reasons.push("exact supplier amount");
-  }
-
-  if (searchable.includes(transfer.transfer_reference.toLowerCase())) {
-    score += 24;
-    reasons.push("transfer reference found");
-  }
-
-  if (searchable.includes(transfer.beneficiary_name.toLowerCase())) {
-    score += 20;
-    reasons.push("beneficiary found");
-  }
-
-  if (transfer.status === "sent" || transfer.status === "pending") {
-    score += 6;
-  }
-
-  return {
-    score,
-    reason: reasons.length ? reasons.join(", ") : null,
-  };
-}
-
-async function ensureReconciledPaymentForInvoice(params: {
-  db: DataClient;
-  invoice: InvoiceRecord;
-  amount: number;
-  paymentDate: string;
-  reference: string | null;
-  actorUserId: string;
-}) {
-  const { db, invoice, amount, paymentDate, reference, actorUserId } = params;
-  const normalizedReference = reference?.trim() || `BANK-${invoice.invoice_number}`;
-  const entityCode = await getCurrentEntityCode();
-
-  let existingQuery = db
-    .from("payments")
-    .select("id")
-    .eq("invoice_id", invoice.id)
-    .eq("amount", amount)
-    .eq("payment_date", paymentDate)
-    .eq("status", "reconciled")
-    .eq("reference", normalizedReference);
-
-  if (isEntityScopingEnabled()) {
-    existingQuery = existingQuery.eq("entity_code", entityCode);
-  }
-
-  const existingResponse = await existingQuery.maybeSingle();
-  const { data: existing, error: existingError } = existingResponse as {
-    data: { id: string } | null;
-    error: { message: string } | null;
-  };
-
-  if (existingError) {
-    throw new Error(existingError.message);
-  }
-
-  if (existing) {
-    return existing.id;
-  }
-
-  const paymentId = await createPayment(
-    {
-      client_id: invoice.client_id,
-      project_id: invoice.project_id ?? "",
-      contract_id: invoice.contract_id ?? "",
-      invoice_id: invoice.id,
-      amount: String(amount),
-      currency: invoice.currency,
-      due_date: invoice.due_date,
-      payment_date: paymentDate,
-      method: "bank_transfer",
-      status: "reconciled",
-      reference: normalizedReference,
-      notes: `Auto-created from bank statement reconciliation for ${invoice.invoice_number}.`,
-    },
-    actorUserId,
-  );
-
-  await syncInvoiceStatus(invoice.id);
-  return paymentId;
+  const filter = sqlFilter();
+
+  if (filters.clientId) filter.where.push(`t.client_id = ${filter.param(filters.clientId)}::uuid`);
+  if (filters.projectId) filter.where.push(`t.engagement_id = ${filter.param(filters.projectId)}::uuid`);
+  if (filters.status) filter.where.push(`t.status = ${filter.param(filters.status)}`);
+  if (filters.category) filter.where.push(`t.category = ${filter.param(filters.category)}`);
+  const window = transferDateWindow(filters.dateWindow);
+  if (window) filter.where.push(`t.transfer_date between ${filter.param(window[0])}::date and ${filter.param(window[1])}::date`);
+
+  const terms = searchTerms(filters.search ?? "");
+  const rows = (await asPerson((tx) => select<TransferRow>(tx, `${TRANSFER_SQL} ${filter.sql()} order by t.created_at desc`, filter.params)))
+    .filter((row) => matchesSearchTerms(terms, [row.transfer_reference, row.beneficiary_name, row.beneficiary_bank, row.notes]))
+    .filter((row) => !filters.entity || parseTransferNotesMetadata(row.notes).entity === filters.entity);
+  const activity = await getSubjectsActivity("transfer", rows.map((row) => row.id), ACTIVITY_PER_RECORD);
+
+  return rows.map((row) => mapTransfer(row, role, activity.get(row.id) ?? []));
 }
 
 export async function getBankStatements(role: AppRole): Promise<BankStatementRecord[]> {
-  const db = await createClient();
+  const statements = await asPerson((tx) => select<BankStatementRecord>(tx, `${BANK_STATEMENT_SQL} order by s.statement_date desc`));
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
+  if (role !== "shareholder") {
+    return statements;
   }
 
-  const entityCode = await getCurrentEntityCode();
-  let statementsQuery = db
-    .from("bank_statements")
-    .select(
-      `
-        id,
-        account_label,
-        statement_label,
-        statement_date,
-        currency,
-        raw_content,
-        notes,
-        created_by,
-        created_at,
-        updated_at,
-        createdBy:profiles!bank_statements_created_by_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        )
-      `,
-    )
-    .order("statement_date", { ascending: false });
-
-  if (isEntityScopingEnabled()) {
-    statementsQuery = statementsQuery.eq("entity_code", entityCode);
-  }
-
-  const statementsResponse = await statementsQuery.returns();
-  const { data: statements, error: statementsError } = statementsResponse as {
-    data: BankStatementRow[] | null;
-    error: { message: string } | null;
-  };
-
-  if (statementsError) {
-    if (statementsError.message.includes("bank_statements")) {
-      return [];
-    }
-
-    throw new Error(statementsError.message);
-  }
-
-  const statementIds = (statements ?? []).map((statement) => statement.id);
-  let linesMap = new Map<string, BankStatementLineRecord[]>();
-
-  if (statementIds.length) {
-    let linesQuery = db
-      .from("bank_statement_lines")
-      .select(
-        "id, statement_id, line_date, description, reference, credit_amount, debit_amount, currency, match_status, matched_entity_type, matched_entity_id, match_confidence, match_reason, created_at",
-      )
-      .in("statement_id", statementIds)
-      .order("line_date", { ascending: false });
-
-    if (isEntityScopingEnabled()) {
-      linesQuery = linesQuery.eq("entity_code", entityCode);
-    }
-
-    const linesResponse = await linesQuery.returns();
-    const { data: lines, error: linesError } = linesResponse as {
-      data: BankStatementLineRow[] | null;
-      error: { message: string } | null;
-    };
-
-    if (linesError) {
-      if (linesError.message.includes("bank_statement_lines")) {
-        return (statements ?? []).map((statement) => ({
-          ...statement,
-          createdBy: single(statement.createdBy),
-          lines: [],
-        }));
-      }
-
-      throw new Error(linesError.message);
-    }
-
-    linesMap = new Map<string, BankStatementLineRecord[]>();
-    for (const line of (lines ?? []).map(mapBankStatementLine)) {
-      const current = linesMap.get(line.statement_id) ?? [];
-      current.push(line);
-      linesMap.set(line.statement_id, current);
-    }
-  }
-
-  if (role === "shareholder") {
-    return (statements ?? []).map((statement) => ({
-      ...statement,
-      raw_content: "",
-      notes: null,
-      createdBy: single(statement.createdBy),
-      lines: (linesMap.get(statement.id) ?? []).map((line) => ({
-        ...line,
-        description: line.match_status === "matched" ? "Validated bank line" : "Bank line",
-        reference: null,
-      })),
-    }));
-  }
-
-  return (statements ?? []).map((statement) => ({
+  // a shareholder reads the movements, not what the bank wrote
+  return statements.map((statement) => ({
     ...statement,
-    createdBy: single(statement.createdBy),
-    lines: linesMap.get(statement.id) ?? [],
+    raw_content: "",
+    notes: null,
+    lines: statement.lines.map((line) => ({
+      ...line,
+      description: line.match_status === "matched" ? "Validated bank line" : "Bank line",
+      reference: null,
+    })),
   }));
-}
-
-export function getBankStatementSummary(statements: BankStatementRecord[]): BankStatementSummary {
-  const lines = statements.flatMap((statement) => statement.lines);
-
-  return {
-    statementsCount: statements.length,
-    matchedLines: lines.filter((line) => line.match_status === "matched").length,
-    reviewLines: lines.filter((line) => line.match_status === "review").length,
-    unmatchedLines: lines.filter((line) => line.match_status === "unmatched").length,
-    latestBalanceDelta: lines.reduce((sum, line) => sum + line.amount, 0),
-  };
-}
-
-export async function createBankStatement(values: BankStatementFormValues, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  const parsedLines = parseBankStatementLines(values.raw_content, values.currency.trim() || "USD");
-  if (!parsedLines.length) {
-    throw new Error("Add at least one readable bank line in the statement.");
-  }
-
-  const { data: statement, error: statementError } = await db
-    .from("bank_statements")
-    .insert({
-      account_label: values.account_label.trim(),
-      statement_label: values.statement_label.trim(),
-      statement_date: values.statement_date,
-      currency: values.currency.trim() || "USD",
-      entity_code: entityCode,
-      raw_content: values.raw_content.trim(),
-      notes: values.notes.trim() || null,
-      created_by: actorUserId,
-    })
-    .select("id")
-    .single<{ id: string }>();
-
-  if (statementError) {
-    throw new Error(statementError.message);
-  }
-
-  const { data: insertedLines, error: linesError } = await db
-    .from("bank_statement_lines")
-    .insert(
-      parsedLines.map((line) => ({
-        statement_id: statement.id,
-        entity_code: entityCode,
-        ...line,
-        match_status: "unmatched" satisfies BankStatementMatchStatus,
-      })),
-    )
-    .select("id, statement_id, line_date, description, reference, credit_amount, debit_amount, currency, match_status, matched_entity_type, matched_entity_id, match_confidence, match_reason, created_at")
-    .returns<BankStatementLineRow[]>();
-
-  if (linesError) {
-    throw new Error(linesError.message);
-  }
-
-  const [invoices, transfers] = await Promise.all([
-    getInvoices("admin", {}),
-    getTransfers("admin", {}),
-  ]);
-
-  for (const line of (insertedLines ?? []).map(mapBankStatementLine)) {
-    const invoiceCandidates = invoices
-      .filter((invoice) => invoice.paymentStatus !== "paid" && invoice.paymentStatus !== "cancelled" && invoice.paymentStatus !== "archived")
-      .map((invoice) => ({
-        invoice,
-        ...getInvoiceMatchScore(line, invoice),
-      }))
-      .sort((left, right) => right.score - left.score);
-
-    const transferCandidates = transfers
-      .filter((transfer) => transfer.status !== "confirmed" && transfer.status !== "cancelled" && transfer.status !== "failed")
-      .map((transfer) => ({
-        transfer,
-        ...getTransferMatchScore(line, transfer),
-      }))
-      .sort((left, right) => right.score - left.score);
-
-    const bestInvoice = invoiceCandidates[0];
-    const bestTransfer = transferCandidates[0];
-
-    if ((bestInvoice?.score ?? 0) >= 85 && (bestInvoice?.score ?? 0) >= (bestTransfer?.score ?? 0)) {
-      const paymentId = await ensureReconciledPaymentForInvoice({
-        db,
-        invoice: bestInvoice.invoice,
-        amount: line.amount,
-        paymentDate: line.line_date,
-        reference: line.reference ?? line.description,
-        actorUserId,
-      });
-
-      await db
-        .from("bank_statement_lines")
-        .update({
-          match_status: "matched",
-          matched_entity_type: "payment",
-          matched_entity_id: paymentId,
-          match_confidence: bestInvoice.score,
-          match_reason: bestInvoice.reason,
-        })
-        .eq("entity_code", entityCode)
-        .eq("id", line.id);
-
-      continue;
-    }
-
-    if ((bestTransfer?.score ?? 0) >= 85) {
-      await updateTransfer(
-        bestTransfer.transfer.id,
-        {
-          transfer_reference: bestTransfer.transfer.transfer_reference,
-          beneficiary_name: bestTransfer.transfer.beneficiary_name,
-          beneficiary_bank: bestTransfer.transfer.beneficiary_bank ?? "",
-          beneficiary_account: bestTransfer.transfer.beneficiary_account ?? "",
-          amount: String(bestTransfer.transfer.amount),
-          currency: bestTransfer.transfer.currency,
-          transfer_date: bestTransfer.transfer.transfer_date,
-          status: "confirmed",
-          category: bestTransfer.transfer.category,
-          entity: bestTransfer.transfer.entity,
-          related_project_id: bestTransfer.transfer.related_project_id ?? "",
-          related_client_id: bestTransfer.transfer.related_client_id ?? "",
-          notes: bestTransfer.transfer.notes ?? "",
-          renewal_enabled: bestTransfer.transfer.renewal.enabled,
-          renewal_next_due_date: bestTransfer.transfer.renewal.next_due_date ?? "",
-          renewal_reminder_days: String(bestTransfer.transfer.renewal.reminder_days),
-          renewal_interval_months: String(bestTransfer.transfer.renewal.interval_months),
-        },
-        actorUserId,
-      );
-
-      await db
-        .from("bank_statement_lines")
-        .update({
-          match_status: "matched",
-          matched_entity_type: "transfer",
-          matched_entity_id: bestTransfer.transfer.id,
-          match_confidence: bestTransfer.score,
-          match_reason: bestTransfer.reason,
-        })
-        .eq("entity_code", entityCode)
-        .eq("id", line.id);
-
-      continue;
-    }
-
-    const reviewCandidate =
-      (bestInvoice?.score ?? 0) >= (bestTransfer?.score ?? 0)
-        ? bestInvoice
-          ? {
-              id: bestInvoice.invoice.id,
-              type: "invoice" as const,
-              score: bestInvoice.score,
-              reason: bestInvoice.reason,
-            }
-          : null
-        : bestTransfer
-          ? {
-              id: bestTransfer.transfer.id,
-              type: "transfer" as const,
-              score: bestTransfer.score,
-              reason: bestTransfer.reason,
-            }
-          : null;
-
-    if (reviewCandidate && reviewCandidate.score >= 60) {
-      await db
-        .from("bank_statement_lines")
-        .update({
-          match_status: "review",
-          matched_entity_type: reviewCandidate.type,
-          matched_entity_id: reviewCandidate.id,
-          match_confidence: reviewCandidate.score,
-          match_reason: reviewCandidate.reason,
-        })
-        .eq("entity_code", entityCode)
-        .eq("id", line.id);
-    }
-  }
-
-  return statement.id;
-}
-
-export function getInvoiceSummary(invoices: InvoiceRecord[]): InvoiceSummary {
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  return {
-    draftCount: invoices.filter((invoice) => invoice.paymentStatus === "draft").length,
-    sentCount: invoices.filter((invoice) => invoice.paymentStatus === "sent" || invoice.paymentStatus === "partially_paid").length,
-    overdueCount: invoices.filter((invoice) => invoice.paymentStatus === "overdue").length,
-    paidCount: invoices.filter((invoice) => invoice.paymentStatus === "paid").length,
-    totalInvoicedThisMonth: invoices
-      .filter((invoice) => new Date(invoice.issue_date) >= monthStart)
-      .reduce((sum, invoice) => sum + invoice.amount_ttc, 0),
-  };
-}
-
-function formatMonthKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function formatMonthLabel(date: Date) {
-  return new Intl.DateTimeFormat("en-US", { month: "short" }).format(date);
-}
-
-function getLastMonths(count: number) {
-  const today = new Date();
-  return Array.from({ length: count }).map((_, index) => {
-    const date = new Date(today.getFullYear(), today.getMonth() - (count - index - 1), 1);
-    return {
-      key: formatMonthKey(date),
-      label: formatMonthLabel(date),
-      date,
-    };
-  });
 }
 
 function isCurrentMonth(value: string | null) {
@@ -2984,115 +330,12 @@ function getDaysUntilDate(value: string) {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000);
 }
 
-function mapMonthlySeries(input: Array<{ month: string; inflow: number; outflow: number; expected: number; received: number }>) {
-  return input.map((point) => ({
-    month: point.month,
-    inflow: point.inflow,
-    outflow: point.outflow,
-    expected: point.expected,
-    received: point.received,
-  })) satisfies MonthlyFinancePoint[];
-}
-
-export async function getMonthlyRevenue(role: AppRole) {
-  if (role === "shareholder") {
-    return getShareholderMonthlyFinance();
-  }
-
-  const payments = await getPayments(role, {});
-  const months = getLastMonths(6);
-  const monthMap = new Map(
-    months.map((month) => [
-      month.key,
-      { month: month.label, inflow: 0, outflow: 0, expected: 0, received: 0 },
-    ]),
-  );
-
-  for (const payment of payments) {
-    if (payment.due_date) {
-      const dueDate = new Date(payment.due_date);
-      const key = formatMonthKey(dueDate);
-      const bucket = monthMap.get(key);
-      if (bucket) {
-        if (payment.status === "expected" || payment.status === "late") {
-          bucket.expected += payment.amount;
-        }
-      }
-    }
-
-    if (payment.payment_date) {
-      const paymentDate = new Date(payment.payment_date);
-      const key = formatMonthKey(paymentDate);
-      const bucket = monthMap.get(key);
-      if (bucket && (payment.status === "received" || payment.status === "reconciled")) {
-        bucket.inflow += payment.amount;
-        bucket.received += payment.amount;
-      }
-    }
-  }
-
-  return mapMonthlySeries(Array.from(monthMap.values()));
-}
-
-export async function getMonthlyOutgoing(role: AppRole) {
-  if (role === "shareholder") {
-    return getShareholderMonthlyFinance();
-  }
-
-  const transfers = await getTransfers(role, { dateWindow: "past_30_days" });
-  const months = getLastMonths(6);
-  const monthMap = new Map(
-    months.map((month) => [
-      month.key,
-      { month: month.label, inflow: 0, outflow: 0, expected: 0, received: 0 },
-    ]),
-  );
-
-  for (const transfer of transfers) {
-    const transferDate = new Date(transfer.transfer_date);
-    const key = formatMonthKey(transferDate);
-    const bucket = monthMap.get(key);
-
-    if (!bucket) {
-      continue;
-    }
-
-    if (transfer.status === "sent" || transfer.status === "confirmed") {
-      bucket.outflow += transfer.amount;
-    }
-  }
-
-  return mapMonthlySeries(Array.from(monthMap.values()));
-}
-
-export async function getInvoiceStatusSummary(role: AppRole): Promise<InvoiceStatusPoint[]> {
-  if (role === "shareholder") {
-    const db = await createClient();
-
-    if (!db) {
-      throw new Error("Firebase is not configured.");
-    }
-
-    const { data, error } = await db.rpc("get_shareholder_invoice_status_summary");
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return ((data as Array<{ status: InvoiceStatus; count: number }> | null) ?? []).map((row) => ({
-      status: row.status,
-      count: Number(row.count),
-    }));
-  }
-
-  const invoices = await getInvoices(role, {});
-  const counts = new Map<InvoiceStatus, number>();
-
-  for (const invoice of invoices) {
-    counts.set(invoice.paymentStatus, (counts.get(invoice.paymentStatus) ?? 0) + 1);
-  }
-
-  return Array.from(counts.entries()).map(([status, count]) => ({ status, count }));
+function formatCurrencyNumber(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 export async function getOverdueFinanceItems(role: AppRole) {
@@ -3218,13 +461,8 @@ export async function getOverdueFinanceItems(role: AppRole) {
   return risks.slice(0, 10);
 }
 
+// The totals of what the person may read (a shareholder reads no finance record: zeros).
 export async function getShareholderFinanceSummary(): Promise<ShareholderFinanceSummary> {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
   const emptySummary: ShareholderFinanceSummary = {
     revenue: 0,
     expenses: 0,
@@ -3238,45 +476,22 @@ export async function getShareholderFinanceSummary(): Promise<ShareholderFinance
   };
 
   try {
-    const [
-      { data: invoices, error: invoicesError },
-      { data: payments, error: paymentsError },
-      { data: transfers, error: transfersError },
-    ] = await Promise.all([
-      db
-        .from("invoices")
-        .select("amount_ttc, due_date, status")
-        .returns<Array<{ amount_ttc: number; due_date: string; status: InvoiceStatus }>>(),
-      db
-        .from("payments")
-        .select("amount, due_date, payment_date, status")
-        .returns<Array<{ amount: number; due_date: string | null; payment_date: string | null; status: PaymentRecord["status"] }>>(),
-      db
-        .from("transfers")
-        .select("amount, status")
-        .returns<Array<{ amount: number; status: TransferRecord["status"] }>>(),
-    ]);
-
-    if (invoicesError || paymentsError || transfersError) {
-      return emptySummary;
-    }
+    const { invoices, payments, transfers } = await asPerson(async (tx) => ({
+      invoices: await select<{ amount_ttc: number; due_date: string; status: InvoiceStatus }>(tx, "select amount_ttc, due_date, status from work.finance_invoice"),
+      payments: await select<{ amount: number; status: PaymentRecord["status"] }>(tx, "select amount, status from work.finance_payment"),
+      transfers: await select<{ amount: number; status: TransferRecord["status"] }>(tx, "select amount, status from work.finance_transfer"),
+    }));
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const safeInvoices = invoices ?? [];
-    const safePayments = payments ?? [];
-    const safeTransfers = transfers ?? [];
-
-    const expectedCollections = safePayments
+    const expectedCollections = payments
       .filter((payment) => payment.status === "expected" || payment.status === "late")
-      .reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+      .reduce((sum, payment) => sum + payment.amount, 0);
 
-    const revenue = safePayments
-      .filter((payment) => payment.status === "received" || payment.status === "reconciled")
-      .reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+    const revenue = payments.filter(isReceived).reduce((sum, payment) => sum + payment.amount, 0);
 
-    const overdueExposure = safeInvoices
+    const overdueExposure = invoices
       .filter((invoice) => {
         if (invoice.status === "paid" || invoice.status === "cancelled" || invoice.status === "archived") {
           return false;
@@ -3287,26 +502,20 @@ export async function getShareholderFinanceSummary(): Promise<ShareholderFinance
 
         return invoice.status === "overdue" || dueDate.getTime() < today.getTime();
       })
-      .reduce((sum, invoice) => sum + Number(invoice.amount_ttc ?? 0), 0);
+      .reduce((sum, invoice) => sum + invoice.amount_ttc, 0);
 
-    const expenses = safeTransfers
+    const expenses = transfers
       .filter((transfer) => transfer.status === "sent" || transfer.status === "confirmed")
-      .reduce((sum, transfer) => sum + Number(transfer.amount ?? 0), 0);
-
-    const paidInvoices = safeInvoices.filter((invoice) => invoice.status === "paid").length;
-    const unpaidInvoices = safeInvoices.filter(
-      (invoice) => invoice.status !== "paid" && invoice.status !== "cancelled" && invoice.status !== "archived",
-    ).length;
-    const confirmedTransfers = safeTransfers.filter((transfer) => transfer.status === "confirmed").length;
+      .reduce((sum, transfer) => sum + transfer.amount, 0);
 
     return {
       revenue,
       expenses,
       expectedCollections,
       overdueExposure,
-      paidInvoices,
-      unpaidInvoices,
-      confirmedTransfers,
+      paidInvoices: invoices.filter((invoice) => invoice.status === "paid").length,
+      unpaidInvoices: invoices.filter((invoice) => invoice.status !== "paid" && invoice.status !== "cancelled" && invoice.status !== "archived").length,
+      confirmedTransfers: transfers.filter((transfer) => transfer.status === "confirmed").length,
       netEstimate: revenue - expenses,
       projectProfitabilityPlaceholder: emptySummary.projectProfitabilityPlaceholder,
     };
@@ -3315,110 +524,49 @@ export async function getShareholderFinanceSummary(): Promise<ShareholderFinance
   }
 }
 
-async function getShareholderMonthlyFinance(): Promise<MonthlyFinancePoint[]> {
-  const db = await createClient();
+// BUMEX One gave shareholders, who read no finance record, two views of the whole portfolio through database functions
+// with full access (get_shareholder_overdue_clients, get_shareholder_finance_deadlines): they run in the system
+// session, for the person.
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db.rpc("get_shareholder_monthly_finance");
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return ((data as Array<{ month: string; inflow: number; outflow: number; expected: number; received: number }> | null) ?? []).map((row) => ({
-    month: row.month,
-    inflow: Number(row.inflow ?? 0),
-    outflow: Number(row.outflow ?? 0),
-    expected: Number(row.expected ?? 0),
-    received: Number(row.received ?? 0),
-  }));
-}
-
+// the clients with overdue invoices, most exposed first
 async function getShareholderOverdueClients(): Promise<OverdueClientPoint[]> {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db.rpc("get_shareholder_overdue_clients");
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return ((data as Array<Record<string, string | number>> | null) ?? []).map((row) => ({
-    clientId: String(row.client_id),
-    clientName: String(row.client_name),
-    overdueAmount: Number(row.overdue_amount ?? 0),
-    overdueCount: Number(row.overdue_count ?? 0),
-    latePaymentCount: Number(row.late_payment_count ?? 0),
-  }));
+  return asSystem(await personId(), (tx) =>
+    select<OverdueClientPoint>(
+      tx,
+      `select c.id as "clientId", c.name as "clientName", sum(i.amount_ttc) as "overdueAmount", count(*) as "overdueCount",
+              (select count(*) from work.finance_payment x where x.client_id = c.id and x.status = 'late') as "latePaymentCount"
+         from work.client c join work.finance_invoice i on i.client_id = c.id
+        where i.status = 'overdue'
+        group by c.id
+        order by "overdueAmount" desc, "overdueCount" desc`,
+    ),
+  );
 }
 
-export async function getOverdueClientsSummary(role: AppRole): Promise<OverdueClientPoint[]> {
-  if (role === "shareholder") {
-    return getShareholderOverdueClients();
-  }
-
-  const [payments, invoices] = await Promise.all([getPayments(role, {}), getInvoices(role, {})]);
-  const map = new Map<string, OverdueClientPoint>();
-
-  for (const invoice of invoices.filter((item) => item.paymentStatus === "overdue")) {
-    const clientId = invoice.client?.id;
-    const clientName = invoice.client?.name;
-    if (!clientId || !clientName) continue;
-
-    const current = map.get(clientId) ?? {
-      clientId,
-      clientName,
-      overdueAmount: 0,
-      overdueCount: 0,
-      latePaymentCount: 0,
-    };
-
-    current.overdueAmount += invoice.remainingBalance;
-    current.overdueCount += 1;
-    current.latePaymentCount = payments.filter((payment) => payment.client?.id === clientId && payment.status === "late").length;
-    map.set(clientId, current);
-  }
-
-  return Array.from(map.values()).sort((left, right) => right.overdueAmount - left.overdueAmount).slice(0, 6);
-}
-
+// the open invoices and expected payments due in the next 14 days (UTC), soonest first
 async function getShareholderFinanceDeadlines(): Promise<UpcomingFinanceDeadline[]> {
-  const db = await createClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const horizon = new Date(`${today}T00:00:00Z`);
+  horizon.setUTCDate(horizon.getUTCDate() + 14);
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db.rpc("get_shareholder_finance_deadlines");
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return ((data as Array<Record<string, string | number | null>> | null) ?? []).map((row) => ({
-    kind: row.kind as UpcomingFinanceDeadline["kind"],
-    label: String(row.label),
-    dueDate: String(row.due_date),
-    amount: Number(row.amount ?? 0),
-    currency: String(row.currency ?? "USD"),
-    status: String(row.status ?? ""),
-    clientName: row.client_name ? String(row.client_name) : null,
-  }));
-}
-
-function formatCurrencyNumber(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
+  return asSystem(await personId(), (tx) =>
+    select<UpcomingFinanceDeadline>(
+      tx,
+      `select kind, label, due_date as "dueDate", amount, currency, status, client_name as "clientName" from (
+         select 'invoice_due' as kind, i.invoice_number as label, i.due_date, i.amount_ttc as amount, i.currency, i.status,
+                (select c.name from work.client c where c.id = i.client_id) as client_name
+           from work.finance_invoice i
+          where i.status not in ('paid', 'cancelled', 'archived') and i.due_date between $1::date and $2::date
+         union all
+         select 'payment_due', coalesce(x.reference, c.name, 'Payment due'), x.due_date, x.amount, x.currency, x.status, c.name
+           from work.finance_payment x left join work.client c on c.id = x.client_id
+          where x.status in ('expected', 'late') and x.due_date between $1::date and $2::date
+       ) d
+       order by d.due_date, d.kind
+       limit 12`,
+      [today, horizon.toISOString().slice(0, 10)],
+    ),
+  );
 }
 
 export async function getFinanceOverview(role: AppRole): Promise<FinanceOverview> {
@@ -3467,7 +615,7 @@ export async function getFinanceOverview(role: AppRole): Promise<FinanceOverview
     .filter((payment) => isCurrentMonth(payment.due_date) && (payment.status === "expected" || payment.status === "late"))
     .reduce((sum, payment) => sum + payment.amount, 0);
   const totalReceivedThisMonth = payments
-    .filter((payment) => isCurrentMonth(payment.payment_date) && (payment.status === "received" || payment.status === "reconciled"))
+    .filter((payment) => isCurrentMonth(payment.payment_date) && isReceived(payment))
     .reduce((sum, payment) => sum + payment.amount, 0);
   const totalOverdue = invoices
     .filter((invoice) => invoice.paymentStatus === "overdue")
@@ -3475,13 +623,9 @@ export async function getFinanceOverview(role: AppRole): Promise<FinanceOverview
   const totalOutgoingThisMonth = transfers
     .filter((transfer) => isCurrentMonth(transfer.transfer_date) && (transfer.status === "sent" || transfer.status === "confirmed"))
     .reduce((sum, transfer) => sum + transfer.amount, 0);
-  const pendingInvoices = invoices.filter((invoice) => invoice.paymentStatus !== "paid" && invoice.paymentStatus !== "cancelled" && invoice.paymentStatus !== "archived").length;
-  const pendingInvoiceAmount = invoices
-    .filter((invoice) => invoice.paymentStatus !== "paid" && invoice.paymentStatus !== "cancelled" && invoice.paymentStatus !== "archived")
-    .reduce((sum, invoice) => sum + invoice.remainingBalance, 0);
+  const unpaid = invoices.filter((invoice) => invoice.paymentStatus !== "paid" && invoice.paymentStatus !== "cancelled" && invoice.paymentStatus !== "archived");
   const confirmedTransfers = transfers.filter((transfer) => transfer.status === "confirmed").length;
   const paidInvoices = invoices.filter((invoice) => invoice.paymentStatus === "paid").length;
-  const unpaidInvoices = invoices.filter((invoice) => invoice.paymentStatus !== "paid" && invoice.paymentStatus !== "cancelled" && invoice.paymentStatus !== "archived").length;
 
   const upcomingFinancialDeadlines: UpcomingFinanceDeadline[] = [
     ...invoices
@@ -3536,14 +680,14 @@ export async function getFinanceOverview(role: AppRole): Promise<FinanceOverview
     totalReceivedThisMonth,
     totalOverdue,
     totalOutgoingThisMonth,
-    pendingInvoices,
-    pendingInvoiceAmount,
+    pendingInvoices: unpaid.length,
+    pendingInvoiceAmount: unpaid.reduce((sum, invoice) => sum + invoice.remainingBalance, 0),
     confirmedTransfers,
     revenueSummary: invoices.reduce((sum, invoice) => sum + invoice.amount_ttc, 0),
     expectedPayments: payments.filter((payment) => payment.status === "expected").length,
     overduePayments: payments.filter((payment) => payment.status === "late").length,
     paidInvoices,
-    unpaidInvoices,
+    unpaidInvoices: unpaid.length,
     outgoingTransfers: transfers.filter((transfer) => transfer.status === "planned" || transfer.status === "pending").length,
     netOperationalBalanceEstimate: totalReceivedThisMonth - totalOutgoingThisMonth,
     upcomingFinancialDeadlines,
@@ -3552,80 +696,8 @@ export async function getFinanceOverview(role: AppRole): Promise<FinanceOverview
       { label: "Total received this month", value: totalReceivedThisMonth, currency: "USD", detail: "Recorded cash inflow this month" },
       { label: "Total overdue", value: totalOverdue, currency: "USD", detail: "Overdue invoice exposure" },
       { label: "Total outgoing this month", value: totalOutgoingThisMonth, currency: "USD", detail: "Outgoing transfers executed this month" },
-      { label: "Pending invoices", value: pendingInvoices, detail: "Invoices not fully collected yet" },
+      { label: "Pending invoices", value: unpaid.length, detail: "Invoices not fully collected yet" },
       { label: "Confirmed transfers", value: confirmedTransfers, detail: "Confirmed outgoing transfers" },
     ],
   };
-}
-
-export async function logInvoiceCreated(invoiceId: string, actorUserId: string, invoiceNumber: string) {
-  await logActivity({
-    userId: actorUserId,
-    action: `Created invoice ${invoiceNumber}`,
-    entityType: "invoice",
-    entityId: invoiceId,
-    metadata: {
-      kind: "create",
-      summary: "Invoice created",
-    },
-  });
-}
-
-export async function logInvoiceUpdated(invoiceId: string, actorUserId: string, field?: string, from?: string | number | boolean | null, to?: string | number | boolean | null) {
-  await logActivity({
-    userId: actorUserId,
-    action: "Updated invoice",
-    entityType: "invoice",
-    entityId: invoiceId,
-    metadata: {
-      kind: "update",
-      field,
-      from,
-      to,
-      summary: "Invoice updated",
-    },
-  });
-}
-
-export async function logPaymentReceived(paymentId: string, actorUserId: string) {
-  await logActivity({
-    userId: actorUserId,
-    action: "Payment received",
-    entityType: "payment",
-    entityId: paymentId,
-    metadata: {
-      kind: "status_change",
-      field: "status",
-      to: "received",
-      summary: "Payment received",
-    },
-  });
-}
-
-export async function logTransferCreated(transferId: string, actorUserId: string, reference: string) {
-  await logActivity({
-    userId: actorUserId,
-    action: `Created transfer ${reference}`,
-    entityType: "transfer",
-    entityId: transferId,
-    metadata: {
-      kind: "create",
-      summary: "Transfer created",
-    },
-  });
-}
-
-export async function logTransferConfirmed(transferId: string, actorUserId: string) {
-  await logActivity({
-    userId: actorUserId,
-    action: "Transfer confirmed",
-    entityType: "transfer",
-    entityId: transferId,
-    metadata: {
-      kind: "status_change",
-      field: "status",
-      to: "confirmed",
-      summary: "Transfer confirmed",
-    },
-  });
 }

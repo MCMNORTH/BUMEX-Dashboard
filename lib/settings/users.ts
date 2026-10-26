@@ -1,110 +1,45 @@
 import "server-only";
 
-import { createClient } from "@/lib/firebase/server";
 import { getBumexEntity } from "@/lib/entities/config";
 import { normalizeEntityMutationError } from "@/lib/entities/errors";
-import type { AppRole, AvailabilityStatus, Profile } from "@/types/auth";
+import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
+import { asPerson, select } from "@/lib/work/db";
+import type { AppRole, Profile } from "@/types/auth";
 import type { BumexEntityCode } from "@/types/entity";
 
-export type SettingsUserFilters = {
+// The people for the access administrator (Settings › accounts, people without access: vanguard/one/Account.tsx).
+
+type SettingsUserFilters = {
   search?: string;
   role?: AppRole | "";
 };
 
-export type SettingsUserRecord = Pick<
-  Profile,
-  "id" | "full_name" | "email" | "role" | "is_super_admin" | "entity_code" | "availability_status" | "created_at"
-> & {
+type SettingsUserRecord = Pick<Profile, "id" | "full_name" | "email" | "role" | "is_super_admin" | "entity_code" | "availability_status" | "created_at"> & {
   entity_name: string | null;
 };
 
-export type SettingsUsersResult = {
-  users: SettingsUserRecord[];
-  supportsEntityManagement: boolean;
-};
-
-function isMissingEntityFoundationColumn(message: string | undefined) {
-  const normalized = message?.toLowerCase() ?? "";
-  return normalized.includes("is_super_admin") || normalized.includes("entity_code");
-}
-
 export async function getSettingsUsers(filters: SettingsUserFilters = {}) {
-  const db = await createClient();
-
-  if (!db) {
-    return {
-      users: [] satisfies SettingsUserRecord[],
-      supportsEntityManagement: false,
-    } satisfies SettingsUsersResult;
-  }
-
-  let query = db
-    .from("profiles")
-    .select("id, full_name, email, role, is_super_admin, entity_code, availability_status, created_at")
-    .order("full_name", { ascending: true });
-
-  const search = filters.search?.trim();
-  if (search) {
-    query = query.matchText(["full_name", "email"], search);
-  }
-
-  if (filters.role) {
-    query = query.eq("role", filters.role);
-  }
-
-  let { data, error } = await query.returns<SettingsUserRecord[]>();
-
-  const supportsEntityManagement = !isMissingEntityFoundationColumn(error?.message);
-
-  if (error && isMissingEntityFoundationColumn(error.message)) {
-    const legacyResponse = await db
-      .from("profiles")
-      .select("id, full_name, email, role, availability_status, created_at")
-      .order("full_name", { ascending: true })
-      .returns<Array<Omit<SettingsUserRecord, "is_super_admin" | "entity_code" | "entity_name">>>();
-
-    data = (legacyResponse.data ?? []).map((user) => ({
-      ...user,
-      is_super_admin: false,
-      entity_code: "bumex_it",
-      entity_name: getBumexEntity("bumex_it")?.name ?? null,
-    }));
-    error = legacyResponse.error;
-  }
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  const rows = await asPerson((tx) =>
+    select<Omit<SettingsUserRecord, "entity_name">>(
+      tx,
+      `select p.id, p.full_name, p.email, work.person_role(p.id) as role, p.is_super_admin, p.entity_code, p.availability_status, p.created_at
+         from work.person p order by p.full_name`,
+    ),
+  );
+  const terms = filters.search?.trim() ? searchTerms(filters.search) : [];
 
   return {
-    users: (data ?? []).map((user) => ({
-      ...user,
-      entity_name: getBumexEntity(user.entity_code as BumexEntityCode | null)?.name ?? null,
-    })),
-    supportsEntityManagement,
-  } satisfies SettingsUsersResult;
+    users: rows
+      .filter((user) => (!filters.role || user.role === filters.role) && matchesSearchTerms(terms, [user.full_name, user.email]))
+      .map((user) => ({ ...user, entity_name: getBumexEntity(user.entity_code as BumexEntityCode | null)?.name ?? null })),
+    supportsEntityManagement: true,
+  };
 }
 
 export async function updateSettingsUserEntity(userId: string, entityCode: BumexEntityCode) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { error } = await db
-    .from("profiles")
-    .update({
-      entity_code: entityCode,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", userId);
-
-  if (error) {
+  try {
+    await asPerson((tx) => tx.query("update work.person set entity_code = $2 where id = $1", [userId, entityCode]));
+  } catch (error) {
     throw new Error(normalizeEntityMutationError(error, entityCode));
   }
-}
-
-export function getAvailabilityLabel(status: AvailabilityStatus) {
-  return status.replaceAll("_", " ");
 }

@@ -1,46 +1,54 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { requireCurrentEntityContext } from "@/lib/entities/scope";
-import { createClient } from "@/lib/firebase/server";
 import { createScopedNotifications } from "@/lib/notifications/service";
+import { TIMESHEET_PROJECTS_SQL } from "@/lib/timesheet/service";
 import { addDays, validateTimeInput, weekBounds } from "@/lib/timesheet/validation";
+import { asPerson, select, selectOne, type Tx } from "@/lib/work/db";
 import type { TimeInput, TimeResult } from "@/types/timesheet";
+
+// The Temps room's actions (vanguard/one/Time.tsx), in the person's current entity. The database refuses a line in a
+// sent week, in the future or beyond 24 hours a day (0008 erp.time_entry_guard), and the rules a line that is not the
+// person's own.
+
+const isTimesheetProject = async (tx: Tx, projectId: string, entityCode: string) =>
+  Boolean(await selectOne(tx, `${TIMESHEET_PROJECTS_SQL} and e.id = $2::uuid`, [entityCode, projectId]));
+
+const entityOf = "(select id from erp.entity where code = $ENTITY)";
+
+const guardError = (error: unknown) => (error instanceof Error ? error.message : "");
 
 export async function saveTimeAction(input: TimeInput): Promise<TimeResult> {
   const { auth, entityCode } = await requireCurrentEntityContext();
   const validation = validateTimeInput(input);
   if (validation) return { error: validation };
-  const db = await createClient();
-  if (!db) return { error: "unavailable" };
+  const minutes = Number(input.hours) * 60 + Number(input.minutes);
+  const note = input.note.trim();
+  const mission = input.mission.trim().replace(/\s+/g, " ");
   try {
-    const { data: project, error: projectError } = await db.from("timesheet_projects").select("id")
-      .eq("id", input.project_id).eq("entity_code", entityCode).maybeSingle();
-    if (projectError || !project) return { error: "project" };
-    const payload = {
-      project_id: input.project_id,
-      work_date: input.work_date,
-      duration_minutes: Number(input.hours) * 60 + Number(input.minutes),
-      note: input.note.trim(),
-      mission: input.mission.trim().replace(/\s+/g, " "),
-    };
-    const query = input.updated_at
-      ? db.from("time_entries").update(payload).eq("id", input.id)
-        .eq("user_id", auth.user.id).eq("entity_code", entityCode).eq("updated_at", input.updated_at)
-      : db.from("time_entries").insert({ ...payload, id: input.id, user_id: auth.user.id, entity_code: entityCode });
-    const { data, error } = await query.select("id").maybeSingle();
-    if (error) {
-      if (error.message.includes("time_entry_daily_limit")) return { error: "daily_limit" };
-      if (error.message.includes("time_entry_future_date")) return { error: "date" };
-      if (error.code === "23505") return { error: "conflict" };
-      console.error("[timesheet:save]", error.code);
-      return { error: "unavailable" };
-    }
-    if (!data) return { error: "conflict" };
-    revalidatePath("/timesheet");
-    return { success: true };
-  } catch {
-    console.error("[timesheet:save] connection failed");
+    return await asPerson(async (tx): Promise<TimeResult> => {
+      if (!(await isTimesheetProject(tx, input.project_id, entityCode))) return { error: "project" };
+      // an edit carries the version it started from: a line changed meanwhile is a conflict
+      const written = input.updated_at
+        ? await tx.run(
+            `update erp.time_entry set engagement_id = $2::uuid, work_date = $3::date, minutes = $4, description = $5, mission = $6
+              where id = $1::uuid and user_id = $7 and entity_id = ${entityOf.replace("$ENTITY", "$8")} and updated_at = $9::timestamptz`,
+            [input.id, input.project_id, input.work_date, minutes, note, mission, auth.user.id, entityCode, input.updated_at],
+          )
+        : await tx.run(
+            `insert into erp.time_entry (id, engagement_id, user_id, work_date, minutes, description, mission, entity_id)
+             values ($1::uuid, $2::uuid, $7, $3::date, $4, $5, $6, ${entityOf.replace("$ENTITY", "$8")})`,
+            [input.id, input.project_id, input.work_date, minutes, note, mission, auth.user.id, entityCode],
+          );
+      return written ? { success: true } : { error: "conflict" };
+    });
+  } catch (error) {
+    const message = guardError(error);
+    if (message.includes("time_entry_daily_limit")) return { error: "daily_limit" };
+    if (message.includes("time_entry_future_date")) return { error: "date" };
+    const code = typeof error === "object" && error && "code" in error ? String((error as { code: unknown }).code) : "";
+    if (code === "23505") return { error: "conflict" };
+    console.error("[timesheet:save]", code || message);
     return { error: "unavailable" };
   }
 }
@@ -51,42 +59,30 @@ export async function copyPreviousWeekAction(targetWeek: string): Promise<{ succ
   const today = new Date().toISOString().slice(0, 10);
   if (!target || target.start > today) return { error: "invalid" };
   const source = weekBounds(addDays(target.start, -7));
-  const db = await createClient();
-  if (!db || !source) return { error: "unavailable" };
+  if (!source) return { error: "unavailable" };
   try {
-    const [{ count, error: countError }, { data: sourceEntries, error: sourceError }, { data: allowedProjects, error: projectsError }] = await Promise.all([
-      db.from("time_entries").select("id", { count: "exact", head: true })
-        .eq("user_id", auth.user.id).eq("entity_code", entityCode)
-        .gte("work_date", target.start).lt("work_date", target.end),
-      db.from("time_entries").select("project_id, work_date, duration_minutes, mission, note")
-        .eq("user_id", auth.user.id).eq("entity_code", entityCode)
-        .gte("work_date", source.start).lt("work_date", source.end)
-        .order("work_date").order("id"),
-      db.from("timesheet_projects").select("id").eq("entity_code", entityCode),
-    ]);
-    if (countError || sourceError || projectsError) return { error: "unavailable" };
-    if ((count ?? 0) > 0) return { error: "not_empty" };
-    const allowed = new Set((allowedProjects ?? []).map(project => project.id));
-    const rows = (sourceEntries ?? []).filter(entry => allowed.has(entry.project_id)).map(entry => ({
-      id: crypto.randomUUID(),
-      user_id: auth.user.id,
-      entity_code: entityCode,
-      project_id: entry.project_id,
-      work_date: addDays(entry.work_date, 7),
-      duration_minutes: entry.duration_minutes,
-      mission: entry.mission,
-      note: entry.note,
-    }));
-    if (!rows.length) return { error: "no_source" };
-    const { error } = await db.from("time_entries").insert(rows);
-    if (error) {
-      console.error("[timesheet:copy-week]", error.code);
-      return { error: "unavailable" };
-    }
-    revalidatePath("/timesheet");
-    return { success: true, count: rows.length };
-  } catch {
-    console.error("[timesheet:copy-week] connection failed");
+    return await asPerson(async (tx) => {
+      const own = `from erp.time_entry t join erp.entity x on x.id = t.entity_id where t.user_id = $1 and x.code = $2 and t.work_date >= $3::date and t.work_date < $4::date`;
+      const [{ n }] = await select<{ n: number }>(tx, `select count(*)::int as n ${own}`, [auth.user.id, entityCode, target.start, target.end]);
+      if (n > 0) return { error: "not_empty" as const };
+      const allowed = new Set((await select<{ id: string }>(tx, TIMESHEET_PROJECTS_SQL, [entityCode])).map((project) => project.id));
+      const sourceEntries = await select<{ project_id: string; work_date: string; minutes: number; mission: string; note: string }>(
+        tx,
+        `select t.engagement_id as project_id, t.work_date, t.minutes, t.mission, coalesce(t.description, '') as note ${own} order by t.work_date, t.id`,
+        [auth.user.id, entityCode, source.start, source.end],
+      );
+      const rows = sourceEntries.filter((entry) => allowed.has(entry.project_id)).map((entry) => ({ ...entry, work_date: addDays(entry.work_date, 7) }));
+      if (!rows.length) return { error: "no_source" as const };
+      await tx.query(
+        `insert into erp.time_entry (engagement_id, user_id, work_date, minutes, description, mission, entity_id)
+         select r.project_id, $2, r.work_date, r.minutes, r.note, r.mission, ${entityOf.replace("$ENTITY", "$3")}
+           from jsonb_to_recordset($1::jsonb) as r(project_id uuid, work_date date, minutes integer, mission text, note text)`,
+        [JSON.stringify(rows), auth.user.id, entityCode],
+      );
+      return { success: true as const, count: rows.length };
+    });
+  } catch (error) {
+    console.error("[timesheet:copy-week]", guardError(error));
     return { error: "unavailable" };
   }
 }
@@ -95,57 +91,65 @@ export async function setMissionFavoriteAction(input: { projectId: string; missi
   const { auth, entityCode } = await requireCurrentEntityContext();
   const mission = input.mission.trim().replace(/\s+/g, " ");
   if (!input.projectId || !mission || mission.length > 200) return { error: "invalid" };
-  const db = await createClient();
-  if (!db) return { error: "unavailable" };
   try {
-    const { data: project, error: projectError } = await db.from("timesheet_projects").select("id")
-      .eq("id", input.projectId).eq("entity_code", entityCode).maybeSingle();
-    if (projectError || !project) return { error: "project" };
-    const query = input.favorite
-      ? db.from("time_mission_favorites").upsert({ user_id: auth.user.id, entity_code: entityCode, project_id: input.projectId, mission }, { onConflict: "user_id,project_id,mission" })
-      : db.from("time_mission_favorites").delete().eq("user_id", auth.user.id).eq("entity_code", entityCode).eq("project_id", input.projectId).eq("mission", mission);
-    const { error } = await query;
-    if (error) {
-      console.error("[timesheet:favorite]", error.code);
-      return { error: "unavailable" };
-    }
-    revalidatePath("/timesheet");
-    return { success: true };
-  } catch {
-    console.error("[timesheet:favorite] connection failed");
+    return await asPerson(async (tx) => {
+      if (!(await isTimesheetProject(tx, input.projectId, entityCode))) return { error: "project" as const };
+      if (input.favorite) {
+        await tx.query(
+          `insert into work.mission_favorite (user_id, engagement_id, mission, entity_id) values ($1, $2::uuid, $3, ${entityOf.replace("$ENTITY", "$4")})
+           on conflict (user_id, engagement_id, mission) do nothing`,
+          [auth.user.id, input.projectId, mission, entityCode],
+        );
+      } else {
+        await tx.query("delete from work.mission_favorite where user_id = $1 and engagement_id = $2::uuid and mission = $3", [auth.user.id, input.projectId, mission]);
+      }
+      return { success: true as const };
+    });
+  } catch (error) {
+    console.error("[timesheet:favorite]", guardError(error));
     return { error: "unavailable" };
   }
 }
+
+// The administrators, and the managers of an entity: who reviews its weeks.
+const REVIEWERS_SQL = `select p.id from work.person p
+  where work.person_role(p.id) = 'admin' or (work.person_role(p.id) = 'manager' and p.entity_code = $1)`;
 
 export async function submitTimesheetWeekAction(week: string): Promise<{ success: true } | { error: "invalid" | "empty" | "approved" | "unavailable" }> {
   const { auth, entityCode } = await requireCurrentEntityContext();
   const bounds = weekBounds(week);
   const today = new Date().toISOString().slice(0, 10);
   if (!bounds || bounds.start > today) return { error: "invalid" };
-  const db = await createClient();
-  if (!db) return { error: "unavailable" };
   try {
-    const [{ count, error: entriesError }, { data: current, error: statusError }] = await Promise.all([
-      db.from("time_entries").select("id", { count: "exact", head: true })
-        .eq("user_id", auth.user.id).eq("entity_code", entityCode)
-        .gte("work_date", bounds.start).lt("work_date", bounds.end),
-      db.from("timesheet_week_status").select("status")
-        .eq("user_id", auth.user.id).eq("week_start", bounds.start).maybeSingle(),
-    ]);
-    if (entriesError || statusError) return { error: "unavailable" };
-    if (!count) return { error: "empty" };
-    if (current?.status === "approved") return { error: "approved" };
-    if (current?.status === "submitted") return { success: true };
-    const { error } = current?.status === "returned"
-      ? await db.from("timesheet_week_status").update({ status: "submitted", submitted_at: new Date().toISOString(), reviewed_at: null, reviewed_by: null, review_note: null }).eq("user_id", auth.user.id).eq("week_start", bounds.start).eq("status", "returned")
-      : await db.from("timesheet_week_status").insert({ user_id: auth.user.id, week_start: bounds.start, entity_code: entityCode, status: "submitted" });
-    if (error) { console.error("[timesheet:submit-week]", error.code); return { error: "unavailable" }; }
-    const [{ data: admins }, { data: managers }] = await Promise.all([
-      db.from("profiles").select("id").eq("role", "admin"),
-      db.from("profiles").select("id").eq("role", "manager").eq("entity_code", entityCode),
-    ]);
+    const outcome = await asPerson(async (tx) => {
+      const [{ n }] = await select<{ n: number }>(
+        tx,
+        `select count(*)::int as n from erp.time_entry t join erp.entity x on x.id = t.entity_id
+          where t.user_id = $1 and x.code = $2 and t.work_date >= $3::date and t.work_date < $4::date`,
+        [auth.user.id, entityCode, bounds.start, bounds.end],
+      );
+      const current = await selectOne<{ status: string }>(tx, "select status from work.timesheet_week where user_id = $1 and week_start = $2::date", [auth.user.id, bounds.start]);
+      if (!n) return "empty" as const;
+      if (current?.status === "approved") return "approved" as const;
+      if (current?.status === "submitted") return "unchanged" as const;
+      if (current?.status === "returned") {
+        await tx.query(
+          `update work.timesheet_week set status = 'submitted', submitted_at = now(), reviewed_at = null, reviewed_by = null, review_note = null
+            where user_id = $1 and week_start = $2::date and status = 'returned'`,
+          [auth.user.id, bounds.start],
+        );
+      } else {
+        await tx.query(
+          `insert into work.timesheet_week (user_id, week_start, entity_id, status) values ($1, $2::date, ${entityOf.replace("$ENTITY", "$3")}, 'submitted')`,
+          [auth.user.id, bounds.start, entityCode],
+        );
+      }
+      return { reviewers: (await select<{ id: string }>(tx, REVIEWERS_SQL, [entityCode])).map((p) => p.id) };
+    });
+    if (outcome === "empty" || outcome === "approved") return { error: outcome };
+    if (outcome === "unchanged") return { success: true };
     await createScopedNotifications({
-      userIds: [...(admins ?? []).map(profile => profile.id), ...(managers ?? []).map(profile => profile.id)],
+      userIds: outcome.reviewers,
       type: "status_change",
       title: "Timesheet submitted",
       body: `${auth.profile.full_name} submitted a weekly timesheet for review.`,
@@ -153,96 +157,90 @@ export async function submitTimesheetWeekAction(week: string): Promise<{ success
       entityId: auth.user.id,
       skipUserId: auth.user.id,
     }).catch(() => console.error("[timesheet:submit-notification] failed"));
-    revalidatePath("/timesheet");
     return { success: true };
-  } catch {
+  } catch (error) {
+    console.error("[timesheet:submit-week]", guardError(error));
     return { error: "unavailable" };
   }
 }
 
-export async function approveTimesheetWeekAction(userId: string, week: string): Promise<void> {
+// The people a reviewer may review: anyone for an administrator, their entity's people for a manager.
+const reviewable = (role: string, entityCode: string, userIds: string[]) =>
+  asPerson((tx) =>
+    select<{ id: string; entity_code: string | null }>(
+      tx,
+      "select id, entity_code from work.person where id = any($1::text[]) and ($2 = 'admin' or entity_code = $3)",
+      [userIds, role, entityCode],
+    ),
+  );
+
+async function review(userIds: string[], week: string, change: { status: "approved" | "returned"; note?: string }) {
   const { auth, entityCode } = await requireCurrentEntityContext();
   const bounds = weekBounds(week);
-  if (!bounds || (auth.role !== "admin" && auth.role !== "manager")) return;
-  const db = await createClient();
-  if (!db) return;
-  const { data: profile } = await db.from("profiles").select("entity_code").eq("id", userId).maybeSingle();
-  if (!profile || (auth.role === "manager" && profile.entity_code !== entityCode)) return;
-  const { data: approved, error } = await db.from("timesheet_week_status").update({
-    status: "approved",
-    reviewed_at: new Date().toISOString(),
-    reviewed_by: auth.user.id,
-  }).eq("user_id", userId).eq("week_start", bounds.start).eq("status", "submitted").select("user_id");
-  if (error) console.error("[timesheet:approve-week]", error.code);
-  else if (approved?.length) await createScopedNotifications({ userIds: [userId], type: "status_change", title: "Timesheet approved", body: "Your weekly timesheet was approved.", entityType: "timesheet", entityId: userId, skipUserId: auth.user.id }).catch(() => console.error("[timesheet:approve-notification] failed"));
-  revalidatePath("/timesheet");
+  const ids = [...new Set(userIds)].filter(Boolean).slice(0, 500);
+  if (!bounds || !ids.length || (auth.role !== "admin" && auth.role !== "manager")) return { auth, done: [] as string[] };
+  const allowed = (await reviewable(auth.role, entityCode, ids)).map((p) => p.id);
+  if (!allowed.length) return { auth, done: [] };
+  const done = await asPerson((tx) =>
+    select<{ user_id: string }>(
+      tx,
+      `update work.timesheet_week set status = $3, reviewed_at = now(), reviewed_by = $4, review_note = $5
+        where user_id = any($1::text[]) and week_start = $2::date and status = 'submitted' returning user_id`,
+      [allowed, bounds.start, change.status, auth.user.id, change.note ?? null],
+    ),
+  ).catch((error) => {
+    console.error(`[timesheet:${change.status}]`, guardError(error));
+    return [];
+  });
+  return { auth, done: done.map((row) => row.user_id), bounds };
+}
+
+export async function approveTimesheetWeekAction(userId: string, week: string): Promise<void> {
+  await approveTimesheetWeeksAction([userId], week);
 }
 
 export async function approveTimesheetWeeksAction(userIds: string[], week: string): Promise<void> {
-  const { auth, entityCode } = await requireCurrentEntityContext();
-  const bounds = weekBounds(week);
-  const uniqueIds = [...new Set(userIds)].filter(Boolean).slice(0, 500);
-  if (!bounds || !uniqueIds.length || (auth.role !== "admin" && auth.role !== "manager")) return;
-  const db = await createClient();
-  if (!db) return;
-  let profileQuery = db.from("profiles").select("id").in("id", uniqueIds);
-  if (auth.role === "manager") profileQuery = profileQuery.eq("entity_code", entityCode);
-  const { data: profiles, error: profilesError } = await profileQuery;
-  if (profilesError || !profiles?.length) return;
-  const allowedIds = profiles.map(profile => profile.id);
-  const { data: approved, error } = await db.from("timesheet_week_status").update({
-    status: "approved",
-    reviewed_at: new Date().toISOString(),
-    reviewed_by: auth.user.id,
-  }).in("user_id", allowedIds).eq("week_start", bounds.start).eq("status", "submitted").select("user_id");
-  if (error) console.error("[timesheet:approve-weeks]", error.code);
-  else await Promise.all((approved ?? []).map(({ user_id: userId }) => createScopedNotifications({ userIds: [userId], type: "status_change", title: "Timesheet approved", body: "Your weekly timesheet was approved.", entityType: "timesheet", entityId: userId, skipUserId: auth.user.id }).catch(() => console.error("[timesheet:approve-notification] failed"))));
-  revalidatePath("/timesheet");
+  const { auth, done } = await review(userIds, week, { status: "approved" });
+  await Promise.all(done.map((userId) =>
+    createScopedNotifications({ userIds: [userId], type: "status_change", title: "Timesheet approved", body: "Your weekly timesheet was approved.", entityType: "timesheet", entityId: userId, skipUserId: auth.user.id })
+      .catch(() => console.error("[timesheet:approve-notification] failed"))));
 }
 
 export async function returnTimesheetWeekAction(userId: string, week: string, formData: FormData): Promise<void> {
-  const { auth, entityCode } = await requireCurrentEntityContext();
-  const bounds = weekBounds(week);
   const reason = String(formData.get("reason") ?? "").trim().replace(/\s+/g, " ");
-  if (!bounds || reason.length < 3 || reason.length > 500 || (auth.role !== "admin" && auth.role !== "manager")) return;
-  const db = await createClient();
-  if (!db) return;
-  const { data: profile } = await db.from("profiles").select("entity_code").eq("id", userId).maybeSingle();
-  if (!profile || (auth.role === "manager" && profile.entity_code !== entityCode)) return;
-  const { data: returned, error } = await db.from("timesheet_week_status").update({
-    status: "returned",
-    reviewed_at: new Date().toISOString(),
-    reviewed_by: auth.user.id,
-    review_note: reason,
-  }).eq("user_id", userId).eq("week_start", bounds.start).eq("status", "submitted").select("user_id");
-  if (error) console.error("[timesheet:return-week]", error.code);
-  else if (returned?.length) await createScopedNotifications({ userIds: [userId], type: "status_change", title: "Timesheet needs changes", body: `Your weekly timesheet was returned: ${reason}`, entityType: "timesheet", entityId: userId, skipUserId: auth.user.id }).catch(() => console.error("[timesheet:return-notification] failed"));
-  revalidatePath("/timesheet");
+  if (reason.length < 3 || reason.length > 500) return;
+  const { auth, done } = await review([userId], week, { status: "returned", note: reason });
+  if (done.length) {
+    await createScopedNotifications({ userIds: [userId], type: "status_change", title: "Timesheet needs changes", body: `Your weekly timesheet was returned: ${reason}`, entityType: "timesheet", entityId: userId, skipUserId: auth.user.id })
+      .catch(() => console.error("[timesheet:return-notification] failed"));
+  }
 }
 
 export async function remindTimesheetWeekAction(userId: string, week: string): Promise<void> {
   const { auth, entityCode } = await requireCurrentEntityContext();
   const bounds = weekBounds(week);
   if (!bounds || userId === auth.user.id || (auth.role !== "admin" && auth.role !== "manager")) return;
-  const db = await createClient();
-  if (!db) return;
-  const [{ data: profile }, { data: status }] = await Promise.all([
-    db.from("profiles").select("id, entity_code").eq("id", userId).maybeSingle(),
-    db.from("timesheet_week_status").select("status").eq("user_id", userId).eq("week_start", bounds.start).maybeSingle(),
-  ]);
-  if (!profile || (auth.role === "manager" && profile.entity_code !== entityCode) || status?.status === "submitted" || status?.status === "approved") return;
-  const title = status?.status === "returned" ? "Timesheet correction reminder" : "Timesheet reminder";
-  const { error: reminderError } = await db.from("timesheet_reminders").insert({
-    user_id: userId,
-    week_start: bounds.start,
-    entity_code: profile.entity_code,
-    sent_by: auth.user.id,
+  const [person] = await reviewable(auth.role, entityCode, [userId]);
+  if (!person) return;
+  const status = await asPerson(async (tx) => {
+    const week = await selectOne<{ status: string }>(tx, "select status from work.timesheet_week where user_id = $1 and week_start = $2::date", [userId, bounds.start]);
+    if (week?.status === "submitted" || week?.status === "approved") return null;
+    // one reminder per person, week and day
+    const sent = await tx.run(
+      `insert into work.timesheet_reminder (user_id, week_start, entity_id, sent_by)
+       values ($1, $2::date, (select id from erp.entity where code = $3), $4) on conflict do nothing`,
+      [userId, bounds.start, person.entity_code, auth.user.id],
+    );
+    return sent ? (week?.status ?? "open") : null;
+  }).catch((error) => {
+    console.error("[timesheet:reminder]", guardError(error));
+    return null;
   });
-  if (reminderError?.code === "23505") return;
-  if (reminderError) { console.error("[timesheet:reminder]", reminderError.code); return; }
-  const body = status?.status === "returned"
+  if (!status) return;
+  const title = status === "returned" ? "Timesheet correction reminder" : "Timesheet reminder";
+  const body = status === "returned"
     ? `Please correct and resubmit your timesheet for the week of ${bounds.start}.`
     : `Please complete and submit your timesheet for the week of ${bounds.start}.`;
-  await createScopedNotifications({ userIds: [userId], type: "deadline", title, body, entityType: "timesheet", entityId: userId, skipUserId: auth.user.id }).catch(() => console.error("[timesheet:reminder-notification] failed"));
-  revalidatePath("/timesheet");
+  await createScopedNotifications({ userIds: [userId], type: "deadline", title, body, entityType: "timesheet", entityId: userId, skipUserId: auth.user.id })
+    .catch(() => console.error("[timesheet:reminder-notification] failed"));
 }

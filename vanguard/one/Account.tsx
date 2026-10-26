@@ -138,7 +138,7 @@ export function PeopleWithoutAccessList() {
 
   return (
     <div className="card flush">
-      <div style={{ padding: '10px 12px' }}><h2 style={{ margin: 0 }}>{say('Sans accès Vanguard', 'Without Vanguard access')} · {data.people.length}</h2><span className="small muted">{say("Les personnes de BUMEX One à qui l'ERP n'est pas ouvert : ouvrez-le (collaborateur sur son entité, à ajuster ensuite) ou fixez leur entité.", "BUMEX One's people the ERP is not open to: open it (staff on their entity, to adjust afterwards) or set their entity.")}</span></div>
+      <div style={{ padding: '10px 12px' }}><h2 style={{ margin: 0 }}>{say('Sans accès Vanguard', 'Without Vanguard access')} · {data.people.length}</h2><span className="small muted">{say("Les personnes qui ont un compte mais pas encore d'accès : ouvrez-le (collaborateur sur son entité, à ajuster ensuite) ou fixez leur entité.", "People who have an account but no access yet: open it (staff on their entity, to adjust afterwards) or set their entity.")}</span></div>
       <table>
         <thead><tr><th>{say('Personne', 'Person')}</th><th>{say('Entité', 'Entity')}</th><th /></tr></thead>
         <tbody>

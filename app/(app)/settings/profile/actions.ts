@@ -1,9 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { requireAuthenticatedUser } from "@/lib/auth/server";
-import { createClient } from "@/lib/firebase/server";
+import { asPerson } from "@/lib/work/db";
 
 export type ProfileSettingsActionState = {
   error?: string;
@@ -28,8 +26,7 @@ async function getAvatarDataUrl(formData: FormData) {
     return { error: "Avatar must be a PNG, JPG, or WebP image." } as const;
   }
 
-  // The avatar is stored inline as a data URL, and Firestore documents are
-  // capped at 1 MiB, so keep the encoded image comfortably below that.
+  // The avatar is stored inline as a data URL (work.person.avatar_url): kept small, as every card carries it.
   if (file.size > 512 * 1024) {
     return { error: "Avatar image must be 512 KB or smaller." } as const;
   }
@@ -56,11 +53,6 @@ export async function updateProfileSettingsAction(
   formData: FormData,
 ): Promise<ProfileSettingsActionState> {
   const auth = await requireAuthenticatedUser();
-  const db = await createClient();
-
-  if (!db) {
-    return { error: "Firebase is not configured." };
-  }
 
   const fullName = getString(formData, "full_name");
   const phone = getString(formData, "phone");
@@ -78,22 +70,15 @@ export async function updateProfileSettingsAction(
 
   const nextAvatarUrl = avatarUpload?.value ?? auth.profile.avatar_url ?? null;
 
-  const { error } = await db
-    .from("profiles")
-    .update({
-      full_name: fullName,
-      avatar_url: nextAvatarUrl,
-      phone: phone || null,
-      job_title: jobTitle || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", auth.profile.id);
-
-  if (error) {
-    return { error: error.message };
+  try {
+    await asPerson((tx) =>
+      tx.query("update work.person set full_name = $2, avatar_url = $3, phone = $4, job_title = $5 where id = $1", [
+        auth.profile.id, fullName, nextAvatarUrl, phone || null, jobTitle || null,
+      ]),
+    );
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "The profile could not be saved." };
   }
-
-  revalidatePath("/settings/profile");
 
   return {
     success: "Profile settings updated successfully.",

@@ -1,9 +1,10 @@
 import "server-only";
 
-import { getProjectActivity, logActivity } from "@/lib/activity/service";
+import { logActivity } from "@/lib/activity/service";
 import { createStatusChangeNotification } from "@/lib/notifications/service";
 import { calculateProjectHealth, calculateProjectProgress, getDeadlineState } from "@/lib/projects/helpers";
-import { createClient } from "@/lib/firebase/server";
+import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
+import { asPerson, select, selectOne } from "@/lib/work/db";
 import type {
   MilestoneFormValues,
   MilestoneRecord,
@@ -51,6 +52,24 @@ type RoadmapProjectRow = {
   tasks: ProjectTaskPreview[] | null;
   milestones: MilestoneRow[] | null;
 };
+
+// Milestones: work.milestone of a mission (0008), seen by whoever sees the mission and managed by its owner.
+const MILESTONE_JSON = `jsonb_build_object('id', m.id, 'project_id', m.engagement_id, 'title', m.title, 'description', m.description, 'status', m.status,
+  'due_date', m.due_date, 'completed_at', m.completed_at, 'owner_id', m.owner_id, 'created_at', m.created_at, 'updated_at', m.updated_at,
+  'owner', (select jsonb_build_object('id', p.id, 'full_name', p.full_name, 'email', p.email, 'avatar_url', p.avatar_url, 'role', work.person_role(p.id))
+              from work.person p where p.id = m.owner_id))`;
+
+const ROADMAP_SQL = `
+  select e.id, e.name, e.description, e.client_id, case when e.status = 'planned' then 'draft' else e.status::text end as status, e.owner_id,
+         e.start_date, e.deadline as end_date, e.created_at,
+         (select jsonb_build_object('id', c.id, 'name', c.name, 'contact_email', c.contact_email) from work.client c where c.id = e.client_id) as client,
+         work.person_card(e.owner_id) as owner,
+         coalesce((select jsonb_agg(jsonb_build_object('id', t.id, 'title', t.title, 'status', t.status,
+                                                       'priority', case when t.priority = 'normal' then 'medium' else t.priority end,
+                                                       'due_date', t.due_date, 'assignee_id', t.assignee_id))
+                     from erp.task t where t.engagement_id = e.id), '[]'::jsonb) as tasks,
+         coalesce((select jsonb_agg(${MILESTONE_JSON}) from work.milestone m where m.engagement_id = e.id), '[]'::jsonb) as milestones
+    from erp.engagement e`;
 
 function single<T>(value: T | T[] | null): T | null {
   if (Array.isArray(value)) {
@@ -115,86 +134,22 @@ function mapRoadmapProject(row: RoadmapProjectRow): RoadmapProjectRecord {
 }
 
 export async function getRoadmapProjects(filters: RoadmapFilters = {}) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  let query = db
-    .from("projects")
-    .select(
-      `
-        id,
-        name,
-        description,
-        client_id,
-        status,
-        owner_id,
-        start_date,
-        end_date,
-        created_at,
-        client:clients (
-          id,
-          name,
-          contact_email
-        ),
-        owner:profiles!projects_owner_id_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        ),
-        tasks (
-          id,
-          title,
-          status,
-          priority,
-          due_date,
-          assignee_id
-        ),
-        milestones (
-          id,
-          project_id,
-          title,
-          description,
-          status,
-          due_date,
-          completed_at,
-          owner_id,
-          created_at,
-          updated_at,
-          owner:profiles!milestones_owner_id_fkey (
-            id,
-            full_name,
-            email,
-            avatar_url,
-            role
-          )
-        )
-      `,
-    )
-    .order("end_date", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false });
-
-  if (filters.search) {
-    query = query.matchText(["name"], filters.search);
-  }
-
+  const where: string[] = [];
+  const params: unknown[] = [];
   if (filters.projectId) {
-    query = query.eq("id", filters.projectId);
+    params.push(filters.projectId);
+    where.push(`e.id = $${params.length}::uuid`);
   }
-
   if (filters.clientId) {
-    query = query.eq("client_id", filters.clientId);
+    params.push(filters.clientId);
+    where.push(`e.client_id = $${params.length}::uuid`);
   }
 
-  const { data, error } = await query.returns<RoadmapProjectRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  const rows = await asPerson((tx) =>
+    select<RoadmapProjectRow>(tx, `${ROADMAP_SQL} ${where.length ? `where ${where.join(" and ")}` : ""} order by e.deadline nulls last, e.created_at desc`, params),
+  );
+  const terms = filters.search ? searchTerms(filters.search) : [];
+  const data = rows.filter((row) => matchesSearchTerms(terms, [row.name]));
 
   return (data ?? [])
     .map(mapRoadmapProject)
@@ -221,77 +176,11 @@ export async function getRoadmapProjects(filters: RoadmapFilters = {}) {
 }
 
 export async function getRoadmapFilterData(): Promise<RoadmapFilterData> {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const [{ data: projects, error: projectsError }, { data: clients, error: clientsError }, { data: owners, error: ownersError }] =
-    await Promise.all([
-      db.from("projects").select("id, name").order("name", { ascending: true }).returns<Array<{ id: string; name: string }>>(),
-      db
-        .from("clients")
-        .select("id, name, contact_email")
-        .order("name", { ascending: true })
-        .returns<ProjectClient[]>(),
-      db
-        .from("profiles")
-        .select("id, full_name, email, avatar_url, role")
-        .order("full_name", { ascending: true })
-        .returns<ProjectOwner[]>(),
-    ]);
-
-  if (projectsError) throw new Error(projectsError.message);
-  if (clientsError) throw new Error(clientsError.message);
-  if (ownersError) throw new Error(ownersError.message);
-
-  return {
-    projects: projects ?? [],
-    clients: clients ?? [],
-    owners: owners ?? [],
-  };
-}
-
-export async function getProjectMilestones(projectId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db
-    .from("milestones")
-    .select(
-      `
-        id,
-        project_id,
-        title,
-        description,
-        status,
-        due_date,
-        completed_at,
-        owner_id,
-        created_at,
-        updated_at,
-        owner:profiles!milestones_owner_id_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        )
-      `,
-    )
-    .eq("project_id", projectId)
-    .order("due_date", { ascending: true })
-    .returns<MilestoneRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data ?? []).map(mapMilestone);
+  return asPerson(async (tx) => ({
+    projects: await select<{ id: string; name: string }>(tx, "select id, name from erp.engagement order by name"),
+    clients: await select<ProjectClient>(tx, "select id, name, contact_email from work.client order by name"),
+    owners: await select<ProjectOwner>(tx, "select p.id, p.full_name, p.email, p.avatar_url, work.person_role(p.id) as role from work.person p order by p.full_name"),
+  }));
 }
 
 function parseMilestonePayload(values: MilestoneFormValues) {
@@ -306,21 +195,19 @@ function parseMilestonePayload(values: MilestoneFormValues) {
 }
 
 export async function createMilestone(values: MilestoneFormValues, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
   const payload = parseMilestonePayload(values);
-  const { data, error } = await db
-    .from("milestones")
-    .insert(payload)
-    .select("id, project_id")
-    .single<{ id: string; project_id: string }>();
+  const data = await asPerson((tx) =>
+    selectOne<{ id: string; project_id: string }>(
+      tx,
+      `insert into work.milestone (engagement_id, title, description, status, due_date, owner_id, completed_at)
+       values ($1::uuid, $2, $3, $4, $5::date, $6, case when $4 = 'completed' then now() end)
+       returning id, engagement_id as project_id`,
+      [payload.project_id, payload.title, payload.description, payload.status, payload.due_date, payload.owner_id],
+    ),
+  );
 
-  if (error) {
-    throw new Error(error.message);
+  if (!data) {
+    throw new Error("Milestone creation did not return an id.");
   }
 
   await logActivity({
@@ -338,39 +225,23 @@ export async function createMilestone(values: MilestoneFormValues, actorUserId: 
 }
 
 export async function updateMilestone(id: string, values: MilestoneFormValues, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data: previous, error: previousError } = await db
-    .from("milestones")
-    .select("title, status, due_date, owner_id, project_id")
-    .eq("id", id)
-    .maybeSingle<{
-      title: string;
-      status: MilestoneStatus;
-      due_date: string;
-      owner_id: string | null;
-      project_id: string;
-    }>();
-
-  if (previousError) {
-    throw new Error(previousError.message);
-  }
-
-  const payload = {
-    ...parseMilestonePayload(values),
-    updated_at: new Date().toISOString(),
-    completed_at: values.status === "completed" ? new Date().toISOString() : null,
-  };
-
-  const { error } = await db.from("milestones").update(payload).eq("id", id);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  const payload = parseMilestonePayload(values);
+  const previous = await asPerson(async (tx) => {
+    const before = await selectOne<{ title: string; status: MilestoneStatus; due_date: string; owner_id: string | null; project_id: string }>(
+      tx,
+      "select title, status, due_date, owner_id, engagement_id as project_id from work.milestone where id = $1::uuid",
+      [id],
+    );
+    const updated = await tx.run(
+      `update work.milestone
+          set engagement_id = $2::uuid, title = $3, description = $4, status = $5, due_date = $6::date, owner_id = $7,
+              completed_at = case when $5 = 'completed' then coalesce(completed_at, now()) end
+        where id = $1::uuid`,
+      [id, payload.project_id, payload.title, payload.description, payload.status, payload.due_date, payload.owner_id],
+    );
+    if (!updated) throw new Error("You cannot edit this milestone.");
+    return before;
+  });
 
   const activityTasks = [];
 
@@ -463,52 +334,22 @@ export async function updateMilestone(id: string, values: MilestoneFormValues, a
 }
 
 export async function deleteMilestone(id: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error: selectError } = await db
-    .from("milestones")
-    .select("project_id")
-    .eq("id", id)
-    .maybeSingle<{ project_id: string }>();
-
-  if (selectError) {
-    throw new Error(selectError.message);
-  }
-
-  const { error } = await db.from("milestones").delete().eq("id", id);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data?.project_id ?? null;
+  const [deleted] = await asPerson((tx) => select<{ project_id: string }>(tx, "delete from work.milestone where id = $1::uuid returning engagement_id as project_id", [id]));
+  return deleted?.project_id ?? null;
 }
 
 export async function completeMilestone(id: string, actorUserId: string) {
-  const db = await createClient();
+  const milestone = await asPerson((tx) =>
+    selectOne<{ project_id: string; title: string; owner_id: string | null }>(
+      tx,
+      `update work.milestone set status = 'completed', completed_at = coalesce(completed_at, now()) where id = $1::uuid
+       returning engagement_id as project_id, title, owner_id`,
+      [id],
+    ),
+  );
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const completedAt = new Date().toISOString();
-  const { data, error } = await db
-    .from("milestones")
-    .update({
-      status: "completed",
-      completed_at: completedAt,
-      updated_at: completedAt,
-    })
-    .eq("id", id)
-    .select("project_id")
-    .single<{ project_id: string }>();
-
-  if (error) {
-    throw new Error(error.message);
+  if (!milestone) {
+    throw new Error("You cannot complete this milestone.");
   }
 
   await logActivity({
@@ -516,45 +357,17 @@ export async function completeMilestone(id: string, actorUserId: string) {
     action: "Completed milestone",
     entityType: "milestone",
     entityId: id,
-    metadata: {
-      kind: "completion_change",
-      field: "status",
-      to: "completed",
-      summary: "Milestone completed",
-    },
+    metadata: { kind: "completion_change", field: "status", to: "completed", summary: "Milestone completed" },
   });
 
-  const { data: milestone } = await db
-    .from("milestones")
-    .select("title, owner_id")
-    .eq("id", id)
-    .maybeSingle<{ title: string; owner_id: string | null }>();
+  await createStatusChangeNotification({
+    userIds: [milestone.owner_id],
+    title: "Milestone completed",
+    body: `${milestone.title} was marked as completed.`,
+    entityType: "milestone",
+    entityId: id,
+    skipUserId: actorUserId,
+  });
 
-  if (milestone) {
-    await createStatusChangeNotification({
-      userIds: [milestone.owner_id],
-      title: "Milestone completed",
-      body: `${milestone.title} was marked as completed.`,
-      entityType: "milestone",
-      entityId: id,
-      skipUserId: actorUserId,
-    });
-  }
-
-  return data.project_id;
-}
-
-export async function getMilestoneActivity(milestoneIds: string[], limit = 20) {
-  if (!milestoneIds.length) {
-    return [];
-  }
-
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const activity = await getProjectActivity("", [], milestoneIds, limit, db);
-  return activity;
+  return milestone.project_id;
 }

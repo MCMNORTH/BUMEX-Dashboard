@@ -1,13 +1,8 @@
 import "server-only";
 
-import { logActivity } from "@/lib/activity/service";
-import {
-  applyEntityScope,
-  extendWithEntityCode,
-  getCurrentEntityCode,
-  isEntityScopingEnabled,
-} from "@/lib/entities/scope";
-import { createClient } from "@/lib/firebase/server";
+import { getSubjectsActivity, logActivity } from "@/lib/activity/service";
+import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
+import { asPerson, select, selectOne } from "@/lib/work/db";
 import type { AppRole } from "@/types/auth";
 import type {
   ContractClientPreview,
@@ -41,55 +36,10 @@ type ContractRow = {
   notes?: string | null;
   created_at: string;
   updated_at?: string;
-  client: ContractClientPreview | ContractClientPreview[] | null;
-  project: ContractProjectPreview | ContractProjectPreview[] | null;
-  responsibleUser: ContractResponsibleUser | ContractResponsibleUser[] | null;
+  client: ContractClientPreview | null;
+  project: ContractProjectPreview | null;
+  responsibleUser: ContractResponsibleUser | null;
 };
-
-type ActivityRow = {
-  id: string;
-  user_id: string | null;
-  action: string;
-  entity_type: ActivityLogRecord["entity_type"];
-  entity_id: string;
-  metadata: ActivityLogRecord["metadata"];
-  created_at: string;
-  user:
-    | {
-        id: string;
-        full_name: string;
-        email: string;
-        avatar_url: string | null;
-      }
-    | Array<{
-        id: string;
-        full_name: string;
-        email: string;
-        avatar_url: string | null;
-      }>
-    | null;
-};
-
-function single<T>(value: T | T[] | null): T | null {
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-
-  return value;
-}
-
-function mapActivity(row: ActivityRow): ActivityLogRecord {
-  return {
-    id: row.id,
-    user_id: row.user_id,
-    action: row.action,
-    entity_type: row.entity_type,
-    entity_id: row.entity_id,
-    metadata: row.metadata ?? {},
-    created_at: row.created_at,
-    user: single(row.user),
-  };
-}
 
 function getDaysUntil(dateValue: string | null) {
   if (!dateValue) {
@@ -122,163 +72,16 @@ function getRenewalState(contract: Pick<ContractRow, "renewal_date" | "end_date"
   return "scheduled";
 }
 
-const FULL_CONTRACT_SELECT = `
-  id,
-  title,
-  contract_number,
-  client_id,
-  project_id,
-  status,
-  contract_type,
-  start_date,
-  end_date,
-  signed_date,
-  renewal_date,
-  amount,
-  currency,
-  payment_terms,
-  responsible_user_id,
-  notes,
-  created_at,
-  updated_at,
-  client:clients (
-    id,
-    name,
-    status,
-    contact_email
-  ),
-  project:projects (
-    id,
-    name,
-    status,
-    end_date
-  ),
-  responsibleUser:profiles!contracts_responsible_user_id_fkey (
-    id,
-    full_name,
-    email,
-    avatar_url,
-    role
-  )
-`;
-
-const LEGACY_CONTRACT_SELECT = `
-  id,
-  title,
-  client_id,
-  status,
-  amount,
-  created_at,
-  client:clients (
-    id,
-    name,
-    status,
-    contact_email
-  )
-`;
-
-const FULL_CONTRACT_PREVIOUS_SELECT =
-  "title, status, signed_date, renewal_date, amount, project_id";
-const LEGACY_CONTRACT_PREVIOUS_SELECT = "title, status, amount";
-
-function isMissingOptionalContractField(message: string) {
-  return [
-    "contracts.contract_number",
-    "contracts.project_id",
-    "contracts.contract_type",
-    "contracts.start_date",
-    "contracts.end_date",
-    "contracts.signed_date",
-    "contracts.renewal_date",
-    "contracts.currency",
-    "contracts.payment_terms",
-    "contracts.responsible_user_id",
-    "contracts.notes",
-    "contracts.updated_at",
-  ].some((column) => message.includes(`column ${column} does not exist`))
-    || [
-      "contract_number",
-      "project_id",
-      "contract_type",
-      "start_date",
-      "end_date",
-      "signed_date",
-      "renewal_date",
-      "currency",
-      "payment_terms",
-      "responsible_user_id",
-      "notes",
-      "updated_at",
-    ].some((column) => message.includes(`'${column}' column of 'contracts'`));
-}
-
-function stripOptionalContractFields(
-  payload: ReturnType<typeof parseContractPayload>,
-) {
-  return {
-    title: payload.title,
-    client_id: payload.client_id,
-    status: payload.status,
-    amount: payload.amount,
-  };
-}
-
-function stripOptionalContractUpdateFields(
-  payload: ReturnType<typeof parseContractPayload> & { updated_at: string },
-) {
-  return {
-    title: payload.title,
-    client_id: payload.client_id,
-    status: payload.status,
-    amount: payload.amount,
-  };
-}
-
-async function getContractActivityMap(contractIds: string[]) {
-  const db = await createClient();
-
-  if (!db || !contractIds.length) {
-    return new Map<string, ActivityLogRecord[]>();
-  }
-
-  const { data, error } = await db
-    .from("activity_logs")
-    .select(
-      `
-        id,
-        user_id,
-        action,
-        entity_type,
-        entity_id,
-        metadata,
-        created_at,
-        user:profiles (
-          id,
-          full_name,
-          email,
-          avatar_url
-        )
-      `,
-    )
-    .or(`and(entity_type.eq.contract,entity_id.in.(${contractIds.join(",")}))`)
-    .order("created_at", { ascending: false })
-    .limit(120)
-    .returns<ActivityRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const map = new Map<string, ActivityLogRecord[]>();
-
-  for (const activity of (data ?? []).map(mapActivity)) {
-    const current = map.get(activity.entity_id) ?? [];
-    current.push(activity);
-    map.set(activity.entity_id, current);
-  }
-
-  return map;
-}
+// A contract (work.contract, 0008) with its client, mission and responsible person; its mission is the project.
+const CONTRACT_SQL = `
+  select k.id, k.title, k.contract_number, k.client_id, k.engagement_id as project_id, k.status, k.contract_type, k.start_date, k.end_date,
+         k.signed_date, k.renewal_date, k.amount::float8 as amount, k.currency, k.payment_terms, k.responsible_user_id, k.notes, k.created_at, k.updated_at,
+         (select jsonb_build_object('id', c.id, 'name', c.name, 'status', c.status, 'contact_email', c.contact_email) from work.client c where c.id = k.client_id) as client,
+         (select jsonb_build_object('id', e.id, 'name', e.name, 'status', case when e.status = 'planned' then 'draft' else e.status::text end, 'end_date', e.deadline)
+            from erp.engagement e where e.id = k.engagement_id) as project,
+         (select jsonb_build_object('id', p.id, 'full_name', p.full_name, 'email', p.email, 'avatar_url', p.avatar_url, 'role', work.person_role(p.id))
+            from work.person p where p.id = k.responsible_user_id) as "responsibleUser"
+    from work.contract k`;
 
 function mapContract(row: ContractRow, role: AppRole, activity: ActivityLogRecord[] = []): ContractRecord {
   const renewalState = getRenewalState(row);
@@ -303,9 +106,9 @@ function mapContract(row: ContractRow, role: AppRole, activity: ActivityLogRecor
     notes: role === "shareholder" ? null : (row.notes ?? null),
     created_at: row.created_at,
     updated_at: row.updated_at ?? row.created_at,
-    client: single(row.client),
-    project: single(row.project),
-    responsibleUser: single(row.responsibleUser),
+    client: row.client,
+    project: row.project,
+    responsibleUser: row.responsibleUser,
     recentActivity: activity.slice(0, 8),
     daysUntilRenewal: getDaysUntil(referenceDate),
     renewalState,
@@ -314,195 +117,61 @@ function mapContract(row: ContractRow, role: AppRole, activity: ActivityLogRecor
 }
 
 export async function getContracts(role: AppRole, filters: ContractFilters = {}) {
-  const db = await createClient();
+  const where: string[] = [];
+  const params: unknown[] = [];
+  const param = (value: unknown) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+  const today = new Date().toISOString().slice(0, 10);
+  const soon = new Date();
+  soon.setDate(soon.getDate() + 30);
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
+  if (filters.clientId) where.push(`k.client_id = ${param(filters.clientId)}::uuid`);
+  if (filters.status) where.push(`k.status = ${param(filters.status)}`);
+  if (filters.date === "expired") where.push(`(k.end_date < ${param(today)}::date or k.renewal_date < $${params.length}::date)`);
+  if (filters.date === "renewing_soon") where.push(`k.renewal_date between ${param(today)}::date and ${param(soon.toISOString().slice(0, 10))}::date`);
+  if (filters.date === "active_window") where.push(`k.end_date >= ${param(today)}::date`);
+  if (filters.date === "none") where.push("k.end_date is null and k.renewal_date is null");
+  if (filters.value === "under_10k") where.push("k.amount < 10000");
+  if (filters.value === "10k_50k") where.push("k.amount >= 10000 and k.amount < 50000");
+  if (filters.value === "50k_plus") where.push("k.amount >= 50000");
+  if (filters.value === "unset") where.push("k.amount is null");
 
-  const scopedDb = db;
-  const entityCode = await getCurrentEntityCode();
+  const rows = await asPerson((tx) =>
+    select<ContractRow>(tx, `${CONTRACT_SQL} ${where.length ? `where ${where.join(" and ")}` : ""} order by k.updated_at desc`, params),
+  );
+  const terms = filters.search ? searchTerms(filters.search) : [];
+  const found = rows.filter((row) => matchesSearchTerms(terms, [row.title, row.contract_number]));
+  const activityMap = await getSubjectsActivity("contract", found.map((contract) => contract.id), 8);
 
-  async function runContractsQuery(useLegacy = false) {
-    let query = scopedDb
-      .from("contracts")
-      .select(useLegacy ? LEGACY_CONTRACT_SELECT : FULL_CONTRACT_SELECT)
-      .order(useLegacy ? "created_at" : "updated_at", { ascending: false });
-
-    query = applyEntityScope(query, entityCode);
-
-    if (filters.search) {
-      query = query.matchText(useLegacy ? ["title"] : ["title", "contract_number"], filters.search);
-    }
-
-    if (filters.clientId) {
-      query = query.eq("client_id", filters.clientId);
-    }
-
-    if (filters.status) {
-      query = query.eq("status", filters.status);
-    }
-
-    const today = new Date().toISOString().slice(0, 10);
-    const soon = new Date();
-    soon.setDate(soon.getDate() + 30);
-
-    if (!useLegacy) {
-      if (filters.date === "expired") {
-        query = query.or(`end_date.lt.${today},renewal_date.lt.${today}`);
-      }
-
-      if (filters.date === "renewing_soon") {
-        query = query
-          .gte("renewal_date", today)
-          .lte("renewal_date", soon.toISOString().slice(0, 10));
-      }
-
-      if (filters.date === "active_window") {
-        query = query.gte("end_date", today);
-      }
-
-      if (filters.date === "none") {
-        query = query.is("end_date", null).is("renewal_date", null);
-      }
-    }
-
-    if (filters.value === "under_10k") {
-      query = query.lt("amount", 10000);
-    }
-
-    if (filters.value === "10k_50k") {
-      query = query.gte("amount", 10000).lt("amount", 50000);
-    }
-
-    if (filters.value === "50k_plus") {
-      query = query.gte("amount", 50000);
-    }
-
-    if (filters.value === "unset") {
-      query = query.is("amount", null);
-    }
-
-    const { data, error } = await query.returns<ContractRow[]>();
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return data ?? [];
-  }
-
-  let rows: ContractRow[];
-
-  try {
-    rows = await runContractsQuery(false);
-  } catch (error) {
-    if (!(error instanceof Error) || !isMissingOptionalContractField(error.message)) {
-      throw error;
-    }
-
-    rows = await runContractsQuery(true);
-  }
-
-  const activityMap = await getContractActivityMap(rows.map((contract) => contract.id));
-
-  return rows.map((row) => mapContract(row, role, activityMap.get(row.id) ?? []));
+  return found.map((row) => mapContract(row, role, activityMap.get(row.id) ?? []));
 }
 
 export async function getContractsFilterData(): Promise<ContractFiltersData> {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let clientsQuery = db
-    .from("clients")
-    .select("id, name, status, contact_email");
-  let projectsQuery = db
-    .from("projects")
-    .select("id, name, status, end_date");
-  let usersQuery = db
-    .from("profiles")
-    .select("id, full_name, email, avatar_url, role");
-
-  if (isEntityScopingEnabled()) {
-    clientsQuery = clientsQuery.eq("entity_code", entityCode);
-    projectsQuery = projectsQuery.eq("entity_code", entityCode);
-    usersQuery = usersQuery.eq("entity_code", entityCode);
-  }
-
-  const [{ data: clients, error: clientsError }, { data: projects, error: projectsError }, { data: responsibleUsers, error: usersError }] =
-    await Promise.all([
-      clientsQuery
-        .order("name", { ascending: true })
-        .returns<ContractClientPreview[]>(),
-      projectsQuery
-        .order("name", { ascending: true })
-        .returns<ContractProjectPreview[]>(),
-      usersQuery
-        .in("role", ["admin", "manager"])
-        .order("full_name", { ascending: true })
-        .returns<ContractResponsibleUser[]>(),
-    ]);
-
-  if (clientsError) throw new Error(clientsError.message);
-  if (projectsError) throw new Error(projectsError.message);
-  if (usersError) throw new Error(usersError.message);
-
-  return {
-    clients: clients ?? [],
-    projects: projects ?? [],
-    responsibleUsers: responsibleUsers ?? [],
-  };
+  return asPerson(async (tx) => ({
+    clients: await select<ContractClientPreview>(tx, "select id, name, status, contact_email from work.client order by name"),
+    projects: await select<ContractProjectPreview>(
+      tx,
+      "select id, name, case when status = 'planned' then 'draft' else status::text end as status, deadline as end_date from erp.engagement order by name",
+    ),
+    responsibleUsers: await select<ContractResponsibleUser>(
+      tx,
+      `select p.id, p.full_name, p.email, p.avatar_url, work.person_role(p.id) as role from work.person p
+        where work.person_role(p.id) in ('admin', 'manager') order by p.full_name`,
+    ),
+  }));
 }
 
 export async function getContractById(id: string, role: AppRole) {
-  const db = await createClient();
+  const row = await asPerson((tx) => selectOne<ContractRow>(tx, `${CONTRACT_SQL} where k.id = $1::uuid`, [id])).catch(() => null);
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const scopedDb = db;
-  const entityCode = await getCurrentEntityCode();
-
-  async function runContractByIdQuery(useLegacy = false) {
-    let query = scopedDb
-      .from("contracts")
-      .select(useLegacy ? LEGACY_CONTRACT_SELECT : FULL_CONTRACT_SELECT)
-      .eq("id", id);
-
-    query = applyEntityScope(query, entityCode);
-
-    const { data, error } = await query.maybeSingle<ContractRow>();
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return data;
-  }
-
-  let data: ContractRow | null;
-
-  try {
-    data = await runContractByIdQuery(false);
-  } catch (error) {
-    if (!(error instanceof Error) || !isMissingOptionalContractField(error.message)) {
-      throw error;
-    }
-
-    data = await runContractByIdQuery(true);
-  }
-
-  if (!data) {
+  if (!row) {
     return null;
   }
 
-  const activityMap = await getContractActivityMap([id]);
-  return mapContract(data, role, activityMap.get(id) ?? []);
+  const activityMap = await getSubjectsActivity("contract", [id], 8);
+  return mapContract(row, role, activityMap.get(id) ?? []);
 }
 
 function parseContractPayload(values: ContractFormValues) {
@@ -525,33 +194,27 @@ function parseContractPayload(values: ContractFormValues) {
   };
 }
 
+const payloadParams = (p: ReturnType<typeof parseContractPayload>) => [
+  p.title, p.contract_number, p.client_id, p.project_id, p.status, p.contract_type, p.start_date, p.end_date, p.signed_date, p.renewal_date, p.amount,
+  p.currency, p.payment_terms, p.responsible_user_id, p.notes,
+];
+
 export async function createContract(values: ContractFormValues, actorUserId: string) {
-  const db = await createClient();
+  const payload = parseContractPayload(values);
+  const data = await asPerson((tx) =>
+    selectOne<{ id: string }>(
+      tx,
+      `insert into work.contract (title, contract_number, client_id, engagement_id, status, contract_type, start_date, end_date, signed_date, renewal_date,
+                                  amount, currency, payment_terms, responsible_user_id, notes, entity_code)
+       values ($1, $2, $3::uuid, $4::uuid, $5, $6, $7::date, $8::date, $9::date, $10::date, $11::numeric, $12, $13, $14, $15,
+               (select entity_code from work.person where id = erp.actor_id()))
+       returning id`,
+      payloadParams(payload),
+    ),
+  );
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  const payload = extendWithEntityCode(parseContractPayload(values), entityCode);
-  let createResponse = await db
-    .from("contracts")
-    .insert(payload)
-    .select("id")
-    .single<{ id: string }>();
-
-  if (createResponse.error && isMissingOptionalContractField(createResponse.error.message)) {
-    createResponse = await db
-      .from("contracts")
-      .insert(extendWithEntityCode(stripOptionalContractFields(parseContractPayload(values)), entityCode))
-      .select("id")
-      .single<{ id: string }>();
-  }
-
-  const { data, error } = createResponse;
-
-  if (error) {
-    throw new Error(error.message);
+  if (!data) {
+    throw new Error("Contract creation did not return an id.");
   }
 
   await logActivity({
@@ -559,88 +222,31 @@ export async function createContract(values: ContractFormValues, actorUserId: st
     action: `Created contract ${payload.title}`,
     entityType: "contract",
     entityId: data.id,
-    metadata: {
-      kind: "create",
-      summary: "Contract created",
-    },
+    metadata: { kind: "create", summary: "Contract created" },
   });
 
   return data.id;
 }
 
 export async function updateContract(id: string, values: ContractFormValues, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const scopedDb = db;
-  const entityCode = await getCurrentEntityCode();
-
-  async function getPreviousContract(useLegacy = false) {
-    let previousQuery = scopedDb
-      .from("contracts")
-      .select(useLegacy ? LEGACY_CONTRACT_PREVIOUS_SELECT : FULL_CONTRACT_PREVIOUS_SELECT)
-      .eq("id", id);
-
-    if (isEntityScopingEnabled()) {
-      previousQuery = previousQuery.eq("entity_code", entityCode);
-    }
-
-    return previousQuery.maybeSingle();
-  }
-
-  let previousResponse = await getPreviousContract(false);
-  if (previousResponse.error && isMissingOptionalContractField(previousResponse.error.message)) {
-    previousResponse = await getPreviousContract(true);
-  }
-
-  const { data: previous, error: previousError } = previousResponse as {
-    data: {
-      title: string;
-      status: ContractStatus;
-      signed_date?: string | null;
-      renewal_date?: string | null;
-      amount: number | null;
-      project_id?: string | null;
-    } | null;
-    error: { message: string } | null;
-  };
-
-  if (previousError) {
-    throw new Error(previousError.message);
-  }
-
-  const payload = {
-    ...parseContractPayload(values),
-    updated_at: new Date().toISOString(),
-  };
-
-  let updateQuery = db.from("contracts").update(payload).eq("id", id);
-
-  if (isEntityScopingEnabled()) {
-    updateQuery = updateQuery.eq("entity_code", entityCode);
-  }
-
-  let { error } = await updateQuery;
-
-  if (error && isMissingOptionalContractField(error.message)) {
-    let legacyUpdateQuery = db
-      .from("contracts")
-      .update(stripOptionalContractUpdateFields(payload))
-      .eq("id", id);
-
-    if (isEntityScopingEnabled()) {
-      legacyUpdateQuery = legacyUpdateQuery.eq("entity_code", entityCode);
-    }
-
-    ({ error } = await legacyUpdateQuery);
-  }
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  const payload = parseContractPayload(values);
+  const previous = await asPerson(async (tx) => {
+    const before = await selectOne<{ title: string; status: ContractStatus; signed_date: string | null; renewal_date: string | null; amount: number | null; project_id: string | null }>(
+      tx,
+      "select title, status, signed_date, renewal_date, amount::float8 as amount, engagement_id as project_id from work.contract where id = $1::uuid",
+      [id],
+    );
+    const updated = await tx.run(
+      `update work.contract
+          set title = $1, contract_number = $2, client_id = $3::uuid, engagement_id = $4::uuid, status = $5, contract_type = $6, start_date = $7::date,
+              end_date = $8::date, signed_date = $9::date, renewal_date = $10::date, amount = $11::numeric, currency = $12, payment_terms = $13,
+              responsible_user_id = $14, notes = $15
+        where id = $16::uuid`,
+      [...payloadParams(payload), id],
+    );
+    if (!updated) throw new Error("You cannot edit this contract.");
+    return before;
+  });
 
   const activityTasks = [];
 
@@ -651,10 +257,7 @@ export async function updateContract(id: string, values: ContractFormValues, act
         action: `Updated contract ${payload.title}`,
         entityType: "contract",
         entityId: id,
-        metadata: {
-          kind: "update",
-          summary: "Contract updated",
-        },
+        metadata: { kind: "update", summary: "Contract updated" },
       }),
     );
   } else {
@@ -670,18 +273,7 @@ export async function updateContract(id: string, values: ContractFormValues, act
     for (const [field, from, to, action] of changes) {
       if (from !== to) {
         activityTasks.push(
-          logActivity({
-            userId: actorUserId,
-            action,
-            entityType: "contract",
-            entityId: id,
-            metadata: {
-              kind: "update",
-              field,
-              from,
-              to,
-            },
-          }),
+          logActivity({ userId: actorUserId, action, entityType: "contract", entityId: id, metadata: { kind: "update", field, from, to } }),
         );
       }
     }
@@ -693,12 +285,7 @@ export async function updateContract(id: string, values: ContractFormValues, act
           action: "Contract signed",
           entityType: "contract",
           entityId: id,
-          metadata: {
-            kind: "status_change",
-            field: "status",
-            from: previous.status,
-            to: "signed",
-          },
+          metadata: { kind: "status_change", field: "status", from: previous.status, to: "signed" },
         }),
       );
     }
@@ -710,60 +297,22 @@ export async function updateContract(id: string, values: ContractFormValues, act
           action: "Contract expired",
           entityType: "contract",
           entityId: id,
-          metadata: {
-            kind: "status_change",
-            field: "status",
-            from: previous.status,
-            to: "expired",
-          },
+          metadata: { kind: "status_change", field: "status", from: previous.status, to: "expired" },
         }),
       );
     }
   }
 
   await Promise.all(activityTasks);
+
   return id;
 }
 
 export async function archiveContract(id: string, actorUserId: string) {
-  const db = await createClient();
+  const archived = await asPerson((tx) => tx.run("update work.contract set status = 'archived' where id = $1::uuid", [id]));
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let archiveQuery = db
-    .from("contracts")
-    .update({
-      status: "archived",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id);
-
-  if (isEntityScopingEnabled()) {
-    archiveQuery = archiveQuery.eq("entity_code", entityCode);
-  }
-
-  let { error } = await archiveQuery;
-
-  if (error && isMissingOptionalContractField(error.message)) {
-    let legacyArchiveQuery = db
-      .from("contracts")
-      .update({
-        status: "archived",
-      })
-      .eq("id", id);
-
-    if (isEntityScopingEnabled()) {
-      legacyArchiveQuery = legacyArchiveQuery.eq("entity_code", entityCode);
-    }
-
-    ({ error } = await legacyArchiveQuery);
-  }
-
-  if (error) {
-    throw new Error(error.message);
+  if (!archived) {
+    throw new Error("You cannot archive this contract.");
   }
 
   await logActivity({
@@ -771,12 +320,7 @@ export async function archiveContract(id: string, actorUserId: string) {
     action: "Archived contract",
     entityType: "contract",
     entityId: id,
-    metadata: {
-      kind: "update",
-      field: "status",
-      to: "archived",
-      summary: "Contract archived",
-    },
+    metadata: { kind: "update", field: "status", to: "archived", summary: "Contract archived" },
   });
 }
 

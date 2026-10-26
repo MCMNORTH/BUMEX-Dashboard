@@ -9,7 +9,6 @@ import { loadVanguardState, roomOf, type VanguardPerson } from "@/lib/erp/vangua
 import { moduleTables, tableWriter } from "@/lib/erp/vanguard/tables";
 import type { VanguardChange } from "@/lib/erp/vanguard/record";
 import { replay } from "@/lib/erp/vanguard/replay";
-import type { VanguardTicket } from "@/lib/erp/vanguard/tickets";
 import { erpModuleKeys, type ErpAccess, type ErpModuleKey, type ErpRole } from "@/types/erp";
 
 // Writes what a replayed change did (run.ts) to PostgreSQL, collection by collection, in the person's ERP session:
@@ -229,8 +228,8 @@ const deletionRequests: Writer<DeletionRequest> = {
   change: (tx, _, r) => tx.query("update erp.deletion_request set status = $2, decision_note = $3 where id = $1", [r.id, r.status, nil(r.decisionNote)]),
 };
 
-// ERP access (Vanguard's Settings › accounts): a person of BUMEX One, found by e-mail, gets an ERP role, entities
-// and modules; disabling or deleting the account removes the access. Names and e-mails stay BUMEX One's.
+// Access (Vanguard's Settings › accounts): a person, found by e-mail, gets an ERP role, entities and modules; disabling
+// or deleting the account removes the access. Names and e-mails are the person's own (work.person).
 function users(people: VanguardPerson[], codeOf: Map<string, string>): Writer<AppUser> {
   const codes = (u: AppUser) => (u.entityIds === "*" ? null : u.entityIds.map((e) => codeOf.get(e) ?? e));
   const modules = (u: AppUser) => {
@@ -243,7 +242,7 @@ function users(people: VanguardPerson[], codeOf: Map<string, string>): Writer<Ap
     key: byId,
     add: async (tx, u) => {
       const person = people.find((p) => p.email.toLowerCase() === u.email.trim().toLowerCase());
-      if (!person) throw new VanguardSaveError("Aucune personne de BUMEX One n'a cette adresse : créez-la d'abord dans BUMEX One (Paramètres › Utilisateurs).");
+      if (!person) throw new VanguardSaveError("Aucune personne n'a cette adresse : elle doit d'abord avoir son compte et s'être connectée une fois.");
       if (u.status === "disabled") return;
       await tx.query("insert into erp.user_access (user_id, erp_role, entity_codes, modules) values ($1, $2, $3, $4)", [person.id, u.role, codes(u), modules(u)]);
     },
@@ -330,7 +329,7 @@ export async function saveVanguardChange(tx: ErpTransaction, before: State, afte
     if (same(before[name], after[name])) continue;
     throw new VanguardSaveError(
       name === "tasks"
-        ? "Les tâches sont les tickets de BUMEX One : elles se créent et avancent depuis la salle Tâches."
+        ? "Les tâches sont les tickets des missions : elles se créent et avancent depuis la salle Tâches."
         : "Cette modification touche des données que Vanguard n'enregistre pas encore.",
     );
   }
@@ -366,10 +365,9 @@ export async function applyVanguardChange(
   access: ErpAccess,
   people: VanguardPerson[],
   change: VanguardChange,
-  tickets: VanguardTicket[] = [],
 ) {
   // replayed on everything the person's entities hold: the engine's checks see what the database has
-  const { state: before } = await loadVanguardState(tx, person, access, people, { checkChains: false, tickets, full: true });
+  const { state: before } = await loadVanguardState(tx, person, access, people, { checkChains: false, full: true });
   const after = replay(before, change, randomUUID);
   await saveVanguardChange(tx, before, after, people);
   const [row] = await tx.query<{ erp_role: ErpRole; entity_codes: ErpAccess["entityCodes"]; modules: ErpModuleKey[] | null }>(
@@ -377,5 +375,5 @@ export async function applyVanguardChange(
     [person.id],
   );
   const now = row ? { role: row.erp_role, entityCodes: row.entity_codes, modules: resolveErpModules(row.erp_role, row.modules) } : access;
-  return loadVanguardState(tx, person, now, people, { tickets });
+  return loadVanguardState(tx, person, now, people);
 }

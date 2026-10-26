@@ -1,12 +1,11 @@
 import "server-only";
 
-import { logActivity } from "@/lib/activity/service";
-import { getCurrentEntityCode, getEntityScopedCacheKey, isEntityScopingEnabled } from "@/lib/entities/scope";
+import { getPersonActivity, logActivity } from "@/lib/activity/service";
 import { getProjects } from "@/lib/projects/service";
-import { getCached } from "@/lib/server-cache";
-import { createClient } from "@/lib/firebase/server";
+import { asPerson, select, selectOne } from "@/lib/work/db";
+import { PROFILE_COLUMNS } from "@/lib/work/people";
 import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
-import { getTickets, getTicketsAcrossEntities } from "@/lib/tickets/service";
+import { getTickets } from "@/lib/tickets/service";
 import type { ActivityLogRecord } from "@/types/activity";
 import type { AppRole, Profile } from "@/types/auth";
 import type {
@@ -48,11 +47,6 @@ type TeamMembershipRow = {
 
 type TeamProfileRow = Profile & {
   team_members: TeamMembershipRow[] | null;
-};
-
-type ActivityAggregateRow = {
-  entity_id: string;
-  created_at: string;
 };
 
 function single<T>(value: T | T[] | null): T | null {
@@ -306,121 +300,29 @@ function mapTeams(memberships: TeamMembershipRow[] | null): TeamReference[] {
     .filter((team): team is TeamReference => Boolean(team));
 }
 
+// The people (work.person, 0008). Teams were never written in BUMEX One: none are listed.
 async function getTeamProfiles() {
-  const entityCode = await getCurrentEntityCode();
-  return getCached(getEntityScopedCacheKey("team-profiles", entityCode), 30_000, () =>
-    getFreshTeamProfiles(entityCode),
-  );
-}
-
-async function getFreshTeamProfiles(entityCode?: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-  const shouldScopeByEntity = isEntityScopingEnabled() && Boolean(entityCode);
-  const { data, error } = shouldScopeByEntity
-    ? await db
-        .from("profiles")
-        .select(
-          `
-            id,
-            email,
-            full_name,
-            role,
-            is_super_admin,
-            entity_code,
-            avatar_url,
-            job_title,
-            department,
-            skills,
-            phone,
-            availability_status,
-            weekly_capacity_hours,
-            created_at,
-            updated_at,
-            team_members (
-              id,
-              role,
-              team:teams (
-                id,
-                name
-              )
-            )
-          `,
-        )
-        .eq("entity_code", entityCode ?? "")
-        .order("full_name", { ascending: true })
-        .returns<TeamProfileRow[]>()
-    : await db
-        .from("profiles")
-        .select(
-          `
-            id,
-            email,
-            full_name,
-            role,
-            is_super_admin,
-            entity_code,
-            avatar_url,
-            job_title,
-            department,
-            skills,
-            phone,
-            availability_status,
-            weekly_capacity_hours,
-            created_at,
-            updated_at,
-            team_members (
-              id,
-              role,
-              team:teams (
-                id,
-                name
-              )
-            )
-          `,
-        )
-        .order("full_name", { ascending: true })
-        .returns<TeamProfileRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data ?? [];
+  return asPerson((tx) => select<TeamProfileRow>(tx, `select ${PROFILE_COLUMNS}, '[]'::jsonb as team_members from work.person p order by p.full_name`));
 }
 
 async function getProfileActivitySummary(profileIds: string[]) {
-  const db = await createClient();
-
-  if (!db || !profileIds.length) {
-    return new Map<string, { count: number; lastActivityAt: string | null }>();
-  }
-
-  const { data, error } = await db
-    .from("activity_logs")
-    .select("entity_id, created_at")
-    .eq("entity_type", "profile")
-    .in("entity_id", profileIds)
-    .returns<ActivityAggregateRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
   const summary = new Map<string, { count: number; lastActivityAt: string | null }>();
 
-  for (const row of data ?? []) {
-    const current = summary.get(row.entity_id) ?? { count: 0, lastActivityAt: null };
-    current.count += 1;
+  if (!profileIds.length) {
+    return summary;
+  }
 
-    if (!current.lastActivityAt || new Date(row.created_at).getTime() > new Date(current.lastActivityAt).getTime()) {
-      current.lastActivityAt = row.created_at;
-    }
+  const rows = await asPerson((tx) =>
+    select<{ entity_id: string; count: number; last: string | null }>(
+      tx,
+      `select subject_id as entity_id, count(*)::int as count, max(created_at) as last from work.activity
+        where subject_type = 'profile' and subject_id = any($1::text[]) group by subject_id`,
+      [profileIds],
+    ),
+  );
 
-    summary.set(row.entity_id, current);
+  for (const row of rows) {
+    summary.set(row.entity_id, { count: row.count, lastActivityAt: row.last });
   }
 
   return summary;
@@ -663,15 +565,12 @@ export async function getTeamMembers(role: AppRole, filters: TeamFilters = {}): 
     });
 }
 
-export async function getTeamWorkload(role: AppRole, currentUserId?: string, acrossEntities = false): Promise<TeamWorkloadRecord[]> {
+export async function getTeamWorkload(role: AppRole, currentUserId?: string): Promise<TeamWorkloadRecord[]> {
   if (role === "shareholder") {
     return [];
   }
 
-  const [profiles, tickets] = await Promise.all([
-    acrossEntities ? getFreshTeamProfiles() : getTeamProfiles(),
-    acrossEntities ? getTicketsAcrossEntities(role) : getTickets(role),
-  ]);
+  const [profiles, tickets] = await Promise.all([getTeamProfiles(), getTickets(role)]);
   const workloadMap = new Map<string, TeamWorkloadRecord>();
 
   for (const profile of profiles) {
@@ -799,25 +698,7 @@ export async function getAssignmentHelperData(
 }
 
 export async function getTeamFiltersData(): Promise<TeamFiltersData> {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db
-    .from("teams")
-    .select("id, name")
-    .order("name", { ascending: true })
-    .returns<Array<{ id: string; name: string }>>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return {
-    teams: (data ?? []).map((team) => ({ ...team, role: "member" })),
-  };
+  return { teams: [] };
 }
 
 export async function getTeamMemberProjects(userId: string): Promise<TeamMemberProjectPreview[]> {
@@ -834,41 +715,7 @@ export async function getTeamMemberTickets(userId: string, role: AppRole): Promi
 }
 
 export async function getTeamMemberActivity(userId: string): Promise<ActivityLogRecord[]> {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db
-    .from("activity_logs")
-    .select(
-      `
-        id,
-        user_id,
-        action,
-        entity_type,
-        entity_id,
-        metadata,
-        created_at,
-        user:profiles (
-          id,
-          full_name,
-          email,
-          avatar_url
-        )
-      `,
-    )
-    .or(`and(entity_type.eq.profile,entity_id.eq.${userId}),user_id.eq.${userId}`)
-    .order("created_at", { ascending: false })
-    .limit(12)
-    .returns<ActivityLogRecord[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data ?? [];
+  return getPersonActivity(userId, 12);
 }
 
 export async function getTeamMemberById(id: string, role: AppRole): Promise<TeamMemberDetail | null> {
@@ -1022,44 +869,35 @@ export async function updateTeamMember(
   values: TeamMemberFormValues,
   actor: { id: string; role: AppRole },
 ) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data: existing, error: existingError } = await db
-    .from("profiles")
-    .select("id, full_name, role, avatar_url, job_title, department, skills, phone, availability_status, weekly_capacity_hours")
-    .eq("id", memberId)
-    .maybeSingle<Pick<Profile, "id" | "full_name" | "role" | "avatar_url" | "job_title" | "department" | "skills" | "phone" | "availability_status" | "weekly_capacity_hours">>();
-
-  if (existingError) {
-    throw new Error(existingError.message);
-  }
-
-  if (!existing) {
-    throw new Error("Team member not found.");
-  }
-
   const payload = {
     full_name: values.full_name.trim(),
     avatar_url: values.avatar_url.trim() || null,
     job_title: values.job_title.trim() || null,
     department: values.department.trim() || null,
-    role: values.role,
     skills: normalizeSkills(values.skills),
     phone: values.phone.trim() || null,
     availability_status: values.availability_status,
     weekly_capacity_hours: Number(values.weekly_capacity_hours),
-    updated_at: new Date().toISOString(),
   };
 
-  const { error } = await db.from("profiles").update(payload).eq("id", memberId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  // the role is Vanguard's (Settings › accounts): the form's is not written
+  const existing = await asPerson(async (tx) => {
+    const before = await selectOne<Pick<Profile, "availability_status" | "weekly_capacity_hours">>(
+      tx,
+      "select availability_status, weekly_capacity_hours from work.person where id = $1",
+      [memberId],
+    );
+    if (!before) throw new Error("Team member not found.");
+    const updated = await tx.run(
+      `update work.person set full_name = $2, avatar_url = $3, job_title = $4, department = $5, skills = $6, phone = $7, availability_status = $8,
+              weekly_capacity_hours = $9
+        where id = $1`,
+      [memberId, payload.full_name, payload.avatar_url, payload.job_title, payload.department, payload.skills, payload.phone, payload.availability_status,
+        payload.weekly_capacity_hours],
+    );
+    if (!updated) throw new Error("You cannot edit this person.");
+    return before;
+  });
 
   await logActivity({
     userId: actor.id,

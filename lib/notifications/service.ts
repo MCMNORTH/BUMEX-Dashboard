@@ -4,8 +4,9 @@ import { randomUUID } from "node:crypto";
 import { after } from "next/server";
 
 import { dispatchNotificationEmails, sweepNotificationEmails } from "@/lib/notifications/email-delivery";
-import { createClient } from "@/lib/firebase/server";
 import { requireAuthenticatedUser } from "@/lib/auth/server";
+import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
+import { asPerson, select } from "@/lib/work/db";
 import type { CommentEntityType, CommentRecord } from "@/types/comment";
 import type {
   MentionCandidate,
@@ -23,49 +24,10 @@ function uniqueById<T extends { id: string }>(items: T[]) {
   return [...new Map(items.map((item) => [item.id, item])).values()];
 }
 
-async function getProfilesByIds(ids: string[]) {
-  if (!ids.length) {
-    return [];
-  }
-
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db
-    .from("profiles")
-    .select("id, full_name, email, avatar_url, role")
-    .in("id", ids)
-    .order("full_name", { ascending: true })
-    .returns<MentionCandidate[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data ?? [];
-}
+const CANDIDATE_SQL = "select p.id, p.full_name, p.email, p.avatar_url, work.person_role(p.id) as role from work.person p";
 
 export async function getMentionCandidates(): Promise<MentionCandidate[]> {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db
-    .from("profiles")
-    .select("id, full_name, email, avatar_url, role")
-    .order("full_name", { ascending: true })
-    .returns<MentionCandidate[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data ?? [];
+  return asPerson((tx) => select<MentionCandidate>(tx, `${CANDIDATE_SQL} order by p.full_name`));
 }
 
 export function parseMentions(body: string, candidates: MentionCandidate[]) {
@@ -107,24 +69,16 @@ async function createNotifications(
     return;
   }
 
-  const db = await createClient();
+  const rows = notifications.map((notification) => ({ id: randomUUID(), ...notification }));
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const rows = notifications.map((notification) => ({
-    id: randomUUID(),
-    ...notification,
-    is_read: false,
-    archived_at: null,
-  }));
-
-  const { error } = await db.from("notifications").insert(rows);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  await asPerson((tx) =>
+    tx.query(
+      `insert into work.notification (id, user_id, type, title, body, subject_type, subject_id, skip_email)
+       select n.id, n.user_id, n.type, n.title, n.body, n.entity_type, n.entity_id, coalesce(n.skip_email, false)
+         from jsonb_to_recordset($1::jsonb) as n(id uuid, user_id text, type text, title text, body text, entity_type text, entity_id text, skip_email boolean)`,
+      [JSON.stringify(rows)],
+    ),
+  );
 
   try {
     after(async () => {
@@ -204,26 +158,6 @@ export async function createMentionNotifications({
     return;
   }
 
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { error: mentionError } = await db.from("mentions").insert(
-    mentions.map((mention) => ({
-      comment_id: comment.id,
-      mentioned_user_id: mention.id,
-      mentioned_by: authorId,
-      entity_type: entityType,
-      entity_id: entityId,
-    })),
-  );
-
-  if (mentionError) {
-    throw new Error(mentionError.message);
-  }
-
   await createNotifications(
     mentions.map((mention) => ({
       user_id: mention.id,
@@ -299,195 +233,89 @@ export async function createStatusChangeNotification({
   });
 }
 
-export async function getRecentNotifications(limit = 8) {
-  const userId = await getCurrentNotificationUserId();
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db
-    .from("notifications")
-    .select("id, user_id, type, title, body, entity_type, entity_id, is_read, created_at, archived_at")
-    .eq("user_id", userId)
-    .is("archived_at", null)
-    .order("created_at", { ascending: false })
-    .limit(limit)
-    .returns<NotificationRecord[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data ?? [];
-}
-
-export async function getUnreadNotificationCount() {
-  const userId = await getCurrentNotificationUserId();
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { count, error } = await db
-    .from("notifications")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .is("archived_at", null)
-    .eq("is_read", false);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return count ?? 0;
-}
-
 export async function getNotificationRecipientsForProject(projectId: string) {
-  const db = await createClient();
+  return asPerson((tx) =>
+    select<MentionCandidate>(
+      tx,
+      `${CANDIDATE_SQL}
+        where p.id in (select owner_id from erp.engagement where id = $1::uuid
+                       union select user_id from erp.engagement_staff where engagement_id = $1::uuid)
+        order by p.full_name`,
+      [projectId],
+    ),
+  );
+}
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const [{ data: project }, { data: members }] = await Promise.all([
-    db
-      .from("projects")
-      .select("owner_id")
-      .eq("id", projectId)
-      .maybeSingle<{ owner_id: string }>(),
-    db
-      .from("project_members")
-      .select("user_id")
-      .eq("project_id", projectId)
-      .returns<Array<{ user_id: string }>>(),
-  ]);
-
-  const ids = [
-    project?.owner_id,
-    ...(members ?? []).map((member) => member.user_id),
-  ].filter(Boolean) as string[];
-
-  return getProfilesByIds([...new Set(ids)]);
+// The person's own notification, changed; the rules let nobody else's be.
+async function updateOwn(set: string, where: string, params: unknown[] = []) {
+  const userId = await getCurrentNotificationUserId();
+  await asPerson((tx) => tx.query(`update work.notification set ${set} where user_id = $1 and archived_at is null and ${where}`, [userId, ...params]));
 }
 
 export async function markNotificationAsRead(notificationId: string) {
-  const userId = await getCurrentNotificationUserId();
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { error } = await db
-    .from("notifications")
-    .update({ is_read: true })
-    .eq("user_id", userId)
-    .eq("id", notificationId)
-    .is("archived_at", null);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  await updateOwn("is_read = true", "id = $2::uuid", [notificationId]);
 }
 
 export async function markAllNotificationsAsRead() {
-  const userId = await getCurrentNotificationUserId();
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { error } = await db
-    .from("notifications")
-    .update({ is_read: true })
-    .eq("user_id", userId)
-    .is("archived_at", null)
-    .eq("is_read", false);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  await updateOwn("is_read = true", "not is_read");
 }
 
 /** The user's notifications, newest first; `limit` keeps it to the latest ones. */
 export async function getUserNotifications(filters: NotificationFilters = {}, limit?: number) {
   const userId = await getCurrentNotificationUserId();
-  const db = await createClient();
+  const where = ["user_id = $1", "archived_at is null"];
+  const params: unknown[] = [userId];
+  const param = (value: unknown) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  let query = db
-    .from("notifications")
-    .select("id, user_id, type, title, body, entity_type, entity_id, is_read, created_at, archived_at")
-    .eq("user_id", userId)
-    .is("archived_at", null)
-    .order("created_at", { ascending: false });
-
-  if (filters.search) {
-    query = query.matchText(["title", "body"], filters.search);
-  }
-
-  if (filters.unreadOnly) {
-    query = query.eq("is_read", false);
-  }
-
-  if (filters.type) {
-    query = query.eq("type", filters.type);
-  }
-
-  const today = new Date();
-
+  if (filters.unreadOnly) where.push("not is_read");
+  if (filters.type) where.push(`type = ${param(filters.type)}`);
+  const since = (days: number) => {
+    const date = new Date();
+    date.setUTCDate(date.getUTCDate() - days);
+    return date.toISOString();
+  };
   if (filters.date === "today") {
-    query = query.gte("created_at", new Date(today.setUTCHours(0, 0, 0, 0)).toISOString());
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    where.push(`created_at >= ${param(today.toISOString())}::timestamptz`);
   }
+  if (filters.date === "week") where.push(`created_at >= ${param(since(7))}::timestamptz`);
+  if (filters.date === "month") where.push(`created_at >= ${param(since(30))}::timestamptz`);
+  // a search reads them all (then keeps the latest); otherwise only the latest are read
+  const limitSql = limit && !filters.search ? ` limit ${param(limit)}` : "";
 
-  if (filters.date === "week") {
-    const weekStart = new Date();
-    weekStart.setUTCDate(weekStart.getUTCDate() - 7);
-    query = query.gte("created_at", weekStart.toISOString());
-  }
+  const rows = await asPerson((tx) =>
+    select<NotificationRecord>(
+      tx,
+      `select id, user_id, type, title, body, subject_type as entity_type, subject_id as entity_id, is_read, created_at, archived_at
+         from work.notification where ${where.join(" and ")} order by created_at desc${limitSql}`,
+      params,
+    ),
+  );
+  if (!filters.search) return rows;
+  const terms = searchTerms(filters.search);
+  const found = rows.filter((row) => matchesSearchTerms(terms, [row.title, row.body]));
+  return limit ? found.slice(0, limit) : found;
+}
 
-  if (filters.date === "month") {
-    const monthStart = new Date();
-    monthStart.setUTCDate(monthStart.getUTCDate() - 30);
-    query = query.gte("created_at", monthStart.toISOString());
-  }
-
-  if (limit) {
-    query = query.limit(limit);
-  }
-
-  const { data, error } = await query.returns<NotificationRecord[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data ?? [];
+// What the bell checks every half minute: a version of the person's live notifications (it moves when one arrives, is
+// read or archived), so the list is read again only then.
+export async function getNotificationsVersion(): Promise<string> {
+  const userId = await getCurrentNotificationUserId();
+  const [row] = await asPerson((tx) =>
+    select<{ version: string }>(
+      tx,
+      `select count(*) || ':' || count(*) filter (where is_read) || ':' || coalesce(max(created_at)::text, '') as version
+         from work.notification where user_id = $1 and archived_at is null`,
+      [userId],
+    ),
+  );
+  return row?.version ?? "";
 }
 
 export async function archiveNotification(notificationId: string) {
-  const userId = await getCurrentNotificationUserId();
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { error } = await db
-    .from("notifications")
-    .update({ archived_at: new Date().toISOString(), is_read: true })
-    .eq("user_id", userId)
-    .eq("id", notificationId)
-    .is("archived_at", null);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  await updateOwn("archived_at = now(), is_read = true", "id = $2::uuid", [notificationId]);
 }

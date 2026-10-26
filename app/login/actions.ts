@@ -6,8 +6,8 @@ import { getAppBaseUrl } from "@/lib/app-url";
 import { sendMail } from "@/lib/email/server";
 import { adminAuth } from "@/lib/firebase/admin";
 import { hasFirebaseEnv } from "@/lib/firebase/config";
-import { createAdminClient } from "@/lib/firebase/server";
 import { clearSession, createPasswordSession } from "@/lib/firebase/session";
+import { createPerson, getPersonProfile } from "@/lib/work/people";
 
 export type AuthActionState = {
   error?: string;
@@ -93,11 +93,7 @@ export async function signInAction(
     };
   }
 
-  const { data: ownProfile } = await createAdminClient()!
-    .from("profiles")
-    .select("entity_code")
-    .eq("id", userId)
-    .maybeSingle<{ entity_code: string | null }>();
+  const ownProfile = await getPersonProfile(userId).catch(() => null);
 
   // the home page sends each person to theirs (Vanguard with ERP access)
   redirect(ownProfile?.entity_code ? "/" : "/select-entity");
@@ -129,9 +125,7 @@ export async function signUpAction(
     };
   }
 
-  const db = createAdminClient();
-
-  if (!db) {
+  if (!hasFirebaseEnv()) {
     return {
       error: "Firebase environment variables are missing.",
     };
@@ -145,21 +139,13 @@ export async function signUpAction(
       emailVerified: false,
     });
 
-    // Replaces the former `on_auth_user_created` trigger: self-service
-    // accounts always start as employees without an entity.
-    const { error } = await db.from("profiles").insert({
-      id: user.uid,
-      email,
-      full_name: fullName,
-      role: "employee",
-      entity_code: null,
-      is_super_admin: false,
-    });
-
-    if (error) {
+    // self-service accounts start without an entity (chosen next) nor access (staff on it, on first opening)
+    try {
+      await createPerson({ id: user.uid, email, fullName, isSuperAdmin: false });
+    } catch (error) {
       await adminAuth().deleteUser(user.uid);
       return {
-        error: error.message,
+        error: error instanceof Error ? error.message : "The account could not be created.",
       };
     }
 

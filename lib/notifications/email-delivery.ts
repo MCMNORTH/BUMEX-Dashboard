@@ -3,7 +3,7 @@ import "server-only";
 import { isSmtpConfigured, sendMail } from "@/lib/email/server";
 import { isMicrosoftGraphConfigured, sendMicrosoftGraphMail } from "@/lib/email/microsoft-graph";
 import { isResendConfigured, sendResendMail } from "@/lib/email/resend";
-import { createAdminClient } from "@/lib/firebase/server";
+import { asSystem, select } from "@/lib/work/db";
 
 const MAX_ATTEMPTS = 5;
 const NOTIFICATION_EMAIL_FROM = process.env.NOTIFICATION_EMAIL_FROM || "BUMEX <bumex@bumex.mr>";
@@ -86,21 +86,24 @@ function retryDelayMinutes(attempt: number) {
   return [5, 15, 60, 360][Math.max(0, attempt - 1)] ?? 360;
 }
 
-async function processEmail(
-  db: NonNullable<ReturnType<typeof createAdminClient>>,
-  notification: NotificationEmail,
-) {
+// The outbox (work.notification_email) is the server's own: written in its session, one row at a time, only while the
+// row is still claimed (processing).
+async function settle(id: string, set: string, params: unknown[] = []) {
+  try {
+    await asSystem("notification-email", (tx) =>
+      tx.query(`update work.notification_email set ${set} where id = $1::uuid and status = 'processing'`, [id, ...params]),
+    );
+    return true;
+  } catch (error) {
+    console.error("[notification-email:update-failure]", id, error instanceof Error ? error.message : "database");
+    return false;
+  }
+}
+
+async function processEmail(notification: NotificationEmail) {
   const createdAt = Date.parse(notification.created_at);
   if (Number.isFinite(createdAt) && Date.now() - createdAt > MAX_EMAIL_AGE_MS) {
-    const { error } = await db
-      .from("notification_email_outbox")
-      .update({ status: "expired", locked_at: null, last_error: "Not sent: older than 24 hours when delivery ran." })
-      .eq("id", notification.id)
-      .eq("status", "processing");
-
-    if (error) {
-      console.error("[notification-email:update-failure]", notification.id, error.code ?? "database");
-    }
+    await settle(notification.id, "status = 'expired', locked_at = null, last_error = 'Not sent: older than 24 hours when delivery ran.'");
     return { sent: 0, failed: 0 };
   }
 
@@ -129,32 +132,15 @@ async function processEmail(
       });
     }
 
-    const { error } = await db
-      .from("notification_email_outbox")
-      .update({ status: "sent", sent_at: new Date().toISOString(), locked_at: null, last_error: null })
-      .eq("id", notification.id)
-      .eq("status", "processing");
-
-    if (error) throw new Error(`Could not mark notification email as sent (${error.code ?? "database"}).`);
+    if (!(await settle(notification.id, "status = 'sent', sent_at = now(), locked_at = null, last_error = null"))) {
+      throw new Error("Could not mark notification email as sent (database).");
+    }
     return { sent: 1, failed: 0 };
   } catch (error) {
     const retry = notification.attempts < MAX_ATTEMPTS;
     const retryAt = new Date(Date.now() + retryDelayMinutes(notification.attempts) * 60_000).toISOString();
     const message = error instanceof Error ? error.message.slice(0, 500) : "Email delivery failed.";
-    const { error: updateError } = await db
-      .from("notification_email_outbox")
-      .update({
-        status: retry ? "pending" : "failed",
-        next_attempt_at: retryAt,
-        locked_at: null,
-        last_error: message,
-      })
-      .eq("id", notification.id)
-      .eq("status", "processing");
-
-    if (updateError) {
-      console.error("[notification-email:update-failure]", notification.id, updateError.code ?? "database");
-    }
+    await settle(notification.id, "status = $2, next_attempt_at = $3::timestamptz, locked_at = null, last_error = $4", [retry ? "pending" : "failed", retryAt, message]);
     console.error("[notification-email:delivery-failure]", notification.id, message);
     return { sent: 0, failed: 1 };
   }
@@ -163,26 +149,26 @@ async function processEmail(
 export async function dispatchNotificationEmails(notificationIds?: string[]) {
   if (notificationIds && notificationIds.length === 0) return { sent: 0, failed: 0, deferred: false };
 
-  const db = createAdminClient();
-  if (!db || (!isResendConfigured() && !isMicrosoftGraphConfigured() && !isSmtpConfigured(NOTIFICATION_EMAIL_FROM))) {
+  if (!isResendConfigured() && !isMicrosoftGraphConfigured() && !isSmtpConfigured(NOTIFICATION_EMAIL_FROM)) {
     return { sent: 0, failed: 0, deferred: true };
   }
 
-  const { data, error } = await db.rpc("claim_notification_email_outbox", {
-    p_batch_size: 100,
-    p_notification_ids: notificationIds ?? null,
-  }).returns<NotificationEmail[]>();
-
-  if (error) {
-    throw new Error(`Could not claim notification emails (${error.code ?? "database"}).`);
-  }
+  const items = await asSystem("notification-email", (tx) =>
+    select<NotificationEmail>(
+      tx,
+      `select id, notification_id, recipient_email, subject, body, subject_type as entity_type, subject_id as entity_id, attempts, created_at
+         from work.claim_notification_emails(100, $1::uuid[])`,
+      [notificationIds ?? null],
+    ),
+  ).catch((error: unknown) => {
+    throw new Error(`Could not claim notification emails (${error instanceof Error ? error.message : "database"}).`);
+  });
 
   let sent = 0;
   let failed = 0;
-  const items = (Array.isArray(data) ? data : []) as NotificationEmail[];
 
   for (let index = 0; index < items.length; index += 5) {
-    const batch = await Promise.all(items.slice(index, index + 5).map((item) => processEmail(db, item)));
+    const batch = await Promise.all(items.slice(index, index + 5).map((item) => processEmail(item)));
     sent += batch.reduce((total, result) => total + result.sent, 0);
     failed += batch.reduce((total, result) => total + result.failed, 0);
   }

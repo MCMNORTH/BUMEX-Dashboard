@@ -1,7 +1,7 @@
 import "server-only";
 
 import { logActivity } from "@/lib/activity/service";
-import { createClient } from "@/lib/firebase/server";
+import { asPerson, select, selectOne } from "@/lib/work/db";
 import type { AppRole } from "@/types/auth";
 import {
   canCreateNoteByRole,
@@ -13,39 +13,8 @@ import {
   type InternalNoteRecord,
 } from "@/types/note";
 
-type InternalNoteRow = Omit<InternalNoteRecord, "author"> & {
-  author:
-    | {
-        id: string;
-        full_name: string;
-        email: string;
-        avatar_url: string | null;
-        role: AppRole;
-      }
-    | Array<{
-        id: string;
-        full_name: string;
-        email: string;
-        avatar_url: string | null;
-        role: AppRole;
-      }>
-    | null;
-};
-
-function single<T>(value: T | T[] | null): T | null {
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-
-  return value;
-}
-
-function mapInternalNote(row: InternalNoteRow): InternalNoteRecord {
-  return {
-    ...row,
-    author: single(row.author),
-  };
-}
+// Notes: work.note (0008), seen by whoever may see their subject and their visibility (an archived note by nobody).
+const NOTE_COLUMNS = "n.id, n.subject_type as entity_type, n.subject_id as entity_id, n.author_id, n.title, n.body, n.visibility, n.pinned, n.created_at, n.updated_at, n.archived_at";
 
 function toActivityEntityType(entityType: InternalNoteEntityType) {
   return entityType;
@@ -72,73 +41,34 @@ export function validateNoteValues(title: string, body: string): InternalNoteAct
 }
 
 export async function getNotesForEntity(entityType: InternalNoteEntityType, entityId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db
-    .from("internal_notes")
-    .select(
-      `
-        id,
-        entity_type,
-        entity_id,
-        author_id,
-        title,
-        body,
-        visibility,
-        pinned,
-        created_at,
-        updated_at,
-        archived_at,
-        author:profiles!internal_notes_author_id_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        )
-      `,
-    )
-    .eq("entity_type", entityType)
-    .eq("entity_id", entityId)
-    .is("archived_at", null)
-    .order("pinned", { ascending: false })
-    .order("updated_at", { ascending: false })
-    .returns<InternalNoteRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data ?? []).map(mapInternalNote);
+  return asPerson((tx) =>
+    select<InternalNoteRecord>(
+      tx,
+      `select ${NOTE_COLUMNS},
+              (select jsonb_build_object('id', p.id, 'full_name', p.full_name, 'email', p.email, 'avatar_url', p.avatar_url, 'role', work.person_role(p.id))
+                 from work.person p where p.id = n.author_id) as author
+         from work.note n
+        where n.subject_type = $1 and n.subject_id = $2::uuid and n.archived_at is null
+        order by n.pinned desc, n.updated_at desc`,
+      [entityType, entityId],
+    ),
+  );
 }
 
 async function getNoteById(noteId: string) {
-  const db = await createClient();
+  return asPerson((tx) =>
+    selectOne<Pick<InternalNoteRecord, "id" | "entity_type" | "entity_id" | "author_id" | "title" | "body" | "visibility" | "pinned" | "archived_at">>(
+      tx,
+      `select ${NOTE_COLUMNS} from work.note n where n.id = $1::uuid`,
+      [noteId],
+    ),
+  );
+}
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db
-    .from("internal_notes")
-    .select("id, entity_type, entity_id, author_id, title, body, visibility, pinned, archived_at")
-    .eq("id", noteId)
-    .maybeSingle<
-      Pick<
-        InternalNoteRecord,
-        "id" | "entity_type" | "entity_id" | "author_id" | "title" | "body" | "visibility" | "pinned" | "archived_at"
-      >
-    >();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data ?? null;
+// A note changed by the person; the rules skip a note they may not change, which is said so.
+async function writeNote(noteId: string, set: string, params: unknown[], refusal: string) {
+  const written = await asPerson((tx) => tx.run(`update work.note set ${set} where id = $1::uuid`, [noteId, ...params]));
+  if (!written) throw new Error(refusal);
 }
 
 export async function createNote(values: InternalNoteFormValues, actor: { id: string; role: AppRole }) {
@@ -148,12 +78,6 @@ export async function createNote(values: InternalNoteFormValues, actor: { id: st
 
   if (!getAllowedNoteVisibilities(actor.role).includes(values.visibility)) {
     throw new Error("You do not have permission to use this visibility level.");
-  }
-
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
   }
 
   const payload = {
@@ -166,11 +90,13 @@ export async function createNote(values: InternalNoteFormValues, actor: { id: st
     pinned: values.pinned,
   };
 
-  const { data, error } = await db.from("internal_notes").insert(payload).select("id").maybeSingle<{ id: string }>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  const data = await asPerson((tx) =>
+    selectOne<{ id: string }>(
+      tx,
+      "insert into work.note (subject_type, subject_id, author_id, title, body, visibility, pinned) values ($1, $2::uuid, $3, $4, $5, $6, $7) returning id",
+      [payload.entity_type, payload.entity_id, payload.author_id, payload.title, payload.body, payload.visibility, payload.pinned],
+    ),
+  );
 
   await logActivity({
     userId: actor.id,
@@ -207,32 +133,7 @@ export async function updateNote(noteId: string, values: InternalNoteFormValues,
     throw new Error("You do not have permission to use this visibility level.");
   }
 
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db
-    .from("internal_notes")
-    .update({
-      title: values.title.trim(),
-      body: values.body.trim(),
-      visibility: values.visibility,
-      pinned: values.pinned,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", noteId)
-    .select("id")
-    .maybeSingle<{ id: string }>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
-    throw new Error("Unable to update this note.");
-  }
+  await writeNote(noteId, "title = $2, body = $3, visibility = $4, pinned = $5", [values.title.trim(), values.body.trim(), values.visibility, values.pinned], "Unable to update this note.");
 
   await logActivity({
     userId: actor.id,
@@ -265,29 +166,7 @@ export async function togglePinnedNote(noteId: string, pinned: boolean, actor: {
     throw new Error("You do not have permission to pin this note.");
   }
 
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db
-    .from("internal_notes")
-    .update({
-      pinned,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", noteId)
-    .select("id")
-    .maybeSingle<{ id: string }>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
-    throw new Error("Unable to pin this note.");
-  }
+  await writeNote(noteId, "pinned = $2", [pinned], "Unable to pin this note.");
 
   await logActivity({
     userId: actor.id,
@@ -314,29 +193,7 @@ export async function archiveNote(noteId: string, actor: { id: string; role: App
     throw new Error("You do not have permission to archive this note.");
   }
 
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db
-    .from("internal_notes")
-    .update({
-      archived_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", noteId)
-    .select("id")
-    .maybeSingle<{ id: string }>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
-    throw new Error("Unable to archive this note.");
-  }
+  await writeNote(noteId, "archived_at = now()", [], "Unable to archive this note.");
 
   await logActivity({
     userId: actor.id,

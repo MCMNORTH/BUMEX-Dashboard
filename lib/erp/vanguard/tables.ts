@@ -210,8 +210,8 @@ export const moduleTables: TableSpec[] = [
     fields: [
       id, entityId, text("code"), text("name"), { field: "regime", kind: "erp.counterparty_regime" }, text("country"), text("defaultCurrency"),
       int("paymentTermsDays"), uuid("groupEntityId"), text("email"), text("nif"), uuid("withholdingCodeId"), uuid("arAccountId"), bool("active"),
-      // beyond the engine's record: the BUMEX One client this customer is the accounting side of (clients.ts)
-      { field: "clientId", column: "bumex_client_id", write: false },
+      // beyond the engine's record: the group's client this customer is the accounting side of (0008: kept in step by the database)
+      { field: "clientId", read: "t.client_id::text", write: false },
     ],
     order: "t.code",
   },
@@ -273,18 +273,20 @@ export const moduleTables: TableSpec[] = [
     order: "t.code",
   },
   {
-    // missions are BUMEX One's projects (missions.ts): shown here, created and worked on in BUMEX One
+    // missions (BUMEX One's projects, every kind) are created and worked on in the Missions room (vanguard/one); a
+    // floor's state holds its own (others' members and workers read theirs there). Progress, hours and members are
+    // the same for everyone who sees the mission (0008 work.mission_*).
     collection: "engagements",
     table: "engagement",
-    where: "t.status <> 'cancelled'",
-    add: "Les missions se créent dans BUMEX One (Projets) : elles apparaissent ici d'elles-mêmes.",
-    remove: "Les missions se gèrent dans BUMEX One (Projets).",
+    where: "t.status <> 'cancelled' and erp.can_see_entity(t.entity_id)",
+    add: "Les missions se créent dans la salle Missions.",
+    remove: "Les missions se gèrent dans la salle Missions.",
     fields: [
       id, entityId, uuid("customerId", { write: false }), text("code", { write: false }), text("name", { write: false }), text("kind", { write: false }),
       {
-        // the five stages (planning, fieldwork, review, report, invoicing) follow BUMEX One's progress
+        // the five stages (planning, fieldwork, review, report, invoicing) follow the mission's progress
         field: "stage",
-        read: "case when t.stage_id is not null then (select s.stage_no from erp.engagement_stage s where s.id = t.stage_id) else least(5, 1 + t.progress / 20) end",
+        read: "case when t.stage_id is not null then (select s.stage_no from erp.engagement_stage s where s.id = t.stage_id) else least(5, 1 + work.mission_progress(t.id) / 20) end",
         write: false,
       },
       { field: "status", kind: "erp.engagement_status", write: false },
@@ -292,22 +294,22 @@ export const moduleTables: TableSpec[] = [
       text("feeType", { write: false }), num("fixedFee", { write: false }),
       { field: "currency", read: "coalesce(t.currency, (select e.functional_currency from erp.entity e where e.id = t.entity_id))::text", write: false },
       { field: "budgetHours", read: "coalesce(t.budget_hours, 0)::float8", write: false },
-      { field: "actualHours", read: "t.actual_hours::float8", write: false }, // BUMEX One's timesheets
+      { field: "actualHours", read: "work.mission_hours(t.id)::float8", write: false }, // the timesheets
       {
         field: "invoicedToDate",
         read: "(select coalesce(sum(i.total_ht), 0)::float8 from erp.sales_invoice i where i.engagement_id = t.id and i.status not in ('draft', 'cancelled'))",
         write: false,
       },
       {
-        // BUMEX One's project members, and the employees planned on it here
+        // the members, and the employees planned on it here
         field: "staff",
-        read: `coalesce((select jsonb_agg(distinct x) from (select unnest(t.staff) as x
+        read: `coalesce((select jsonb_agg(distinct x) from (select unnest(work.mission_staff(t.id)) as x
                  union select e.initials from erp.assignment a join erp.employee e on e.id = a.employee_id where a.engagement_id = t.id) s), '[]'::jsonb)`,
         write: false,
       },
       { field: "archiveId", read: "(select r.id from erp.archive_record r where r.engagement_id = t.id and r.status <> 'destroyed' limit 1)", write: false },
-      // beyond the engine's record: the BUMEX One project the mission is (Vanguard's mission forms)
-      { field: "projectId", column: "bumex_project_id", write: false },
+      // beyond the engine's record: the mission's own id for the Missions room's screens (vanguard/one)
+      { field: "projectId", read: "t.id::text", write: false },
     ],
     order: "t.code",
   },

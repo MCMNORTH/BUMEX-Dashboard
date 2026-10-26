@@ -5,8 +5,8 @@ import { requireErpAccess } from "@/lib/erp/server";
 import { getBankStatements, getInvoices, getPayments, getTransfers } from "@/lib/finance/service";
 
 // The Reports room's "Archives financières" part (vanguard/one/FinanceArchive.tsx): BUMEX One's finance records,
-// read-only since the ERP keeps the books (choice of 2026-10-24; lib/finance/archive.ts refuses every change), for the
-// people its Finance pages were for.
+// read-only since the ERP keeps the books (choice of 2026-10-24; the database refuses every change: work.finance_*,
+// 0008), for the people its Finance pages were for.
 
 export type FinanceArchive = {
   invoices: { id: string; number: string; client: string | null; project: string | null; issued: string; due: string; ht: number; tax: number; ttc: number; currency: string; status: string; approved: boolean }[];

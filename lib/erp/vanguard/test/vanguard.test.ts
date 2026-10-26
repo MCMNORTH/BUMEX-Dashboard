@@ -14,9 +14,6 @@ import { vanguardCommands } from "@/lib/erp/vanguard/commands";
 import * as domain from "@/lib/erp/vanguard/domain";
 import { vanguardErrorMessage } from "@/lib/erp/vanguard/errors";
 import { loadVanguardState, type VanguardPerson } from "@/lib/erp/vanguard/load";
-import { mirrorClients } from "@/lib/erp/vanguard/clients";
-import { initialsOf, mirrorMissions, type MissionSource } from "@/lib/erp/vanguard/missions";
-import type { VanguardTicket } from "@/lib/erp/vanguard/tickets";
 import { record, type VanguardChange } from "@/lib/erp/vanguard/record";
 import { ReplayError } from "@/lib/erp/vanguard/replay";
 import { applyVanguardChange } from "@/lib/erp/vanguard/save";
@@ -24,7 +21,10 @@ import type { ErpAccess, ErpModuleKey, ErpRole } from "@/types/erp";
 
 const migrations = join(process.cwd(), "db/erp/migrations");
 let db: PGlite;
-const tx: ErpTransaction = { query: async <T,>(sql: string, params?: unknown[]) => (await db.query(sql, params as never[])).rows as T[] };
+const tx: ErpTransaction = {
+  query: async <T,>(sql: string, params?: unknown[]) => (await db.query(sql, params as never[])).rows as T[],
+  run: async (sql: string, params?: unknown[]) => (await db.query(sql, params as never[])).affectedRows ?? 0,
+};
 
 const people: VanguardPerson[] = [
   { id: "awa", name: "Awa Associée", email: "awa@bumex.mr", entityCode: "bumex_audit", active: true, present: true },
@@ -33,6 +33,7 @@ const people: VanguardPerson[] = [
   { id: "gone", name: "Ancien", email: "old@bumex.mr", entityCode: "bumex_audit", active: false, present: false },
   { id: "adm", name: "Admin ERP", email: "adm@bumex.mr", entityCode: "bumex_holding", active: true, present: true },
   { id: "nouveau", name: "Nouvelle Recrue", email: "nouveau@bumex.mr", entityCode: "bumex_sa", active: true, present: true },
+  { id: "mariem", name: "Mariem Sow", email: "mariem@bumex.mr", entityCode: "bumex_audit", active: true, present: true },
 ];
 // role, entities (null = all), modules (null = the role's)
 const grants: Record<string, [ErpRole, string[] | null, ErpModuleKey[] | null]> = {
@@ -61,12 +62,12 @@ async function as<T>(uid: string, work: () => Promise<T>): Promise<T> {
   }
 }
 
-// The server's own work (the missions' mirror): every entity, the actor recorded.
+// The server's own work (and the Missions room's, written here directly): every entity, the actor recorded.
 async function asSystem<T>(work: () => Promise<T>): Promise<T> {
   await db.exec("begin");
   try {
     await db.exec("set local role erp_app");
-    await db.query("select erp.open_system_session('bumex-one')");
+    await db.query("select erp.open_system_session('test')");
     const out = await work();
     await db.exec("commit");
     return out;
@@ -114,6 +115,9 @@ const draft = (s: State, amount = 150000): DraftInput => {
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(readdirSync(migrations).filter((f) => f.endsWith(".sql")).sort().map((f) => readFileSync(join(migrations, f), "utf8")).join("\n"));
+  for (const p of people) {
+    await db.query("insert into work.person (id, email, full_name, entity_code) values ($1, $2, $3, $4)", [p.id, p.email, p.name, p.entityCode]);
+  }
   for (const [uid, [role, codes, modules]] of Object.entries(grants)) {
     await db.query("insert into erp.user_access (user_id, erp_role, entity_codes, modules, granted_by) values ($1, $2, $3, $4, 'test')", [uid, role, codes, modules]);
   }
@@ -144,7 +148,7 @@ describe("the state read from the database", () => {
     const { state } = await load("aicha");
     expect(state.entities.map((e) => e.code)).toEqual(["HOLD", "SA", "AUD", "ADV", "MAU", "AVO", "IT", "MAR"]);
     const aud = state.entities.find((e) => e.code === "AUD")!;
-    expect([aud.staffTotal, aud.staffPresent]).toEqual([3, 2]); // "gone" is inactive in BUMEX One
+    expect([aud.staffTotal, aud.staffPresent]).toEqual([4, 3]); // "gone" is inactive in BUMEX One
     expect(state.session).toMatchObject({ userId: "aicha", role: "accountant", entityIds: [audit] });
     expect(state.session.modules).toEqual(expect.arrayContaining(["accounting", "reports", "missions", "tasks"]));
     expect(state.users.map((u) => u.id)).toEqual(["aicha"]);
@@ -417,47 +421,50 @@ describe("the modules", () => {
     expect(accountant.auditLog.some((r) => r.table === "employee" || r.table === "payroll_run")).toBe(false);
   });
 
-  const project = (more: Partial<MissionSource> = {}): MissionSource => ({
-    projectId: "prj-1", entityCode: "bumex_audit", name: "Audit légal 2025", kind: "client_mission", status: "active", startDate: "2026-05-01",
-    endDate: "2026-07-31", budget: 900000, progress: 45, hours: 12.5, staff: ["M.S."],
-    client: { id: "cli-snim", name: "snim", email: "dg@snim.mr", country: "MR", taxId: null }, ...more,
-  });
   const version = async () => (await db.query<{ v: number }>("select max(id)::int as v from erp.audit_log")).rows[0].v;
+  // a mission as the Missions room saves it (lib/projects/service.ts), on BUMEX Audit
+  const mission = (name: string, clientId: string | null, more: { progress?: number; fee?: number } = {}) =>
+    asSystem(async () =>
+      (await db.query<{ id: string }>(
+        `insert into erp.engagement (entity_id, owner_id, client_id, name, project_kind, status, start_date, deadline, fixed_fee, manual_progress)
+         values ($1, 'awa', $2, $3, 'client_mission', 'active', '2026-05-01', '2026-07-31', $4, $5) returning id`,
+        [audit, clientId, name, more.fee ?? null, more.progress ?? null],
+      )).rows[0].id,
+    );
 
-  it("missions are BUMEX One's projects: mirrored with their client's customer, read-only in Vanguard", async () => {
-    expect(initialsOf("Mariem  Sow")).toBe("M.S.");
-    await asSystem(() => mirrorMissions(tx, [project(), project({ projectId: "prj-2", name: "Conseil fiscal", client: { id: "cli-new", name: "Banque Populaire", email: null, country: "Mauritanie", taxId: "123" } }), project({ projectId: "prj-int", kind: "client_mission", entityCode: "bumex_nowhere" })]));
+  it("missions are erp.engagement: their client's customer, their members, their hours; read-only in the engine", async () => {
+    // the customer added in Vanguard got its client (0008: one client, two sides)
+    const snim = (await db.query<{ client_id: string }>("select client_id from erp.customer where id = $1", [customer])).rows[0].client_id;
+    expect(snim).toBeTruthy();
+    engagement = await mission("Audit légal 2025", snim, { progress: 45, fee: 900000 });
+    await asSystem(async () => {
+      await db.query("insert into erp.engagement_staff (engagement_id, user_id, role) values ($1, 'mariem', 'employee')", [engagement]);
+      await db.query("insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'mariem', '2026-05-04', 600), ($1, 'mariem', '2026-05-05', 150)", [engagement]);
+      const bp = (await db.query<{ id: string }>("insert into work.client (name, country, tax_id, status) values ('Banque Populaire', 'Mauritanie', '123', 'active') returning id")).rows[0].id;
+      return bp;
+    }).then((bp) => mission("Conseil fiscal", bp));
     const { state } = await load("aicha");
     const audit2025 = state.engagements.find((e) => e.name === "Audit légal 2025")!;
-    engagement = audit2025.id;
-    // the customer created in Vanguard under the same name is the client's (no duplicate); a new client gets one
-    expect(audit2025).toMatchObject({ code: "M-001", customerId: customer, status: "active", stage: 3, actualHours: 12.5, staff: ["M.S."], fixedFee: 900000 });
+    expect(audit2025).toMatchObject({ code: "M-001", customerId: customer, status: "active", stage: 3, actualHours: 12.5, staff: ["M.S."], fixedFee: 900000, projectId: engagement });
+    // a new client gets its customer where the entity has its chart
     const bp = state.customers.find((c) => c.name === "Banque Populaire")!;
     expect(bp).toMatchObject({ nif: "123", defaultCurrency: "MRU" });
     expect(bp.country).toBeUndefined(); // not a country code
     expect(state.engagements.find((e) => e.name === "Conseil fiscal")).toMatchObject({ code: "M-002", customerId: bp.id });
 
-    // the same projects again write nothing (the screens' version does not move)
-    const before = await version();
-    await asSystem(() => mirrorMissions(tx, [project(), project({ projectId: "prj-2", name: "Conseil fiscal", client: { id: "cli-new", name: "Banque Populaire", email: null, country: null, taxId: "123" } })]));
-    expect(await version()).toBe(before);
-
-    // a project gone from BUMEX One is cancelled here, and no longer shown
-    await asSystem(() => mirrorMissions(tx, [project()]));
-    expect((await load("aicha")).state.engagements.map((e) => e.name)).toEqual(["Audit légal 2025"]);
-
     await expect(change("aicha", (s) => domain.createTask(s, { entityId: audit, title: "x", module: "missions", assignee: "M.S.", dueDate: "2026-06-15", engagementId: "nope" }))).rejects.toThrow(/Mission inconnue/);
-    await expect(change("awa", (s) => domain.requestDeletion(s, { table: "engagement", rowId: engagement, label: "M-001", reason: "test de suppression", entityId: audit }))).rejects.toThrow(/BUMEX One/);
+    await expect(change("awa", (s) => domain.requestDeletion(s, { table: "engagement", rowId: engagement, label: "M-001", reason: "test de suppression", entityId: audit }))).rejects.toThrow(/salle Missions/);
   });
 
-  it("a client edited in BUMEX One updates its customer accounts (name, e-mail, tax id) and their ledger account", async () => {
-    await asSystem(() => mirrorClients(tx, [{ id: "cli-snim", name: "SNIM SA", email: "finance@snim.mr", country: "MR", taxId: "NIF-9" }]));
+  it("a client edited updates its customer accounts (name, e-mail, tax id) and their ledger account", async () => {
+    await asSystem(() => db.query("update work.client set name = 'SNIM SA', contact_email = 'finance@snim.mr', tax_id = 'NIF-9' where id = (select client_id from erp.customer where id = $1)", [customer]));
     const { state } = await load("aicha");
     const snim = state.customers.find((c) => c.id === customer)!;
-    expect(snim).toMatchObject({ name: "SNIM SA", email: "finance@snim.mr", nif: "NIF-9", clientId: "cli-snim" });
+    expect(snim).toMatchObject({ name: "SNIM SA", email: "finance@snim.mr", nif: "NIF-9" });
     expect(state.accounts.find((a) => a.id === snim.arAccountId)?.nameFr).toBe("SNIM SA");
+    // the same values again change nothing (the screens' version does not move)
     const before = await version();
-    await asSystem(() => mirrorClients(tx, [{ id: "cli-snim", name: "SNIM SA", email: "finance@snim.mr", country: "MR", taxId: "NIF-9" }]));
+    await asSystem(() => db.query("update work.client set name = 'SNIM SA', contact_email = 'finance@snim.mr', tax_id = 'NIF-9' where id = (select client_id from erp.customer where id = $1)", [customer]));
     expect(await version()).toBe(before);
   });
 
@@ -465,36 +472,43 @@ describe("the modules", () => {
     const assigned = await change("awa", (s) => domain.assign(s, { entityId: audit, engagementId: engagement, employeeId: employee, start: "2026-06-01", end: "2026-06-30", load: 0.5 }));
     expect(assigned.state.engagements.find((e) => e.id === engagement)!.staff).toEqual(["M.S."]);
 
-    // the tasks are BUMEX One's tickets: the engine's own task changes are not saved
-    await expect(change("aicha", (s) => domain.createTask(s, { entityId: audit, title: "Confirmations", module: "missions", assignee: "M.S.", dueDate: "2026-06-15", engagementId: engagement }))).rejects.toThrow(/tickets de BUMEX One/);
+    // the tasks are the tickets: the engine's own task changes are not saved
+    await expect(change("aicha", (s) => domain.createTask(s, { entityId: audit, title: "Confirmations", module: "missions", assignee: "M.S.", dueDate: "2026-06-15", engagementId: engagement }))).rejects.toThrow(/tickets des missions/);
 
-    // completed in BUMEX One, then boxed in the archive rack here
-    await asSystem(() => mirrorMissions(tx, [project({ status: "completed", progress: 100 })]));
+    // completed in the Missions room, then boxed in the archive rack here
+    await asSystem(() => db.query("update erp.engagement set status = 'completed' where id = $1", [engagement]));
     const archived = await change("aicha", (s) => domain.archiveEngagement(s, { engagementId: engagement, kind: "box", boxCount: 2 }));
     expect(archived.state.archives[0]).toMatchObject({ engagementId: engagement, status: "archived", boxCount: 2 });
     expect(archived.state.archives[0].reference).toMatch(/^ARC-\d{4}-0001$/);
     expect(archived.state.engagements.find((e) => e.id === engagement)!.archiveId).toBe(archived.state.archives[0].id);
   });
 
-  it("tasks are the tickets of the missions, read from BUMEX One", async () => {
-    const ticket = (id: string, more: Partial<VanguardTicket> = {}): VanguardTicket => ({
-      id, title: `Ticket ${id}`, description: null, project_id: "prj-1", assignee_id: "aicha", reporter_id: "awa", status: "todo", stage_id: null, priority: "medium",
-      type: "task", due_date: null, created_at: "2026-06-01T08:00:00Z", updated_at: "2026-06-02T08:00:00Z", ...more,
+  it("tasks are the tickets of the missions the person sees, by BUMEX One's rules", async () => {
+    const elsewhere = await asSystem(async () =>
+      (await db.query<{ id: string }>("insert into erp.engagement (entity_id, owner_id, name, project_kind, deadline) values ($1, 'adm', 'Ailleurs', 'internal_tool', '2026-12-31') returning id", [it_])).rows[0].id,
+    );
+    await asSystem(async () => {
+      const ticket = (id: string, missionId: string, more: string, values: unknown[] = []) =>
+        db.query(
+          `insert into erp.task (id, engagement_id, title, assignee_id, reporter_id, status, priority, due_date, completed_at, created_at, updated_at)
+           values ($1, $2, $3, 'aicha', 'awa', ${more}, '2026-06-01T08:00:00Z', '2026-06-02T08:00:00Z')`,
+          [id, missionId, `Ticket ${id}`, ...values],
+        );
+      await ticket("00000000-0000-4000-8000-0000000000a1", engagement, "'review', 'urgent', '2026-06-10', null");
+      await ticket("00000000-0000-4000-8000-0000000000a2", engagement, "'done', 'medium', null, '2026-06-02'");
+      await ticket("00000000-0000-4000-8000-0000000000a3", elsewhere, "'todo', 'medium', null, null");
+      // a ticket that is neither theirs nor of a mission they manage stays out of their sight
+      await db.query("insert into erp.task (engagement_id, title, assignee_id, reporter_id) values ($1, 'Pas pour Aïcha', 'awa', 'awa')", [engagement]);
     });
-    const tickets = [
-      ticket("t1", { due_date: "2026-06-10", priority: "urgent", status: "review" }),
-      ticket("t2", { status: "done" }),
-      ticket("t3", { project_id: "prj-elsewhere" }),
-    ];
-    const { state } = await as("aicha", () => loadVanguardState(tx, who("aicha"), accessOf("aicha"), people, { tickets }));
-    expect(state.tasks.map((t) => [t.id, t.status, t.priority, t.dueDate, t.assignee, t.engagementId === engagement])).toEqual([
-      ["t1", "in_progress", "high", "2026-06-10", "Aïcha Comptable", true],
-      ["t2", "done", "normal", "9999-12-31", "Aïcha Comptable", true],
+    const { state } = await load("aicha");
+    expect(state.tasks.map((t) => [t.id.slice(-2), t.status, t.priority, t.dueDate, t.assignee, t.engagementId === engagement])).toEqual([
+      ["a1", "in_progress", "high", "2026-06-10", "Aïcha Comptable", true],
+      ["a2", "done", "normal", "9999-12-31", "Aïcha Comptable", true],
     ]);
     expect(domain.taskStats(state, audit)).toMatchObject({ active: 1, done: 1 });
   });
 
-  it("access: the ERP administrator opens the ERP to a BUMEX One person, changes it, closes it", async () => {
+  it("access: the ERP administrator opens the ERP to a person, changes it, closes it", async () => {
     const granted = await change("adm", (s) => domain.createUser(s, { name: "Nouvelle Recrue", email: "nouveau@bumex.mr", role: "accountant", entityIds: [audit] }));
     expect(granted.state.users.find((u) => u.id === "nouveau")).toMatchObject({ role: "accountant", entityIds: [audit] });
     expect((await db.query("select entity_codes, modules from erp.user_access where user_id = 'nouveau'")).rows).toEqual([{ entity_codes: ["bumex_audit"], modules: null }]);
@@ -502,7 +516,7 @@ describe("the modules", () => {
     expect(changed.state.users.find((u) => u.id === "nouveau")!.role).toBe("manager");
     const closed = await change("adm", (s) => domain.setUserStatus(s, "nouveau", "disabled"));
     expect(closed.state.users.some((u) => u.id === "nouveau")).toBe(false);
-    await expect(change("adm", (s) => domain.createUser(s, { name: "Inconnu", email: "inconnu@bumex.mr", role: "staff", entityIds: "*" }))).rejects.toThrow(/BUMEX One/);
+    await expect(change("adm", (s) => domain.createUser(s, { name: "Inconnu", email: "inconnu@bumex.mr", role: "staff", entityIds: "*" }))).rejects.toThrow(/Aucune personne/);
     await expect(change("aicha", (s) => domain.createUser(s, { name: "X", email: "nouveau@bumex.mr", role: "staff", entityIds: "*" }))).rejects.toThrow(/administrateur/);
   });
 

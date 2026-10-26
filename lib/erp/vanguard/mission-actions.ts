@@ -1,20 +1,18 @@
 "use server";
 
-import { withErpSession } from "@/lib/erp/db";
 import { requireErpAccess } from "@/lib/erp/server";
-import { syncMissions } from "@/lib/erp/vanguard/missions";
 import { loadVanguard, type VanguardResult } from "@/lib/erp/vanguard/run";
-import { createClient } from "@/lib/firebase/server";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { validateProjectValues } from "@/lib/projects/form";
 import { addProjectMember, removeProjectMember } from "@/lib/projects/members";
-import { createProject, updateProject } from "@/lib/projects/service";
+import { createProject, setMissionTerms, updateProject } from "@/lib/projects/service";
+import { asPerson, select, selectOne } from "@/lib/work/db";
 import type { BumexEntityCode } from "@/types/entity";
 import type { ProjectFormValues } from "@/types/project";
 
-// Vanguard's Missions room creates and edits missions, which are BUMEX One's projects (lib/erp/vanguard/missions.ts):
-// the project is saved with BUMEX One's own code (its activity log, notifications and default board), its team with
-// BUMEX One's members, and the ERP's fields of the mission (fee type, hours budget) in erp.engagement.
+// Vanguard's Missions room creates and edits missions (erp.engagement, every kind of project): the project's fields and
+// its activity, notifications and default board (lib/projects/service.ts), its team (lib/projects/members.ts), and the
+// ERP's own fields of the mission (fee type, hours budget).
 
 export type MissionInput = ProjectFormValues & {
   project_id?: string;
@@ -30,6 +28,15 @@ export type MissionOptions = {
   me: string;
 };
 
+// A mission's id, or the id its project had in BUMEX One (an old link, an e-mail sent before the move).
+export async function resolveMissionId(id: string): Promise<string | null> {
+  if (!id) return null;
+  const row = await asPerson((tx) =>
+    selectOne<{ id: string }>(tx, "select id from erp.engagement where id::text = $1 or bumex_project_id = $1 order by (id::text = $1) desc limit 1", [id]),
+  ).catch(() => null);
+  return row?.id ?? null;
+}
+
 // Who may create and edit missions, by ERP role: partners, the finance lead and the administrator any mission of
 // the entities they see; managers the missions they lead (before and after the change).
 async function missionAccess(input: MissionInput) {
@@ -44,56 +51,48 @@ async function missionAccess(input: MissionInput) {
 
 export async function missionOptionsAction(): Promise<MissionOptions> {
   const { auth } = await requireErpAccess();
-  const db = await createClient();
-  if (!db) return { clients: [], people: [], me: auth.profile.id };
-  const [clients, people] = await Promise.all([
-    db.from("clients").select("id, name").order("name").returns<{ id: string; name: string }[]>(),
-    db.from("profiles").select("id, full_name, email").order("full_name").returns<{ id: string; full_name: string | null; email: string }[]>(),
-  ]);
-  return {
-    clients: clients.data ?? [],
-    people: (people.data ?? []).map((p) => ({ id: p.id, name: p.full_name || p.email })),
-    me: auth.profile.id,
-  };
+  const { clients, people } = await asPerson(async (tx) => ({
+    clients: await select<{ id: string; name: string }>(tx, "select id, name from work.client order by name"),
+    people: await select<{ id: string; name: string }>(tx, "select id, coalesce(nullif(trim(full_name), ''), email) as name from work.person order by full_name"),
+  }));
+  return { clients, people, me: auth.profile.id };
 }
 
-// What the edit form starts from: the project as BUMEX One has it, its team, and the mission's ERP fields.
+// What the edit form starts from: the mission, its team and its ERP fields.
 export async function missionDetailsAction(projectId: string): Promise<Omit<MissionInput, "entity_id"> | null> {
-  const { auth } = await requireErpAccess();
-  const db = await createClient();
-  if (!db || !projectId) return null;
-  const [{ data: project }, { data: members }] = await Promise.all([
-    db
-      .from("projects")
-      .select("id, name, client_id, description, owner_id, status, start_date, end_date, budget_amount, priority, project_kind, manual_progress, entity_code")
-      .eq("id", projectId)
-      .maybeSingle<Record<string, string | number | null>>(),
-    db.from("project_members").select("user_id").eq("project_id", projectId).returns<{ user_id: string }[]>(),
-  ]);
-  if (!project) return null;
-  const [mission] = await withErpSession(auth.profile.id, (tx) =>
-    tx.query<{ fee_type: "fixed" | "time"; budget_hours: number | null }>(
-      "select fee_type, budget_hours::float8 as budget_hours from erp.engagement where bumex_project_id = $1",
-      [projectId],
+  await requireErpAccess();
+  const id = await resolveMissionId(projectId);
+  if (!id) return null;
+  type Row = Record<string, string | number | null> & { member_ids: string[] };
+  const mission = await asPerson((tx) =>
+    selectOne<Row>(
+      tx,
+      `select e.id, e.name, e.client_id, e.description, e.owner_id, case when e.status = 'planned' then 'draft' else e.status::text end as status,
+              e.start_date, e.deadline as end_date, e.fixed_fee::float8 as budget_amount, e.priority, coalesce(e.project_kind, 'client_mission') as project_kind,
+              e.manual_progress, e.fee_type, e.budget_hours::float8 as budget_hours,
+              coalesce((select array_agg(s.user_id order by s.user_id) from erp.engagement_staff s where s.engagement_id = e.id), '{}') as member_ids
+         from erp.engagement e where e.id = $1::uuid`,
+      [id],
     ),
   );
+  if (!mission) return null;
   const text = (value: string | number | null | undefined) => (value === null || value === undefined ? "" : String(value));
   return {
-    project_id: projectId,
-    name: text(project.name),
-    client_id: text(project.client_id),
-    description: text(project.description),
-    owner_id: text(project.owner_id),
-    status: (project.status as ProjectFormValues["status"]) ?? "active",
-    start_date: text(project.start_date),
-    end_date: text(project.end_date),
-    budget_amount: text(project.budget_amount),
-    priority: (project.priority as ProjectFormValues["priority"]) ?? "",
-    project_kind: (project.project_kind as ProjectFormValues["project_kind"]) ?? "client_mission",
-    manual_progress: text(project.manual_progress),
-    member_ids: (members ?? []).map((m) => m.user_id),
-    fee_type: mission?.fee_type ?? "fixed",
-    budget_hours: text(mission?.budget_hours),
+    project_id: id,
+    name: text(mission.name),
+    client_id: text(mission.client_id),
+    description: text(mission.description),
+    owner_id: text(mission.owner_id),
+    status: (mission.status as ProjectFormValues["status"]) ?? "active",
+    start_date: text(mission.start_date),
+    end_date: text(mission.end_date),
+    budget_amount: text(mission.budget_amount),
+    priority: (mission.priority as ProjectFormValues["priority"]) ?? "",
+    project_kind: (mission.project_kind as ProjectFormValues["project_kind"]) ?? "client_mission",
+    manual_progress: text(mission.manual_progress),
+    member_ids: mission.member_ids,
+    fee_type: (mission.fee_type as MissionInput["fee_type"]) ?? "fixed",
+    budget_hours: text(mission.budget_hours),
   };
 }
 
@@ -103,9 +102,9 @@ export async function saveMissionAction(input: MissionInput): Promise<VanguardRe
   if (!allowed) {
     return refuse(fr ? "Votre rôle ERP ne permet pas de créer ou modifier cette mission." : "Your ERP role cannot create or edit this mission.");
   }
-  // the floor's entity, as BUMEX One codes it, among those the person sees
-  const [entity] = await withErpSession(auth.profile.id, (tx) =>
-    tx.query<{ code: BumexEntityCode }>("select code from erp.entity where id = $1 and erp.can_see_entity(id)", [input.entity_id]),
+  // the floor's entity, among those the person sees
+  const entity = await asPerson((tx) =>
+    selectOne<{ code: BumexEntityCode }>(tx, "select code from erp.entity where id = $1::uuid and erp.can_see_entity(id)", [input.entity_id]),
   );
   if (!entity) return refuse(fr ? "Entité non autorisée." : "Entity not allowed.");
   const values: ProjectFormValues = {
@@ -131,28 +130,17 @@ export async function saveMissionAction(input: MissionInput): Promise<VanguardRe
     if (projectId) await updateProject(projectId, values, auth.profile.id);
     else projectId = await createProject(values, auth.profile.id, entity.code);
 
-    // the team: BUMEX One's members of the project
-    const db = await createClient();
-    const { data: current } = db
-      ? await db.from("project_members").select("user_id").eq("project_id", projectId).returns<{ user_id: string }[]>()
-      : { data: [] };
-    const before = new Set((current ?? []).map((m) => m.user_id));
+    const id = projectId;
+    const current = await asPerson((tx) => select<{ user_id: string }>(tx, "select user_id from erp.engagement_staff where engagement_id = $1::uuid", [id]));
+    const before = new Set(current.map((m) => m.user_id));
     const after = new Set(input.member_ids);
-    for (const id of after) if (!before.has(id)) await addProjectMember(projectId, id, auth.profile.id);
-    for (const id of before) if (!after.has(id)) await removeProjectMember(projectId, id, auth.profile.id);
+    for (const person of after) if (!before.has(person)) await addProjectMember(id, person, auth.profile.id);
+    for (const person of before) if (!after.has(person)) await removeProjectMember(id, person, auth.profile.id);
+    await asPerson((tx) => setMissionTerms(tx, id, input.fee_type, hours));
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (message === "staffed") {
-      return refuse(fr ? "Une personne retirée de l'équipe a encore une affectation sur cette mission." : "A person removed from the team still has an assignment on this mission.");
-    }
-    console.error("[erp:missions] save", message);
+    console.error("[erp:missions] save", error instanceof Error ? error.message : error);
     return refuse(fr ? "La mission n'a pas pu être enregistrée." : "The mission could not be saved.");
   }
 
-  // the mission exists in the ERP now; its own fields go there
-  await syncMissions(auth.profile.id, { force: true });
-  await withErpSession(auth.profile.id, (tx) =>
-    tx.query("update erp.engagement set fee_type = $2, budget_hours = $3 where bumex_project_id = $1", [projectId, input.fee_type, hours]),
-  );
   return { ok: true, projectId, ...(await loadVanguard(auth.profile, access)) };
 }

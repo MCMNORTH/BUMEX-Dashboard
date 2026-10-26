@@ -1,8 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-
 import { requireRouteAccess } from "@/lib/auth/server";
 import { isManagerLikeRole } from "@/lib/auth/permissions";
 import { getTeamMemberById, updateTeamMember } from "@/lib/team/service";
@@ -47,17 +44,6 @@ function validate(values: TeamMemberFormValues) {
   }
 
   return null;
-}
-
-export async function updateTeamMemberAction(
-  _prevState: TeamActionState,
-  formData: FormData,
-): Promise<TeamActionState> {
-  const result = await saveTeamMember(formData);
-  if (result.error) {
-    return result;
-  }
-  redirect(`/team/${getString(formData, "member_id")}?toast=team-updated`);
 }
 
 /** The person's form in BUMEX Vanguard's People tab (vanguard/one/Person.tsx): the same rules, an answer instead of a redirect. */
@@ -105,12 +91,11 @@ async function saveTeamMember(formData: FormData): Promise<TeamActionState & { s
     values.phone = target.member.phone ?? "";
   }
 
-  await updateTeamMember(memberId, values, {
-    id: auth.profile.id,
-    role: auth.role,
-  });
+  try {
+    await updateTeamMember(memberId, values, { id: auth.profile.id, role: auth.role });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "The profile could not be saved." };
+  }
 
-  revalidatePath("/team");
-  revalidatePath(`/team/${memberId}`);
   return { success: true };
 }

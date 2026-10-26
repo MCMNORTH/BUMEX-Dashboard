@@ -1,7 +1,7 @@
 "use server";
 
 import { requireAuthenticatedUser } from "@/lib/auth/server";
-import { createClient } from "@/lib/firebase/server";
+import { asPerson } from "@/lib/work/db";
 
 export async function updateEmailNotificationsAction(enabled: boolean): Promise<{ error?: string }> {
   const auth = await requireAuthenticatedUser();
@@ -10,16 +10,10 @@ export async function updateEmailNotificationsAction(enabled: boolean): Promise<
     return { error: "Unknown email notification option." };
   }
 
-  const db = await createClient();
-
-  if (!db) {
-    return { error: "Firebase is not configured." };
+  try {
+    await asPerson((tx) => tx.query("update work.person set email_notifications = $2 where id = $1", [auth.profile.id, enabled]));
+    return {};
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "The preference could not be saved." };
   }
-
-  const { error } = await db
-    .from("profiles")
-    .update({ email_notifications: enabled, updated_at: new Date().toISOString() })
-    .eq("id", auth.profile.id);
-
-  return error ? { error: error.message } : {};
 }

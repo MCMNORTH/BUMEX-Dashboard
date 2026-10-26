@@ -33,16 +33,6 @@ async function runMemberChange(
     await change(projectId, userId, auth.profile.id);
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-
-    if (message === "staffed") {
-      return {
-        ok: false,
-        error: isFr
-          ? "Cette personne a une affectation en cours sur ce projet. Terminez-la ou annulez-la dans Staffing."
-          : "This person has an open assignment on this project. Complete or cancel it in Staffing.",
-      };
-    }
-
     return { ok: false, error: message || (isFr ? "L’équipe n’a pas pu être modifiée." : "The team could not be updated.") };
   }
 

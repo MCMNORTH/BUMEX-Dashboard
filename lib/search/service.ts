@@ -1,14 +1,13 @@
 import "server-only";
 
 import { canViewInternalTickets, canViewSensitiveFinance } from "@/lib/auth/permissions";
-import { applyEntityScope, getOptionalCurrentEntityCode } from "@/lib/entities/scope";
 import {
   canSearchEntity,
   canViewSearchResult,
   sanitizeSearchResultForRole,
 } from "@/lib/search/permissions";
-import { createClient } from "@/lib/firebase/server";
-import { normalizeSearchText, searchTerms } from "@/lib/search/text";
+import { matchesSearchTerms, normalizeSearchText, searchTerms } from "@/lib/search/text";
+import { asPerson, select } from "@/lib/work/db";
 import type { AppRole } from "@/types/auth";
 import type { GlobalSearchEntityType, GlobalSearchResult } from "@/types/search";
 
@@ -94,53 +93,35 @@ async function safeSearch<T extends GlobalSearchResult>(query: string, limit: nu
   }
 }
 
+// The rows of one kind the person sees (the rules apply), most recent first, whose searched fields hold every word of
+// the query (accents and case aside), as the lists' search does.
+async function candidates<T>(sql: string, query: string, fields: (row: T) => Array<string | null | undefined>, limit: number) {
+  const terms = searchTerms(query);
+  const rows = await asPerson((tx) => select<T>(tx, sql));
+  return rows.filter((row) => matchesSearchTerms(terms, fields(row))).slice(0, candidateLimit(limit));
+}
+
+const money = (amount: number, currency: string) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
+
 export async function searchProjects(query: string, limit = RESULT_LIMIT) {
   return safeSearch(query, limit, async () => {
-    const db = await createClient();
-    if (!db) return [];
-    const entityCode = await getOptionalCurrentEntityCode();
-
-    let queryBuilder = db
-      .from("projects")
-      .select(
-        `
-          id,
-          name,
-          status,
-          description,
-          created_at,
-          client:clients (
-            name
-          )
-        `,
-      )
-      .matchText(["name", "description"], query)
-      .order("created_at", { ascending: false });
-
-    if (entityCode) {
-      queryBuilder = applyEntityScope(queryBuilder, entityCode);
-    }
-
-    const { data, error } = await queryBuilder
-      .limit(candidateLimit(limit))
-      .returns<Array<{
-        id: string;
-        name: string;
-        status: string;
-        description: string | null;
-        created_at: string;
-        client: { name: string } | { name: string }[] | null;
-      }>>();
-
-    if (error) throw error;
-
-    return (data ?? []).map((project) => ({
+    type Row = { id: string; name: string; status: string; description: string | null; created_at: string; client_name: string | null };
+    const rows = await candidates<Row>(
+      `select e.id, e.name, case when e.status = 'planned' then 'draft' else e.status::text end as status, e.description, e.created_at,
+              (select c.name from work.client c where c.id = e.client_id) as client_name
+         from erp.engagement e order by e.created_at desc`,
+      query,
+      (row) => [row.name, row.description],
+      limit,
+    );
+    return rows.map((project) => ({
       id: project.id,
       entityType: "project" as const,
       title: project.name,
       description: project.description,
       status: project.status,
-      relatedLabel: Array.isArray(project.client) ? project.client[0]?.name ?? null : project.client?.name ?? null,
+      relatedLabel: project.client_name,
       updatedAt: project.created_at,
       href: `/projects/${project.id}`,
     }));
@@ -149,126 +130,48 @@ export async function searchProjects(query: string, limit = RESULT_LIMIT) {
 
 export async function searchTickets(query: string, limit = RESULT_LIMIT) {
   return safeSearch(query, limit, async () => {
-    const db = await createClient();
-    if (!db) return [];
-    const entityCode = await getOptionalCurrentEntityCode();
-
-    let queryBuilder = db
-      .from("tasks")
-      .select(
-        `
-          id,
-          title,
-          status,
-          priority,
-          type,
-          updated_at,
-          project:projects (
-            name,
-            client:clients (
-              name
-            )
-          )
-        `,
-      )
-      .matchText(["title", "description", "type"], query)
-      .order("updated_at", { ascending: false });
-
-    if (entityCode) {
-      queryBuilder = applyEntityScope(queryBuilder, entityCode);
-    }
-
-    const { data, error } = await queryBuilder
-      .limit(candidateLimit(limit))
-      .returns<Array<{
-        id: string;
-        title: string;
-        status: string;
-        priority: string | null;
-        type: string;
-        updated_at: string;
-        project:
-          | {
-              name: string;
-              client: { name: string } | { name: string }[] | null;
-            }
-          | Array<{
-              name: string;
-              client: { name: string } | { name: string }[] | null;
-            }>
-          | null;
-      }>>();
-
-    if (error) throw error;
-
-    return (data ?? []).map((ticket) => {
-      const project = Array.isArray(ticket.project) ? ticket.project[0] ?? null : ticket.project;
-      const client = project?.client ? (Array.isArray(project.client) ? project.client[0] ?? null : project.client) : null;
-
-      return {
-        id: ticket.id,
-        entityType: "ticket" as const,
-        title: ticket.title,
-        // Intentionally omit internal ticket body text from global search results.
-        description: [ticket.type.replaceAll("_", " "), ticket.priority].filter(Boolean).join(" / "),
-        status: ticket.status,
-        relatedLabel: project?.name ?? client?.name ?? null,
-        updatedAt: ticket.updated_at,
-        href: `/tickets/${ticket.id}`,
-      };
-    });
+    type Row = { id: string; title: string; description: string | null; status: string; priority: string | null; type: string; updated_at: string; project_name: string | null; client_name: string | null };
+    const rows = await candidates<Row>(
+      `select t.id, t.title, t.notes as description, t.status, case when t.priority = 'normal' then 'medium' else t.priority end as priority, t.type, t.updated_at,
+              e.name as project_name, (select c.name from work.client c where c.id = e.client_id) as client_name
+         from erp.task t left join erp.engagement e on e.id = t.engagement_id
+        where t.engagement_id is not null order by t.updated_at desc`,
+      query,
+      (row) => [row.title, row.description, row.type],
+      limit,
+    );
+    return rows.map((ticket) => ({
+      id: ticket.id,
+      entityType: "ticket" as const,
+      title: ticket.title,
+      // Intentionally omit internal ticket body text from global search results.
+      description: [ticket.type.replaceAll("_", " "), ticket.priority].filter(Boolean).join(" / "),
+      status: ticket.status,
+      relatedLabel: ticket.project_name ?? ticket.client_name,
+      updatedAt: ticket.updated_at,
+      href: `/tickets/${ticket.id}`,
+    }));
   });
 }
 
 export async function searchClients(query: string, limit = RESULT_LIMIT) {
   return safeSearch(query, limit, async () => {
-    const db = await createClient();
-    if (!db) return [];
-    const entityCode = await getOptionalCurrentEntityCode();
-
-    let queryBuilder = db
-      .from("clients")
-      .select(
-        `
-          id,
-          name,
-          status,
-          industry,
-          updated_at,
-          accountManager:profiles!clients_account_manager_id_fkey (
-            full_name
-          )
-        `,
-      )
-      .matchText(["name", "legal_name", "industry", "contact_email", "city", "country"], query)
-      .order("updated_at", { ascending: false });
-
-    if (entityCode) {
-      queryBuilder = applyEntityScope(queryBuilder, entityCode);
-    }
-
-    const { data, error } = await queryBuilder
-      .limit(candidateLimit(limit))
-      .returns<Array<{
-        id: string;
-        name: string;
-        status: string;
-        industry: string | null;
-        updated_at: string;
-        accountManager: { full_name: string } | { full_name: string }[] | null;
-      }>>();
-
-    if (error) throw error;
-
-    return (data ?? []).map((client) => ({
+    type Row = { id: string; name: string; legal_name: string | null; status: string; industry: string | null; contact_email: string | null; city: string | null; country: string | null; updated_at: string; manager: string | null };
+    const rows = await candidates<Row>(
+      `select c.id, c.name, c.legal_name, c.status, c.industry, c.contact_email, c.city, c.country, c.updated_at,
+              (select p.full_name from work.person p where p.id = c.account_manager_id) as manager
+         from work.client c order by c.updated_at desc`,
+      query,
+      (row) => [row.name, row.legal_name, row.industry, row.contact_email, row.city, row.country],
+      limit,
+    );
+    return rows.map((client) => ({
       id: client.id,
       entityType: "client" as const,
       title: client.name,
       description: client.industry,
       status: client.status,
-      relatedLabel: Array.isArray(client.accountManager)
-        ? client.accountManager[0]?.full_name ?? null
-        : client.accountManager?.full_name ?? null,
+      relatedLabel: client.manager,
       updatedAt: client.updated_at,
       href: `/clients/${client.id}`,
     }));
@@ -277,51 +180,21 @@ export async function searchClients(query: string, limit = RESULT_LIMIT) {
 
 export async function searchContracts(query: string, limit = RESULT_LIMIT) {
   return safeSearch(query, limit, async () => {
-    const db = await createClient();
-    if (!db) return [];
-    const entityCode = await getOptionalCurrentEntityCode();
-
-    let queryBuilder = db
-      .from("contracts")
-      .select(
-        `
-          id,
-          title,
-          status,
-          contract_type,
-          updated_at,
-          client:clients (
-            name
-          )
-        `,
-      )
-      .matchText(["title", "contract_number", "contract_type"], query)
-      .order("updated_at", { ascending: false });
-
-    if (entityCode) {
-      queryBuilder = applyEntityScope(queryBuilder, entityCode);
-    }
-
-    const { data, error } = await queryBuilder
-      .limit(candidateLimit(limit))
-      .returns<Array<{
-        id: string;
-        title: string;
-        status: string;
-        contract_type: string;
-        updated_at: string;
-        client: { name: string } | { name: string }[] | null;
-      }>>();
-
-    if (error) throw error;
-
-    return (data ?? []).map((contract) => ({
+    type Row = { id: string; title: string; contract_number: string | null; status: string; contract_type: string; updated_at: string; client_name: string | null };
+    const rows = await candidates<Row>(
+      `select k.id, k.title, k.contract_number, k.status, k.contract_type, k.updated_at, (select c.name from work.client c where c.id = k.client_id) as client_name
+         from work.contract k order by k.updated_at desc`,
+      query,
+      (row) => [row.title, row.contract_number, row.contract_type],
+      limit,
+    );
+    return rows.map((contract) => ({
       id: contract.id,
       entityType: "contract" as const,
       title: contract.title,
       description: contract.contract_type.replaceAll("_", " "),
       status: contract.status,
-      relatedLabel: Array.isArray(contract.client) ? contract.client[0]?.name ?? null : contract.client?.name ?? null,
+      relatedLabel: contract.client_name,
       updatedAt: contract.updated_at,
       href: `/contracts/${contract.id}`,
     }));
@@ -330,116 +203,47 @@ export async function searchContracts(query: string, limit = RESULT_LIMIT) {
 
 export async function searchDocuments(query: string, limit = RESULT_LIMIT, role?: AppRole) {
   return safeSearch(query, limit, async () => {
-    const db = await createClient();
-    if (!db) return [];
-    const entityCode = await getOptionalCurrentEntityCode();
-
-    let queryBuilder = db
-      .from("documents")
-      .select(
-        `
-          id,
-          title,
-          document_type,
-          related_type,
-          is_archived,
-          updated_at
-        `,
-      )
-      .matchText(["title", "file_name", "description", "document_type"], query)
-      .order("updated_at", { ascending: false });
-
-    if (role === "shareholder") {
-      queryBuilder = queryBuilder.eq("visibility", "shareholders");
-    }
-
-    if (role === "employee") {
-      queryBuilder = queryBuilder.neq("visibility", "restricted");
-    }
-
-    if (entityCode) {
-      queryBuilder = applyEntityScope(queryBuilder, entityCode);
-    }
-
-    const { data, error } = await queryBuilder
-      .limit(candidateLimit(limit))
-      .returns<Array<{
-        id: string;
-        title: string;
-        document_type: string;
-        related_type: string;
-        is_archived: boolean;
-        updated_at: string;
-      }>>();
-
-    if (error) throw error;
-
-    return (data ?? []).map((document) => ({
-      id: document.id,
-      entityType: "document" as const,
-      title: document.title,
-      description: document.document_type.replaceAll("_", " "),
-      status: document.is_archived ? "archived" : "active",
-      relatedLabel: document.related_type.replaceAll("_", " "),
-      updatedAt: document.updated_at,
-      href: `/documents?document=${document.id}`,
-    }));
+    type Row = { id: string; title: string; file_name: string; description: string | null; document_type: string; related_type: string; visibility: string; is_archived: boolean; updated_at: string };
+    const rows = await candidates<Row>(
+      `select d.id, d.title, d.file_name, d.description, d.document_type, d.related_type, d.visibility, d.is_archived, d.updated_at
+         from work.document d order by d.updated_at desc`,
+      query,
+      (row) => [row.title, row.file_name, row.description, row.document_type],
+      limit * 4,
+    );
+    return rows
+      .filter((document) => (role === "shareholder" ? document.visibility === "shareholders" : role === "employee" ? document.visibility !== "restricted" : true))
+      .map((document) => ({
+        id: document.id,
+        entityType: "document" as const,
+        title: document.title,
+        description: document.document_type.replaceAll("_", " "),
+        status: document.is_archived ? "archived" : "active",
+        relatedLabel: document.related_type.replaceAll("_", " "),
+        updatedAt: document.updated_at,
+        href: `/documents?document=${document.id}`,
+      }));
   });
 }
 
 export async function searchInvoices(query: string, limit = RESULT_LIMIT) {
   return safeSearch(query, limit, async () => {
-    const db = await createClient();
-    if (!db) return [];
-    const entityCode = await getOptionalCurrentEntityCode();
-
-    let queryBuilder = db
-      .from("invoices")
-      .select(
-        `
-          id,
-          invoice_number,
-          status,
-          amount_ttc,
-          currency,
-          updated_at,
-          client:clients (
-            name
-          )
-        `,
-      )
-      .matchText(["invoice_number", "notes", "status"], query)
-      .order("updated_at", { ascending: false });
-
-    if (entityCode) {
-      queryBuilder = applyEntityScope(queryBuilder, entityCode);
-    }
-
-    const { data, error } = await queryBuilder
-      .limit(candidateLimit(limit))
-      .returns<Array<{
-        id: string;
-        invoice_number: string;
-        status: string;
-        amount_ttc: number;
-        currency: string;
-        updated_at: string;
-        client: { name: string } | { name: string }[] | null;
-      }>>();
-
-    if (error) throw error;
-
-    return (data ?? []).map((invoice) => ({
+    type Row = { id: string; invoice_number: string; notes: string | null; status: string; amount_ttc: number; currency: string; updated_at: string; client_name: string | null };
+    const rows = await candidates<Row>(
+      `select i.id, i.invoice_number, i.notes, i.status, i.amount_ttc::float8 as amount_ttc, i.currency, i.updated_at,
+              (select c.name from work.client c where c.id = i.client_id) as client_name
+         from work.finance_invoice i order by i.updated_at desc`,
+      query,
+      (row) => [row.invoice_number, row.notes, row.status],
+      limit,
+    );
+    return rows.map((invoice) => ({
       id: invoice.id,
       entityType: "invoice" as const,
       title: invoice.invoice_number,
-      description: new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: invoice.currency,
-        maximumFractionDigits: 0,
-      }).format(invoice.amount_ttc),
+      description: money(invoice.amount_ttc, invoice.currency),
       status: invoice.status,
-      relatedLabel: Array.isArray(invoice.client) ? invoice.client[0]?.name ?? null : invoice.client?.name ?? null,
+      relatedLabel: invoice.client_name,
       updatedAt: invoice.updated_at,
       href: `/finance/invoices?invoice=${invoice.id}`,
     }));
@@ -448,57 +252,22 @@ export async function searchInvoices(query: string, limit = RESULT_LIMIT) {
 
 export async function searchPayments(query: string, limit = RESULT_LIMIT) {
   return safeSearch(query, limit, async () => {
-    const db = await createClient();
-    if (!db) return [];
-    const entityCode = await getOptionalCurrentEntityCode();
-
-    let queryBuilder = db
-      .from("payments")
-      .select(
-        `
-          id,
-          status,
-          amount,
-          currency,
-          reference,
-          updated_at,
-          client:clients (
-            name
-          )
-        `,
-      )
-      .matchText(["reference", "notes", "status"], query)
-      .order("updated_at", { ascending: false });
-
-    if (entityCode) {
-      queryBuilder = applyEntityScope(queryBuilder, entityCode);
-    }
-
-    const { data, error } = await queryBuilder
-      .limit(candidateLimit(limit))
-      .returns<Array<{
-        id: string;
-        status: string;
-        amount: number;
-        currency: string;
-        reference: string | null;
-        updated_at: string;
-        client: { name: string } | { name: string }[] | null;
-      }>>();
-
-    if (error) throw error;
-
-    return (data ?? []).map((payment) => ({
+    type Row = { id: string; status: string; amount: number; currency: string; reference: string | null; notes: string | null; updated_at: string; client_name: string | null };
+    const rows = await candidates<Row>(
+      `select x.id, x.status, x.amount::float8 as amount, x.currency, x.reference, x.notes, x.updated_at,
+              (select c.name from work.client c where c.id = x.client_id) as client_name
+         from work.finance_payment x order by x.updated_at desc`,
+      query,
+      (row) => [row.reference, row.notes, row.status],
+      limit,
+    );
+    return rows.map((payment) => ({
       id: payment.id,
       entityType: "payment" as const,
       title: payment.reference || "Client payment",
-      description: new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: payment.currency,
-        maximumFractionDigits: 0,
-      }).format(payment.amount),
+      description: money(payment.amount, payment.currency),
       status: payment.status,
-      relatedLabel: Array.isArray(payment.client) ? payment.client[0]?.name ?? null : payment.client?.name ?? null,
+      relatedLabel: payment.client_name,
       updatedAt: payment.updated_at,
       href: `/finance/payments?payment=${payment.id}`,
     }));
@@ -507,36 +276,15 @@ export async function searchPayments(query: string, limit = RESULT_LIMIT) {
 
 export async function searchTeamMembers(query: string, limit = RESULT_LIMIT) {
   return safeSearch(query, limit, async () => {
-    const db = await createClient();
-    if (!db) return [];
-    const entityCode = await getOptionalCurrentEntityCode();
-
-    let queryBuilder = db
-      .from("profiles")
-      .select("id, full_name, email, role, job_title, department, availability_status, updated_at")
-      .matchText(["full_name", "email", "job_title", "department"], query)
-      .order("full_name", { ascending: true });
-
-    if (entityCode) {
-      queryBuilder = applyEntityScope(queryBuilder, entityCode);
-    }
-
-    const { data, error } = await queryBuilder
-      .limit(candidateLimit(limit))
-      .returns<Array<{
-        id: string;
-        full_name: string;
-        email: string;
-        role: string;
-        job_title: string | null;
-        department: string | null;
-        availability_status: string | null;
-        updated_at: string;
-      }>>();
-
-    if (error) throw error;
-
-    return (data ?? []).map((member) => ({
+    type Row = { id: string; full_name: string; email: string; role: string; job_title: string | null; department: string | null; availability_status: string | null; updated_at: string };
+    const rows = await candidates<Row>(
+      `select p.id, p.full_name, p.email, work.person_role(p.id) as role, p.job_title, p.department, p.availability_status, p.updated_at
+         from work.person p order by p.full_name`,
+      query,
+      (row) => [row.full_name, row.email, row.job_title, row.department],
+      limit,
+    );
+    return rows.map((member) => ({
       id: member.id,
       entityType: "team_member" as const,
       title: member.full_name,

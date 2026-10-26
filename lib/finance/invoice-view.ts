@@ -125,12 +125,13 @@ function formatCurrency(amount: number | null, currency = "USD", locale: Locale 
   }
 
   try {
+    // French groups thousands with a narrow no-break space, which the PDF's standard font cannot draw: a no-break space
     return new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-US", {
       style: "currency",
       currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(amount);
+    }).format(amount).replace(/ /g, " ");
   } catch {
     return `${amount.toFixed(2)} ${currency}`;
   }

@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuthenticatedUser } from "@/lib/auth/server";
 import { getBumexEntity, isBumexEntityCode } from "@/lib/entities/config";
 import { normalizeEntityMutationError } from "@/lib/entities/errors";
-import { createClient } from "@/lib/firebase/server";
+import { asPerson } from "@/lib/work/db";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -30,23 +30,16 @@ export async function assignEntityAction(formData: FormData) {
     throw new Error("This entity cannot be selected from self-service onboarding.");
   }
 
-  const db = await createClient();
-  if (!db) {
-    redirect("/select-entity?error=Firebase is not configured.");
-  }
+  // set once, by the person (the database refuses a second time: 0008 work.person_guard)
+  const assigned = await asPerson((tx) =>
+    tx.run("update work.person set entity_code = $2 where id = $1 and entity_code is null", [auth.profile.id, entityCode]),
+  ).catch((error: unknown) => {
+    console.error("[select-entity:assign]", { message: error instanceof Error ? error.message : error, userId: auth.profile.id, requestedEntityCode: entityCode });
+    return 0;
+  });
 
-  const { data, error } = await db
-    .rpc("assign_own_entity", { requested_entity_code: entityCode })
-    .maybeSingle<{ id: string; entity_code: string | null }>();
-
-  if (error || !data || data.id !== auth.profile.id || data.entity_code !== entityCode) {
-    console.error("[select-entity:assign]", {
-      code: error?.code,
-      message: error?.message,
-      userId: auth.profile.id,
-      requestedEntityCode: entityCode,
-    });
-    redirect(`/select-entity?error=${encodeURIComponent(normalizeEntityMutationError(error, entityCode, "The entity could not be assigned."))}`);
+  if (!assigned) {
+    redirect(`/select-entity?error=${encodeURIComponent(normalizeEntityMutationError(null, entityCode, "The entity could not be assigned."))}`);
   }
 
   revalidatePath("/", "layout");

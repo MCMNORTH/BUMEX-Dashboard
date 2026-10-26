@@ -128,7 +128,7 @@ function Access() {
   return (
     <>
       {/* [bumex-one] accounts are BUMEX One's: an access opens the ERP to one of its people (no invitation link) */}
-      <div className="banner info">Les personnes viennent de BUMEX One : saisissez l'adresse e-mail d'une personne de BUMEX One pour lui ouvrir l'ERP, avec le rôle, les entités et les modules que vous fixez. Ce qui n'est pas autorisé reste éteint dans l'immeuble. Désactiver retire l'accès.</div>
+      <div className="banner info">Les personnes sont celles qui ont un compte : saisissez l'adresse e-mail d'une personne pour lui ouvrir l'ERP, avec le rôle, les entités et les modules que vous fixez. Ce qui n'est pas autorisé reste éteint dans l'immeuble. Désactiver retire l'accès.</div>
       <div className="actions" style={{ justifyContent: 'flex-start' }}><button className="btn primary" onClick={() => setEditing('new')}><Icon name="plus" size={14} /> Nouveau compte</button></div>
       {editing && <UserForm id={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
       <div className="card flush">

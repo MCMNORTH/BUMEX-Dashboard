@@ -2,14 +2,10 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
-import { logActivity } from "@/lib/activity/service";
-import {
-  applyEntityScope,
-  getCurrentEntityCode,
-  extendWithEntityCode,
-  isEntityScopingEnabled,
-} from "@/lib/entities/scope";
-import { createClient } from "@/lib/firebase/server";
+import { getSubjectsActivity, logActivity } from "@/lib/activity/service";
+import { storage } from "@/lib/firebase/storage";
+import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
+import { asPerson, select, selectOne } from "@/lib/work/db";
 import type { AppRole } from "@/types/auth";
 import type { ActivityLogRecord } from "@/types/activity";
 import type {
@@ -22,12 +18,9 @@ import type {
   DocumentPaymentPreview,
   DocumentProjectPreview,
   DocumentRecord,
-  DocumentRelatedType,
   DocumentTicketPreview,
   DocumentTransferPreview,
-  DocumentType,
   DocumentUploader,
-  DocumentVisibility,
 } from "@/types/document";
 
 const MAX_DOCUMENT_FILE_SIZE = 10 * 1024 * 1024;
@@ -50,51 +43,6 @@ type DocumentRow = {
   updated_at: string;
 };
 
-type ActivityRow = {
-  id: string;
-  user_id: string | null;
-  action: string;
-  entity_type: ActivityLogRecord["entity_type"];
-  entity_id: string;
-  metadata: ActivityLogRecord["metadata"];
-  created_at: string;
-  user:
-    | {
-        id: string;
-        full_name: string;
-        email: string;
-        avatar_url: string | null;
-      }
-    | Array<{
-        id: string;
-        full_name: string;
-        email: string;
-        avatar_url: string | null;
-      }>
-    | null;
-};
-
-function single<T>(value: T | T[] | null): T | null {
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-
-  return value;
-}
-
-function mapActivity(row: ActivityRow): ActivityLogRecord {
-  return {
-    id: row.id,
-    user_id: row.user_id,
-    action: row.action,
-    entity_type: row.entity_type,
-    entity_id: row.entity_id,
-    metadata: row.metadata ?? {},
-    created_at: row.created_at,
-    user: single(row.user),
-  };
-}
-
 function sanitizeFileName(name: string) {
   return name
     .normalize("NFKD")
@@ -111,301 +59,47 @@ function getStoragePath(fileName: string, actorUserId: string) {
   return `${actorUserId}/${now.getUTCFullYear()}/${month}/${randomUUID()}-${safeName}`;
 }
 
-type UpsertBinaryDocumentParams = {
-  existingDocumentId?: string | null;
-  title: string;
-  description: string;
-  documentType: DocumentType;
-  relatedType: DocumentRelatedType;
-  relatedId: string;
-  visibility: DocumentVisibility;
-  fileName: string;
-  mimeType: string;
-  bytes: Buffer;
-  actorUserId: string;
-};
-
 function getCategoryLabel(documentType: DocumentRecord["document_type"]) {
   return documentType.replaceAll("_", " ");
 }
 
-async function getDocumentActivityMap(documentIds: string[]) {
-  const db = await createClient();
+// A document (work.document, 0008; its file in Firebase Storage) with its uploader and what it is linked to, each read
+// with the person's rules (a record they may not see reads as none).
+const DOCUMENT_SQL = `
+  select d.id, d.title, d.description, d.document_type, d.related_type, d.related_id, d.file_url, d.file_name, d.file_size, d.mime_type,
+         d.uploaded_by, d.visibility, d.is_archived, d.created_at, d.updated_at,
+         (select jsonb_build_object('id', p.id, 'full_name', p.full_name, 'email', p.email, 'avatar_url', p.avatar_url, 'role', work.person_role(p.id))
+            from work.person p where p.id = d.uploaded_by) as "uploadedBy",
+         case when d.related_type = 'client' then (select jsonb_build_object('id', c.id, 'name', c.name, 'status', c.status, 'contact_email', c.contact_email)
+                                                     from work.client c where c.id = d.related_id) end as client,
+         case when d.related_type = 'project' then (select jsonb_build_object('id', e.id, 'name', e.name, 'status', case when e.status = 'planned' then 'draft' else e.status::text end,
+                                                                              'end_date', e.deadline)
+                                                      from erp.engagement e where e.id = d.related_id) end as project,
+         case when d.related_type = 'contract' then (select jsonb_build_object('id', k.id, 'title', k.title, 'status', k.status, 'end_date', k.end_date)
+                                                       from work.contract k where k.id = d.related_id) end as contract,
+         case when d.related_type = 'task' then (select jsonb_build_object('id', t.id, 'title', t.title, 'status', t.status,
+                                                                           'priority', case when t.priority = 'normal' then 'medium' else t.priority end, 'due_date', t.due_date)
+                                                   from erp.task t where t.id = d.related_id) end as ticket,
+         case when d.related_type = 'invoice' then (select jsonb_build_object('id', i.id, 'invoice_number', i.invoice_number, 'status', i.status, 'due_date', i.due_date,
+                                                                              'amount_ttc', i.amount_ttc::float8)
+                                                      from work.finance_invoice i where i.id = d.related_id) end as invoice,
+         case when d.related_type = 'payment' then (select jsonb_build_object('id', x.id, 'reference', x.reference, 'status', x.status, 'amount', x.amount::float8, 'currency', x.currency)
+                                                      from work.finance_payment x where x.id = d.related_id) end as payment,
+         case when d.related_type = 'transfer' then (select jsonb_build_object('id', x.id, 'transfer_reference', x.transfer_reference, 'status', x.status,
+                                                                               'amount', x.amount::float8, 'currency', x.currency)
+                                                       from work.finance_transfer x where x.id = d.related_id) end as transfer
+    from work.document d`;
 
-  if (!db || !documentIds.length) {
-    return new Map<string, ActivityLogRecord[]>();
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("activity_logs")
-    .select(
-      `
-        id,
-        user_id,
-        action,
-        entity_type,
-        entity_id,
-        metadata,
-        created_at,
-        user:profiles (
-          id,
-          full_name,
-          email,
-          avatar_url
-        )
-      `,
-    )
-    .or(`and(entity_type.eq.document,entity_id.in.(${documentIds.join(",")}))`)
-    .order("created_at", { ascending: false })
-    .limit(150);
-
-  query = applyEntityScope(query, entityCode);
-
-  const { data, error } = await query.returns<ActivityRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const map = new Map<string, ActivityLogRecord[]>();
-
-  for (const activity of (data ?? []).map(mapActivity)) {
-    const current = map.get(activity.entity_id) ?? [];
-    current.push(activity);
-    map.set(activity.entity_id, current);
-  }
-
-  return map;
-}
-
-async function getUploaderMap(userIds: string[]) {
-  const db = await createClient();
-
-  if (!db || !userIds.length) {
-    return new Map<string, DocumentUploader>();
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("profiles")
-    .select("id, full_name, email, avatar_url, role")
-    .in("id", userIds);
-
-  if (isEntityScopingEnabled()) {
-    query = query.eq("entity_code", entityCode);
-  }
-
-  const { data, error } = await query.returns<DocumentUploader[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return new Map((data ?? []).map((row) => [row.id, row]));
-}
-
-async function getClientMap(clientIds: string[]) {
-  const db = await createClient();
-
-  if (!db || !clientIds.length) {
-    return new Map<string, DocumentClientPreview>();
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("clients")
-    .select("id, name, status, contact_email")
-    .in("id", clientIds);
-
-  if (isEntityScopingEnabled()) {
-    query = query.eq("entity_code", entityCode);
-  }
-
-  const { data, error } = await query.returns<DocumentClientPreview[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return new Map((data ?? []).map((row) => [row.id, row]));
-}
-
-async function getProjectMap(projectIds: string[]) {
-  const db = await createClient();
-
-  if (!db || !projectIds.length) {
-    return new Map<string, DocumentProjectPreview>();
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("projects")
-    .select("id, name, status, end_date")
-    .in("id", projectIds);
-
-  if (isEntityScopingEnabled()) {
-    query = query.eq("entity_code", entityCode);
-  }
-
-  const { data, error } = await query.returns<DocumentProjectPreview[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return new Map((data ?? []).map((row) => [row.id, row]));
-}
-
-async function getContractMap(contractIds: string[]) {
-  const db = await createClient();
-
-  if (!db || !contractIds.length) {
-    return new Map<string, DocumentContractPreview>();
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("contracts")
-    .select("id, title, status, end_date")
-    .in("id", contractIds);
-
-  if (isEntityScopingEnabled()) {
-    query = query.eq("entity_code", entityCode);
-  }
-
-  const { data, error } = await query.returns<DocumentContractPreview[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return new Map((data ?? []).map((row) => [row.id, row]));
-}
-
-type TicketLookupRow = {
-  id: string;
-  title: string;
-  status: DocumentTicketPreview["status"];
-  priority: DocumentTicketPreview["priority"];
-  due_date: string | null;
-  project_id: string;
+type DocumentReadRow = DocumentRow & {
+  uploadedBy: DocumentUploader | null;
+  client: DocumentClientPreview | null;
+  project: DocumentProjectPreview | null;
+  contract: DocumentContractPreview | null;
+  ticket: DocumentTicketPreview | null;
+  invoice: DocumentInvoicePreview | null;
+  payment: DocumentPaymentPreview | null;
+  transfer: DocumentTransferPreview | null;
 };
-
-async function getTicketMap(ticketIds: string[]) {
-  const db = await createClient();
-
-  if (!db || !ticketIds.length) {
-    return new Map<string, DocumentTicketPreview>();
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("tasks")
-    .select("id, title, status, priority, due_date, project_id")
-    .in("id", ticketIds);
-
-  if (isEntityScopingEnabled()) {
-    query = query.eq("entity_code", entityCode);
-  }
-
-  const { data, error } = await query.returns<TicketLookupRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return new Map(
-    (data ?? []).map((row) => [
-      row.id,
-      {
-        id: row.id,
-        title: row.title,
-        status: row.status,
-        priority: row.priority,
-        due_date: row.due_date,
-      },
-    ]),
-  );
-}
-
-async function getInvoiceMap(invoiceIds: string[]) {
-  const db = await createClient();
-
-  if (!db || !invoiceIds.length) {
-    return new Map<string, DocumentInvoicePreview>();
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("invoices")
-    .select("id, invoice_number, status, due_date, amount_ttc")
-    .in("id", invoiceIds);
-
-  if (isEntityScopingEnabled()) {
-    query = query.eq("entity_code", entityCode);
-  }
-
-  const { data, error } = await query.returns<DocumentInvoicePreview[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return new Map((data ?? []).map((row) => [row.id, row]));
-}
-
-async function getPaymentMap(paymentIds: string[]) {
-  const db = await createClient();
-
-  if (!db || !paymentIds.length) {
-    return new Map<string, DocumentPaymentPreview>();
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("payments")
-    .select("id, reference, status, amount, currency")
-    .in("id", paymentIds);
-
-  if (isEntityScopingEnabled()) {
-    query = query.eq("entity_code", entityCode);
-  }
-
-  const { data, error } = await query.returns<DocumentPaymentPreview[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return new Map((data ?? []).map((row) => [row.id, row]));
-}
-
-async function getTransferMap(transferIds: string[]) {
-  const db = await createClient();
-
-  if (!db || !transferIds.length) {
-    return new Map<string, DocumentTransferPreview>();
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("transfers")
-    .select("id, transfer_reference, status, amount, currency")
-    .in("id", transferIds);
-
-  if (isEntityScopingEnabled()) {
-    query = query.eq("entity_code", entityCode);
-  }
-
-  const { data, error } = await query.returns<DocumentTransferPreview[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return new Map((data ?? []).map((row) => [row.id, row]));
-}
 
 function getDocumentRelatedLabel(
   row: DocumentRow,
@@ -452,30 +146,11 @@ function getDocumentRelatedLabel(
   return "General archive";
 }
 
-function mapDocument(
-  row: DocumentRow,
-  role: AppRole,
-  uploaders: Map<string, DocumentUploader>,
-  clients: Map<string, DocumentClientPreview>,
-  projects: Map<string, DocumentProjectPreview>,
-  contracts: Map<string, DocumentContractPreview>,
-  tickets: Map<string, DocumentTicketPreview>,
-  invoices: Map<string, DocumentInvoicePreview>,
-  payments: Map<string, DocumentPaymentPreview>,
-  transfers: Map<string, DocumentTransferPreview>,
-  activities: Map<string, ActivityLogRecord[]>,
-): DocumentRecord {
-  const client = row.related_type === "client" && row.related_id ? (clients.get(row.related_id) ?? null) : null;
-  const project = row.related_type === "project" && row.related_id ? (projects.get(row.related_id) ?? null) : null;
-  const contract = row.related_type === "contract" && row.related_id ? (contracts.get(row.related_id) ?? null) : null;
-  const ticket = row.related_type === "task" && row.related_id ? (tickets.get(row.related_id) ?? null) : null;
-  const invoice = row.related_type === "invoice" && row.related_id ? (invoices.get(row.related_id) ?? null) : null;
-  const payment = row.related_type === "payment" && row.related_id ? (payments.get(row.related_id) ?? null) : null;
-  const transfer = row.related_type === "transfer" && row.related_id ? (transfers.get(row.related_id) ?? null) : null;
-
+function mapDocument(row: DocumentReadRow, role: AppRole, activities: Map<string, ActivityLogRecord[]>): DocumentRecord {
+  const { uploadedBy, client, project, contract, ticket, invoice, payment, transfer, ...document } = row;
   return {
-    ...row,
-    uploadedBy: uploaders.get(row.uploaded_by) ?? null,
+    ...document,
+    uploadedBy,
     client,
     project,
     contract,
@@ -506,235 +181,75 @@ function filterMappedDocuments(documents: DocumentRecord[], filters: DocumentFil
 }
 
 export async function getDocuments(role: AppRole, filters: DocumentFilters = {}) {
-  const db = await createClient();
+  const where: string[] = [];
+  const params: unknown[] = [];
+  const param = (value: unknown) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+  const daysAgo = (days: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    return date.toISOString();
+  };
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
+  if (filters.documentType) where.push(`d.document_type = ${param(filters.documentType)}`);
+  if (filters.relatedType) where.push(`d.related_type = ${param(filters.relatedType)}`);
+  if (filters.uploadedBy) where.push(`d.uploaded_by = ${param(filters.uploadedBy)}`);
+  if (filters.visibility) where.push(`d.visibility = ${param(filters.visibility)}`);
+  if (filters.archiveState === "active") where.push("not d.is_archived");
+  if (filters.archiveState === "archived") where.push("d.is_archived");
+  if (filters.date === "recent_7d") where.push(`d.created_at >= ${param(daysAgo(7))}::timestamptz`);
+  if (filters.date === "recent_30d") where.push(`d.created_at >= ${param(daysAgo(30))}::timestamptz`);
+  if (filters.date === "older") where.push(`d.created_at < ${param(daysAgo(30))}::timestamptz`);
 
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("documents")
-    .select(
-      `
-        id,
-        title,
-        description,
-        document_type,
-        related_type,
-        related_id,
-        file_url,
-        file_name,
-        file_size,
-        mime_type,
-        uploaded_by,
-        visibility,
-        is_archived,
-        created_at,
-        updated_at
-      `,
-    )
-    .order("updated_at", { ascending: false });
-
-  query = applyEntityScope(query, entityCode);
-
-  if (filters.search) {
-    query = query.matchText(["title", "description", "file_name"], filters.search);
-  }
-
-  if (filters.documentType) {
-    query = query.eq("document_type", filters.documentType);
-  }
-
-  if (filters.relatedType) {
-    query = query.eq("related_type", filters.relatedType);
-  }
-
-  if (filters.uploadedBy) {
-    query = query.eq("uploaded_by", filters.uploadedBy);
-  }
-
-  if (filters.visibility) {
-    query = query.eq("visibility", filters.visibility);
-  }
-
-  if (filters.archiveState === "active") {
-    query = query.eq("is_archived", false);
-  }
-
-  if (filters.archiveState === "archived") {
-    query = query.eq("is_archived", true);
-  }
-
-  const now = new Date();
-  const sevenDaysAgo = new Date(now);
-  sevenDaysAgo.setDate(now.getDate() - 7);
-  const thirtyDaysAgo = new Date(now);
-  thirtyDaysAgo.setDate(now.getDate() - 30);
-
-  if (filters.date === "recent_7d") {
-    query = query.gte("created_at", sevenDaysAgo.toISOString());
-  }
-
-  if (filters.date === "recent_30d") {
-    query = query.gte("created_at", thirtyDaysAgo.toISOString());
-  }
-
-  if (filters.date === "older") {
-    query = query.lt("created_at", thirtyDaysAgo.toISOString());
-  }
-
-  const { data, error } = await query.returns<DocumentRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const rows = data ?? [];
-  const [activities, uploaders, clients, projects, contracts, tickets, invoices, payments, transfers] = await Promise.all([
-    getDocumentActivityMap(rows.map((row) => row.id)),
-    getUploaderMap([...new Set(rows.map((row) => row.uploaded_by))]),
-    getClientMap(rows.filter((row) => row.related_type === "client" && row.related_id).map((row) => row.related_id!)),
-    getProjectMap(rows.filter((row) => row.related_type === "project" && row.related_id).map((row) => row.related_id!)),
-    getContractMap(rows.filter((row) => row.related_type === "contract" && row.related_id).map((row) => row.related_id!)),
-    getTicketMap(rows.filter((row) => row.related_type === "task" && row.related_id).map((row) => row.related_id!)),
-    getInvoiceMap(rows.filter((row) => row.related_type === "invoice" && row.related_id).map((row) => row.related_id!)),
-    getPaymentMap(rows.filter((row) => row.related_type === "payment" && row.related_id).map((row) => row.related_id!)),
-    getTransferMap(rows.filter((row) => row.related_type === "transfer" && row.related_id).map((row) => row.related_id!)),
-  ]);
-
-  const mapped = rows.map((row) =>
-    mapDocument(row, role, uploaders, clients, projects, contracts, tickets, invoices, payments, transfers, activities),
+  const rows = await asPerson((tx) =>
+    select<DocumentReadRow>(tx, `${DOCUMENT_SQL} ${where.length ? `where ${where.join(" and ")}` : ""} order by d.updated_at desc`, params),
   );
+  const terms = filters.search ? searchTerms(filters.search) : [];
+  const found = rows.filter((row) => matchesSearchTerms(terms, [row.title, row.description, row.file_name]));
+  const activities = await getSubjectsActivity("document", found.map((row) => row.id), 8);
 
-  return filterMappedDocuments(mapped, filters);
+  return filterMappedDocuments(found.map((row) => mapDocument(row, role, activities)), filters);
 }
 
 export async function getDocumentById(id: string, role: AppRole) {
-  const db = await createClient();
+  const row = await asPerson((tx) => selectOne<DocumentReadRow>(tx, `${DOCUMENT_SQL} where d.id = $1::uuid`, [id])).catch(() => null);
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("documents")
-    .select(
-      `
-        id,
-        title,
-        description,
-        document_type,
-        related_type,
-        related_id,
-        file_url,
-        file_name,
-        file_size,
-        mime_type,
-        uploaded_by,
-        visibility,
-        is_archived,
-        created_at,
-        updated_at
-      `,
-    )
-    .eq("id", id);
-
-  query = applyEntityScope(query, entityCode);
-
-  const { data, error } = await query.maybeSingle<DocumentRow>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
+  if (!row) {
     return null;
   }
 
-  const [activities, uploaders, clients, projects, contracts, tickets, invoices, payments, transfers] = await Promise.all([
-    getDocumentActivityMap([data.id]),
-    getUploaderMap([data.uploaded_by]),
-    getClientMap(data.related_type === "client" && data.related_id ? [data.related_id] : []),
-    getProjectMap(data.related_type === "project" && data.related_id ? [data.related_id] : []),
-    getContractMap(data.related_type === "contract" && data.related_id ? [data.related_id] : []),
-    getTicketMap(data.related_type === "task" && data.related_id ? [data.related_id] : []),
-    getInvoiceMap(data.related_type === "invoice" && data.related_id ? [data.related_id] : []),
-    getPaymentMap(data.related_type === "payment" && data.related_id ? [data.related_id] : []),
-    getTransferMap(data.related_type === "transfer" && data.related_id ? [data.related_id] : []),
-  ]);
-
-  return mapDocument(data, role, uploaders, clients, projects, contracts, tickets, invoices, payments, transfers, activities);
+  return mapDocument(row, role, await getSubjectsActivity("document", [id], 8));
 }
 
 export async function getDocumentsFilterData(): Promise<DocumentFiltersData> {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let clientsQuery = db.from("clients").select("id, name, status, contact_email").order("name", { ascending: true });
-  let projectsQuery = db.from("projects").select("id, name, status, end_date").order("name", { ascending: true });
-  let contractsQuery = db.from("contracts").select("id, title, status, end_date").order("title", { ascending: true });
-  let ticketsQuery = db.from("tasks").select("id, title, status, priority, due_date").order("updated_at", { ascending: false }).limit(100);
-  let invoicesQuery = db.from("invoices").select("id, invoice_number, status, due_date, amount_ttc").order("created_at", { ascending: false }).limit(100);
-  let paymentsQuery = db.from("payments").select("id, reference, status, amount, currency").order("created_at", { ascending: false }).limit(100);
-  let transfersQuery = db.from("transfers").select("id, transfer_reference, status, amount, currency").order("created_at", { ascending: false }).limit(100);
-  let uploadersQuery = db.from("profiles").select("id, full_name, email, avatar_url, role").order("full_name", { ascending: true });
-
-  if (isEntityScopingEnabled()) {
-    clientsQuery = clientsQuery.eq("entity_code", entityCode);
-    projectsQuery = projectsQuery.eq("entity_code", entityCode);
-    contractsQuery = contractsQuery.eq("entity_code", entityCode);
-    ticketsQuery = ticketsQuery.eq("entity_code", entityCode);
-    invoicesQuery = invoicesQuery.eq("entity_code", entityCode);
-    paymentsQuery = paymentsQuery.eq("entity_code", entityCode);
-    transfersQuery = transfersQuery.eq("entity_code", entityCode);
-    uploadersQuery = uploadersQuery.eq("entity_code", entityCode);
-  }
-
-  const [
-    { data: clients, error: clientsError },
-    { data: projects, error: projectsError },
-    { data: contracts, error: contractsError },
-    { data: tickets, error: ticketsError },
-    { data: invoices, error: invoicesError },
-    { data: payments, error: paymentsError },
-    { data: transfers, error: transfersError },
-    { data: uploadedByOptions, error: uploadersError },
-  ] = await Promise.all([
-    clientsQuery.returns<DocumentClientPreview[]>(),
-    projectsQuery.returns<DocumentProjectPreview[]>(),
-    contractsQuery.returns<DocumentContractPreview[]>(),
-    ticketsQuery.returns<DocumentTicketPreview[]>(),
-    invoicesQuery.returns<DocumentInvoicePreview[]>(),
-    paymentsQuery.returns<DocumentPaymentPreview[]>(),
-    transfersQuery.returns<DocumentTransferPreview[]>(),
-    uploadersQuery.returns<DocumentUploader[]>(),
-  ]);
-
-  if (clientsError) throw new Error(clientsError.message);
-  if (projectsError) throw new Error(projectsError.message);
-  if (contractsError) throw new Error(contractsError.message);
-  if (ticketsError) throw new Error(ticketsError.message);
-  if (invoicesError) throw new Error(invoicesError.message);
-  if (paymentsError) throw new Error(paymentsError.message);
-  if (transfersError) throw new Error(transfersError.message);
-  if (uploadersError) throw new Error(uploadersError.message);
-
-  return {
-    clients: clients ?? [],
-    projects: projects ?? [],
-    contracts: contracts ?? [],
-    tickets: tickets ?? [],
-    invoices: invoices ?? [],
-    payments: payments ?? [],
-    transfers: transfers ?? [],
-    uploadedByOptions: uploadedByOptions ?? [],
-  };
+  return asPerson(async (tx) => ({
+    clients: await select<DocumentClientPreview>(tx, "select id, name, status, contact_email from work.client order by name"),
+    projects: await select<DocumentProjectPreview>(
+      tx,
+      "select id, name, case when status = 'planned' then 'draft' else status::text end as status, deadline as end_date from erp.engagement order by name",
+    ),
+    contracts: await select<DocumentContractPreview>(tx, "select id, title, status, end_date from work.contract order by title"),
+    tickets: await select<DocumentTicketPreview>(
+      tx,
+      `select id, title, status, case when priority = 'normal' then 'medium' else priority end as priority, due_date
+         from erp.task where engagement_id is not null order by updated_at desc limit 100`,
+    ),
+    invoices: await select<DocumentInvoicePreview>(
+      tx,
+      "select id, invoice_number, status, due_date, amount_ttc::float8 as amount_ttc from work.finance_invoice order by created_at desc limit 100",
+    ),
+    payments: await select<DocumentPaymentPreview>(tx, "select id, reference, status, amount::float8 as amount, currency from work.finance_payment order by created_at desc limit 100"),
+    transfers: await select<DocumentTransferPreview>(
+      tx,
+      "select id, transfer_reference, status, amount::float8 as amount, currency from work.finance_transfer order by created_at desc limit 100",
+    ),
+    uploadedByOptions: await select<DocumentUploader>(
+      tx,
+      "select p.id, p.full_name, p.email, p.avatar_url, work.person_role(p.id) as role from work.person p order by p.full_name",
+    ),
+  }));
 }
 
 function parseDocumentPayload(values: DocumentFormValues) {
@@ -759,48 +274,40 @@ function validateFile(file: File) {
 }
 
 export async function createDocument(values: DocumentFormValues, file: File, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
   validateFile(file);
-
-  const entityCode = await getCurrentEntityCode();
-  const payload = extendWithEntityCode(parseDocumentPayload(values), entityCode);
+  const payload = parseDocumentPayload(values);
   const path = getStoragePath(file.name, actorUserId);
   const buffer = Buffer.from(await file.arrayBuffer());
-
-  const { error: uploadError } = await db.storage
-    .from("documents")
-    .upload(path, buffer, {
-      contentType: file.type || "application/octet-stream",
-      upsert: false,
-    });
+  const { error: uploadError } = await storage.from("documents").upload(path, buffer, {
+    contentType: file.type || "application/octet-stream",
+    upsert: false,
+  });
 
   if (uploadError) {
     throw new Error(uploadError.message);
   }
 
-  const insertPayload = {
-    ...payload,
-    file_url: path,
-    file_name: file.name,
-    file_size: file.size,
-    mime_type: file.type || null,
-    uploaded_by: actorUserId,
-  };
+  let data: { id: string } | null;
+  try {
+    data = await asPerson((tx) =>
+      selectOne<{ id: string }>(
+        tx,
+        `insert into work.document (title, description, document_type, related_type, related_id, visibility, file_url, file_name, file_size, mime_type,
+                                    uploaded_by, entity_code)
+         values ($1, $2, $3, $4, $5::uuid, $6, $7, $8, $9, $10, $11, (select entity_code from work.person where id = erp.actor_id()))
+         returning id`,
+        [payload.title, payload.description, payload.document_type, payload.related_type, payload.related_id, payload.visibility, path, file.name, file.size,
+          file.type || null, actorUserId],
+      ),
+    );
+  } catch (error) {
+    await storage.from("documents").remove([path]);
+    throw error;
+  }
 
-  const { data, error } = await db
-    .from("documents")
-    .insert(insertPayload)
-    .select("id")
-    .single<{ id: string }>();
-
-  if (error) {
-    await db.storage.from("documents").remove([path]);
-    throw new Error(error.message);
+  if (!data) {
+    await storage.from("documents").remove([path]);
+    throw new Error("Document creation did not return an id.");
   }
 
   await logActivity({
@@ -820,180 +327,24 @@ export async function createDocument(values: DocumentFormValues, file: File, act
   return data.id;
 }
 
-export async function upsertBinaryDocument({
-  existingDocumentId = null,
-  title,
-  description,
-  documentType,
-  relatedType,
-  relatedId,
-  visibility,
-  fileName,
-  mimeType,
-  bytes,
-  actorUserId,
-}: UpsertBinaryDocumentParams) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  const path = getStoragePath(fileName, actorUserId);
-  const { error: uploadError } = await db.storage
-    .from("documents")
-    .upload(path, bytes, {
-      contentType: mimeType || "application/octet-stream",
-      upsert: false,
-    });
-
-  if (uploadError) {
-    throw new Error(uploadError.message);
-  }
-
-  if (existingDocumentId) {
-    let previousQuery = db
-      .from("documents")
-      .select("file_url")
-      .eq("id", existingDocumentId);
-
-    previousQuery = applyEntityScope(previousQuery, entityCode);
-
-    const { data: previous, error: previousError } = await previousQuery.maybeSingle<{ file_url: string }>();
-
-    if (previousError) {
-      await db.storage.from("documents").remove([path]);
-      throw new Error(previousError.message);
-    }
-
-    let updateQuery = db
-      .from("documents")
-      .update({
-        title,
-        description,
-        document_type: documentType,
-        related_type: relatedType,
-        related_id: relatedId,
-        ...extendWithEntityCode({}, entityCode),
-        file_url: path,
-        file_name: fileName,
-        file_size: bytes.byteLength,
-        mime_type: mimeType,
-        uploaded_by: actorUserId,
-        visibility,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", existingDocumentId);
-
-    updateQuery = applyEntityScope(updateQuery, entityCode);
-
-    const { error: updateError } = await updateQuery;
-
-    if (updateError) {
-      await db.storage.from("documents").remove([path]);
-      throw new Error(updateError.message);
-    }
-
-    if (previous?.file_url) {
-      await db.storage.from("documents").remove([previous.file_url]);
-    }
-
-    await logActivity({
-      userId: actorUserId,
-      action: "Regenerated document file",
-      entityType: "document",
-      entityId: existingDocumentId,
-      metadata: {
-        kind: "update",
-        summary: "System-generated file refreshed",
-      },
-    });
-
-    return existingDocumentId;
-  }
-
-  const { data, error } = await db
-    .from("documents")
-    .insert({
-      title,
-      description,
-      document_type: documentType,
-      related_type: relatedType,
-      related_id: relatedId,
-      ...extendWithEntityCode({}, entityCode),
-      file_url: path,
-      file_name: fileName,
-      file_size: bytes.byteLength,
-      mime_type: mimeType,
-      uploaded_by: actorUserId,
-      visibility,
-    })
-    .select("id")
-    .single<{ id: string }>();
-
-  if (error) {
-    await db.storage.from("documents").remove([path]);
-    throw new Error(error.message);
-  }
-
-  await logActivity({
-    userId: actorUserId,
-    action: `Uploaded document ${title}`,
-    entityType: "document",
-    entityId: data.id,
-    metadata: {
-      kind: "create",
-      summary: "Document uploaded",
-      related_type: relatedType,
-      related_id: relatedId,
-      visibility,
-    },
-  });
-
-  return data.id;
-}
-
 export async function updateDocument(id: string, values: DocumentFormValues, actorUserId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let previousQuery = db
-    .from("documents")
-    .select("title, document_type, related_type, related_id, visibility, is_archived")
-    .eq("id", id);
-
-  previousQuery = applyEntityScope(previousQuery, entityCode);
-
-  const { data: previous, error: previousError } = await previousQuery.maybeSingle<{
+  const payload = parseDocumentPayload(values);
+  const previous = await asPerson(async (tx) => {
+    const before = await selectOne<{
       title: string;
       document_type: DocumentRecord["document_type"];
       related_type: DocumentRecord["related_type"];
       related_id: string | null;
       visibility: DocumentRecord["visibility"];
-      is_archived: boolean;
-    }>();
-
-  if (previousError) {
-    throw new Error(previousError.message);
-  }
-
-  const payload = {
-    ...extendWithEntityCode(parseDocumentPayload(values), entityCode),
-    updated_at: new Date().toISOString(),
-  };
-
-  let updateQuery = db.from("documents").update(payload).eq("id", id);
-  updateQuery = applyEntityScope(updateQuery, entityCode);
-  const { error } = await updateQuery;
-
-  if (error) {
-    throw new Error(error.message);
-  }
+    }>(tx, "select title, document_type, related_type, related_id, visibility from work.document where id = $1::uuid", [id]);
+    const updated = await tx.run(
+      `update work.document set title = $2, description = $3, document_type = $4, related_type = $5, related_id = $6::uuid, visibility = $7
+        where id = $1::uuid`,
+      [id, payload.title, payload.description, payload.document_type, payload.related_type, payload.related_id, payload.visibility],
+    );
+    if (!updated) throw new Error("You cannot edit this document.");
+    return before;
+  });
 
   const changes: Array<[string, string | null, string | null, string]> = previous
     ? [
@@ -1049,27 +400,10 @@ export async function updateDocument(id: string, values: DocumentFormValues, act
 }
 
 export async function setDocumentArchiveState(id: string, isArchived: boolean, actorUserId: string) {
-  const db = await createClient();
+  const updated = await asPerson((tx) => tx.run("update work.document set is_archived = $2 where id = $1::uuid", [id, isArchived]));
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let updateQuery = db
-    .from("documents")
-    .update({
-      is_archived: isArchived,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id);
-
-  updateQuery = applyEntityScope(updateQuery, entityCode);
-
-  const { error } = await updateQuery;
-
-  if (error) {
-    throw new Error(error.message);
+  if (!updated) {
+    throw new Error("You cannot change this document.");
   }
 
   await logActivity({
@@ -1087,42 +421,17 @@ export async function setDocumentArchiveState(id: string, isArchived: boolean, a
 }
 
 export async function deleteDocument(id: string, actorUserId: string) {
-  const db = await createClient();
+  // the row first (the rules decide), then its file
+  const deleted = await asPerson((tx) => select<{ file_url: string }>(tx, "delete from work.document where id = $1::uuid returning file_url", [id]));
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let existingQuery = db
-    .from("documents")
-    .select("file_url")
-    .eq("id", id);
-
-  existingQuery = applyEntityScope(existingQuery, entityCode);
-
-  const { data, error } = await existingQuery.maybeSingle<{ file_url: string }>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
+  if (!deleted.length) {
     return;
   }
 
-  const { error: removeError } = await db.storage.from("documents").remove([data.file_url]);
+  const { error: removeError } = await storage.from("documents").remove([deleted[0].file_url]);
 
   if (removeError) {
-    throw new Error(removeError.message);
-  }
-
-  let deleteQuery = db.from("documents").delete().eq("id", id);
-  deleteQuery = applyEntityScope(deleteQuery, entityCode);
-  const { error: deleteError } = await deleteQuery;
-
-  if (deleteError) {
-    throw new Error(deleteError.message);
+    console.error("[documents:delete] file left in storage", removeError.message);
   }
 
   await logActivity({
@@ -1138,33 +447,13 @@ export async function deleteDocument(id: string, actorUserId: string) {
 }
 
 export async function getDocumentDownloadUrl(id: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("documents")
-    .select("id, file_url")
-    .eq("id", id);
-
-  query = applyEntityScope(query, entityCode);
-
-  const { data: document, error } = await query.maybeSingle<{ id: string; file_url: string }>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  const document = await asPerson((tx) => selectOne<{ file_url: string }>(tx, "select file_url from work.document where id = $1::uuid", [id])).catch(() => null);
 
   if (!document) {
     return null;
   }
 
-  const { data, error: signedError } = await db.storage
-    .from("documents")
-    .createSignedUrl(document.file_url, 60);
+  const { data, error: signedError } = await storage.from("documents").createSignedUrl(document.file_url, 60);
 
   if (signedError) {
     throw new Error(signedError.message);

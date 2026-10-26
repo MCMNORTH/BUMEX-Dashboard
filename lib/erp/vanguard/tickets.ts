@@ -1,27 +1,28 @@
 import "server-only";
 
 import type { Task } from "@/lib/erp/engine";
-import { createClient } from "@/lib/firebase/server";
+import type { ErpTransaction } from "@/lib/erp/db";
 import type { TicketPriority, TicketStatus, TicketType } from "@/types/ticket";
 
-// Vanguard's tasks are BUMEX One's tickets: read here for the person (BUMEX One's row policies apply) and shown as the
-// engine's tasks (the Tasks room, the bottom bar, the floors' signals, the missions' cards). They are created and
-// moved through BUMEX One's ticket actions (vanguard/one/Tasks.tsx); the ERP never writes them.
+// Vanguard's tasks are the tickets (erp.task, 0008): read in the person's session (BUMEX One's rules apply) and shown
+// as the engine's tasks (the Tasks room, the bottom bar, the floors' signals, the missions' cards). They are created and
+// moved through the ticket actions (vanguard/one/Tasks.tsx); the engine never writes them (save.ts).
 
 export type VanguardTicket = {
   id: string;
   title: string;
   description: string | null;
-  project_id: string;
+  project_id: string; // its mission (erp.engagement)
   assignee_id: string | null;
   reporter_id: string | null;
   status: TicketStatus;
-  stage_id: string | null; // the column of its board (BUMEX One's workflows); resolved in the browser (vanguard/one/Board.tsx)
+  stage_id: string | null; // the column of its board (work.board); resolved in the browser (vanguard/one/Board.tsx)
   priority: TicketPriority;
   type: TicketType;
   due_date: string | null;
   created_at: string;
   updated_at: string;
+  completed_at: string | null;
 };
 
 // What Vanguard's screens read of a ticket beyond the engine's task (vanguard/one/Tasks.tsx).
@@ -30,27 +31,30 @@ export type TaskTicket = Pick<VanguardTicket, "project_id" | "assignee_id" | "re
 // A task with no due date sorts after every dated one and is never late.
 export const NO_DUE_DATE = "9999-12-31";
 
-export async function listTickets(): Promise<VanguardTicket[]> {
-  const db = await createClient();
-  if (!db) return [];
-  const { data, error } = await db
-    .from("tasks")
-    .select("id, title, description, project_id, assignee_id, reporter_id, status, stage_id, priority, type, due_date, created_at, updated_at")
-    .neq("status", "archived")
-    .returns<VanguardTicket[]>();
-  if (error) throw new Error(error.message);
-  return data ?? [];
+// The tickets the person sees, archived ones apart ('normal', the engine's default priority, is the boards' medium).
+export async function listTickets(tx: ErpTransaction): Promise<VanguardTicket[]> {
+  const [{ rows }] = await tx.query<{ rows: VanguardTicket[] }>(
+    `select coalesce(jsonb_agg(jsonb_build_object(
+              'id', t.id, 'title', t.title, 'description', t.notes, 'project_id', t.engagement_id, 'assignee_id', t.assignee_id,
+              'reporter_id', t.reporter_id, 'status', t.status, 'stage_id', t.stage_id,
+              'priority', case when t.priority = 'normal' then 'medium' else t.priority end, 'type', t.type,
+              'due_date', t.due_date, 'created_at', t.created_at, 'updated_at', t.updated_at, 'completed_at', t.completed_at)), '[]'::jsonb) as rows
+       from erp.task t
+      where t.engagement_id is not null and t.status <> 'archived'`,
+  );
+  return rows;
 }
 
-// The engine's task for a ticket of a mission the person sees (by its project); tickets of no mission stay in BUMEX One.
+// The engine's task for a ticket of a mission of the state (the floors the person sees); the others stay in the
+// person's own lists (My day, the ticket's page).
 export function ticketTasks(
   tickets: VanguardTicket[],
-  missions: { id: string; entityId: string; customerId?: string; projectId?: string }[],
+  missions: { id: string; entityId: string; customerId?: string }[],
   names: Map<string, string>,
 ): (Task & { ticket: TaskTicket })[] {
-  const byProject = new Map(missions.filter((m) => m.projectId).map((m) => [m.projectId!, m]));
+  const byId = new Map(missions.map((m) => [m.id, m]));
   return tickets.flatMap((t) => {
-    const mission = byProject.get(t.project_id);
+    const mission = byId.get(t.project_id);
     if (!mission) return [];
     const done = t.status === "done";
     return [{
@@ -65,7 +69,7 @@ export function ticketTasks(
       status: done ? "done" : t.status === "backlog" || t.status === "todo" ? "todo" : "in_progress",
       priority: t.priority === "urgent" || t.priority === "high" ? "high" : t.priority === "low" ? "low" : "normal",
       createdAt: t.created_at.slice(0, 10),
-      completedAt: done ? t.updated_at.slice(0, 10) : undefined,
+      completedAt: done ? (t.completed_at ?? t.updated_at).slice(0, 10) : undefined,
       notes: t.description || undefined,
       ticket: { project_id: t.project_id, assignee_id: t.assignee_id, reporter_id: t.reporter_id, status: t.status, stage_id: t.stage_id ?? null, priority: t.priority, type: t.type },
     }];

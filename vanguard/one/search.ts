@@ -44,6 +44,6 @@ export function useBumexOneSearch(q: string): Hit[] {
     .slice(0, 8)
     .map((r) => {
       const [fr, en] = TYPES[r.entityType]!;
-      return { label: r.title, sub: `${say(fr, en)} · BUMEX One${r.relatedLabel ? ` · ${r.relatedLabel}` : ''}`, go: () => router.push(r.href) };
+      return { label: r.title, sub: `${say(fr, en)}${r.relatedLabel ? ` · ${r.relatedLabel}` : ''}`, go: () => router.push(r.href) };
     });
 }

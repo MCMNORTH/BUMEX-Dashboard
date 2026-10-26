@@ -1,7 +1,5 @@
 import "server-only";
 
-import type { DataClient } from "@/lib/firebase/server";
-
 import { getTicketActivity, logActivity } from "@/lib/activity/service";
 import {
   createAssignmentNotification,
@@ -9,16 +7,8 @@ import {
   createStatusChangeNotification,
   getNotificationRecipientsForProject,
 } from "@/lib/notifications/service";
-import {
-  applyEntityScope,
-  extendWithEntityCode,
-  getCurrentEntityCode,
-  getEntityScopedCacheKey,
-  isEntityScopingEnabled,
-} from "@/lib/entities/scope";
 import { isOutsidePerson, projectHomeEntity } from "@/lib/entities/people-options";
-import { getCached, invalidateCached } from "@/lib/server-cache";
-import { createClient } from "@/lib/firebase/server";
+import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
 import { getTicketDueState, redactTicketDescription, normalizeTicketPriority, normalizeTicketStatus } from "@/lib/tickets/helpers";
 import {
   describeTransitionError,
@@ -32,6 +22,7 @@ import {
   stageStatus,
 } from "@/lib/tickets/workflow";
 import { getBoardWorkflow, getConfiguredWorkflows } from "@/lib/tickets/workflow-service";
+import { asPerson, select, selectOne, type Tx } from "@/lib/work/db";
 import type { AppRole } from "@/types/auth";
 import type { TicketActivity, TicketAssignee, TicketFilters, TicketFiltersData, TicketFormValues, TicketProject, TicketProjectTeam, TicketRecord, TicketReporter, TicketStats, TicketStatus, TicketWorkloadRecord } from "@/types/ticket";
 import type { BoardWorkflow, TransitionErrorCode } from "@/types/workflow";
@@ -60,7 +51,27 @@ type TicketRow = {
   reporter: TicketReporter | TicketReporter[] | null;
 };
 
-type AppDataClient = DataClient;
+// A ticket is an erp.task of a mission (0008), seen with BUMEX One's rules (row-level security). The engine's
+// 'normal' priority is the boards' medium; a done ticket keeps the date it was completed.
+const TICKET_SQL = `
+  select t.id, t.title, t.notes as description, t.engagement_id as project_id, t.assignee_id, t.reporter_id, t.status, t.stage_id,
+         case when t.priority = 'normal' then 'medium' else t.priority end as priority, t.type, t.due_date,
+         t.estimated_hours::float8 as estimated_hours, t.actual_hours::float8 as actual_hours, t.github_issue_url,
+         (select count(*) from work.subtask s where s.task_id = t.id)::int as subtasks_total,
+         (select count(*) from work.subtask s where s.task_id = t.id and s.is_done)::int as subtasks_done,
+         t.created_at, t.updated_at,
+         (select jsonb_build_object('id', e.id, 'name', e.name, 'status', case when e.status = 'planned' then 'draft' else e.status::text end,
+                                    'end_date', e.deadline, 'entity_code', x.code,
+                                    'client', (select jsonb_build_object('id', c.id, 'name', c.name, 'contact_email', c.contact_email)
+                                                 from work.client c where c.id = e.client_id))
+            from erp.engagement e join erp.entity x on x.id = e.entity_id where e.id = t.engagement_id) as project,
+         work.person_card(t.assignee_id) as assignee,
+         work.person_card(t.reporter_id) as reporter
+    from erp.task t`;
+
+// the status a ticket is written with, and its completion date following it
+const STATUS_SET = `status = $STATUS, completed_at = case when $STATUS = 'done' then coalesce(completed_at, current_date) end`;
+const statusSet = (param: string) => STATUS_SET.replaceAll("$STATUS", param);
 
 function single<T>(value: T | T[] | null): T | null {
   if (Array.isArray(value)) {
@@ -121,172 +132,41 @@ async function attachStages(tickets: TicketRecord[]) {
   return tickets.map((ticket) => withStage(ticket, workflows.get(ticket.project_id)));
 }
 
-function getBaseTicketQuery(db: AppDataClient) {
-  return db
-    .from("tasks")
-    .select(
-      `
-        id,
-        title,
-        description,
-        project_id,
-        assignee_id,
-        reporter_id,
-        status,
-        stage_id,
-        priority,
-        type,
-        due_date,
-        estimated_hours,
-        actual_hours,
-        github_issue_url,
-        subtasks_total,
-        subtasks_done,
-        created_at,
-        updated_at,
-        project:projects (
-          id,
-          name,
-          status,
-          end_date,
-          entity_code,
-          client:clients (
-            id,
-            name,
-            contact_email
-          )
-        ),
-        assignee:profiles!tasks_assignee_id_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        ),
-        reporter:profiles!tasks_reporter_id_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        )
-      `,
-    )
-    .order("updated_at", { ascending: false });
-}
-
-type TicketQuery = ReturnType<typeof getBaseTicketQuery>;
-
-function applyFilters(query: TicketQuery, filters: TicketFilters) {
-  if (filters.search) {
-    query = query.matchText(["title"], filters.search);
-  }
-
-  if (filters.status) {
-    query = query.in("status", filters.status === "review" ? ["review", "in_review"] : [filters.status]);
-  }
-
-  if (filters.priority) {
-    query = query.in("priority", filters.priority === "urgent" ? ["urgent", "critical"] : [filters.priority]);
-  }
-
-  if (filters.assigneeId) {
-    query = filters.assigneeId === "unassigned" ? query.is("assignee_id", null) : query.eq("assignee_id", filters.assigneeId);
-  }
-
-  if (filters.projectId) {
-    query = query.eq("project_id", filters.projectId);
-  }
-
-  if (filters.type) {
-    query = query.eq("type", filters.type);
-  }
-
+// The tickets the person sees (archived ones included: the boards and lists leave them out themselves), most recently
+// changed first, with the filters the lists offer.
+async function readTickets(role: AppRole, filters: TicketFilters = {}, more?: { where: string; params: unknown[] }) {
+  const where = ["t.engagement_id is not null"];
+  const params: unknown[] = [...(more?.params ?? [])];
+  const param = (value: unknown) => {
+    params.push(value);
+    return `$${params.length}`;
+  };
+  if (more) where.push(more.where);
+  if (filters.status) where.push(`t.status = ${param(filters.status)}`);
+  if (filters.priority) where.push(`(case when t.priority = 'normal' then 'medium' else t.priority end) = ${param(filters.priority)}`);
+  if (filters.assigneeId) where.push(filters.assigneeId === "unassigned" ? "t.assignee_id is null" : `t.assignee_id = ${param(filters.assigneeId)}`);
+  if (filters.projectId) where.push(`t.engagement_id = ${param(filters.projectId)}::uuid`);
+  if (filters.type) where.push(`t.type = ${param(filters.type)}`);
   const today = new Date();
-  const weekEnd = new Date(today);
-  weekEnd.setDate(today.getDate() + 7);
-  const monthEnd = new Date(today);
-  monthEnd.setDate(today.getDate() + 30);
+  const key = (offset: number) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() + offset);
+    return date.toISOString().slice(0, 10);
+  };
+  if (filters.dueDate === "overdue") where.push(`t.due_date < ${param(key(0))}::date`);
+  if (filters.dueDate === "this_week") where.push(`t.due_date between ${param(key(0))}::date and ${param(key(7))}::date`);
+  if (filters.dueDate === "this_month") where.push(`t.due_date between ${param(key(0))}::date and ${param(key(30))}::date`);
+  if (filters.dueDate === "none") where.push("t.due_date is null");
 
-  if (filters.dueDate === "overdue") {
-    query = query.lt("due_date", today.toISOString().slice(0, 10));
-  }
-
-  if (filters.dueDate === "this_week") {
-    query = query
-      .gte("due_date", today.toISOString().slice(0, 10))
-      .lte("due_date", weekEnd.toISOString().slice(0, 10));
-  }
-
-  if (filters.dueDate === "this_month") {
-    query = query
-      .gte("due_date", today.toISOString().slice(0, 10))
-      .lte("due_date", monthEnd.toISOString().slice(0, 10));
-  }
-
-  if (filters.dueDate === "none") {
-    query = query.is("due_date", null);
-  }
-
-  return query;
+  const rows = await asPerson((tx) => select<TicketRow>(tx, `${TICKET_SQL} where ${where.join(" and ")} order by t.updated_at desc`, params));
+  const terms = filters.search ? searchTerms(filters.search) : [];
+  return attachStages(rows.filter((row) => matchesSearchTerms(terms, [row.title])).map((row) => mapTicket(row, role)));
 }
 
 export async function getTickets(role: AppRole, filters: TicketFilters = {}) {
-  const entityCode = await getCurrentEntityCode();
-  return getCached(
-    getEntityScopedCacheKey(`tickets:list:${role}:${ticketFiltersKey(filters)}`, entityCode),
-    12_000,
-    () => getFreshTickets(role, filters, entityCode),
-  );
-}
+  const tickets = await readTickets(role, filters);
 
-export async function getTicketsAcrossEntities(role: AppRole, filters: TicketFilters = {}) {
-  return getCached(
-    `tickets:all-entities:${role}:${ticketFiltersKey(filters)}`,
-    12_000,
-    () => getFreshTickets(role, filters),
-  );
-}
-
-function ticketFiltersKey(filters: TicketFilters = {}) {
-  return JSON.stringify({
-    search: filters.search ?? "",
-    status: filters.status ?? "",
-    priority: filters.priority ?? "",
-    assigneeId: filters.assigneeId ?? "",
-    projectId: filters.projectId ?? "",
-    dueDate: filters.dueDate ?? "",
-    type: filters.type ?? "",
-    attention: Boolean(filters.attention),
-  });
-}
-
-export function invalidateTicketReadCache() {
-  invalidateCached((key) => key.startsWith("tickets:") || key === "tickets-filter-data");
-}
-
-async function getFreshTickets(role: AppRole, filters: TicketFilters = {}, entityCode?: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  let query = getBaseTicketQuery(db);
-  if (entityCode) {
-    query = applyEntityScope(query, entityCode);
-  }
-  query = applyFilters(query, filters);
-
-  const { data, error } = await query.returns<TicketRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const tickets = await attachStages((data ?? []).map((row) => mapTicket(row, role)));
-
-  // These filters need OR logic or a status exclusion, which the query layer cannot express.
+  // These filters need OR logic or a status exclusion.
   if (filters.attention) {
     return tickets.filter(ticketNeedsAttention);
   }
@@ -299,6 +179,9 @@ async function getFreshTickets(role: AppRole, filters: TicketFilters = {}, entit
 
   return tickets;
 }
+
+// Every entity's (the lists were scoped by entity in BUMEX One; the rules are not).
+export const getTicketsAcrossEntities = getTickets;
 
 export function isOpenTicket(ticket: Pick<TicketRecord, "status">) {
   return ticket.status !== "done" && ticket.status !== "archived";
@@ -318,213 +201,59 @@ export function ticketNeedsAttention(ticket: TicketRecord) {
 }
 
 export async function getMyTickets(userId: string, role: AppRole) {
-  const entityCode = await getCurrentEntityCode();
-  return getCached(
-    getEntityScopedCacheKey(`tickets:mine:${role}:${userId}`, entityCode),
-    12_000,
-    () => getFreshMyTickets(userId, role, entityCode),
-  );
-}
-
-async function getFreshMyTickets(userId: string, role: AppRole, entityCode?: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  let query = getBaseTicketQuery(db);
-  if (entityCode) {
-    query = applyEntityScope(query, entityCode);
-  }
-  query = query.eq("assignee_id", userId);
-
-  const { data, error } = await query.returns<TicketRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return attachStages((data ?? []).map((row) => mapTicket(row, role)));
+  return readTickets(role, {}, { where: "t.assignee_id = $1", params: [userId] });
 }
 
 export async function getTicketById(id: string, role: AppRole) {
-  const db = await createClient();
+  const row = await asPerson((tx) => selectOne<TicketRow>(tx, `${TICKET_SQL} where t.id = $1::uuid`, [id])).catch(() => null);
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  let query = db
-    .from("tasks")
-    .select(
-      `
-        id,
-        title,
-        description,
-        project_id,
-        assignee_id,
-        reporter_id,
-        status,
-        stage_id,
-        priority,
-        type,
-        due_date,
-        estimated_hours,
-        actual_hours,
-        github_issue_url,
-        subtasks_total,
-        subtasks_done,
-        created_at,
-        updated_at,
-        project:projects (
-          id,
-          name,
-          status,
-          end_date,
-          client:clients (
-            id,
-            name,
-            contact_email
-          )
-        ),
-        assignee:profiles!tasks_assignee_id_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        ),
-        reporter:profiles!tasks_reporter_id_fkey (
-          id,
-          full_name,
-          email,
-          avatar_url,
-          role
-        )
-      `,
-    )
-    .eq("id", id);
-
-  query = applyEntityScope(query, entityCode);
-
-  const { data, error } = await query.maybeSingle<TicketRow>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
+  if (!row) {
     return null;
   }
 
-  const normalizedActivity = await getTicketActivity(id, data.project_id, 10);
-  const [ticket] = await attachStages([mapTicket(data, role, normalizedActivity)]);
+  const normalizedActivity = await getTicketActivity(id, row.project_id, 10);
+  const [ticket] = await attachStages([mapTicket(row, role, normalizedActivity)]);
 
   return ticket;
 }
 
-const PICKER_PERSON_SELECT = "id, full_name, email, avatar_url, role, entity_code, job_title";
+const PICKER_PERSON = "work.person_card(p.id) as card";
 
 export async function getTicketsFilterData(): Promise<TicketFiltersData> {
-  const entityCode = await getCurrentEntityCode();
-  return getCached(getEntityScopedCacheKey("tickets-filter-data", entityCode), 30_000, () =>
-    getFreshTicketsFilterData(entityCode),
-  );
-}
-
-async function getFreshTicketsFilterData(entityCode?: string): Promise<TicketFiltersData> {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const shouldScopeByEntity = isEntityScopingEnabled() && Boolean(entityCode);
-  let assigneesQuery = db
-    .from("profiles")
-    .select(PICKER_PERSON_SELECT)
-    .order("full_name", { ascending: true });
-  let reportersQuery = db
-    .from("profiles")
-    .select(PICKER_PERSON_SELECT)
-    .order("full_name", { ascending: true });
-  let projectsQuery = db
-    .from("projects")
-    .select(
-      `
-        id,
-        name,
-        status,
-        end_date,
-        entity_code,
-        owner_id,
-        client:clients (
-          id,
-          name,
-          contact_email
-        )
-      `,
-    )
-    .order("name", { ascending: true });
-
-  if (shouldScopeByEntity) {
-    assigneesQuery = assigneesQuery.eq("entity_code", entityCode ?? "");
-    reportersQuery = reportersQuery.eq("entity_code", entityCode ?? "");
-    projectsQuery = projectsQuery.eq("entity_code", entityCode ?? "");
-  }
-
-  const [{ data: assignees, error: assigneeError }, { data: reporters, error: reporterError }, { data: projects, error: projectsError }] =
-    await Promise.all([
-      assigneesQuery.returns<TicketAssignee[]>(),
-      reportersQuery.returns<TicketReporter[]>(),
-      projectsQuery.returns<Array<TicketProject & { owner_id: string | null }>>(),
-    ]);
-
-  if (assigneeError) throw new Error(assigneeError.message);
-  if (reporterError) throw new Error(reporterError.message);
-  if (projectsError) throw new Error(projectsError.message);
-
-  return {
-    assignees: assignees ?? [],
-    reporters: reporters ?? [],
-    projects: projects ?? [],
-    projectTeams: await getProjectTeams(db, projects ?? []),
-  };
+  return asPerson(async (tx) => {
+    const people = (await select<{ card: TicketAssignee }>(tx, `select ${PICKER_PERSON} from work.person p order by p.full_name`)).map((p) => p.card);
+    const projects = await select<TicketProject & { owner_id: string | null }>(
+      tx,
+      `select e.id, e.name, case when e.status = 'planned' then 'draft' else e.status::text end as status, e.deadline as end_date, x.code as entity_code,
+              e.owner_id, (select jsonb_build_object('id', c.id, 'name', c.name, 'contact_email', c.contact_email) from work.client c where c.id = e.client_id) as client
+         from erp.engagement e join erp.entity x on x.id = e.entity_id
+        order by e.name`,
+    );
+    return { assignees: people, reporters: people, projects, projectTeams: await getProjectTeams(tx, projects, people) };
+  });
 }
 
 /**
- * The listed projects that have members from another entity than their own (the
- * owner's when a project has none), with those members, for the ticket pickers.
+ * The listed projects that have members from another entity than their own, with those members, for the ticket
+ * pickers.
  */
 async function getProjectTeams(
-  db: AppDataClient,
+  tx: Tx,
   projects: Array<Pick<TicketProject, "id" | "entity_code"> & { owner_id: string | null }>,
+  people: TicketAssignee[],
 ): Promise<Record<string, TicketProjectTeam>> {
   if (!projects.length) {
     return {};
   }
 
-  const { data: memberships, error: membershipsError } = await db
-    .from("project_members")
-    .select("project_id, user_id")
-    .in("project_id", projects.map((project) => project.id))
-    .returns<Array<{ project_id: string; user_id: string }>>();
+  const memberships = await select<{ project_id: string; user_id: string }>(
+    tx,
+    "select engagement_id as project_id, user_id from erp.engagement_staff where engagement_id = any($1::uuid[])",
+    [projects.map((project) => project.id)],
+  );
+  if (!memberships.length) return {};
 
-  if (membershipsError) throw new Error(membershipsError.message);
-  if (!memberships?.length) return {};
-
-  const ownerIds = projects.flatMap((project) => (project.entity_code || !project.owner_id ? [] : [project.owner_id]));
-  const { data: people, error: peopleError } = await db
-    .from("profiles")
-    .select(PICKER_PERSON_SELECT)
-    .in("id", [...new Set([...ownerIds, ...memberships.map((membership) => membership.user_id)])])
-    .returns<TicketAssignee[]>();
-
-  if (peopleError) throw new Error(peopleError.message);
-
-  const peopleById = new Map((people ?? []).map((person) => [person.id, person]));
+  const peopleById = new Map(people.map((person) => [person.id, person]));
   const teams: Record<string, TicketProjectTeam> = {};
 
   for (const project of projects) {
@@ -563,27 +292,30 @@ function parseTicketPayload(values: TicketFormValues) {
   };
 }
 
+const payloadParams = (p: ReturnType<typeof parseTicketPayload>) => [
+  p.project_id, p.title, p.description, p.assignee_id, p.reporter_id, p.status, p.stage_id || null, p.priority, p.type, p.due_date,
+  p.estimated_hours, p.actual_hours, p.github_issue_url,
+];
+
 export async function createTicket(
   values: TicketFormValues,
   actorUserId: string,
   options: { emailAssignee?: boolean } = {},
 ) {
-  const db = await createClient();
+  const payload = parseTicketPayload(values);
+  const data = await asPerson((tx) =>
+    selectOne<{ id: string }>(
+      tx,
+      `insert into erp.task (engagement_id, title, notes, assignee_id, reporter_id, status, completed_at, stage_id, priority, type, due_date,
+                             estimated_hours, actual_hours, github_issue_url)
+       values ($1::uuid, $2, $3, $4, $5, $6, case when $6 = 'done' then current_date end, $7, $8, $9, $10::date, $11::numeric, $12::numeric, $13)
+       returning id`,
+      payloadParams(payload),
+    ),
+  );
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  const payload = extendWithEntityCode(parseTicketPayload(values), entityCode);
-  const { data, error } = await db
-    .from("tasks")
-    .insert(payload)
-    .select("id")
-    .single<{ id: string }>();
-
-  if (error) {
-    throw new Error(error.message);
+  if (!data) {
+    throw new Error("Ticket creation did not return an id.");
   }
 
   await logActivity({
@@ -620,8 +352,6 @@ export async function createTicket(
     skipUserId: actorUserId,
   });
 
-  invalidateTicketReadCache();
-
   return data.id;
 }
 
@@ -649,40 +379,24 @@ export async function updateTicket(
   actorUserId: string,
   stageChange?: TicketStageChange,
 ) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const entityCode = await getCurrentEntityCode();
-  const previousQuery = applyEntityScope(db
-    .from("tasks")
-    .select("title, status, priority, assignee_id, due_date, project_id")
-    .eq("id", id), entityCode);
-  const previousResponse = await previousQuery.maybeSingle();
-  const { data: previousTicket, error: previousError } = previousResponse as {
-    data: {
-      title: string;
-      status: string;
-      priority: string;
-      assignee_id: string | null;
-      due_date: string | null;
-      project_id: string;
-    } | null;
-    error: { message: string } | null;
-  };
-
-  if (previousError) {
-    throw new Error(previousError.message);
-  }
-
   const payload = parseTicketPayload(values);
-  const { error } = await applyEntityScope(db.from("tasks").update(payload).eq("id", id), entityCode);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  const previousTicket = await asPerson(async (tx) => {
+    const previous = await selectOne<{ title: string; status: string; priority: string; assignee_id: string | null; due_date: string | null; project_id: string }>(
+      tx,
+      `select title, status, case when priority = 'normal' then 'medium' else priority end as priority, assignee_id, due_date, engagement_id as project_id
+         from erp.task where id = $1::uuid`,
+      [id],
+    );
+    const updated = await tx.run(
+      `update erp.task
+          set engagement_id = $1::uuid, title = $2, notes = $3, assignee_id = $4, reporter_id = $5, ${statusSet("$6")}, stage_id = $7, priority = $8,
+              type = $9, due_date = $10::date, estimated_hours = $11::numeric, actual_hours = $12::numeric, github_issue_url = $13
+        where id = $14::uuid`,
+      [...payloadParams(payload), id],
+    );
+    if (!updated) throw new Error("You cannot edit this ticket.");
+    return previous;
+  });
 
   const activityTasks = [];
 
@@ -784,8 +498,6 @@ export async function updateTicket(
 
   await Promise.all(activityTasks);
 
-  invalidateTicketReadCache();
-
   return id;
 }
 
@@ -864,26 +576,12 @@ export async function moveTicketToStage(
     toId = resolved.stageId;
   }
 
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
   const to = findStage(workflow, toId)!;
   const fromName = findStage(workflow, fromId)?.name ?? fromId;
-  const entityCode = await getCurrentEntityCode();
-  const { data, error } = await applyEntityScope(
-    db.from("tasks").update({ stage_id: to.id, status: stageStatus(to) }).eq("id", ticket.id).select("id"),
-    entityCode,
-  );
+  const moved = await asPerson((tx) => tx.run(`update erp.task set stage_id = $2, ${statusSet("$3")} where id = $1::uuid`, [ticket.id, to.id, stageStatus(to)]));
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  // Row policies skip rows the caller may not update instead of failing.
-  if (!data?.length) {
+  // The rules skip rows the caller may not update instead of failing.
+  if (!moved) {
     return {
       ok: false,
       code: "write_failed",
@@ -902,8 +600,6 @@ export async function moveTicketToStage(
     skipUserId: options.actorUserId,
   });
 
-  invalidateTicketReadCache();
-
   return { ok: true, changed: true };
 }
 
@@ -911,23 +607,7 @@ type ProjectTicketStageRow = { id: string; status: string; stage_id?: string | n
 
 /** Every ticket of a board with just what stage bookkeeping needs, archived ones included. */
 export async function getProjectTicketStages(projectId: string) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
-  const { data, error } = await db
-    .from("tasks")
-    .select("id, status, stage_id")
-    .eq("project_id", projectId)
-    .returns<ProjectTicketStageRow[]>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data ?? [];
+  return asPerson((tx) => select<ProjectTicketStageRow>(tx, "select id, status, stage_id from erp.task where engagement_id = $1::uuid", [projectId]));
 }
 
 /** Cards on the board per stage id. Archived tickets are off the board and not counted. */
@@ -956,12 +636,6 @@ export async function syncTicketsToWorkflow(
   previous: BoardWorkflow,
   next: BoardWorkflow,
 ) {
-  const db = await createClient();
-
-  if (!db) {
-    throw new Error("Firebase is not configured.");
-  }
-
   const updates = rows.flatMap((row) => {
     const status = normalizeTicketStatus(row.status);
     const stageId = resolveTicketStageId(previous, { stage_id: row.stage_id, status });
@@ -973,42 +647,25 @@ export async function syncTicketsToWorkflow(
       : [{ id: row.id, stage_id: stageId, status: nextStatus }];
   });
 
-  for (let index = 0; index < updates.length; index += 20) {
-    await Promise.all(
-      updates.slice(index, index + 20).map(async (update) => {
-        const { error } = await db
-          .from("tasks")
-          .update({ stage_id: update.stage_id, status: update.status })
-          .eq("id", update.id);
-
-        if (error) {
-          throw new Error(error.message);
-        }
-      }),
-    );
-  }
-
   if (updates.length) {
-    invalidateTicketReadCache();
+    await asPerson((tx) =>
+      tx.query(
+        `update erp.task t set stage_id = u.stage_id, ${statusSet("u.status")}
+           from jsonb_to_recordset($1::jsonb) as u(id uuid, stage_id text, status text) where t.id = u.id`,
+        [JSON.stringify(updates)],
+      ),
+    );
   }
 
   return updates.length;
 }
 
 export async function deleteTicket(id: string) {
-  const db = await createClient();
+  const deleted = await asPerson((tx) => tx.query("delete from erp.task where id = $1::uuid returning id", [id]));
 
-  if (!db) {
-    throw new Error("Firebase is not configured.");
+  if (!deleted.length) {
+    throw new Error("You cannot delete this ticket.");
   }
-
-  const { error } = await db.from("tasks").delete().eq("id", id);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  invalidateTicketReadCache();
 }
 
 export function getTicketStats(tickets: TicketRecord[], currentUserId: string): TicketStats {

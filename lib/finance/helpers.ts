@@ -121,17 +121,3 @@ export function parseTransferNotesMetadata(notes: string | null) {
     renewal: parseTransferRenewal(renewalMatch?.[1]),
   } as const;
 }
-
-export function buildTransferNotes(entity: string, notes: string, renewal?: StoredTransferRenewal) {
-  const cleanNotes = notes.trim();
-  const prefix = `@@entity:${entity || "unassigned"}@@`;
-  const renewalMetadata = renewal?.enabled
-    ? `@@renewal:${JSON.stringify({
-      enabled: true,
-      next_due_date: renewal.next_due_date ?? null,
-      reminder_days: renewal.reminder_days ?? 30,
-      interval_months: renewal.interval_months ?? 12,
-    })}@@`
-    : "";
-  return [prefix, renewalMetadata, cleanNotes].filter(Boolean).join("\n");
-}

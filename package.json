@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:erp": "vitest run lib/erp && node db/erp/test/guarantees.test.mjs && node db/erp/test/bumex-one.test.mjs",
+    "test:erp": "vitest run lib/erp && node db/erp/test/guarantees.test.mjs && node db/erp/test/bumex-one.test.mjs && node db/erp/test/work.test.mjs",
     "erp:migrate": "node --env-file-if-exists=.env.local scripts/erp-migrate.mjs"
   },
   "dependencies": {

@@ -8,7 +8,7 @@ import { requireAuthenticatedUser } from "@/lib/auth/server";
 import { activeEntityCookieName, isBumexEntityCode } from "@/lib/entities/config";
 import { normalizeEntityMutationError } from "@/lib/entities/errors";
 import { getAccessibleEntityCodes } from "@/lib/entities/server";
-import { createClient } from "@/lib/firebase/server";
+import { asPerson } from "@/lib/work/db";
 
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -45,48 +45,7 @@ export async function setActiveEntityAction(formData: FormData): Promise<SetActi
       });
     }
 
-    const db = await createClient();
-    if (!db) {
-      if (!isSuperAdmin) {
-        throw new Error("The entity could not be updated.");
-      }
-
-      if (redirectPath.startsWith("/")) {
-        revalidatePath(redirectPath);
-      }
-      revalidatePath("/", "layout");
-      return {
-        ok: true,
-        entityCode,
-        warning: "The workspace entity was applied for this session, but the database profile could not be synchronized.",
-      };
-    }
-
-    const { error } = await db
-      .from("profiles")
-      .update({
-        entity_code: entityCode,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", auth.profile.id);
-
-    if (error) {
-      const normalizedError = normalizeEntityMutationError(error, entityCode, "The entity could not be updated.");
-
-      if (isSuperAdmin && normalizedError.toLowerCase().includes("does not yet allow")) {
-        if (redirectPath.startsWith("/")) {
-          revalidatePath(redirectPath);
-        }
-        revalidatePath("/", "layout");
-        return {
-          ok: true,
-          entityCode,
-          warning: `${entityCode} was applied for your super admin workspace. The live database profile assignment for this entity is still pending.`,
-        };
-      }
-
-      throw new Error(normalizedError);
-    }
+    await asPerson((tx) => tx.query("update work.person set entity_code = $2 where id = $1", [auth.profile.id, entityCode]));
 
     if (redirectPath.startsWith("/")) {
       revalidatePath(redirectPath);

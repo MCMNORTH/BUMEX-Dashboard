@@ -46,10 +46,11 @@ const asSystem = (actor, fn) => within(() => db.query('select erp.open_system_se
 const grant = (uid, role, entities = null, modules = null) =>
   db.query('insert into erp.user_access (user_id, erp_role, entity_codes, modules) values ($1, $2, $3, $4)', [uid, role, entities, modules]);
 
+// rows of a table that follows its entity (tasks follow the work's rules since 0008: work.test.mjs)
 async function addTasks(ids) {
   await asSystem('seed', async () => {
     for (const code of ['bumex_audit', 'bumex_it']) {
-      await db.query(`insert into erp.task (entity_id, title, module, assignee, due_date) values ($1, $2, 'accounting', 'x', '2026-12-31')`, [ids[code], `task ${code}`]);
+      await db.query(`insert into erp.approval_policy (entity_id, document_type, required_role) values ($1, $2, 'partner')`, [ids[code], `task ${code}`]);
     }
   });
 }
@@ -95,7 +96,7 @@ await test('access: no access row = no ERP (role none, nothing visible)', async 
   await addTasks(ids);
   const seen = await asUser('nobody', async () => {
     const role = await one(`select current_setting('erp.actor_role') r`);
-    const n = await one('select count(*)::int n from erp.task');
+    const n = await one('select count(*)::int n from erp.approval_policy');
     return { role: role.r, n: n.n };
   });
   if (seen.role !== 'none' || seen.n !== 0) throw new Error(JSON.stringify(seen));
@@ -106,10 +107,10 @@ await test('access: a partner given one entity sees that entity only (0001 let e
   const ids = await fresh();
   await addTasks(ids);
   await asSystem('admin-uid', () => grant('u_partner', 'partner', ['bumex_audit']));
-  const titles = await asUser('u_partner', async () => (await db.query('select title from erp.task')).rows.map((r) => r.title));
+  const titles = await asUser('u_partner', async () => (await db.query('select document_type as title from erp.approval_policy')).rows.map((r) => r.title));
   if (titles.length !== 1 || titles[0] !== 'task bumex_audit') throw new Error(titles.join(','));
   const refused = await expectError(
-    () => asUser('u_partner', () => db.query(`insert into erp.task (entity_id, title, module, assignee, due_date) values ($1, 'x', 'accounting', 'x', '2026-12-31')`, [ids.bumex_it])),
+    () => asUser('u_partner', () => db.query(`insert into erp.approval_policy (entity_id, document_type, required_role) values ($1, 'x', 'partner')`, [ids.bumex_it])),
     /row-level security/,
   );
   return `sees 1 of 2; writing to BUMEX IT refused (${refused.slice(0, 40)}…)`;
@@ -119,7 +120,7 @@ await test('access: no entity list = every entity', async () => {
   const ids = await fresh();
   await addTasks(ids);
   await asSystem('admin-uid', () => grant('u_raf', 'raf'));
-  const n = await asUser('u_raf', async () => (await one('select count(*)::int n from erp.task')).n);
+  const n = await asUser('u_raf', async () => (await one('select count(*)::int n from erp.approval_policy')).n);
   if (n !== 2) throw new Error(`saw ${n}`);
   return 'sees 2 of 2';
 });
@@ -170,10 +171,10 @@ await test('no session: erp_app sees nothing; an app login reaches the schema on
   await addTasks(ids);
   await db.exec('begin');
   await db.exec('set local role erp_app');
-  const app = await one(`select erp.actor_role() r, (select count(*)::int from erp.task) n`);
+  const app = await one(`select erp.actor_role() r, (select count(*)::int from erp.approval_policy) n`);
   await db.exec('rollback');
   if (app.r !== 'none' || app.n !== 0) throw new Error('erp_app without session ' + JSON.stringify(app));
-  const admin = await one(`select erp.actor_role() r, (select count(*)::int from erp.task) n`);
+  const admin = await one(`select erp.actor_role() r, (select count(*)::int from erp.approval_policy) n`);
   if (admin.r !== 'system' || admin.n !== 2) throw new Error('administrator ' + JSON.stringify(admin));
   // a login granted the usual way, then 0005 applied again (it is idempotent)
   await db.exec(`create role app_login login; grant erp_app to app_login`);

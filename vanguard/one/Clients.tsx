@@ -51,7 +51,7 @@ export function ClientRelations({ entityId }: { entityId: Id }) {
     <div className="card flush">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
         <h2 style={{ margin: 0 }}>{say('Relations', 'Relations')} · {clients.length}</h2>
-        <span className="small muted">{say('les clients du groupe (BUMEX One) et leur compte dans cette entité', "the group's clients (BUMEX One) and their account in this entity")}</span>
+        <span className="small muted">{say('les clients du groupe et leur compte dans cette entité', "the group's clients and their account in this entity")}</span>
         <input className="in" style={{ maxWidth: 220, marginLeft: 'auto' }} placeholder={say('Rechercher…', 'Search…')} value={q} onChange={(e) => setQ(e.target.value)} />
         {!creating && <button className="btn sm primary" onClick={startCreating}><Icon name="plus" size={13} /> {say('Nouveau client', 'New client')}</button>}
         <div className="seg">

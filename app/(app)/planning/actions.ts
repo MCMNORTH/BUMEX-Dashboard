@@ -1,10 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { requireRouteAccess } from "@/lib/auth/server";
 import { getProjectById } from "@/lib/projects/service";
-import { updateTaskDueDate, updateTaskPlanning } from "@/lib/planning/service";
+import { updateTaskDueDate } from "@/lib/planning/service";
 import { getTicketById } from "@/lib/tickets/service";
 
 export type PlanningActionState = {
@@ -52,68 +50,11 @@ export async function updateTaskDueDateAction(
     return { error: "Employees can only reschedule tickets assigned to them." };
   }
 
-  await updateTaskDueDate(ticketId, nextDueDate, auth.profile.id);
-
-  revalidatePath("/planning");
-  revalidatePath("/my-work");
-  revalidatePath("/tickets");
-  revalidatePath(`/tickets/${ticketId}`);
-  revalidatePath(`/projects/${ticket.project_id}`);
-
-  return { success: true };
-}
-
-export async function rebalanceTaskAction(ticketId: string, nextDueDate: string, assigneeId: string): Promise<PlanningActionState> {
-  const auth = await requireRouteAccess("planning");
-  if (auth.role !== "admin" && auth.role !== "manager") return { error: "Only administrators and managers can rebalance team work." };
-  const ticket = await getTicketById(ticketId, auth.role);
-  if (!ticket) return { error: "The task could not be found." };
-
-  const firebaseServer = await import("@/lib/firebase/server");
-  const db = await firebaseServer.createClient();
-  if (!db) return { error: "Planning is unavailable." };
-  let profileQuery = db.from("profiles").select("id, entity_code, availability_status").eq("id", assigneeId);
-  if (auth.role === "manager") profileQuery = profileQuery.eq("entity_code", auth.profile.entity_code);
-  const { data: target, error } = await profileQuery.maybeSingle<{ id: string; entity_code: string | null; availability_status: string }>();
-  if (error || !target) return { error: "This person is outside your planning scope." };
-  if (target.availability_status === "away" || target.availability_status === "inactive") return { error: "This person is currently unavailable." };
-
-  await updateTaskPlanning(ticketId, nextDueDate, assigneeId, auth.profile.id);
-  revalidatePath("/planning");
-  revalidatePath("/my-work");
-  revalidatePath("/tickets");
-  revalidatePath(`/tickets/${ticketId}`);
-  revalidatePath(`/projects/${ticket.project_id}`);
-  return { success: true };
-}
-
-export async function rebalanceTasksAction(items: Array<{ ticketId: string; nextDueDate: string; assigneeId: string }>): Promise<PlanningActionState> {
-  const auth = await requireRouteAccess("planning");
-  if (auth.role !== "admin" && auth.role !== "manager") return { error: "Only administrators and managers can rebalance team work." };
-  if (!items.length || items.length > 20) return { error: "Select between 1 and 20 tasks." };
-  const firebaseServer = await import("@/lib/firebase/server");
-  const db = await firebaseServer.createClient();
-  if (!db) return { error: "Planning is unavailable." };
-
-  const uniqueItems = [...new Map(items.map(item => [item.ticketId, item])).values()];
-  const validated: Array<{ ticketId: string; nextDueDate: string; assigneeId: string; projectId: string }> = [];
-  for (const item of uniqueItems) {
-    const ticket = await getTicketById(item.ticketId, auth.role);
-    if (!ticket) return { error: "One of the selected tasks is outside your planning scope." };
-    let targetQuery = db.from("profiles").select("id, entity_code, availability_status").eq("id", item.assigneeId);
-    if (auth.role === "manager") targetQuery = targetQuery.eq("entity_code", auth.profile.entity_code);
-    const { data: target } = await targetQuery.maybeSingle<{ id: string; entity_code: string | null; availability_status: string }>();
-    if (!target || target.availability_status === "away" || target.availability_status === "inactive") return { error: "One of the suggested assignees is no longer available." };
-    validated.push({ ...item, projectId: ticket.project_id });
+  try {
+    await updateTaskDueDate(ticketId, nextDueDate, auth.profile.id);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "The task could not be rescheduled." };
   }
 
-  await Promise.all(validated.map(item => updateTaskPlanning(item.ticketId, item.nextDueDate, item.assigneeId, auth.profile.id)));
-  revalidatePath("/planning");
-  revalidatePath("/my-work");
-  revalidatePath("/tickets");
-  for (const item of validated) {
-    revalidatePath(`/tickets/${item.ticketId}`);
-    revalidatePath(`/projects/${item.projectId}`);
-  }
   return { success: true };
 }

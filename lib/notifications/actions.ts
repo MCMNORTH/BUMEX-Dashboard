@@ -2,6 +2,7 @@
 
 import {
   archiveNotification,
+  getNotificationsVersion,
   getUserNotifications,
   markAllNotificationsAsRead,
   markNotificationAsRead,
@@ -25,4 +26,8 @@ export async function markAllNotificationsAsReadAction() {
 
 export async function archiveNotificationAction(notificationId: string) {
   await archiveNotification(notificationId);
+}
+
+export async function notificationsVersionAction(): Promise<string | null> {
+  return getNotificationsVersion().catch(() => null);
 }

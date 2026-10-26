@@ -3,7 +3,7 @@ import "server-only";
 import { Connector } from "@google-cloud/cloud-sql-connector";
 import { Pool, type PoolClient } from "pg";
 
-// The ERP's PostgreSQL (schema `erp`, migrations in db/erp). Firestore stays BUMEX One's database.
+// The app's PostgreSQL: the books (schema `erp`) and the work (schema `work`, migration 0008), migrations in db/erp.
 // Every unit of work is one transaction that switches to role erp_app (which never bypasses row-level security)
 // and opens the session context the schema's triggers and policies read (erp.actor_id / actor_role / entity_ids).
 // Nothing else in the app talks to this pool, so no query can run without that context.
@@ -30,7 +30,8 @@ async function createPool(): Promise<Pool> {
   const instanceConnectionName = cloudSqlInstance();
   // The (app) layout asks for ERP access on every page: if the database cannot be reached, give up quickly and let
   // BUMEX One render without the ERP rather than hold every page (pg waits forever by default).
-  const sizing = { max: 5, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 5_000, statement_timeout: 15_000 };
+  // Every timestamp the app reads is in UTC (the work's dates are compared as YYYY-MM-DD strings).
+  const sizing = { max: 5, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 5_000, statement_timeout: 15_000, options: "-c TimeZone=UTC" };
 
   if (url) {
     return new Pool({ connectionString: url, ...sizing });
@@ -72,6 +73,8 @@ function getPool(): Promise<Pool> {
 
 export type ErpTransaction = {
   query: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T[]>;
+  // how many rows a write touched (without RETURNING: a row the write leaves out of the person's sight cannot be returned)
+  run: (sql: string, params?: unknown[]) => Promise<number>;
 };
 
 async function inTransaction<T>(
@@ -86,6 +89,7 @@ async function inTransaction<T>(
     await openContext(client);
     const result = await work({
       query: async <R,>(sql: string, params?: unknown[]) => (await client.query(sql, params)).rows as R[],
+      run: async (sql: string, params?: unknown[]) => (await client.query(sql, params)).rowCount ?? 0,
     });
     await client.query("commit");
     return result;

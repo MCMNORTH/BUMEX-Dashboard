@@ -5,6 +5,7 @@ import { getProjectRisks } from "@/lib/alerts/service";
 import { isManagerLikeRole } from "@/lib/auth/permissions";
 import { getCommentsForEntity } from "@/lib/comments/service";
 import { requireErpAccess } from "@/lib/erp/server";
+import { resolveMissionId } from "@/lib/erp/vanguard/mission-actions";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { getNotesForEntity } from "@/lib/notes/service";
 import { getMentionCandidates } from "@/lib/notifications/service";
@@ -22,7 +23,7 @@ import type { BoardWorkflow } from "@/types/workflow";
 
 // A mission's page in BUMEX Vanguard's Missions room (vanguard/one/Mission.tsx), as BUMEX One's project page had it:
 // its delivery figures and health, alerts, team, tickets, notes, conversation and history, read with BUMEX One's rules
-// for the person. The mission's own form is vanguard/one/Missions.tsx; its board's rules, vanguard/one/Workflow.tsx.
+// for the person (row-level security). The mission's own form is vanguard/one/Missions.tsx; its board's rules, vanguard/one/Workflow.tsx.
 
 export type ProjectView = {
   project: Omit<ProjectRecord, "members" | "recentActivity" | "owner"> & { ownerName: string | null };
@@ -43,7 +44,8 @@ export type ProjectView = {
 
 export async function projectViewAction(projectId: string): Promise<ProjectView | null> {
   const { auth, access } = await requireErpAccess();
-  const id = String(projectId);
+  // a link from before the move names the project's id in BUMEX One (an e-mail, a bookmark)
+  const id = (await resolveMissionId(String(projectId))) ?? String(projectId);
   const [project, comments, notes, mentions, locale] = await Promise.all([
     getProjectById(id),
     getCommentsForEntity("project", id),

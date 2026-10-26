@@ -13,9 +13,8 @@ import {
 } from "@/lib/clients/service";
 import { getCommentsForEntity } from "@/lib/comments/service";
 import { getContractById, getContracts, getContractsFilterData } from "@/lib/contracts/service";
-import { withErpSession } from "@/lib/erp/db";
 import { requireErpAccess } from "@/lib/erp/server";
-import { createClient } from "@/lib/firebase/server";
+import { asPerson, select } from "@/lib/work/db";
 import { getNotesForEntity } from "@/lib/notes/service";
 import { getMentionCandidates } from "@/lib/notifications/service";
 import type { AppRole } from "@/types/auth";
@@ -24,8 +23,8 @@ import { canViewComment, type CommentRecord } from "@/types/comment";
 import type { ContractFiltersData, ContractRecord } from "@/types/contract";
 import type { InternalNoteRecord } from "@/types/note";
 
-// The relationship side of the clients for Vanguard's Clients room (vanguard/one/Clients.tsx): BUMEX One's clients
-// the person sees, each with its customer accounts in the entities (clients.ts).
+// The relationship side of the clients for Vanguard's Clients room (vanguard/one/Clients.tsx): the group's clients the
+// person sees (work.client), each with its customer accounts in the entities (erp.customer.client_id, 0008).
 
 export type ClientRelation = Pick<ClientRecord, "id" | "name" | "status" | "prospect_stage" | "contact_email" | "contact_phone" | "city" | "country" | "tax_id"> & {
   manager: string | null;
@@ -33,28 +32,17 @@ export type ClientRelation = Pick<ClientRecord, "id" | "name" | "status" | "pros
 };
 
 export async function clientRelationsAction(): Promise<ClientRelation[]> {
-  const { auth } = await requireErpAccess();
-  const db = await createClient();
-  if (!db) return [];
-  const [{ data: clients }, { data: people }] = await Promise.all([
-    db
-      .from("clients")
-      .select("id, name, status, prospect_stage, contact_email, contact_phone, city, country, tax_id, account_manager_id")
-      .order("name")
-      .returns<(Omit<ClientRelation, "manager" | "accounts"> & { account_manager_id: string | null })[]>(),
-    db.from("profiles").select("id, full_name").returns<{ id: string; full_name: string }[]>(),
-  ]);
-  const accounts = await withErpSession(auth.profile.id, (tx) =>
-    tx.query<{ client: string; entityId: string; customerId: string; code: string }>(
-      `select bumex_client_id as client, entity_id as "entityId", id as "customerId", code from erp.customer where bumex_client_id is not null`,
+  await requireErpAccess();
+  return asPerson((tx) =>
+    select<ClientRelation>(
+      tx,
+      `select c.id, c.name, c.status, c.prospect_stage, c.contact_email, c.contact_phone, c.city, c.country, c.tax_id,
+              (select p.full_name from work.person p where p.id = c.account_manager_id) as manager,
+              coalesce((select jsonb_agg(jsonb_build_object('entityId', k.entity_id, 'customerId', k.id, 'code', k.code) order by k.code)
+                          from erp.customer k where k.client_id = c.id), '[]'::jsonb) as accounts
+         from work.client c order by c.name`,
     ),
   );
-  const names = new Map((people ?? []).map((p) => [p.id, p.full_name]));
-  return (clients ?? []).map(({ account_manager_id, ...c }) => ({
-    ...c,
-    manager: account_manager_id ? (names.get(account_manager_id) ?? null) : null,
-    accounts: accounts.filter((a) => a.client === c.id).map((a) => ({ entityId: a.entityId, customerId: a.customerId, code: a.code })),
-  }));
 }
 
 const CLIENT_FIELDS = [

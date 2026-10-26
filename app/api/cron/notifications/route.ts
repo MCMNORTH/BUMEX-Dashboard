@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 
 import { isAuthorizedCronRequest } from "@/lib/cron/auth";
 import { dispatchNotificationEmails } from "@/lib/notifications/email-delivery";
-import { createAdminClient } from "@/lib/firebase/server";
+import { isErpDatabaseConfigured } from "@/lib/erp/db";
+import { asSystem, selectOne } from "@/lib/work/db";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,19 +23,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const db = createAdminClient();
-  if (!db) {
-    return NextResponse.json({ error: "Firebase service configuration is missing." }, { status: 503 });
+  if (!isErpDatabaseConfigured()) {
+    return NextResponse.json({ error: "The database is not configured." }, { status: 503 });
   }
 
   const weekStart = getPreviousWeekStart(new Date());
-  const { data: remindersCreated, error: reminderError } = await db.rpc(
-    "queue_weekly_timesheet_reminders",
-    { p_week_start: weekStart },
-  );
-
-  if (reminderError) {
-    console.error("[cron:timesheet-reminders]", reminderError.code ?? "database");
+  let remindersCreated = 0;
+  let reminderError = false;
+  try {
+    remindersCreated = (await asSystem("cron", (tx) => selectOne<{ n: number }>(tx, "select work.queue_weekly_timesheet_reminders($1::date) as n", [weekStart])))?.n ?? 0;
+  } catch (error) {
+    reminderError = true;
+    console.error("[cron:timesheet-reminders]", error instanceof Error ? error.message : "database");
   }
 
   try {
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       return NextResponse.json({
         error: "Email delivery is not configured.",
         weekStart,
-        remindersCreated: remindersCreated ?? 0,
+        remindersCreated,
       }, { status: 503 });
     }
 
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       ok: true,
       weekStart,
-      remindersCreated: remindersCreated ?? 0,
+      remindersCreated,
       emailsSent: delivery.sent,
       emailFailures: delivery.failed,
     });

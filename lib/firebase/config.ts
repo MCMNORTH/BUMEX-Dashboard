@@ -3,7 +3,6 @@ const FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL;
 const FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY;
 const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY;
 const FIREBASE_STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET;
-const FIREBASE_DATABASE_ID = process.env.FIREBASE_DATABASE_ID;
 
 export function hasFirebaseEnv() {
   return Boolean(
@@ -25,6 +24,5 @@ export function getFirebaseEnv() {
     privateKey: FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
     apiKey: FIREBASE_API_KEY,
     storageBucket: FIREBASE_STORAGE_BUCKET || `${FIREBASE_PROJECT_ID}.firebasestorage.app`,
-    databaseId: FIREBASE_DATABASE_ID || "(default)",
   };
 }

@@ -1,18 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { logActivity } from "@/lib/activity/service";
 import { requireRouteAccess } from "@/lib/auth/server";
 import { getCurrentLocale } from "@/lib/i18n/server";
-import { invalidateProjectReadCache } from "@/lib/projects/service";
 import { canManageBoard } from "@/lib/tickets/board-access";
-import {
-  countCardsByStage,
-  getProjectTicketStages,
-  invalidateTicketReadCache,
-  syncTicketsToWorkflow,
-} from "@/lib/tickets/service";
+import { countCardsByStage, getProjectTicketStages, syncTicketsToWorkflow } from "@/lib/tickets/service";
 import {
   draftToWorkflow,
   findStage,
@@ -127,8 +119,6 @@ export async function saveBoardWorkflowAction(
 
   // Pins tickets to the stage they were already in; no card changes stage.
   await syncTicketsToWorkflow(rows, previous, draftToWorkflow(normalized, id));
-  invalidateTicketReadCache();
-  invalidateProjectReadCache();
 
   await logActivity({
     userId: auth.profile.id,
@@ -137,11 +127,6 @@ export async function saveBoardWorkflowAction(
     entityId: id,
     metadata: { kind: "update", summary: summarizeChanges(previous, normalized) },
   });
-
-  revalidatePath(`/projects/${id}`);
-  revalidatePath(`/projects/${id}/workflow`);
-  revalidatePath("/tickets");
-  revalidatePath("/my-work");
 
   const saved = await getBoardWorkflow(id);
   return { success: true, updatedAt: saved.updated_at };

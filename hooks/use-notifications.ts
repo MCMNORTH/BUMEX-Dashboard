@@ -8,24 +8,19 @@ import {
   listNotificationsAction,
   markAllNotificationsAsReadAction,
   markNotificationAsReadAction,
+  notificationsVersionAction,
 } from "@/lib/notifications/actions";
-import { hasNewerVersions, subscribeLive, type LiveVersions } from "@/lib/live/live-client";
 import type { NotificationFilters, NotificationRecord } from "@/types/notification";
 
 const OPERATIONAL_READ_STORAGE_KEY = "bumex-operational-notifications-read";
 const OPERATIONAL_ARCHIVED_STORAGE_KEY = "bumex-operational-notifications-archived";
 
-// Firestore is only reachable from the server, so the browser learns about new
-// notifications by polling the table write counters (lib/live/live-client.ts),
-// and fetches the list only when this user's notifications counter moved.
-const OWN_NOTIFICATIONS = "notifications:me";
+// The browser learns about new notifications by asking for their version every half minute while the tab is
+// visible (lib/notifications/service.ts getNotificationsVersion), and reads the list only when it moved.
 const CHECK_INTERVAL_MS = 30_000;
 
-// Operational alerts are computed from these tables. They are recomputed when
-// one changed, at most every 5 minutes, and every 15 minutes regardless, since
+// Operational alerts are computed from the current data (overdue, blocked…): read again every 15 minutes, since
 // "overdue" also depends on today's date.
-const OPERATIONAL_SOURCES = ["tasks", "projects", "milestones", "contracts", "invoices", "payments", "profiles"];
-const OPERATIONAL_MIN_AGE_MS = 5 * 60_000;
 const OPERATIONAL_MAX_AGE_MS = 15 * 60_000;
 
 function isOperationalNotification(notificationId: string) {
@@ -70,8 +65,7 @@ type Store = {
   stored: NotificationRecord[] | null;
   operational: NotificationRecord[];
   operationalAt: number;
-  operationalVersions: LiveVersions | null;
-  seenVersion: number | null;
+  seenVersion: string | null;
   view: View;
   listeners: Set<() => void>;
   stopLive: (() => void) | null;
@@ -130,20 +124,36 @@ async function loadOperational(store: Store) {
   }
 }
 
-function onVersions(store: Store, versions: LiveVersions) {
-  if (OWN_NOTIFICATIONS in versions && versions[OWN_NOTIFICATIONS] !== store.seenVersion) {
-    store.seenVersion = versions[OWN_NOTIFICATIONS];
+async function check(store: Store) {
+  const version = await notificationsVersionAction().catch(() => null);
+
+  if (version !== null && version !== store.seenVersion) {
+    store.seenVersion = version;
     void loadStored(store);
   }
 
-  const sources = Object.fromEntries(OPERATIONAL_SOURCES.filter((table) => table in versions).map((table) => [table, versions[table]]));
-  const age = Date.now() - store.operationalAt;
-  const changed = !store.operationalVersions || hasNewerVersions(store.operationalVersions, sources);
-
-  if (age > OPERATIONAL_MAX_AGE_MS || (changed && age > OPERATIONAL_MIN_AGE_MS)) {
-    store.operationalVersions = sources;
+  if (Date.now() - store.operationalAt > OPERATIONAL_MAX_AGE_MS) {
     void loadOperational(store);
   }
+}
+
+// Checks now, then every half minute while the tab is visible (and as soon as it is shown again).
+function watch(store: Store) {
+  let timer: number | null = null;
+  const tick = () => {
+    if (timer !== null) window.clearTimeout(timer);
+    if (document.visibilityState === "visible") void check(store);
+    timer = window.setTimeout(tick, CHECK_INTERVAL_MS);
+  };
+  const onShown = () => {
+    if (document.visibilityState === "visible") tick();
+  };
+  document.addEventListener("visibilitychange", onShown);
+  tick();
+  return () => {
+    if (timer !== null) window.clearTimeout(timer);
+    document.removeEventListener("visibilitychange", onShown);
+  };
 }
 
 function getStore(userId: string, limit: number, filters: Required<NotificationFilters>) {
@@ -158,7 +168,6 @@ function getStore(userId: string, limit: number, filters: Required<NotificationF
       stored: null,
       operational: [],
       operationalAt: 0,
-      operationalVersions: null,
       seenVersion: null,
       view: { notifications: [], stored: [], alerts: [], loading: true },
       listeners: new Set(),
@@ -174,7 +183,7 @@ function subscribe(store: Store, listener: () => void) {
   store.listeners.add(listener);
 
   if (!store.stopLive) {
-    store.stopLive = subscribeLive([OWN_NOTIFICATIONS, ...OPERATIONAL_SOURCES], CHECK_INTERVAL_MS, (versions) => onVersions(store, versions));
+    store.stopLive = watch(store);
   }
 
   return () => {

@@ -2,7 +2,7 @@
 
 import { getAuthContext } from "@/lib/auth/server";
 import { adminAuth } from "@/lib/firebase/admin";
-import { getCurrentSessionUser } from "@/lib/firebase/server";
+import { getCurrentSessionUser } from "@/lib/auth/session-user";
 
 export async function getCurrentProfileAction() {
   const auth = await getAuthContext();
