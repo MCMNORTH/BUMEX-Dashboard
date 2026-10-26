@@ -111,6 +111,8 @@ export async function loadVanguardState(
     };
   });
   const entityIdByCode = new Map(entityRows.map((e) => [e.code, e.id]));
+  const entityCodeById = new Map(entityRows.map((e) => [e.id, e.code]));
+  const rooms = (modules: ErpModuleKey[]) => [...modules.map((m) => roomOf[m]), "missions", "tasks"];
 
   const session: Session = {
     userId: person.id,
@@ -118,7 +120,11 @@ export async function loadVanguardState(
     actorName: person.name,
     role: access.role,
     entityIds: access.entityCodes ? access.entityCodes.map((code) => entityIdByCode.get(code)).filter((id): id is string => Boolean(id)) : "*",
-    modules: [...access.modules.map((m) => roomOf[m]), "missions", "tasks"],
+    modules: rooms(access.modules),
+    entityModules: Object.fromEntries(
+      Object.entries(access.entityModules).flatMap(([code, modules]) => (entityIdByCode.has(code) && modules ? [[entityIdByCode.get(code)!, rooms(modules)]] : [])),
+    ),
+    managesAccess: access.managesAccess,
   };
 
   const fxRates = await rows<FxRate>(tx, `select rate_date::text as date, from_currency as "from", to_currency as "to", rate::float8 as rate, source from erp.fx_rate order by rate_date`);
@@ -226,13 +232,13 @@ export async function loadVanguardState(
     .reverse()
     .map(({ label, ...a }) => ({ ...a, actorId: names.get(a.actorId) ?? a.actorId, summary: label ?? "" }));
 
-  // the accounts list is for whoever manages access; the others see their own
+  // the person's own access (the permissions page reads everyone's: lib/erp/permissions.ts)
   const users = (
     await rows<{ id: string; role: AppUser["role"]; entityCodes: string[] | null; modules: ErpModuleKey[] | null; grantedAt: string; grantedBy: string }>(
       tx,
       `select user_id as id, erp_role as role, entity_codes as "entityCodes", modules, granted_at::date::text as "grantedAt", granted_by as "grantedBy"
-         from erp.user_access where $1 or user_id = $2 order by user_id`,
-      [access.role === "admin", person.id],
+         from erp.user_access where user_id = $1`,
+      [person.id],
     )
   ).map(
     (u): AppUser => ({
@@ -241,7 +247,7 @@ export async function loadVanguardState(
       email: people.find((p) => p.id === u.id)?.email ?? "",
       role: u.role,
       entityIds: u.entityCodes ? u.entityCodes.map((code) => entityIdByCode.get(code) ?? code) : "*",
-      modules: [...resolveErpModules(u.role, u.modules).map((m) => roomOf[m]), "missions", "tasks"],
+      modules: rooms(resolveErpModules(u.role, u.modules)),
       status: "active",
       invitedAt: u.grantedAt,
       activatedAt: u.grantedAt,
@@ -307,5 +313,5 @@ export async function loadVanguardState(
     seq: 0,
   };
 
-  return { state: full ? state : visibleState(state, access), chainBreaks: chainBreaks.map((c) => c.id), version: await vanguardVersion(tx) };
+  return { state: full ? state : visibleState(state, access, (entityId) => entityCodeById.get(entityId)), chainBreaks: chainBreaks.map((c) => c.id), version: await vanguardVersion(tx) };
 }

@@ -2,7 +2,8 @@ import * as engine from "@/lib/erp/engine";
 
 // The engine changes BUMEX Vanguard's screens make (every engine function that takes the state and returns a new
 // one, as the screens import them). The browser records calls to these (domain.ts); the server replays these and
-// nothing else (run.ts). Signing in as someone else and invitations are not here: access comes from BUMEX One.
+// nothing else (run.ts). Signing in as someone else and the accounts are not here: access is the permissions page's
+// (vanguard/one/Permissions.tsx, lib/erp/permissions.ts).
 export const vanguardCommands = {
   addAccount: engine.addAccount,
   addAsset: engine.addAsset,
@@ -29,7 +30,6 @@ export const vanguardCommands = {
   createInvoice: engine.createInvoice,
   createSupplierInvoice: engine.createSupplierInvoice,
   createTask: engine.createTask,
-  createUser: engine.createUser,
   decideDeletion: engine.decideDeletion,
   deleteDraft: engine.deleteDraft,
   deleteJournal: engine.deleteJournal,
@@ -57,7 +57,6 @@ export const vanguardCommands = {
   setPeriodStatus: engine.setPeriodStatus,
   setTaxRule: engine.setTaxRule,
   setThirdPartyRules: engine.setThirdPartyRules,
-  setUserStatus: engine.setUserStatus,
   startTask: engine.startTask,
   updateAccount: engine.updateAccount,
   updateAsset: engine.updateAsset,
@@ -71,7 +70,6 @@ export const vanguardCommands = {
   updateLoan: engine.updateLoan,
   updateSupplier: engine.updateSupplier,
   updateTaxCode: engine.updateTaxCode,
-  updateUserAccess: engine.updateUserAccess,
   validateInvoice: engine.validateInvoice,
 };
 
@@ -96,5 +94,5 @@ export const commandModules: Record<VanguardCommand, engine.ModuleKey | null> = 
   assign: "missions", updateAssignment: "missions", removeAssignment: "missions",
   createTask: "tasks", startTask: "tasks", completeTask: "tasks", reopenTask: "tasks",
   archiveEngagement: "archives", retrieveArchive: "archives", returnArchive: "archives", destroyArchive: "archives",
-  requestDeletion: null, decideDeletion: null, createUser: null, updateUserAccess: null, setUserStatus: null,
+  requestDeletion: null, decideDeletion: null,
 };

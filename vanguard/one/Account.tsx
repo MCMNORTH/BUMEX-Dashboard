@@ -1,19 +1,15 @@
 import { useEffect, useState } from 'react';
-import { createUser } from '@bumex/domain';
 import { updateProfileSettingsAction } from '@/app/(app)/settings/profile/actions';
 import { updateEmailNotificationsAction } from '@/app/(app)/settings/preferences/actions';
-import { updateSettingsUserEntityInlineAction } from '@/app/(app)/settings/users/actions';
 import { updatePasswordAction } from '@/lib/auth/actions';
-import { myAccountAction, peopleWithoutAccessAction, type MyAccount, type PeopleWithoutAccess, type PersonWithoutAccess } from '@/lib/erp/vanguard/account-actions';
-import { floorCode, floors } from '@/lib/erp/vanguard/floors';
+import { myAccountAction, type MyAccount } from '@/lib/erp/vanguard/account-actions';
 import { useStore } from '../store';
 import { Field } from '../ui/common';
 import { reload } from './Tasks';
 import { useSay } from './say';
 
-// The Settings room's "Mon compte" tab: BUMEX One's profile, preferences and security pages. And, under the accounts
-// tab, BUMEX One's people without Vanguard access (BUMEX One's Users page, merged there): their home entity and an
-// access to open. Saved by BUMEX One's actions, and the access by Vanguard's own (createUser).
+// The Settings room's "Mon compte" tab: BUMEX One's profile, preferences and security pages, saved by BUMEX One's
+// actions. Everyone's access is the Permissions tab's (Permissions.tsx).
 
 export function MyAccountPanel() {
   const say = useSay();
@@ -105,57 +101,6 @@ export function MyAccountPanel() {
           <div className="actions"><button className="btn sm primary" disabled={busy || password.next.length < 8} onClick={changePassword}>{say('Changer le mot de passe', 'Change the password')}</button></div>
         </div>
       </div>
-    </div>
-  );
-}
-
-export function PeopleWithoutAccessList() {
-  const say = useSay();
-  const { state, apply, toast } = useStore();
-  const loadedAt = useStore((s) => s.loadedAt);
-  const [data, setData] = useState<PeopleWithoutAccess | undefined>(undefined);
-
-  useEffect(() => {
-    let live = true;
-    peopleWithoutAccessAction().catch(() => null).then((d) => { if (live) setData(d); });
-    return () => { live = false; };
-  }, [loadedAt]);
-
-  if (!data) return null;
-  const floorOf = (code: string | null) => state.entities.find((e) => e.code === floorCode(code));
-  const open = (p: PersonWithoutAccess) => {
-    const floor = floorOf(p.entityCode);
-    apply((s) => createUser(s, { name: p.name, email: p.email, role: 'staff', entityIds: floor ? [floor.id] : '*', status: 'active' })[0], say(`Accès ouvert · ${p.name}`, `Access opened · ${p.name}`));
-  };
-  const setHome = async (id: string, entityCode: string) => {
-    const form = new FormData();
-    form.set('user_id', id);
-    form.set('entity_code', entityCode);
-    const result = await updateSettingsUserEntityInlineAction({}, form).catch(() => ({ error: say('Serveur injoignable.', 'Server unreachable.') }));
-    if (result.error) toast('error', result.error);
-    else { toast('ok', say('Entité mise à jour', 'Entity updated')); setData(await peopleWithoutAccessAction()); }
-  };
-
-  return (
-    <div className="card flush">
-      <div style={{ padding: '10px 12px' }}><h2 style={{ margin: 0 }}>{say('Sans accès Vanguard', 'Without Vanguard access')} · {data.people.length}</h2><span className="small muted">{say("Les personnes qui ont un compte mais pas encore d'accès : ouvrez-le (collaborateur sur son entité, à ajuster ensuite) ou fixez leur entité.", "People who have an account but no access yet: open it (staff on their entity, to adjust afterwards) or set their entity.")}</span></div>
-      <table>
-        <thead><tr><th>{say('Personne', 'Person')}</th><th>{say('Entité', 'Entity')}</th><th /></tr></thead>
-        <tbody>
-          {data.people.map((p) => (
-            <tr key={p.id}>
-              <td><b>{p.name}</b><div className="small muted">{p.email}</div></td>
-              <td>
-                {data.canEditEntity
-                  ? <select className="in" style={{ width: 220 }} value={p.entityCode ?? ''} onChange={(e) => e.target.value && setHome(p.id, e.target.value)} aria-label={say('Entité', 'Entity')}><option value="">—</option>{Object.entries(floors).map(([code]) => <option key={code} value={code}>{floorOf(code)?.name ?? code}</option>)}</select>
-                  : <span className="small">{floorOf(p.entityCode)?.name ?? '—'}</span>}
-              </td>
-              <td><div className="toolbar" style={{ justifyContent: 'flex-end' }}><button className="btn sm primary" onClick={() => open(p)}>{say("Ouvrir l'accès", 'Open access')}</button></div></td>
-            </tr>
-          ))}
-          {!data.people.length && <tr><td colSpan={3} className="muted" style={{ padding: 14 }}>{say('Tout le monde a un accès.', 'Everyone has access.')}</td></tr>}
-        </tbody>
-      </table>
     </div>
   );
 }

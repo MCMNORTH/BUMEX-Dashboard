@@ -2,8 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
-import { getErpAccess } from "@/lib/erp/access";
-import { resolveErpModules } from "@/lib/erp/config";
+import { getErpAccess, readErpAccess } from "@/lib/erp/access";
 import { isErpDatabaseConfigured, withErpSystemSession } from "@/lib/erp/db";
 import type { AppRole, Profile } from "@/types/auth";
 import type { ErpAccessInput } from "@/lib/erp/access";
@@ -42,12 +41,9 @@ export async function provisionErpAccess(person: Person): Promise<ErpAccess | nu
   // page and its layout render together, so the page's own check must not give it meanwhile)
   const reportsOnly = input.modules?.length === 1 && input.modules[0] === "reports";
   if (input.role !== "admin" && !reportsOnly && !input.entityCodes) return null;
-  const result = await withErpSystemSession(person.id, async (tx) => {
-    const [existing] = await tx.query<{ role: ErpRole; entity_codes: ErpAccess["entityCodes"]; modules: ErpAccessInput["modules"] }>(
-      "select erp_role as role, entity_codes, modules from erp.user_access where user_id = $1",
-      [person.id],
-    );
-    if (existing) return { access: { role: existing.role, entityCodes: existing.entity_codes, modules: existing.modules }, created: false };
+  return withErpSystemSession(person.id, async (tx) => {
+    const existing = await readErpAccess(tx, person.id);
+    if (existing) return existing;
     const [{ removed }] = await tx.query<{ removed: boolean }>(
       `select exists (select 1 from erp.audit_log where table_name = 'user_access'
                                                and coalesce(after_row, before_row) ->> 'user_id' = $1) as removed`,
@@ -57,10 +53,8 @@ export async function provisionErpAccess(person: Person): Promise<ErpAccess | nu
     await tx.query("insert into erp.user_access (user_id, erp_role, entity_codes, modules) values ($1, $2, $3, $4)", [
       person.id, input.role, input.entityCodes, input.modules,
     ]);
-    return { access: input, created: true };
+    return readErpAccess(tx, person.id);
   });
-  if (!result) return null;
-  return { role: result.access.role, entityCodes: result.access.entityCodes, modules: resolveErpModules(result.access.role, result.access.modules) };
 }
 
 // What every page asks: the person's access, given on their first visit. Once per request (the root layout and the

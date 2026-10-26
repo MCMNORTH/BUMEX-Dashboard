@@ -32,7 +32,6 @@ export const createFiscalYear = recorded("createFiscalYear", c.createFiscalYear)
 export const createInvoice = recorded("createInvoice", c.createInvoice);
 export const createSupplierInvoice = recorded("createSupplierInvoice", c.createSupplierInvoice);
 export const createTask = recorded("createTask", c.createTask);
-export const createUser = recorded("createUser", c.createUser);
 export const decideDeletion = recorded("decideDeletion", c.decideDeletion);
 export const deleteDraft = recorded("deleteDraft", c.deleteDraft);
 export const deleteJournal = recorded("deleteJournal", c.deleteJournal);
@@ -60,7 +59,6 @@ export const setPayrollRules = recorded("setPayrollRules", c.setPayrollRules);
 export const setPeriodStatus = recorded("setPeriodStatus", c.setPeriodStatus);
 export const setTaxRule = recorded("setTaxRule", c.setTaxRule);
 export const setThirdPartyRules = recorded("setThirdPartyRules", c.setThirdPartyRules);
-export const setUserStatus = recorded("setUserStatus", c.setUserStatus);
 export const startTask = recorded("startTask", c.startTask);
 export const updateAccount = recorded("updateAccount", c.updateAccount);
 export const updateAsset = recorded("updateAsset", c.updateAsset);
@@ -74,7 +72,6 @@ export const updateJournal = recorded("updateJournal", c.updateJournal);
 export const updateLoan = recorded("updateLoan", c.updateLoan);
 export const updateSupplier = recorded("updateSupplier", c.updateSupplier);
 export const updateTaxCode = recorded("updateTaxCode", c.updateTaxCode);
-export const updateUserAccess = recorded("updateUserAccess", c.updateUserAccess);
 export const validateInvoice = recorded("validateInvoice", c.validateInvoice);
 
 // The hash chains are sealed and checked by the database (erp.verify_chain): the engine's own check recomputes the

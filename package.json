@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:erp": "vitest run lib/erp && node db/erp/test/guarantees.test.mjs && node db/erp/test/bumex-one.test.mjs && node db/erp/test/work.test.mjs",
-    "erp:migrate": "node --env-file-if-exists=.env.local scripts/erp-migrate.mjs"
+    "erp:migrate": "node --env-file-if-exists=.env.local scripts/erp-migrate.mjs",
+    "smoke": "node scripts/smoke/run.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

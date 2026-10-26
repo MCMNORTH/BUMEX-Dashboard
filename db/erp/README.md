@@ -14,12 +14,13 @@ on the day of the copy (`scripts/work-copy.mjs`), the way back.
 | `db/erp/migrations/0006_accounting.sql` | Customer / supplier required by an account, who may post (checked by the database), fiscal years with their 12 periods, row-level security on the last ledger tables |
 | `db/erp/migrations/0007_vanguard.sql` | The fields Vanguard keeps that the schema lacked, the invoices' service categories, row-level security on the remaining open tables (document lines, bank lines, counters…) |
 | `db/erp/migrations/0008_work.sql` | The work: a project is an `erp.engagement`, a ticket an `erp.task`, a time line an `erp.time_entry`, a member an `erp.engagement_staff` row; everything else in schema `work`. BUMEX One's access rules as row-level security |
+| `db/erp/migrations/0009_permissions.sql` | Permissions: a person's modules per entity (`entity_modules`), the "role modifier" (`manages_access`, an administrator's only) who alone changes access, the invitations' links |
 | `db/erp/test/work.test.mjs` | Tests of 0008: who reads and writes what, the timesheet's guards, the e-mails, one client with two sides |
 | `scripts/work-copy.mjs` | The one-shot copy of BUMEX One's Firestore data into 0008's tables (dry run first) |
 | `lib/erp/vanguard/` | BUMEX Vanguard on this database: the state read for a person, their changes replayed with the engine and written (see `vanguard/VENDOR.md`); tests in `test/` run on the real schema |
 | `db/erp/test/guarantees.test.mjs` | The ERP team's 35 guarantee tests (now run against every migration, 0004 included) |
-| `db/erp/test/bumex-one.test.mjs` | Tests of 0004–0006 |
-| `lib/erp/engine/` | The ERP team's TypeScript engine, **as delivered** but for one marked change (`withIdSource` in `core.ts`); 65 tests in `lib/erp/engine/test` |
+| `db/erp/test/bumex-one.test.mjs` | Tests of 0004–0006 and 0009 |
+| `lib/erp/engine/` | The ERP team's TypeScript engine, **as delivered** but for marked changes (`withIdSource` and the rooms per entity in `core.ts`, two session fields in `types.ts`); 65 tests in `lib/erp/engine/test` |
 | `lib/erp/*.ts` | Our code: connection, access, pages' data |
 | `scripts/erp-migrate.mjs` | Applies pending migrations |
 
@@ -30,12 +31,20 @@ compared. Changes we need go into new migrations / files of ours.
 
 - People sign in with Firebase Auth; each is a `work.person` (their Firebase uid). One person, one role: Vanguard's.
   `erp.user_access` gives a person an **ERP role** — admin, partner, raf, manager, accountant, staff, intern — plus
-  their entities (null = all) and modules (null = the role's modules, `lib/erp/config.ts`). A newcomer chooses their
-  entity, then gets staff on it on their first visit (`lib/erp/roles.ts`; the copy gave everyone else theirs from their
-  BUMEX One role). Someone whose access an administrator removed is not given one again and sees a "no access" page.
-- Access is managed in Vanguard's Settings › accounts by the super admin or an ERP admin.
-- The books' row-level security is by entity; what each person's browser receives is then narrowed to their modules
-  (`lib/erp/vanguard/visible.ts`).
+  their entities (null = all) and modules (null = the role's standard modules, `lib/erp/config.ts`), and, per entity,
+  the modules where they differ (`entity_modules`, 0009; the group's consolidation is never an entity's). A newcomer
+  chooses their entity, then gets staff on it on their first visit (`lib/erp/roles.ts`; the copy gave everyone else
+  theirs from their BUMEX One role). Someone whose access was removed is not given one again and sees a "no access"
+  page.
+- Access is managed in Vanguard's Settings › Permissions (`vanguard/one/Permissions.tsx`, `lib/erp/permissions.ts`)
+  by the administrators who are **role modifiers** (`manages_access`), and by nobody else: `erp.user_access_guard`
+  refuses everyone else, whatever their role, and nobody removes their own access, administrator role or flag. The
+  page also invites people: a Firebase account without a password, their `work.person` on their entity, their role's
+  access there, and an e-mail with a link (`/invite/<token>`, 7 days, used once; only its digest is kept in
+  `work.invitation`) where they choose their password.
+- The books' row-level security is by entity; what each person's browser receives is then narrowed to the modules of
+  each row's entity (`lib/erp/vanguard/visible.ts`), and every change the server replays must open its room on every
+  entity it touches (`lib/erp/vanguard/replay.ts`).
 - The work follows BUMEX One's rules, as row-level security (0008): the Vanguard role reads as BUMEX One's
   (`work.actor_class`: admin, partner and finance lead → administrator; manager; staff seeing the reports only →
   shareholder; everyone else → employee). A mission is seen by its floor (the ERP's rule) and by whoever works on it;
@@ -44,7 +53,7 @@ compared. Changes we need go into new migrations / files of ours.
   `work_reader` (security definer), which every rule lets through, so that they read across tables.
 - Every transaction the app opens does `set local role erp_app` (never bypasses row-level security) and
   `select erp.open_session(<uid>)`, which sets `erp.actor_id`, `erp.actor_role` and `erp.entity_ids` for that
-  transaction only. Access management by the super admin uses `erp.open_system_session(<uid>)`.
+  transaction only. Access is changed in the role modifier's own session.
   Only `lib/erp/db.ts` talks to the database, so no query runs without that context.
 
 ## Run it locally
@@ -61,6 +70,16 @@ app only shows that its database is unavailable.
 ## Tests
 
     npm run test:erp     # engine + accounting layer (vitest) + schema guarantees + our migrations, on PGlite
+    npm run smoke        # before every deploy: the app built as production builds it, checked end to end
+
+`npm run smoke` (`scripts/smoke/`) starts a throwaway PostgreSQL (the migrations run by a non-superuser owner, as
+on Cloud SQL; the app logs in as `bumex_app`), Firebase's Auth and Storage emulators and an SMTP inbox, seeds an
+office (`seed.mjs`), builds a copy of the files git would commit (never the `.env` files; the app gets no variable
+but the test's), and checks it through its server actions, routes and pages in headless Chrome (`checks.mjs`:
+tickets, time, missions, clients, documents, search, permissions, an invitation from the e-mail to the first
+sign-in, the e-mail job, every room of four people). `-- --no-build` reuses the last build; `-- --keep` leaves it
+running to look around (`-- --stop` afterwards). Needs PostgreSQL 16+ (`initdb`, `pg_ctl`), the Firebase CLI and
+Google Chrome.
 
 ## Deploying a change that adds a migration
 

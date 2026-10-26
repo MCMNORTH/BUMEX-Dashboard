@@ -65,6 +65,10 @@ async function expectError(fn, pattern) {
   throw new Error(`expected an error matching ${pattern}, got none`);
 }
 
+const same = (got, want, what) => {
+  if (JSON.stringify(got) !== JSON.stringify(want)) throw new Error(`${what}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+};
+
 async function test(name, fn) {
   try {
     const note = await fn();
@@ -129,6 +133,7 @@ await test('access: only an ERP administrator or the system changes access; enti
   await fresh();
   await asSystem('super-admin-uid', async () => {
     await grant('u_admin', 'admin');
+    await db.query(`update erp.user_access set manages_access = true where user_id = 'u_admin'`);
     await grant('u_partner', 'partner', ['bumex_audit']);
   });
   await expectError(() => asUser('u_partner', () => grant('u_x', 'staff', ['bumex_audit'])), /only an ERP administrator/);
@@ -144,6 +149,47 @@ await test('access: only an ERP administrator or the system changes access; enti
   const audit = await one(`select count(*)::int n from erp.audit_log where table_name = 'user_access'`);
   if (audit.n < 4) throw new Error(`audit rows ${audit.n}`);
   return `partner refused, admin grants, 5 refusals, ${audit.n} audit rows`;
+});
+
+await test('permissions (0009): only a role modifier changes access; parts per entity checked; nobody drops their own', async () => {
+  await fresh();
+  await asSystem('super-admin-uid', async () => {
+    await grant('u_mod', 'admin');
+    await db.query(`update erp.user_access set manages_access = true where user_id = 'u_mod'`);
+    await grant('u_admin', 'admin');
+    await grant('u_acc', 'accountant', ['bumex_audit', 'bumex_it']);
+  });
+  // an administrator who does not manage access changes nothing, not even someone else's parts
+  await expectError(() => asUser('u_admin', () => db.query(`update erp.user_access set modules = '{accounting}' where user_id = 'u_acc'`)), /manages access/);
+  await expectError(() => asUser('u_admin', () => grant('u_new', 'staff', ['bumex_audit'])), /manages access/);
+  await expectError(() => asUser('u_admin', () => db.query(`update erp.user_access set manages_access = true where user_id = 'u_admin'`)), /manages access/);
+  // the role modifier sets an entity's parts: entities the person sees, known modules, no consolidation
+  const set = (json) => asUser('u_mod', () => db.query(`update erp.user_access set entity_modules = $1::jsonb where user_id = 'u_acc'`, [json]));
+  await set('{"bumex_it": ["accounting", "reports"]}');
+  await expectError(() => set('{"bumex_sa": ["accounting"]}'), /wrong modules for entity\(ies\): bumex_sa/);
+  await expectError(() => set('{"bumex_nowhere": []}'), /wrong modules/);
+  await expectError(() => set('{"bumex_it": ["consolidation"]}'), /wrong modules/);
+  await expectError(() => set('{"bumex_it": ["missions"]}'), /wrong modules/);
+  await expectError(() => set('{"bumex_it": "accounting"}'), /wrong modules/);
+  await expectError(() => set('["accounting"]'), /check constraint/);
+  // the flag is an administrator's only; the modifier hands it on, never drops their own
+  await expectError(() => asUser('u_mod', () => db.query(`update erp.user_access set manages_access = true where user_id = 'u_acc'`)), /check constraint/);
+  await asUser('u_mod', () => db.query(`update erp.user_access set manages_access = true where user_id = 'u_admin'`));
+  await expectError(() => asUser('u_mod', () => db.query(`update erp.user_access set manages_access = false where user_id = 'u_mod'`)), /own administrator role or access management/);
+  await expectError(() => asUser('u_mod', () => db.query(`update erp.user_access set erp_role = 'partner', manages_access = false where user_id = 'u_mod'`)), /own administrator role/);
+  await expectError(() => asUser('u_mod', () => db.query(`delete from erp.user_access where user_id = 'u_mod'`)), /own access/);
+  // …and the other modifier may take it back
+  await asUser('u_admin', () => db.query(`update erp.user_access set manages_access = false where user_id = 'u_mod'`));
+  await expectError(() => asUser('u_mod', () => db.query(`delete from erp.user_access where user_id = 'u_acc'`)), /manages access/);
+  const row = await one(`select entity_modules, updated_by from erp.user_access where user_id = 'u_acc'`);
+  same(row.entity_modules, { bumex_it: ['accounting', 'reports'] }, 'parts kept');
+  // the migration's grant: el.havedh@bumex.mr's person becomes an administrator who manages access
+  await asSystem('seed', () => db.query(`insert into work.person (id, email, full_name) values ('u_eh', 'El.Havedh@bumex.mr', 'El Havedh')`));
+  const m0009 = readFileSync(join(migrations, '0009_permissions.sql'), 'utf8');
+  await db.exec(m0009.slice(m0009.indexOf('-- 3. The first role modifier'), m0009.indexOf('-- 4. Invitations')));
+  const eh = await one(`select erp_role, manages_access, entity_codes from erp.user_access where user_id = 'u_eh'`);
+  same(eh, { erp_role: 'admin', manages_access: true, entity_codes: null }, 'el.havedh');
+  return 'admin refused ×3, 6 wrong parts refused, flag admins-only, own flag/role/row kept, el.havedh granted';
 });
 
 await test('session: the context lasts one transaction and ends with it', async () => {

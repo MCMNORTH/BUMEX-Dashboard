@@ -1,5 +1,6 @@
 import type { Locale } from "@/lib/i18n/config";
-import { erpModuleKeys, erpRoles, type ErpModuleKey, type ErpRole } from "@/types/erp";
+import { erpModuleKeys, erpRoles, type ErpAccess, type ErpModuleKey, type ErpRole } from "@/types/erp";
+import type { BumexEntityCode } from "@/types/entity";
 
 export const erpRoleLabels: Record<ErpRole, Record<Locale, string>> = {
   admin: { fr: "Administrateur ERP", en: "ERP administrator" },
@@ -82,6 +83,20 @@ export const erpConsolidationRoles: readonly ErpRole[] = ["admin", "partner", "r
 export function resolveErpModules(role: ErpRole, modules: readonly ErpModuleKey[] | null): ErpModuleKey[] {
   const chosen = modules ?? erpRoleDefaultModules[role];
   return erpModuleKeys.filter((key) => chosen.includes(key) && (key !== "consolidation" || erpConsolidationRoles.includes(role)));
+}
+
+// The modules an entity can be given on its own: every one but the group's consolidation.
+export const erpEntityModuleKeys = erpModuleKeys.filter((key) => key !== "consolidation");
+
+// A person's modules on one entity (null: the entity's code is not known).
+export function modulesOn(access: Pick<ErpAccess, "modules" | "entityModules">, entityCode: string | null | undefined): ErpModuleKey[] {
+  const own = entityCode ? access.entityModules[entityCode as BumexEntityCode] : undefined;
+  return own ?? access.modules;
+}
+
+// Whether a person has a module on at least one of their entities.
+export function hasModuleSomewhere(access: Pick<ErpAccess, "modules" | "entityModules">, module: ErpModuleKey): boolean {
+  return access.modules.includes(module) || Object.values(access.entityModules).some((m) => m?.includes(module));
 }
 
 export function isErpRole(value: string): value is ErpRole {

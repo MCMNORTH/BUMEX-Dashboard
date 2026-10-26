@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { getAppBaseUrl } from "@/lib/app-url";
+import { isAllowedCompanyEmail, normalizeEmail } from "@/lib/auth/company-email";
 import { sendMail } from "@/lib/email/server";
 import { adminAuth } from "@/lib/firebase/admin";
 import { hasFirebaseEnv } from "@/lib/firebase/config";
@@ -13,8 +14,6 @@ export type AuthActionState = {
   error?: string;
   success?: string;
 };
-
-const allowedEmailDomains = ["@bumex.mr", "@bumex.ma"] as const;
 
 function isSelfSignupEnabled() {
   return process.env.ENABLE_SELF_SIGNUP !== "0";
@@ -28,15 +27,6 @@ function getString(formData: FormData, key: string) {
 function getRawString(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value : "";
-}
-
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
-}
-
-function isAllowedCompanyEmail(email: string) {
-  const normalizedEmail = normalizeEmail(email);
-  return allowedEmailDomains.some((domain) => normalizedEmail.endsWith(domain));
 }
 
 function getCompanyEmailError() {

@@ -18,6 +18,8 @@ export interface Session {
   role: Role;
   entityIds: Id[] | '*';
   modules: string[] | '*';
+  entityModules?: Record<Id, string[]>; // [bumex-one] the rooms of the entities where they are not `modules` (0009)
+  managesAccess?: boolean; // [bumex-one] changes everyone's access (the permissions page)
 }
 
 export type UserStatus = 'invited' | 'active' | 'disabled';

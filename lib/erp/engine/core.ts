@@ -131,16 +131,21 @@ export function canSee(state: State, entityId: Id): boolean {
 export const COMMON_MODULES = ['tasks', 'reports', 'settings'];
 export const CONSOLIDATION_ROLES: Role[] = ['admin', 'partner', 'raf'];
 
-export function canUseModule(state: State, module: string): boolean {
+// [bumex-one] a person's rooms can differ per entity (session.entityModules): a room is open on an entity with that
+// entity's list; without an entity (a summary, a menu), with the person's usual one or any of their entities'.
+function allows(state: State, mods: string[] | '*', module: string): boolean {
   if (COMMON_MODULES.includes(module)) return true;
   if (module === 'penthouse') return CONSOLIDATION_ROLES.includes(state.session.role) && (state.session.modules === '*' || state.session.modules.includes('penthouse'));
-  const mods = state.session.modules;
   return mods === '*' || mods.includes(module);
+}
+
+export function canUseModule(state: State, module: string): boolean {
+  return allows(state, state.session.modules, module) || Object.values(state.session.entityModules ?? {}).some((mods) => allows(state, mods, module));
 }
 
 export function canOpenRoom(state: State, entityId: Id, room: string): boolean {
   if (!canSee(state, entityId)) return false;
-  return canUseModule(state, room);
+  return allows(state, state.session.entityModules?.[entityId] ?? state.session.modules, room);
 }
 
 export const POSTING_ROLES: Role[] = ['admin', 'partner', 'raf', 'manager', 'accountant'];

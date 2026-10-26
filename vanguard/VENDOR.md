@@ -20,8 +20,10 @@ PostgreSQL; the engine and the UI do not change"). Here:
 - every room is connected: accounting in `save.ts`, the other modules through one description per table
   (`tables.ts`, read and written the same way); people and staff counts come from the people (`work.person`);
 - one person, one role: Vanguard's (`erp.user_access`). A newcomer gets staff on their entity on their first visit
-  (`lib/erp/roles.ts`; everyone else got theirs from their BUMEX One role when the data was copied); Vanguard's
-  Settings › accounts changes it; an access an administrator removed is not given again;
+  (`lib/erp/roles.ts`; everyone else got theirs from their BUMEX One role when the data was copied); Settings ›
+  Permissions changes it (`vanguard/one/Permissions.tsx`), for the administrators who are role modifiers only, with
+  modules per entity and invitations; the engine's account commands are not replayed; an access that was removed is
+  not given again;
 - every 30 seconds (and on coming back to the page) the screen asks for the database's version (last audit row, plus
   the work's counter for people and mission members) and reads the state again when someone else changed it;
 - the browser receives the rows of the person's modules and what those rooms read of the others
@@ -68,8 +70,9 @@ features rebuilt in Vanguard (linted, unlike the delivered files).
 | `ui/Rooms.tsx` | the Tasks room is `vanguard/one/Tasks.tsx` (BUMEX One's tickets) instead of `ui/panels/Tasks.tsx` | the tasks are BUMEX One's tickets |
 | `ui/CommandBar.tsx` | a task with no due date shows "—" | tickets may have no due date |
 | `store.ts` | state from the server (`hydrate`), `apply()` recorded and sent, no browser storage of the state, no demo sign-in or reset (reset reloads) | real data |
-| `ui/panels/Settings.tsx`, `i18n.ts` | no demo sign-in; "reload the data" instead of "reset the demo"; the data note; the accounts panel opens the ERP to a BUMEX One person (no invitation link) | real data, BUMEX One's accounts |
+| `ui/panels/Settings.tsx`, `i18n.ts` | no demo sign-in; "reload the data" instead of "reset the demo"; the data note | real data |
 | `lib/erp/engine/core.ts` | `nextId` takes its ids from `withIdSource` when one is set | the browser makes UUIDs, the server replays them |
+| `lib/erp/engine/core.ts`, `types.ts` | `Session.entityModules` (a person's rooms where an entity's differ) read by `canOpenRoom`, and by `canUseModule` as "on one entity"; `Session.managesAccess` | modules per entity, the role modifiers (0009) |
 | `ui/panels/Accounting.tsx` | an entity with no chart yet opens on its chart, the entry form waits for it | real entities start without a chart (the demo had all eight set up) |
 | `ui/Rooms.tsx` | the flat view opens the first room the person may open (missions otherwise) | it opened Accounting for everyone |
 | `ui/panels/Other.tsx` | "Calendrier" and "Jalons" tabs (`vanguard/one/Calendar.tsx`, `vanguard/one/Milestones.tsx`); a mission's page (`mission:<project>` tab, `vanguard/one/Mission.tsx`, with its board's rules, `vanguard/one/Workflow.tsx`) | BUMEX One's Calendar, Roadmap and project pages |
@@ -77,7 +80,7 @@ features rebuilt in Vanguard (linted, unlike the delivered files).
 | `ui/panels/Archives.tsx`, `ui/Rooms.tsx` | two parts: the boxes, as delivered, and BUMEX One's documents (`vanguard/one/Documents.tsx`) | BUMEX One's Documents page |
 | `ui/panels/Reports.tsx` | a third part, "Archives financières" (`vanguard/one/FinanceArchive.tsx`): BUMEX One's finance records, read-only | the books are the ERP's |
 | `ui/panels/Hr.tsx` | a person's page on the People tab (`person:<id>`, `vanguard/one/Person.tsx`) | BUMEX One's team member page |
-| `ui/panels/Settings.tsx` | a "Mon compte" tab (`vanguard/one/Account.tsx`: profile, preferences, password); under the accounts, BUMEX One's people without Vanguard access, with their entity and an access to open | BUMEX One's account pages and Users page, merged |
+| `ui/panels/Settings.tsx` | a "Mon compte" tab (`vanguard/one/Account.tsx`: profile, preferences, password); the accounts tab is the Permissions tab (`vanguard/one/Permissions.tsx`: everyone, with or without access, their role, entities and modules per entity, invitations), for the role modifiers only; the demo sign-in, account form and status buttons are gone | BUMEX One's account pages and Users page, merged; access managed by the role modifiers |
 | `ui/Rooms.tsx` | My day passes its tab on (its "Mon travail" tab is BUMEX One's My Work, `vanguard/one/MyWork.tsx`) | My Work merged into My day |
 
 `styles.css` is theirs; `vanguard.css` is generated from it by `node scripts/vanguard-css.mjs` (every rule scoped to

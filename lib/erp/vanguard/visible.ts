@@ -1,4 +1,5 @@
 import type { State } from "@/lib/erp/engine";
+import { modulesOn } from "@/lib/erp/config";
 import type { ErpAccess, ErpModuleKey } from "@/types/erp";
 
 // What the browser receives of the state. The tables' row-level security is by entity only, so the state read for a
@@ -8,16 +9,15 @@ import type { ErpAccess, ErpModuleKey } from "@/types/erp";
 //
 // Everyone keeps what the rooms open to all read: the entities, the chart and its settings (accounts, journals,
 // periods, counters…), the clients' names (missions, archives, tasks), the missions, their staffing and archive boxes,
-// the people without their pay. A collection is sent whole or not at all: a screen meets no invoice without its client
-// and no entry without its account. Figures computed from what was not sent (floor signals, badges, report cards)
-// count nothing. Reports and consolidation read every module: they keep everything but pay.
+// the people without their pay. An entity's rows of a collection are sent whole or not at all: a screen meets no
+// invoice without its client and no entry without its account. Figures computed from what was not sent (floor signals,
+// badges, report cards) count nothing. Reports read every module of their entity, the group's consolidation every
+// entity's: they keep everything but pay.
 //
 // Every command a room offers runs in the browser first (store.ts apply), so each module keeps what its commands read
 // (paying an invoice reads the bank accounts, an asset bought on credit its supplier…).
 
 type Collection = keyof State;
-
-const EVERYTHING: ErpModuleKey[] = ["reports", "consolidation"];
 
 const READERS: Partial<Record<Collection, ErpModuleKey[]>> = {
   entries: ["accounting", "bank", "clients", "suppliers", "assets", "hr", "tax"],
@@ -74,25 +74,39 @@ const TABLE_MODULE: Record<string, ErpModuleKey> = {
   tax_return: "tax",
 };
 
-export function visibleState(state: State, access: ErpAccess): State {
-  const has = (module: ErpModuleKey) => access.modules.includes(module);
-  const hr = has("hr");
-  const all = EVERYTHING.some(has);
-  const keeps = (table: string) => !TABLE_MODULE[table] || has(TABLE_MODULE[table]) || (all && TABLE_MODULE[table] !== "hr");
+// A person's modules can differ per entity (0009): each row is kept by the modules its entity gives them (a bank
+// line by its account's entity).
+export function visibleState(state: State, access: ErpAccess, codeOf: (entityId: string) => string | undefined): State {
+  const on = new Map<string, ErpModuleKey[]>();
+  const modules = (entityId: string | undefined) => {
+    if (!entityId) return access.modules;
+    if (!on.has(entityId)) on.set(entityId, modulesOn(access, codeOf(entityId)));
+    return on.get(entityId)!;
+  };
+  const has = (module: ErpModuleKey, entityId: string | undefined) => modules(entityId).includes(module);
+  const group = access.modules.includes("consolidation");
+  const all = (entityId: string | undefined) => group || has("reports", entityId);
+  const keeps = (table: string, entityId: string | undefined) =>
+    !TABLE_MODULE[table] || has(TABLE_MODULE[table], entityId) || (all(entityId) && TABLE_MODULE[table] !== "hr");
+
+  const accountEntity = new Map(state.bankAccounts.map((a) => [a.id, a.entityId]));
+  const entityOf = (collection: Collection, row: object) =>
+    collection === "bankTransactions" ? accountEntity.get((row as { bankAccountId: string }).bankAccountId) : (row as { entityId?: string }).entityId;
 
   const out: State = { ...state };
-  if (!all) {
-    for (const [collection, readers] of Object.entries(READERS) as [Collection, ErpModuleKey[]][]) {
-      if (!readers.some(has)) Object.assign(out, { [collection]: [] });
-    }
+  for (const [collection, readers] of Object.entries(READERS) as [Collection, ErpModuleKey[]][]) {
+    const rows = state[collection] as object[];
+    const kept = rows.filter((row) => {
+      const entityId = entityOf(collection, row);
+      return all(entityId) || readers.some((m) => has(m, entityId));
+    });
+    if (kept.length !== rows.length) Object.assign(out, { [collection]: kept });
   }
   // Pay stays with the HR module: the others get the people without their salary (planning, initials, the HR room's
   // People tab) and the payroll runs without their lines.
-  if (!hr) {
-    out.employees = state.employees.map((e) => ({ ...e, grossSalary: 0, allowances: 0 }));
-    out.payrollRuns = out.payrollRuns.map((r) => ({ ...r, lines: [] }));
-  }
-  out.auditLog = state.auditLog.filter((r) => keeps(r.table));
-  out.deletionRequests = state.deletionRequests.filter((r) => keeps(r.table));
+  out.employees = state.employees.map((e) => (has("hr", e.entityId) ? e : { ...e, grossSalary: 0, allowances: 0 }));
+  out.payrollRuns = out.payrollRuns.map((r) => (has("hr", r.entityId) ? r : { ...r, lines: [] }));
+  out.auditLog = state.auditLog.filter((r) => keeps(r.table, r.entityId));
+  out.deletionRequests = state.deletionRequests.filter((r) => keeps(r.table, r.entityId));
   return out;
 }

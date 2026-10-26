@@ -17,7 +17,10 @@ import { loadVanguardState, type VanguardPerson } from "@/lib/erp/vanguard/load"
 import { record, type VanguardChange } from "@/lib/erp/vanguard/record";
 import { ReplayError } from "@/lib/erp/vanguard/replay";
 import { applyVanguardChange } from "@/lib/erp/vanguard/save";
-import type { ErpAccess, ErpModuleKey, ErpRole } from "@/types/erp";
+import { visibleState } from "@/lib/erp/vanguard/visible";
+import { storedAccess } from "@/lib/erp/permissions";
+import type { BumexEntityCode } from "@/types/entity";
+import type { ErpAccess, ErpEntityModules, ErpModuleKey, ErpRole } from "@/types/erp";
 
 const migrations = join(process.cwd(), "db/erp/migrations");
 let db: PGlite;
@@ -34,17 +37,19 @@ const people: VanguardPerson[] = [
   { id: "adm", name: "Admin ERP", email: "adm@bumex.mr", entityCode: "bumex_holding", active: true, present: true },
   { id: "nouveau", name: "Nouvelle Recrue", email: "nouveau@bumex.mr", entityCode: "bumex_sa", active: true, present: true },
   { id: "mariem", name: "Mariem Sow", email: "mariem@bumex.mr", entityCode: "bumex_audit", active: true, present: true },
+  { id: "moussa", name: "Moussa Comptable", email: "moussa@bumex.mr", entityCode: "bumex_maroc", active: true, present: true },
 ];
-// role, entities (null = all), modules (null = the role's)
-const grants: Record<string, [ErpRole, string[] | null, ErpModuleKey[] | null]> = {
+// role, entities (null = all), modules (null = the role's), the entities whose modules differ (0009)
+const grants: Record<string, [ErpRole, string[] | null, ErpModuleKey[] | null, ErpEntityModules?]> = {
   awa: ["partner", null, null],
   aicha: ["accountant", ["bumex_audit"], null],
   sidi: ["staff", ["bumex_audit"], ["accounting"]],
   adm: ["admin", null, null],
+  moussa: ["accountant", ["bumex_audit", "bumex_it"], null, { bumex_it: ["archives"] }],
 };
 const accessOf = (uid: string): ErpAccess => {
-  const [role, entityCodes, modules] = grants[uid];
-  return { role, entityCodes: entityCodes as ErpAccess["entityCodes"], modules: resolveErpModules(role, modules) };
+  const [role, entityCodes, modules, entityModules] = grants[uid];
+  return { role, entityCodes: entityCodes as ErpAccess["entityCodes"], modules: resolveErpModules(role, modules), entityModules: entityModules ?? {}, managesAccess: false };
 };
 const who = (uid: string) => ({ id: uid, name: people.find((p) => p.id === uid)!.name });
 
@@ -118,8 +123,8 @@ beforeAll(async () => {
   for (const p of people) {
     await db.query("insert into work.person (id, email, full_name, entity_code) values ($1, $2, $3, $4)", [p.id, p.email, p.name, p.entityCode]);
   }
-  for (const [uid, [role, codes, modules]] of Object.entries(grants)) {
-    await db.query("insert into erp.user_access (user_id, erp_role, entity_codes, modules, granted_by) values ($1, $2, $3, $4, 'test')", [uid, role, codes, modules]);
+  for (const [uid, [role, codes, modules, entityModules]] of Object.entries(grants)) {
+    await db.query("insert into erp.user_access (user_id, erp_role, entity_codes, modules, entity_modules, granted_by) values ($1, $2, $3, $4, $5, 'test')", [uid, role, codes, modules, entityModules ?? null]);
   }
   const rows = (await db.query<{ id: string; code: string }>("select id, code from erp.entity")).rows;
   audit = rows.find((r) => r.code === "bumex_audit")!.id;
@@ -238,10 +243,10 @@ describe("what the server refuses", () => {
     await expect(attempt).rejects.toThrow(/pas ouvert à votre accès/);
   });
 
-  it("an entity the person does not see stays closed (row-level security)", async () => {
+  it("an entity the person does not see stays closed (the replay, before row-level security: bumex-one.test.mjs)", async () => {
     const attempt = send("aicha", forged([{ name: "createFiscalYear", input: 0, args: [it_, 2026], ids: Array.from({ length: 13 }, () => crypto.randomUUID()) }]));
     const error = await attempt.catch((e: unknown) => e);
-    expect(vanguardErrorMessage(error, "fr")).toBe("Votre rôle ERP ne permet pas cette action.");
+    expect(vanguardErrorMessage(error, "fr")).toBe("Ce module n'est pas ouvert à votre accès sur cette entité.");
   });
 
   it("a period locked by a partner refuses a posting checked by the database too", async () => {
@@ -508,16 +513,66 @@ describe("the modules", () => {
     expect(domain.taskStats(state, audit)).toMatchObject({ active: 1, done: 1 });
   });
 
-  it("access: the ERP administrator opens the ERP to a person, changes it, closes it", async () => {
-    const granted = await change("adm", (s) => domain.createUser(s, { name: "Nouvelle Recrue", email: "nouveau@bumex.mr", role: "accountant", entityIds: [audit] }));
-    expect(granted.state.users.find((u) => u.id === "nouveau")).toMatchObject({ role: "accountant", entityIds: [audit] });
-    expect((await db.query("select entity_codes, modules from erp.user_access where user_id = 'nouveau'")).rows).toEqual([{ entity_codes: ["bumex_audit"], modules: null }]);
-    const changed = await change("adm", (s) => domain.updateUserAccess(s, "nouveau", { role: "manager" }));
-    expect(changed.state.users.find((u) => u.id === "nouveau")!.role).toBe("manager");
-    const closed = await change("adm", (s) => domain.setUserStatus(s, "nouveau", "disabled"));
-    expect(closed.state.users.some((u) => u.id === "nouveau")).toBe(false);
-    await expect(change("adm", (s) => domain.createUser(s, { name: "Inconnu", email: "inconnu@bumex.mr", role: "staff", entityIds: "*" }))).rejects.toThrow(/Aucune personne/);
-    await expect(change("aicha", (s) => domain.createUser(s, { name: "X", email: "nouveau@bumex.mr", role: "staff", entityIds: "*" }))).rejects.toThrow(/administrateur/);
+  it("access is the permissions page's: the engine's account commands are refused", async () => {
+    for (const name of ["createUser", "updateUserAccess", "setUserStatus"]) {
+      expect(name in vanguardCommands).toBe(false);
+      await expect(send("adm", { calls: [{ name, input: 0, args: [], ids: [] }], result: 1 })).rejects.toThrow(/Opération inconnue/);
+    }
+  });
+
+  it("a person's modules can differ per entity: their rooms, what the server replays, what the browser gets", async () => {
+    const { state } = await load("moussa");
+    expect(domain.canOpenRoom(state, audit, "accounting")).toBe(true);
+    expect(domain.canOpenRoom(state, it_, "accounting")).toBe(false);
+    expect(domain.canOpenRoom(state, it_, "archives")).toBe(true);
+    expect(domain.canUseModule(state, "accounting")).toBe(true); // on one of his entities
+    // the server refuses the module on the entity where it is not his, and lets it through on the other
+    const years = Array.from({ length: 13 }, () => crypto.randomUUID());
+    await expect(send("moussa", { calls: [{ name: "createFiscalYear", input: 0, args: [it_, 2027], ids: years }], result: 1 })).rejects.toThrow(/sur cette entité/);
+    const opened = await change("moussa", (s) => domain.createFiscalYear(s, audit, 2027));
+    expect(opened.state.fiscalYears.some((f) => f.entityId === audit && f.label === "2027")).toBe(true);
+    // the browser: an entity's rows by its own modules (a bank line by its account's entity), pay by HR
+    const full = await as("moussa", () => loadVanguardState(tx, who("moussa"), accessOf("moussa"), people, { full: true }));
+    const made = {
+      ...full.state,
+      entries: [{ id: "e-aud", entityId: audit }, { id: "e-it", entityId: it_ }],
+      bankAccounts: [{ id: "b-aud", entityId: audit }, { id: "b-it", entityId: it_ }],
+      bankTransactions: [{ id: "t-aud", bankAccountId: "b-aud" }, { id: "t-it", bankAccountId: "b-it" }],
+      employees: [{ id: "p-it", entityId: it_, grossSalary: 9, allowances: 1 }],
+    } as unknown as State;
+    const codes = new Map([[audit, "bumex_audit"], [it_, "bumex_it"]]);
+    const seen = visibleState(made, accessOf("moussa"), (id) => codes.get(id));
+    expect(seen.entries.map((e) => e.id)).toEqual(["e-aud"]);
+    expect(seen.bankAccounts.map((b) => b.id)).toEqual(["b-aud"]);
+    expect(seen.bankTransactions.map((t) => t.id)).toEqual(["t-aud"]);
+    expect(seen.employees[0].grossSalary).toBe(0);
+    const withHr = visibleState(made, { ...accessOf("moussa"), entityModules: { bumex_it: ["hr"] } }, (id) => codes.get(id));
+    expect(withHr.employees[0].grossSalary).toBe(9);
+    expect(withHr.entries.map((e) => e.id)).toEqual(["e-aud", "e-it"]); // payroll posts to the ledger: HR reads it
+    expect(withHr.bankAccounts.map((b) => b.id)).toEqual(["b-aud"]);
+  });
+
+  it("the permissions page's choices are stored as the usual modules and the entities that differ", () => {
+    const all = ["bumex_holding", "bumex_audit", "bumex_it"] as BumexEntityCode[];
+    const std = resolveErpModules("accountant", null);
+    const base = { role: "accountant" as ErpRole, allEntities: false, consolidation: false, managesAccess: false };
+    expect(storedAccess({ ...base, parts: { bumex_audit: std, bumex_it: [...std].reverse() }, managesAccess: true }, all))
+      .toEqual({ role: "accountant", entityCodes: ["bumex_audit", "bumex_it"], modules: null, entityModules: null, managesAccess: false });
+    expect(storedAccess({ ...base, parts: { bumex_audit: std, bumex_it: ["archives"] } }, all))
+      .toMatchObject({ modules: null, entityModules: { bumex_it: ["archives"] } });
+    // what most entities have becomes the usual modules
+    expect(storedAccess({ ...base, allEntities: true, parts: { bumex_holding: ["reports"], bumex_audit: ["reports"], bumex_it: std } }, all))
+      .toMatchObject({ entityCodes: null, modules: ["reports"], entityModules: { bumex_it: std } });
+    // an administrator without the group's consolidation, who manages access
+    const every = resolveErpModules("admin", null).filter((m) => m !== "consolidation");
+    expect(storedAccess({ role: "admin", allEntities: true, parts: {}, consolidation: false, managesAccess: true }, all))
+      .toEqual({ role: "admin", entityCodes: null, modules: every, entityModules: null, managesAccess: true });
+    expect(storedAccess({ role: "admin", allEntities: true, parts: {}, consolidation: true, managesAccess: false }, all)).toMatchObject({ modules: null });
+    expect(storedAccess({ ...base, parts: {} }, all)).toBe("no_entity");
+    expect(storedAccess({ ...base, parts: { bumex_audit: ["missions" as ErpModuleKey] } }, all)).toBe("invalid");
+    expect(storedAccess({ ...base, parts: { bumex_audit: ["consolidation"] } }, all)).toBe("invalid");
+    expect(storedAccess({ ...base, parts: { bumex_sa: std } }, all)).toBe("invalid");
+    expect(storedAccess({ ...base, role: "boss" as ErpRole, parts: { bumex_audit: std } }, all)).toBe("invalid");
   });
 
   it("a partner deletes a customer without documents; its auxiliary account stays in the ledger history", async () => {

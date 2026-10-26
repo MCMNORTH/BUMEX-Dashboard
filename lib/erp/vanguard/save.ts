@@ -2,14 +2,14 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
-import { resolveErpModules } from "@/lib/erp/config";
-import type { Account, AccountMapping, AppUser, DeletionRequest, Entity, FiscalYear, Journal, JournalEntry, Period, State, TaxCode, TaxRule } from "@/lib/erp/engine";
+import { readErpAccess } from "@/lib/erp/access";
+import type { Account, AccountMapping, DeletionRequest, Entity, FiscalYear, Journal, JournalEntry, Period, State, TaxCode, TaxRule } from "@/lib/erp/engine";
 import type { ErpTransaction } from "@/lib/erp/db";
-import { loadVanguardState, roomOf, type VanguardPerson } from "@/lib/erp/vanguard/load";
+import { loadVanguardState, type VanguardPerson } from "@/lib/erp/vanguard/load";
 import { moduleTables, tableWriter } from "@/lib/erp/vanguard/tables";
 import type { VanguardChange } from "@/lib/erp/vanguard/record";
 import { replay } from "@/lib/erp/vanguard/replay";
-import { erpModuleKeys, type ErpAccess, type ErpModuleKey, type ErpRole } from "@/types/erp";
+import type { ErpAccess } from "@/types/erp";
 
 // Writes what a replayed change did (run.ts) to PostgreSQL, collection by collection, in the person's ERP session:
 // row-level security and the schema's guards check every row again. Numbers, hashes, chains, counters, stamps (who
@@ -228,41 +228,10 @@ const deletionRequests: Writer<DeletionRequest> = {
   change: (tx, _, r) => tx.query("update erp.deletion_request set status = $2, decision_note = $3 where id = $1", [r.id, r.status, nil(r.decisionNote)]),
 };
 
-// Access (Vanguard's Settings › accounts): a person, found by e-mail, gets an ERP role, entities and modules; disabling
-// or deleting the account removes the access. Names and e-mails are the person's own (work.person).
-function users(people: VanguardPerson[], codeOf: Map<string, string>): Writer<AppUser> {
-  const codes = (u: AppUser) => (u.entityIds === "*" ? null : u.entityIds.map((e) => codeOf.get(e) ?? e));
-  const modules = (u: AppUser) => {
-    if (u.modules === "*") return null;
-    const chosen = erpModuleKeys.filter((key) => u.modules.includes(roomOf[key]));
-    const defaults = resolveErpModules(u.role, null);
-    return chosen.length === defaults.length && chosen.every((m) => defaults.includes(m)) ? null : chosen;
-  };
-  return {
-    key: byId,
-    add: async (tx, u) => {
-      const person = people.find((p) => p.email.toLowerCase() === u.email.trim().toLowerCase());
-      if (!person) throw new VanguardSaveError("Aucune personne n'a cette adresse : elle doit d'abord avoir son compte et s'être connectée une fois.");
-      if (u.status === "disabled") return;
-      await tx.query("insert into erp.user_access (user_id, erp_role, entity_codes, modules) values ($1, $2, $3, $4)", [person.id, u.role, codes(u), modules(u)]);
-    },
-    change: (tx, _, u) =>
-      u.status === "disabled"
-        ? tx.query("delete from erp.user_access where user_id = $1", [u.id])
-        : tx.query(
-            `insert into erp.user_access (user_id, erp_role, entity_codes, modules) values ($1, $2, $3, $4)
-             on conflict (user_id) do update set erp_role = excluded.erp_role, entity_codes = excluded.entity_codes, modules = excluded.modules`,
-            [u.id, u.role, codes(u), modules(u)],
-          ),
-    remove: (tx, u) => tx.query("delete from erp.user_access where user_id = $1", [u.id]),
-  };
-}
-
 const table = (collection: keyof State) => tableWriter(moduleTables.find((t) => t.collection === collection)!) as unknown as Writer<never>;
 
 // In the order rows can be written (what a row refers to comes first); removals go the other way.
-const writersFor = (people: VanguardPerson[], codeOf: Map<string, string>) =>
-  [
+const writers = [
     ["entities", entities],
     ["fiscalYears", fiscalYears],
     ["periods", periods],
@@ -294,7 +263,6 @@ const writersFor = (people: VanguardPerson[], codeOf: Map<string, string>) =>
     ["assignments", table("assignments")],
     ["archives", table("archives")],
     ["deletionRequests", deletionRequests],
-    ["users", users(people, codeOf)],
   ] as [keyof State, Writer<never>][];
 
 // Kept by the database, derived, or the person's own context: never written from the engine.
@@ -321,16 +289,16 @@ async function saveCounters(tx: ErpTransaction, before: State, after: State) {
   }
 }
 
-export async function saveVanguardChange(tx: ErpTransaction, before: State, after: State, people: VanguardPerson[] = []): Promise<void> {
-  const codeOf = new Map((await tx.query<{ id: string; code: string }>("select id, code from erp.entity")).map((e) => [e.id, e.code]));
-  const writers = writersFor(people, codeOf);
+export async function saveVanguardChange(tx: ErpTransaction, before: State, after: State): Promise<void> {
   for (const name of Object.keys(after) as (keyof State)[]) {
     if (notWritten.has(name) || name === "counters" || before[name] === after[name] || writers.some(([w]) => w === name)) continue;
     if (same(before[name], after[name])) continue;
     throw new VanguardSaveError(
       name === "tasks"
         ? "Les tâches sont les tickets des missions : elles se créent et avancent depuis la salle Tâches."
-        : "Cette modification touche des données que Vanguard n'enregistre pas encore.",
+        : name === "users"
+          ? "Les accès se règlent dans Réglages › Permissions."
+          : "Cette modification touche des données que Vanguard n'enregistre pas encore.",
     );
   }
 
@@ -369,11 +337,6 @@ export async function applyVanguardChange(
   // replayed on everything the person's entities hold: the engine's checks see what the database has
   const { state: before } = await loadVanguardState(tx, person, access, people, { checkChains: false, full: true });
   const after = replay(before, change, randomUUID);
-  await saveVanguardChange(tx, before, after, people);
-  const [row] = await tx.query<{ erp_role: ErpRole; entity_codes: ErpAccess["entityCodes"]; modules: ErpModuleKey[] | null }>(
-    "select erp_role, entity_codes, modules from erp.user_access where user_id = $1",
-    [person.id],
-  );
-  const now = row ? { role: row.erp_role, entityCodes: row.entity_codes, modules: resolveErpModules(row.erp_role, row.modules) } : access;
-  return loadVanguardState(tx, person, now, people);
+  await saveVanguardChange(tx, before, after);
+  return loadVanguardState(tx, person, (await readErpAccess(tx, person.id)) ?? access, people);
 }

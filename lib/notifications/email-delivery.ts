@@ -1,12 +1,9 @@
 import "server-only";
 
-import { isSmtpConfigured, sendMail } from "@/lib/email/server";
-import { isMicrosoftGraphConfigured, sendMicrosoftGraphMail } from "@/lib/email/microsoft-graph";
-import { isResendConfigured, sendResendMail } from "@/lib/email/resend";
+import { isAppMailConfigured, sendAppMail } from "@/lib/email/send";
 import { asSystem, select } from "@/lib/work/db";
 
 const MAX_ATTEMPTS = 5;
-const NOTIFICATION_EMAIL_FROM = process.env.NOTIFICATION_EMAIL_FROM || "BUMEX <bumex@bumex.mr>";
 // An email that couldn't go out within a day is stale news; it is marked
 // expired instead. This also keeps the backlog queued while no provider was
 // configured from reaching inboxes all at once.
@@ -108,29 +105,12 @@ async function processEmail(notification: NotificationEmail) {
   }
 
   try {
-    const content = createEmailContent(notification);
-    if (isResendConfigured()) {
-      await sendResendMail({
-        from: NOTIFICATION_EMAIL_FROM,
-        to: notification.recipient_email,
-        subject: notification.subject,
-        ...content,
-        idempotencyKey: `notification-email/${notification.id}`,
-      });
-    } else if (isMicrosoftGraphConfigured()) {
-      await sendMicrosoftGraphMail({
-        to: notification.recipient_email,
-        subject: notification.subject,
-        html: content.html,
-      });
-    } else {
-      await sendMail({
-        from: NOTIFICATION_EMAIL_FROM,
-        to: notification.recipient_email,
-        subject: notification.subject,
-        ...content,
-      });
-    }
+    await sendAppMail({
+      to: notification.recipient_email,
+      subject: notification.subject,
+      ...createEmailContent(notification),
+      idempotencyKey: `notification-email/${notification.id}`,
+    });
 
     if (!(await settle(notification.id, "status = 'sent', sent_at = now(), locked_at = null, last_error = null"))) {
       throw new Error("Could not mark notification email as sent (database).");
@@ -149,7 +129,7 @@ async function processEmail(notification: NotificationEmail) {
 export async function dispatchNotificationEmails(notificationIds?: string[]) {
   if (notificationIds && notificationIds.length === 0) return { sent: 0, failed: 0, deferred: false };
 
-  if (!isResendConfigured() && !isMicrosoftGraphConfigured() && !isSmtpConfigured(NOTIFICATION_EMAIL_FROM)) {
+  if (!isAppMailConfigured()) {
     return { sent: 0, failed: 0, deferred: true };
   }
 

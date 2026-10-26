@@ -4,8 +4,7 @@ import { cache } from "react";
 
 import { resolveErpModules } from "@/lib/erp/config";
 import { isErpDatabaseConfigured, withErpSession, withErpSystemSession, type ErpTransaction } from "@/lib/erp/db";
-import type { Profile } from "@/types/auth";
-import type { ErpAccess, ErpAccessGrant, ErpModuleKey, ErpRole } from "@/types/erp";
+import type { ErpAccess, ErpAccessGrant, ErpEntityModules, ErpModuleKey, ErpRole } from "@/types/erp";
 import type { BumexEntityCode } from "@/types/entity";
 
 type AccessRow = {
@@ -13,13 +12,15 @@ type AccessRow = {
   erp_role: ErpRole;
   entity_codes: BumexEntityCode[] | null;
   modules: ErpModuleKey[] | null;
+  entity_modules: ErpEntityModules | null;
+  manages_access: boolean;
   granted_by: string;
   granted_at: Date;
   updated_by: string | null;
   updated_at: Date;
 };
 
-const accessColumns = "user_id, erp_role, entity_codes, modules, granted_by, granted_at, updated_by, updated_at";
+const accessColumns = "user_id, erp_role, entity_codes, modules, entity_modules, manages_access, granted_by, granted_at, updated_by, updated_at";
 
 function toGrant(row: AccessRow): ErpAccessGrant {
   return {
@@ -27,11 +28,30 @@ function toGrant(row: AccessRow): ErpAccessGrant {
     role: row.erp_role,
     entityCodes: row.entity_codes,
     modules: row.modules,
+    entityModules: row.entity_modules,
+    managesAccess: row.manages_access,
     grantedBy: row.granted_by,
     grantedAt: row.granted_at.toISOString(),
     updatedBy: row.updated_by,
     updatedAt: row.updated_at.toISOString(),
   };
+}
+
+// A row as what the person may open: the role's modules when none were chosen.
+export function accessOf(row: Pick<AccessRow, "erp_role" | "entity_codes" | "modules" | "entity_modules" | "manages_access">): ErpAccess {
+  return {
+    role: row.erp_role,
+    entityCodes: row.entity_codes,
+    modules: resolveErpModules(row.erp_role, row.modules),
+    entityModules: row.entity_modules ?? {},
+    managesAccess: row.manages_access,
+  };
+}
+
+// A person's access as the transaction sees it (after a change: lib/erp/vanguard/save.ts).
+export async function readErpAccess(tx: ErpTransaction, userId: string): Promise<ErpAccess | null> {
+  const [row] = await tx.query<AccessRow>(`select ${accessColumns} from erp.user_access where user_id = $1`, [userId]);
+  return row ? accessOf(row) : null;
 }
 
 // The signed-in person's ERP access, once per request. null = no ERP (no row, no database, or the database is
@@ -42,22 +62,17 @@ export const getErpAccess = cache(async (userId: string): Promise<ErpAccess | nu
   }
 
   try {
-    const [row] = await withErpSession(userId, (tx) =>
-      tx.query<AccessRow>(`select ${accessColumns} from erp.user_access where user_id = $1`, [userId]),
-    );
-
-    return row
-      ? { role: row.erp_role, entityCodes: row.entity_codes, modules: resolveErpModules(row.erp_role, row.modules) }
-      : null;
+    return await withErpSession(userId, (tx) => readErpAccess(tx, userId));
   } catch (error) {
     console.error("[erp:access]", error instanceof Error ? error.message : error);
     return null;
   }
 });
 
-// The BUMEX One super admin manages ERP access, and so does anyone whose ERP role is admin.
-export function canManageErpAccess(profile: Pick<Profile, "is_super_admin">, access: ErpAccess | null) {
-  return profile.is_super_admin || access?.role === "admin";
+// Access is changed by an administrator who manages it (the "role modifier", 0009) and by nobody else: the database
+// refuses the others whatever their role.
+export function canManageErpAccess(access: ErpAccess | null) {
+  return access?.managesAccess === true;
 }
 
 export async function listErpAccessGrants(actorId: string): Promise<Map<string, ErpAccessGrant>> {
@@ -72,26 +87,23 @@ export type ErpAccessInput = {
   role: ErpRole;
   entityCodes: BumexEntityCode[] | null;
   modules: ErpModuleKey[] | null;
+  entityModules?: ErpEntityModules | null;
+  managesAccess?: boolean;
 };
 
-// The super admin acts through the system context; an ERP administrator through their own session, where the
-// schema refuses anything they may not do (for instance removing their own administrator role).
-function asManager<T>(actor: Pick<Profile, "id" | "is_super_admin">, work: (tx: ErpTransaction) => Promise<T>) {
-  return actor.is_super_admin ? withErpSystemSession(actor.id, work) : withErpSession(actor.id, work);
-}
-
-export async function saveErpAccess(actor: Pick<Profile, "id" | "is_super_admin">, userId: string, input: ErpAccessInput) {
-  await asManager(actor, (tx) =>
-    tx.query(
-      `insert into erp.user_access (user_id, erp_role, entity_codes, modules)
-       values ($1, $2, $3, $4)
-       on conflict (user_id) do update
-         set erp_role = excluded.erp_role, entity_codes = excluded.entity_codes, modules = excluded.modules`,
-      [userId, input.role, input.entityCodes, input.modules],
-    ),
+// Written in the role modifier's own session (lib/erp/permissions.ts), where the schema refuses anyone else and what
+// nobody may do to themselves.
+export async function writeErpAccess(tx: ErpTransaction, userId: string, input: ErpAccessInput) {
+  await tx.query(
+    `insert into erp.user_access (user_id, erp_role, entity_codes, modules, entity_modules, manages_access)
+     values ($1, $2, $3, $4, $5, $6)
+     on conflict (user_id) do update
+       set erp_role = excluded.erp_role, entity_codes = excluded.entity_codes, modules = excluded.modules,
+           entity_modules = excluded.entity_modules, manages_access = excluded.manages_access`,
+    [userId, input.role, input.entityCodes, input.modules, input.entityModules ?? null, input.managesAccess === true],
   );
 }
 
-export async function removeErpAccess(actor: Pick<Profile, "id" | "is_super_admin">, userId: string) {
-  await asManager(actor, (tx) => tx.query("delete from erp.user_access where user_id = $1", [userId]));
+export async function deleteErpAccess(tx: ErpTransaction, userId: string) {
+  return tx.run("delete from erp.user_access where user_id = $1", [userId]);
 }
