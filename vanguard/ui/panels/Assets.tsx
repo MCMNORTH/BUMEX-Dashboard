@@ -5,6 +5,7 @@ import {
 } from '@bumex/domain';
 import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, DeleteButton, downloadXlsx, entryRef } from '../common';
+import { Select } from '../Select';
 
 type Tab = 'register' | 'new' | 'sheet' | 'yearend' | 'categories';
 const METHOD_FR: Record<DepreciationMethod, string> = { linear: 'Linéaire', declining: 'Dégressif' };
@@ -125,18 +126,18 @@ function NewAsset({ entityId, onDone }: { entityId: Id; onDone: (id: Id) => void
           <div className="grid3">
             <Field label="Désignation" style={{ gridColumn: 'span 2' }}><input className="in" value={name} onChange={(e) => setName(e.target.value)} placeholder="Serveur de fichiers · Véhicule · Agencement…" /></Field>
             <Field label="N° de série ou référence unique"><input className="in mono" value={serial} onChange={(e) => setSerial(e.target.value)} /></Field>
-            <Field label="Catégorie"><select className="in" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>{cats.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.lifeMonths} mois · {METHOD_FR[x.method]}</option>)}</select></Field>
+            <Field label="Catégorie"><Select className="in" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>{cats.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.lifeMonths} mois · {METHOD_FR[x.method]}</option>)}</Select></Field>
             <Field label="Date d'acquisition"><input className="in mono" type="date" value={acq} onChange={(e) => setAcq(e.target.value)} /></Field>
             <Field label="Mise en service (début d'amortissement)"><input className="in mono" type="date" value={start} onChange={(e) => setStart(e.target.value)} placeholder={acq} /></Field>
             <Field label="Valeur d'acquisition (HT)"><input className="in num" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0,00" /></Field>
             <Field label="Valeur résiduelle"><input className="in num" value={residual} onChange={(e) => setResidual(e.target.value)} /></Field>
             <Field label={`Durée (mois) · taux ${r2(1200 / lifeMonths)} %`}><input className="in num" value={life} onChange={(e) => setLife(e.target.value)} placeholder={String(cat?.lifeMonths ?? 60)} /></Field>
-            <Field label="Méthode"><select className="in" value={method} onChange={(e) => setMethod(e.target.value as '' | DepreciationMethod)}><option value="">Catégorie · {METHOD_FR[cat?.method ?? 'linear']}</option><option value="linear">Linéaire</option><option value="declining">Dégressif · coefficient {DECLINING_COEFFICIENT(lifeMonths)}</option></select></Field>
+            <Field label="Méthode"><Select className="in" value={method} onChange={(e) => setMethod(e.target.value as '' | DepreciationMethod)}><option value="">Catégorie · {METHOD_FR[cat?.method ?? 'linear']}</option><option value="linear">Linéaire</option><option value="declining">Dégressif · coefficient {DECLINING_COEFFICIENT(lifeMonths)}</option></Select></Field>
             <Field label="Localisation"><input className="in" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Étage 3 · bureau 12" /></Field>
-            <Field label="Fournisseur"><select className="in" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}><option value="">—</option>{state.suppliers.filter((s) => s.entityId === entityId).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-            <Field label="Écriture d'acquisition"><select className="in" value={post} onChange={(e) => setPost(e.target.value as 'none' | 'supplier' | 'bank')}><option value="none">Aucune (déjà comptabilisée)</option><option value="supplier">Immobilisation D · fournisseur C</option><option value="bank">Immobilisation D · banque C</option></select></Field>
+            <Field label="Fournisseur"><Select recent="suppliers" className="in" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}><option value="">—</option>{state.suppliers.filter((s) => s.entityId === entityId).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field>
+            <Field label="Écriture d'acquisition"><Select className="in" value={post} onChange={(e) => setPost(e.target.value as 'none' | 'supplier' | 'bank')}><option value="none">Aucune (déjà comptabilisée)</option><option value="supplier">Immobilisation D · fournisseur C</option><option value="bank">Immobilisation D · banque C</option></Select></Field>
             {post !== 'none' && <Field label="TVA déductible (montant)"><input className="in num" value={vat} onChange={(e) => setVat(e.target.value)} placeholder="0,00" /></Field>}
-            {post === 'bank' && <Field label="Compte bancaire"><select className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name}</option>)}</select></Field>}
+            {post === 'bank' && <Field label="Compte bancaire"><Select recent="banks" className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name}</option>)}</Select></Field>}
             <Field label="Notes" style={{ gridColumn: 'span 3' }}><input className="in" value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
           </div>
           <div className="actions"><button type="submit" className="btn primary" disabled={!name.trim() || !categoryId || c <= 0 || (post === 'supplier' && !supplierId)}>Enregistrer l'immobilisation</button></div>
@@ -181,7 +182,7 @@ function Sheet({ entityId, assetId, onPick }: { entityId: Id; assetId: Id | null
       <div className="grow">
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <select className="in" style={{ maxWidth: 360 }} value={a.id} onChange={(e) => onPick(e.target.value)}>{assets.map((x) => <option key={x.id} value={x.id}>{x.code} · {x.name}</option>)}</select>
+            <Select className="in" style={{ maxWidth: 360 }} value={a.id} onChange={(e) => onPick(e.target.value)}>{assets.map((x) => <option key={x.id} value={x.id}>{x.code} · {x.name}</option>)}</Select>
             <Chip kind={STATUS[a.status][1]}>{STATUS[a.status][0]}</Chip>
             <span style={{ marginLeft: 'auto' }} />
             {!edit && <button className="btn sm" onClick={() => setEdit(true)}>{t('edit')}</button>}
@@ -192,9 +193,9 @@ function Sheet({ entityId, assetId, onPick }: { entityId: Id; assetId: Id | null
               <Field label="Désignation" style={{ gridColumn: 'span 2' }}><input className="in" value={name} onChange={(e) => setName(e.target.value)} /></Field>
               <Field label="N° de série"><input className="in mono" value={serial} onChange={(e) => setSerial(e.target.value)} /></Field>
               <Field label="Localisation"><input className="in" value={location} onChange={(e) => setLocation(e.target.value)} /></Field>
-              <Field label="Statut"><select className="in" value={status} onChange={(e) => setStatus(e.target.value as Asset['status'])}><option value="in_service">En service</option><option value="wip">En cours</option><option value="disposed">Cédé · sorti</option></select></Field>
+              <Field label="Statut"><Select className="in" value={status} onChange={(e) => setStatus(e.target.value as Asset['status'])}><option value="in_service">En service</option><option value="wip">En cours</option><option value="disposed">Cédé · sorti</option></Select></Field>
               <Field label={`Durée (mois)${locked ? ' · figée (dotations comptabilisées)' : ''}`}><input className="in num" value={life} disabled={locked} onChange={(e) => setLife(e.target.value)} /></Field>
-              <Field label="Méthode"><select className="in" value={method} disabled={locked} onChange={(e) => setMethod(e.target.value as DepreciationMethod)}><option value="linear">Linéaire</option><option value="declining">Dégressif</option></select></Field>
+              <Field label="Méthode"><Select className="in" value={method} disabled={locked} onChange={(e) => setMethod(e.target.value as DepreciationMethod)}><option value="linear">Linéaire</option><option value="declining">Dégressif</option></Select></Field>
               <Field label="Début d'amortissement"><input className="in mono" type="date" value={start} disabled={locked} onChange={(e) => setStart(e.target.value)} /></Field>
               <Field label="Notes" style={{ gridColumn: 'span 3' }}><input className="in" value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
               <div className="actions" style={{ gridColumn: 'span 3' }}><button className="btn" onClick={() => setEdit(false)}>Annuler</button><button className="btn primary" onClick={save}>Enregistrer</button></div>
@@ -322,10 +323,10 @@ function Categories({ entityId }: { entityId: Id }) {
           <Field label="Nom" style={{ marginTop: 8 }}><input className="in" value={name} onChange={(e) => setName(e.target.value)} /></Field>
           <div className="grid2" style={{ marginTop: 8 }}>
             <Field label="Durée par défaut (mois)"><input className="in num" value={life} onChange={(e) => setLife(e.target.value)} /></Field>
-            <Field label="Méthode"><select className="in" value={method} onChange={(e) => setMethod(e.target.value as DepreciationMethod)}><option value="linear">Linéaire</option><option value="declining">Dégressif</option></select></Field>
+            <Field label="Méthode"><Select className="in" value={method} onChange={(e) => setMethod(e.target.value as DepreciationMethod)}><option value="linear">Linéaire</option><option value="declining">Dégressif</option></Select></Field>
           </div>
-          <Field label="Compte d'immobilisation" style={{ marginTop: 8 }}><select className="in mono" value={assetAcc} onChange={(e) => setAssetAcc(e.target.value)}>{assetAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</select></Field>
-          <Field label="Compte d'amortissements" style={{ marginTop: 8 }}><select className="in mono" value={deprAcc} onChange={(e) => setDeprAcc(e.target.value)}>{deprAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</select></Field>
+          <Field label="Compte d'immobilisation" style={{ marginTop: 8 }}><Select recent="accounts" className="in mono" value={assetAcc} onChange={(e) => setAssetAcc(e.target.value)}>{assetAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
+          <Field label="Compte d'amortissements" style={{ marginTop: 8 }}><Select recent="accounts" className="in mono" value={deprAcc} onChange={(e) => setDeprAcc(e.target.value)}>{deprAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
           <div className="actions" style={{ marginTop: 10 }}>
             {editing && <button className="btn" onClick={() => load(null)}>Annuler</button>}
             <button className="btn primary" disabled={!name.trim() || (!editing && !code.trim()) || !assetAcc || !deprAcc} onClick={save}>{editing ? 'Enregistrer' : 'Créer'}</button>

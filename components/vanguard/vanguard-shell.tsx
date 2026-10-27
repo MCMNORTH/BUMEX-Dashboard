@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { usePathname, useSearchParams } from "next/navigation";
 
 import "@/vanguard/vanguard.css";
+import "@/vanguard/select.css";
 import { EntitySwitchProvider } from "@/components/entities/entity-switch-dialog";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { NavigationProgress } from "@/components/layout/navigation-progress";

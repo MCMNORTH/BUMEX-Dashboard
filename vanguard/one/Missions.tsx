@@ -5,6 +5,7 @@ import type { VanguardData } from '@/lib/erp/vanguard/run';
 import { useStore } from '../store';
 import { Chip, D, Field, Icon } from '../ui/common';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // BUMEX One's projects are Vanguard's missions: created and edited here, in the Missions room (ui/panels/Other.tsx).
 // Their page is vanguard/one/Mission.tsx (BUMEX One's project page); their board, the Tasks room's "Tableau" tab
@@ -83,16 +84,16 @@ export function MissionForm({ entityId, projectId, onClose }: { entityId: Id; pr
       <h2>{projectId ? `${say('Modifier', 'Edit')} · ${v.name}` : say('Nouvelle mission', 'New mission')}</h2>
       <div className="grid3">
         <Field label={say('Nom', 'Name')}><input className="in" value={v.name} onChange={(e) => set({ name: e.target.value })} placeholder="Audit légal 2026" /></Field>
-        <Field label="Type"><select className="in" value={v.project_kind} onChange={(e) => set({ project_kind: e.target.value as MissionInput['project_kind'] })}>{KINDS.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</select></Field>
-        <Field label="Client"><select className="in" value={internal ? '' : v.client_id} disabled={internal} onChange={(e) => set({ client_id: e.target.value })}><option value="">{internal ? say('Sans client (interne)', 'No client (internal)') : say('— choisir —', '— choose —')}</option>{options.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
-        <Field label={say('Responsable', 'Lead')}><select className="in" value={v.owner_id} onChange={(e) => set({ owner_id: e.target.value })}>{options.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-        <Field label={say('Statut', 'Status')}><select className="in" value={v.status} onChange={(e) => set({ status: e.target.value as MissionInput['status'] })}>{STATUSES.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</select></Field>
-        <Field label={say('Priorité', 'Priority')}><select className="in" value={v.priority} onChange={(e) => set({ priority: e.target.value as MissionInput['priority'] })}>{PRIORITIES.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</select></Field>
+        <Field label="Type"><Select className="in" value={v.project_kind} onChange={(e) => set({ project_kind: e.target.value as MissionInput['project_kind'] })}>{KINDS.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
+        <Field label="Client"><Select recent="clients" className="in" value={internal ? '' : v.client_id} disabled={internal} onChange={(e) => set({ client_id: e.target.value })}><option value="">{internal ? say('Sans client (interne)', 'No client (internal)') : say('— choisir —', '— choose —')}</option>{options.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
+        <Field label={say('Responsable', 'Lead')}><Select recent="people" className="in" value={v.owner_id} onChange={(e) => set({ owner_id: e.target.value })}>{options.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
+        <Field label={say('Statut', 'Status')}><Select className="in" value={v.status} onChange={(e) => set({ status: e.target.value as MissionInput['status'] })}>{STATUSES.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
+        <Field label={say('Priorité', 'Priority')}><Select className="in" value={v.priority} onChange={(e) => set({ priority: e.target.value as MissionInput['priority'] })}>{PRIORITIES.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
         <Field label={say('Début', 'Start')}><input className="in mono" type="date" value={v.start_date} onChange={(e) => set({ start_date: e.target.value })} /></Field>
         <Field label={say('Échéance', 'Deadline')}><input className="in mono" type="date" value={v.end_date} onChange={(e) => set({ end_date: e.target.value })} /></Field>
         <Field label={say('Avancement manuel (%)', 'Manual progress (%)')}><input className="in num" value={v.manual_progress} onChange={(e) => set({ manual_progress: e.target.value })} placeholder={say("d'après les tâches", 'from the tasks')} /></Field>
         <Field label={say('Honoraires', 'Fee')}><input className="in num" value={v.budget_amount} onChange={(e) => set({ budget_amount: e.target.value })} placeholder="0" /></Field>
-        <Field label={say('Facturation', 'Billing')}><select className="in" value={v.fee_type} onChange={(e) => set({ fee_type: e.target.value as MissionInput['fee_type'] })}><option value="fixed">{say('Forfait', 'Fixed fee')}</option><option value="time">{say('Temps passé', 'Time spent')}</option></select></Field>
+        <Field label={say('Facturation', 'Billing')}><Select className="in" value={v.fee_type} onChange={(e) => set({ fee_type: e.target.value as MissionInput['fee_type'] })}><option value="fixed">{say('Forfait', 'Fixed fee')}</option><option value="time">{say('Temps passé', 'Time spent')}</option></Select></Field>
         <Field label={say("Budget d'heures", 'Hours budget')}><input className="in num" value={v.budget_hours} onChange={(e) => set({ budget_hours: e.target.value })} placeholder="0" /></Field>
       </div>
       <Field label="Description"><textarea className="in" style={{ height: 64, padding: 8 }} value={v.description} onChange={(e) => set({ description: e.target.value })} /></Field>

@@ -6,6 +6,7 @@ import type { MilestoneStatus } from '@/types/milestone';
 import { useStore } from '../store';
 import { Chip, D, Field, Icon } from '../ui/common';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // The Missions room's "Jalons" tab: BUMEX One's Roadmap page. Each mission as a lane over six months with its
 // milestones, and the milestones themselves (added, edited, completed, deleted by the people who lead the mission;
@@ -81,10 +82,10 @@ export function MilestonesView({ entityId }: { entityId: Id }) {
         <button className="btn sm" onClick={() => setFrom(shiftMonth(from, -3))} aria-label={say('Plus tôt', 'Earlier')}>‹</button>
         <b style={{ minWidth: 220, textAlign: 'center' }}>{new Intl.DateTimeFormat(locale, { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${from}T00:00:00Z`))} – {new Intl.DateTimeFormat(locale, { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${shiftMonth(to, -1)}T00:00:00Z`))}</b>
         <button className="btn sm" onClick={() => setFrom(shiftMonth(from, 3))} aria-label={say('Plus tard', 'Later')}>›</button>
-        <select className="in" style={{ width: 170, marginLeft: 'auto' }} value={scope} onChange={(e) => setScope(e.target.value as 'floor' | 'all')} aria-label={say('Périmètre', 'Scope')}>
+        <Select className="in" style={{ width: 170, marginLeft: 'auto' }} value={scope} onChange={(e) => setScope(e.target.value as 'floor' | 'all')} aria-label={say('Périmètre', 'Scope')}>
           <option value="floor">{say('Cet étage', 'This floor')}</option>
           <option value="all">{say('Tout le groupe', 'The whole group')}</option>
-        </select>
+        </Select>
         {data.canManage && !draft && lanes.length > 0 && <button className="btn sm primary" onClick={() => setDraft(blank())}><Icon name="plus" size={13} /> {say('Nouveau jalon', 'New milestone')}</button>}
       </div>
 
@@ -92,11 +93,11 @@ export function MilestonesView({ entityId }: { entityId: Id }) {
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <h2 style={{ margin: 0 }}>{draft.id ? say('Modifier le jalon', 'Edit the milestone') : say('Nouveau jalon', 'New milestone')}</h2>
           <div className="grid3">
-            <Field label={say('Mission', 'Mission')}><select className="in" value={draft.projectId} disabled={Boolean(draft.id)} onChange={(e) => setDraft({ ...draft, projectId: e.target.value })}>{data.lanes.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></Field>
+            <Field label={say('Mission', 'Mission')}><Select className="in" value={draft.projectId} disabled={Boolean(draft.id)} onChange={(e) => setDraft({ ...draft, projectId: e.target.value })}>{data.lanes.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</Select></Field>
             <Field label={say('Titre', 'Title')} style={{ gridColumn: 'span 2' }}><input className="in" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></Field>
             <Field label={say('Échéance', 'Due')}><input className="in mono" type="date" value={draft.dueDate} onChange={(e) => setDraft({ ...draft, dueDate: e.target.value })} /></Field>
-            <Field label={say('Statut', 'Status')}><select className="in" value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as MilestoneStatus })}>{(Object.keys(STATUS) as MilestoneStatus[]).map((s) => <option key={s} value={s}>{say(STATUS[s][0], STATUS[s][1])}</option>)}</select></Field>
-            <Field label={say('Responsable', 'Owner')}><select className="in" value={draft.ownerId} onChange={(e) => setDraft({ ...draft, ownerId: e.target.value })}><option value="">—</option>{data.owners.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select></Field>
+            <Field label={say('Statut', 'Status')}><Select className="in" value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as MilestoneStatus })}>{(Object.keys(STATUS) as MilestoneStatus[]).map((s) => <option key={s} value={s}>{say(STATUS[s][0], STATUS[s][1])}</option>)}</Select></Field>
+            <Field label={say('Responsable', 'Owner')}><Select recent="people" className="in" value={draft.ownerId} onChange={(e) => setDraft({ ...draft, ownerId: e.target.value })}><option value="">—</option>{data.owners.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</Select></Field>
           </div>
           <Field label="Description"><textarea className="in" style={{ height: 60, padding: 8 }} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></Field>
           <div className="actions"><button className="btn sm" onClick={() => setDraft(null)}>{say('Annuler', 'Cancel')}</button><button className="btn sm primary" disabled={busy || !draft.projectId || !draft.title.trim() || !draft.dueDate} onClick={save}>{say('Enregistrer', 'Save')}</button></div>

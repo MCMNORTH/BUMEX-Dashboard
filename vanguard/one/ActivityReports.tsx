@@ -5,6 +5,7 @@ import type { ReportBuilderData, ReportDocument, ReportType } from '@/types/repo
 import { useStore } from '../store';
 import { Field } from '../ui/common';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // The Reports room's second part: BUMEX One's activity reports (daily, weekly, team, mission, client, executive),
 // next to Vanguard's financial reports (ui/panels/Reports.tsx).
@@ -64,17 +65,17 @@ export function ActivityReports() {
     <>
       <div className="card">
         <div className="grid4">
-          <Field label={say('Modèle', 'Template')} style={{ gridColumn: 'span 2' }}><select className="in" value={type} onChange={(e) => { setType(e.target.value as ReportType); setReport(null); }}>{options.allowedTypes.map((t) => <option key={t} value={t}>{label(t)}</option>)}</select></Field>
+          <Field label={say('Modèle', 'Template')} style={{ gridColumn: 'span 2' }}><Select className="in" value={type} onChange={(e) => { setType(e.target.value as ReportType); setReport(null); }}>{options.allowedTypes.map((t) => <option key={t} value={t}>{label(t)}</option>)}</Select></Field>
           <Field label={say('Du', 'From')}><input className="in mono" type="date" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
           <Field label={say('Au', 'To')}><input className="in mono" type="date" value={end} onChange={(e) => setEnd(e.target.value)} /></Field>
           {options.canChoosePerson && !needsProject && type !== 'client_relationship' && (
-            <Field label={say('Personne', 'Person')} style={{ gridColumn: 'span 2' }}><select className="in" value={userId} onChange={(e) => setUserId(e.target.value)}>{options.users.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}</select></Field>
+            <Field label={say('Personne', 'Person')} style={{ gridColumn: 'span 2' }}><Select recent="people" className="in" value={userId} onChange={(e) => setUserId(e.target.value)}>{options.users.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}</Select></Field>
           )}
           {needsProject && (
-            <Field label={say('Mission', 'Mission')} style={{ gridColumn: 'span 2' }}><select className="in" value={projectId} onChange={(e) => setProjectId(e.target.value)}>{options.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
+            <Field label={say('Mission', 'Mission')} style={{ gridColumn: 'span 2' }}><Select recent="missions" className="in" value={projectId} onChange={(e) => setProjectId(e.target.value)}>{options.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
           )}
           {type === 'client_relationship' && (
-            <Field label={say('Client', 'Client')} style={{ gridColumn: 'span 2' }}><select className="in" value={clientId} onChange={(e) => setClientId(e.target.value)}>{options.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+            <Field label={say('Client', 'Client')} style={{ gridColumn: 'span 2' }}><Select recent="clients" className="in" value={clientId} onChange={(e) => setClientId(e.target.value)}>{options.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
           )}
         </div>
         <div className="actions" style={{ marginTop: 10 }}>

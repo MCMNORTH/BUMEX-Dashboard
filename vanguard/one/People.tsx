@@ -5,6 +5,7 @@ import { useStore } from '../store';
 import { Chip, D } from '../ui/common';
 import { PersonPanel } from './Person';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // The HR room's "Personnes" tab, open to everyone: BUMEX One's team (its Team page moved here), each person with their
 // Vanguard role, their load and, when they have one, their HR record. The records and their salaries are in the
@@ -50,10 +51,10 @@ export function People({ entityId, onOpen, personId }: { entityId: Id; onOpen: (
     <div className="card flush">
       <div style={{ display: 'flex', gap: 8, padding: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <input className="in" style={{ maxWidth: 280 }} placeholder={say('Rechercher une personne…', 'Search for a person…')} value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="in" style={{ width: 220 }} value={floor} onChange={(e) => setFloor(e.target.value)} aria-label={say('Étage', 'Floor')}>
+        <Select className="in" style={{ width: 220 }} value={floor} onChange={(e) => setFloor(e.target.value)} aria-label={say('Étage', 'Floor')}>
           <option value="all">{say('Tout le groupe', 'The whole group')}</option>
           {state.entities.map((e) => <option key={e.id} value={e.code}>{e.name}</option>)}
-        </select>
+        </Select>
         {here && floor !== here.code && <button className="btn sm" onClick={() => setFloor(here.code)}>{say('Cet étage', 'This floor')}</button>}
         <span className="small muted" style={{ marginLeft: 'auto' }}>{rows ? `${shown.length} / ${rows.length}` : ''}</span>
       </div>

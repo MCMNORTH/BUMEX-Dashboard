@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { planningCalendar, availability, assign, updateAssignment, removeAssignment, addDays, fmt, type Id, type Assignment } from '@bumex/domain';
 import { useStore } from '../../store';
 import { Field, Chip, D, downloadXlsx } from '../common';
+import { Select } from '../Select';
 
 // Napta-like planning: a week grid per person, one bar per assignment, conflicts in red; assignment form on the side.
 
@@ -36,9 +37,9 @@ export function PlanningView({ entityId }: { entityId: Id }) {
         <div className="card flush">
           <div style={{ display: 'flex', gap: 8, padding: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <Field label="À partir du"><input className="in mono" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-            <Field label="Semaines"><select className="in" value={weeks} onChange={(e) => setWeeks(Number(e.target.value))}>{[8, 12, 16, 26].map((n) => <option key={n} value={n}>{n}</option>)}</select></Field>
-            <Field label="Statut"><select className="in" value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}><option value="all">Tous</option><option value="free">Disponibles</option><option value="assigned">Affectés</option><option value="overloaded">Surcharge</option></select></Field>
-            <Field label="Mission"><select className="in" value={engagementFilter} onChange={(e) => setEngagementFilter(e.target.value)}><option value="">Toutes</option>{cal.engagements.map((e) => <option key={e.engagement.id} value={e.engagement.id}>{e.engagement.code} · {e.engagement.name}</option>)}</select></Field>
+            <Field label="Semaines"><Select className="in" value={weeks} onChange={(e) => setWeeks(Number(e.target.value))}>{[8, 12, 16, 26].map((n) => <option key={n} value={n}>{n}</option>)}</Select></Field>
+            <Field label="Statut"><Select className="in" value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}><option value="all">Tous</option><option value="free">Disponibles</option><option value="assigned">Affectés</option><option value="overloaded">Surcharge</option></Select></Field>
+            <Field label="Mission"><Select recent="missions" className="in" value={engagementFilter} onChange={(e) => setEngagementFilter(e.target.value)}><option value="">Toutes</option>{cal.engagements.map((e) => <option key={e.engagement.id} value={e.engagement.id}>{e.engagement.code} · {e.engagement.name}</option>)}</Select></Field>
             <button className="btn sm" style={{ marginLeft: 'auto' }} onClick={exportXlsx}>Exporter (Excel)</button>
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -111,12 +112,12 @@ function NewAssignment({ entityId, employeeId, from, onDone, apply }: { entityId
   return (
     <div className="card">
       <h2>Nouvelle affectation</h2>
-      <Field label="Collaborateur"><select className="in" value={emp} onChange={(e) => setEmp(e.target.value)}>{employees.map((e) => <option key={e.id} value={e.id}>{e.initials} · {e.firstName} {e.lastName} · {e.jobTitle}</option>)}</select></Field>
-      <Field label="Mission" style={{ marginTop: 8 }}><select className="in" value={eng} onChange={(e) => setEng(e.target.value)}>{engagements.map((e) => <option key={e.id} value={e.id}>{e.code} · {e.name}</option>)}</select></Field>
+      <Field label="Collaborateur"><Select recent="people" className="in" value={emp} onChange={(e) => setEmp(e.target.value)}>{employees.map((e) => <option key={e.id} value={e.id}>{e.initials} · {e.firstName} {e.lastName} · {e.jobTitle}</option>)}</Select></Field>
+      <Field label="Mission" style={{ marginTop: 8 }}><Select recent="missions" className="in" value={eng} onChange={(e) => setEng(e.target.value)}>{engagements.map((e) => <option key={e.id} value={e.id}>{e.code} · {e.name}</option>)}</Select></Field>
       <div className="grid2" style={{ marginTop: 8 }}>
         <Field label="Début"><input className="in mono" type="date" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
         <Field label="Fin"><input className="in mono" type="date" value={end} onChange={(e) => setEnd(e.target.value)} /></Field>
-        <Field label="Charge (%)"><select className="in" value={load} onChange={(e) => setLoad(e.target.value)}>{[100, 80, 60, 50, 40, 25, 20].map((n) => <option key={n} value={n}>{n} %</option>)}</select></Field>
+        <Field label="Charge (%)"><Select className="in" value={load} onChange={(e) => setLoad(e.target.value)}>{[100, 80, 60, 50, 40, 25, 20].map((n) => <option key={n} value={n}>{n} %</option>)}</Select></Field>
         <Field label="Rôle sur la mission"><input className="in" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Chef de mission, senior…" /></Field>
       </div>
       {mine && <div className={`banner ${mine.free ? 'info' : mine.load + (Number(load) || 100) / 100 > 1.001 ? 'crit' : 'warn'}`} style={{ marginTop: 10 }}>{mine.free ? 'Disponible sur toute la période.' : `Déjà chargé à ${Math.round(mine.load * 100)} % en moyenne sur la période (${mine.busyDays} jour(s) occupés)${mine.load + (Number(load) || 100) / 100 > 1.001 ? ' · cette affectation créera une surcharge' : ''}.`}</div>}
@@ -144,7 +145,7 @@ function EditAssignment({ a, onClose }: { a: Assignment; onClose: () => void }) 
       <div className="grid2" style={{ marginTop: 8 }}>
         <Field label="Début"><input className="in mono" type="date" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
         <Field label="Fin"><input className="in mono" type="date" value={end} onChange={(e) => setEnd(e.target.value)} /></Field>
-        <Field label="Charge (%)"><select className="in" value={load} onChange={(e) => setLoad(e.target.value)}>{[100, 80, 60, 50, 40, 25, 20].map((n) => <option key={n} value={n}>{n} %</option>)}</select></Field>
+        <Field label="Charge (%)"><Select className="in" value={load} onChange={(e) => setLoad(e.target.value)}>{[100, 80, 60, 50, 40, 25, 20].map((n) => <option key={n} value={n}>{n} %</option>)}</Select></Field>
         <Field label="Rôle"><input className="in" value={role} onChange={(e) => setRole(e.target.value)} /></Field>
       </div>
       <div className="actions" style={{ marginTop: 10 }}>

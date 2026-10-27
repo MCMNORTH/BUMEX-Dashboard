@@ -21,6 +21,17 @@ const eslintConfig = defineConfig([
     // (vanguard/one/ is ours: BUMEX One's features rebuilt in Vanguard)
     "db/erp/test/guarantees.test.mjs",
   ]),
+  // Every dropdown is Vanguard's (vanguard/ui/Select.tsx: Select, Suggest), with its search; vanguard/ui/test checks
+  // the ERP team's files too, which this lint leaves out.
+  {
+    files: ["app/**/*.tsx", "components/**/*.tsx", "vanguard/**/*.tsx"],
+    rules: {
+      "no-restricted-syntax": ["error",
+        { selector: "JSXOpeningElement[name.name='select']", message: "Use <Select> from vanguard/ui/Select (the app's dropdown, with its search)." },
+        { selector: "JSXOpeningElement[name.name='datalist']", message: "Use <Suggest> from vanguard/ui/Select (a free text field with suggestions)." },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

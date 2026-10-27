@@ -7,6 +7,7 @@ import { useStore } from '../store';
 import { Chip, Icon } from '../ui/common';
 import { reload } from './Tasks';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // A mission's board, its columns and rules, as BUMEX One's workflow settings had them: stages (renamed, reordered,
 // archived, never deleted), the default stage of new tickets, the completed stages, how cards may move, and custom
@@ -112,9 +113,9 @@ export function WorkflowEditor({ projectId }: { projectId: string }) {
                   </td>
                   <td><input className="in" value={s.name} maxLength={STAGE_NAME_MAX_LENGTH} disabled={readOnly} onChange={(e) => update(s.id, { name: e.target.value })} placeholder={say("Nom de l'étape", 'Stage name')} /></td>
                   <td>
-                    <select className="in" value={s.is_completed ? 'done' : s.category} disabled={readOnly || s.is_completed} onChange={(e) => update(s.id, { category: e.target.value as StageCategory })}>
+                    <Select className="in" value={s.is_completed ? 'done' : s.category} disabled={readOnly || s.is_completed} onChange={(e) => update(s.id, { category: e.target.value as StageCategory })}>
                       {s.is_completed ? <option value="done">{getStageCategoryLabel('done', locale)}</option> : STAGE_CATEGORIES.map((c) => <option key={c} value={c}>{getStageCategoryLabel(c, locale)}</option>)}
-                    </select>
+                    </Select>
                   </td>
                   <td><input type="checkbox" checked={s.is_completed} disabled={readOnly} onChange={(e) => update(s.id, { is_completed: e.target.checked })} aria-label={say('Terminée', 'Completed')} /></td>
                   <td><input type="radio" name={`default-${projectId}`} checked={s.is_default} disabled={readOnly} onChange={() => edit((d) => ({ ...d, stages: d.stages.map((x) => ({ ...x, is_default: x.id === s.id })) }))} aria-label={say('Par défaut', 'Default')} /></td>
@@ -166,8 +167,8 @@ export function WorkflowEditor({ projectId }: { projectId: string }) {
 
       <div className="card" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <b>{say('Essayer un déplacement', 'Try a move')}</b>
-        <select className="in" style={{ width: 180 }} value={test.from} onChange={(e) => setTest({ ...test, from: e.target.value })}><option value="">{say('de…', 'from…')}</option>{active.map((s) => <option key={s.id} value={s.id}>{s.name || '—'}</option>)}</select>
-        <select className="in" style={{ width: 180 }} value={test.to} onChange={(e) => setTest({ ...test, to: e.target.value })}><option value="">{say('vers…', 'to…')}</option>{active.map((s) => <option key={s.id} value={s.id}>{s.name || '—'}</option>)}</select>
+        <Select className="in" style={{ width: 180 }} value={test.from} onChange={(e) => setTest({ ...test, from: e.target.value })}><option value="">{say('de…', 'from…')}</option>{active.map((s) => <option key={s.id} value={s.id}>{s.name || '—'}</option>)}</Select>
+        <Select className="in" style={{ width: 180 }} value={test.to} onChange={(e) => setTest({ ...test, to: e.target.value })}><option value="">{say('vers…', 'to…')}</option>{active.map((s) => <option key={s.id} value={s.id}>{s.name || '—'}</option>)}</Select>
         {result && (result.ok
           ? <Chip kind="good">{say('Permis', 'Allowed')}{result.backward || result.reopen ? (draft.require_reason ? say(' · avec un motif', ' · with a reason') : '') : ''}</Chip>
           : <Chip kind="crit">{describeTransitionError(result.error, locale)}</Chip>)}

@@ -6,6 +6,7 @@ import { useStore } from '../store';
 import { Chip, D } from '../ui/common';
 import { reload } from './Tasks';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // The Missions room's "Semaine" tab: BUMEX One's weekly planning on the floor's tickets (lib/erp/vanguard/tickets.ts),
 // day by day, with what is late, what has no date and each person's load. A task dropped on another day is
@@ -106,11 +107,11 @@ export function WeekView({ entityId }: { entityId: Id }) {
         <b style={{ minWidth: 190, textAlign: 'center' }}>{dayLabel(days[0])} – {dayLabel(days[6])}</b>
         <button className="btn sm" onClick={() => setMonday(addDays(monday, 7))} aria-label={say('Semaine suivante', 'Next week')}>›</button>
         {monday !== mondayOf(state.today) && <button className="btn sm" onClick={() => setMonday(mondayOf(state.today))}>{say('Cette semaine', 'This week')}</button>}
-        <select className="in" style={{ marginLeft: 'auto', width: 220 }} value={who} onChange={(e) => setWho(e.target.value)} aria-label={say('Personne', 'Person')}>
+        <Select recent="people" className="in" style={{ marginLeft: 'auto', width: 220 }} value={who} onChange={(e) => setWho(e.target.value)} aria-label={say('Personne', 'Person')}>
           <option value="all">{say("Toute l'équipe", 'The whole team')}</option>
           <option value={me}>{say('Mes tâches', 'My tasks')}</option>
           {people.filter(([id]) => id !== me).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-        </select>
+        </Select>
       </div>
 
       <div className="grid4">

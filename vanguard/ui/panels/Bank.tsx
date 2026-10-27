@@ -6,6 +6,7 @@ import {
 } from '@bumex/domain';
 import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, DeleteButton, downloadXlsx, readXlsx, entryRef } from '../common';
+import { Select } from '../Select';
 
 type Tab = 'accounts' | 'recon' | 'import' | 'forecast' | 'loans';
 
@@ -118,10 +119,10 @@ function BankAccountForm({ entityId, id, onClose }: { entityId: Id; id: Id | nul
         <Field label="Adresse de la banque" style={{ marginTop: 8 }}><input className="in" value={bankAddress} onChange={(e) => setBankAddress(e.target.value)} /></Field>
       </>}
       <div className="grid2" style={{ marginTop: 8 }}>
-        <Field label="Devise"><select className="in" value={currency} disabled={used} onChange={(e) => setCurrency(e.target.value as Currency)}>{['MRU', 'USD', 'EUR', 'MAD'].map((c) => <option key={c}>{c}</option>)}</select></Field>
-        <Field label="Journal des opérations"><select className="in" value={journalId} onChange={(e) => setJournalId(e.target.value)}>{journals.map((j) => <option key={j.id} value={j.id}>{j.code} · {j.name}</option>)}</select></Field>
+        <Field label="Devise"><Select className="in" value={currency} disabled={used} onChange={(e) => setCurrency(e.target.value as Currency)}>{['MRU', 'USD', 'EUR', 'MAD'].map((c) => <option key={c}>{c}</option>)}</Select></Field>
+        <Field label="Journal des opérations"><Select recent="journals" className="in" value={journalId} onChange={(e) => setJournalId(e.target.value)}>{journals.map((j) => <option key={j.id} value={j.id}>{j.code} · {j.name}</option>)}</Select></Field>
       </div>
-      <Field label="Compte comptable (classe 5, imputable et actif)" style={{ marginTop: 8 }}><select className="in mono" value={glAccountId} disabled={used} onChange={(e) => setGl(e.target.value)}><option value="">—</option>{glAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</select></Field>
+      <Field label="Compte comptable (classe 5, imputable et actif)" style={{ marginTop: 8 }}><Select recent="accounts" className="in mono" value={glAccountId} disabled={used} onChange={(e) => setGl(e.target.value)}><option value="">—</option>{glAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
       <label className="small" style={{ display: 'block', margin: '8px 0' }}><input type="checkbox" checked={showOnInvoices} onChange={(e) => setShow(e.target.checked)} /> Imprimer les coordonnées sur les factures</label>
       {used && <div className="small muted">Des opérations existent : la devise et le compte comptable sont figés, le reste reste modifiable.</div>}
       <div className="small muted" style={{ marginTop: 6 }}>Un compte comptable absent du plan se crée dans Comptabilité › Plan comptable ; un journal de banque supplémentaire dans Comptabilité › Journaux · tiers.</div>
@@ -152,7 +153,7 @@ function Recon({ entityId }: { entityId: Id }) {
   return (
     <div className="card flush">
       <div style={{ display: 'flex', gap: 8, padding: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <select className="in" style={{ width: 300 }} value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name} ({b.currency})</option>)}</select>
+        <Select recent="banks" className="in" style={{ width: 300 }} value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name} ({b.currency})</option>)}</Select>
         <span className="muted small">{rows.length} ligne(s) non expliquée(s) · une ligne mise en attente compte comme écriture non comptabilisée sur la façade</span>
       </div>
       <table>
@@ -182,7 +183,7 @@ function Import({ entityId }: { entityId: Id }) {
         <div className="card">
           <h2>Coller un relevé (CSV : date;libellé;montant[;référence])</h2>
           <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
-            <select className="in" style={{ width: 300 }} value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name} ({b.currency})</option>)}</select>
+            <Select recent="banks" className="in" style={{ width: 300 }} value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name} ({b.currency})</option>)}</Select>
             <button className="btn sm" onClick={() => setText(sample)}>Exemple</button>
             <span className="muted small">Dates JJ/MM/AAAA ou AAAA-MM-JJ, montants signés, virgule ou point. Les doublons sont ignorés à la ré-importation.</span>
           </div>
@@ -381,19 +382,19 @@ function NewLoan({ entityId, onDone }: { entityId: Id; onDone: (id: Id) => void 
           <div className="grid3">
             <Field label="Prêteur"><input className="in" value={lender} onChange={(e) => setLender(e.target.value)} placeholder="BMCI · BNM · Attijari…" /></Field>
             <Field label="Référence du contrat"><input className="in mono" value={reference} onChange={(e) => setReference(e.target.value)} /></Field>
-            <Field label="Compte bancaire de déblocage et de prélèvement"><select className="in" value={bankId} onChange={(e) => { setBankId(e.target.value); const b = banks.find((x) => x.id === e.target.value); if (b) setCurrency(b.currency); }}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name} · {b.currency}</option>)}</select></Field>
+            <Field label="Compte bancaire de déblocage et de prélèvement"><Select recent="banks" className="in" value={bankId} onChange={(e) => { setBankId(e.target.value); const b = banks.find((x) => x.id === e.target.value); if (b) setCurrency(b.currency); }}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name} · {b.currency}</option>)}</Select></Field>
             <Field label={`Montant emprunté (${currency})`}><input className="in num" value={principal} onChange={(e) => setPrincipal(e.target.value)} /></Field>
             <Field label="Taux annuel (%)"><input className="in num" value={rate} onChange={(e) => setRate(e.target.value)} /></Field>
             <Field label="Durée (mois)"><input className="in num" value={months} onChange={(e) => setMonths(e.target.value)} /></Field>
             <Field label="Date de déblocage"><input className="in mono" type="date" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
-            <Field label="Périodicité"><select className="in" value={frequency} onChange={(e) => setFrequency(e.target.value as Loan['frequency'])}><option value="monthly">Mensuelle</option><option value="quarterly">Trimestrielle</option></select></Field>
-            <Field label="Méthode"><select className="in" value={method} onChange={(e) => setMethod(e.target.value as Loan['method'])}><option value="annuity">Annuités constantes</option><option value="linear">Capital constant</option></select></Field>
+            <Field label="Périodicité"><Select className="in" value={frequency} onChange={(e) => setFrequency(e.target.value as Loan['frequency'])}><option value="monthly">Mensuelle</option><option value="quarterly">Trimestrielle</option></Select></Field>
+            <Field label="Méthode"><Select className="in" value={method} onChange={(e) => setMethod(e.target.value as Loan['method'])}><option value="annuity">Annuités constantes</option><option value="linear">Capital constant</option></Select></Field>
             <Field label="Frais par échéance"><input className="in num" value={fee} onChange={(e) => setFee(e.target.value)} /></Field>
             <Field label="Conditions · notes" style={{ gridColumn: 'span 2' }}><input className="in" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Garantie, différé, assurance…" /></Field>
-            <Field label="Échéancier"><select className="in" value={mode} onChange={(e) => setMode(e.target.value as 'auto' | 'manual')}><option value="auto">Calculé automatiquement</option><option value="manual">Saisi d'après le tableau de la banque</option></select></Field>
-            <Field label="Compte d'emprunt (défaut : paramétrage)"><select className="in mono" value={loanAccountId} onChange={(e) => setLoanAccountId(e.target.value)}><option value="">Paramétrage · emprunts</option>{accounts.filter((a) => a.code.startsWith('1')).map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</select></Field>
-            <Field label="Compte d'intérêts (défaut : paramétrage)"><select className="in mono" value={interestAccountId} onChange={(e) => setInterestAccountId(e.target.value)}><option value="">Paramétrage · intérêts</option>{accounts.filter((a) => a.code.startsWith('6')).map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</select></Field>
-            <Field label="Journal (défaut : celui du compte bancaire)"><select className="in" value={journalId} onChange={(e) => setJournalId(e.target.value)}><option value="">Journal du compte bancaire</option>{journals.map((j) => <option key={j.id} value={j.id}>{j.code} · {j.name}</option>)}</select></Field>
+            <Field label="Échéancier"><Select className="in" value={mode} onChange={(e) => setMode(e.target.value as 'auto' | 'manual')}><option value="auto">Calculé automatiquement</option><option value="manual">Saisi d'après le tableau de la banque</option></Select></Field>
+            <Field label="Compte d'emprunt (défaut : paramétrage)"><Select recent="accounts" className="in mono" value={loanAccountId} onChange={(e) => setLoanAccountId(e.target.value)}><option value="">Paramétrage · emprunts</option>{accounts.filter((a) => a.code.startsWith('1')).map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
+            <Field label="Compte d'intérêts (défaut : paramétrage)"><Select recent="accounts" className="in mono" value={interestAccountId} onChange={(e) => setInterestAccountId(e.target.value)}><option value="">Paramétrage · intérêts</option>{accounts.filter((a) => a.code.startsWith('6')).map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
+            <Field label="Journal (défaut : celui du compte bancaire)"><Select recent="journals" className="in" value={journalId} onChange={(e) => setJournalId(e.target.value)}><option value="">Journal du compte bancaire</option>{journals.map((j) => <option key={j.id} value={j.id}>{j.code} · {j.name}</option>)}</Select></Field>
           </div>
           {mode === 'manual' && <ManualRows principal={p} rows={manualRows} onChange={setManualRows} startDate={start} />}
           {manualError && <div className="banner warn">{manualError}</div>}

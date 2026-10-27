@@ -5,6 +5,7 @@ import { calendarAction, type CalendarItem } from '@/lib/erp/vanguard/calendar-a
 import { useStore } from '../store';
 import { Chip } from '../ui/common';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // The Missions room's "Calendrier" tab: BUMEX One's Calendar page. Ticket due dates, mission deadlines, milestones and
 // contract renewals by month (or as a list), for this floor's missions or the whole group.
@@ -76,14 +77,14 @@ export function CalendarView({ entityId }: { entityId: Id }) {
         <b style={{ minWidth: 150, textAlign: 'center', textTransform: 'capitalize' }}>{title}</b>
         <button className="btn sm" onClick={() => setMonth(shiftMonth(month, 1))} aria-label={say('Mois suivant', 'Next month')}>›</button>
         {month !== monthStart(state.today) && <button className="btn sm" onClick={() => setMonth(monthStart(state.today))}>{say('Ce mois', 'This month')}</button>}
-        <select className="in" style={{ width: 190, marginLeft: 'auto' }} value={type} onChange={(e) => setType(e.target.value)} aria-label="Type">
+        <Select className="in" style={{ width: 190, marginLeft: 'auto' }} value={type} onChange={(e) => setType(e.target.value)} aria-label="Type">
           <option value="">{say('Tous les événements', 'Every event')}</option>
           {Object.entries(TYPES).filter(([k]) => items.some((i) => i.type === k)).map(([k, [fr, en]]) => <option key={k} value={k}>{say(fr, en)}</option>)}
-        </select>
-        <select className="in" style={{ width: 170 }} value={scope} onChange={(e) => setScope(e.target.value as 'floor' | 'all')} aria-label={say('Périmètre', 'Scope')}>
+        </Select>
+        <Select className="in" style={{ width: 170 }} value={scope} onChange={(e) => setScope(e.target.value as 'floor' | 'all')} aria-label={say('Périmètre', 'Scope')}>
           <option value="floor">{say('Cet étage', 'This floor')}</option>
           <option value="all">{say('Tout le groupe', 'The whole group')}</option>
-        </select>
+        </Select>
         <button className="btn sm" onClick={() => setList(!list)}>{list ? say('Mois', 'Month') : say('Liste', 'List')}</button>
       </div>
 

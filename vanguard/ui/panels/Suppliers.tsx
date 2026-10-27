@@ -5,6 +5,7 @@ import {
 } from '@bumex/domain';
 import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, DeleteButton, downloadXlsx, entryRef } from '../common';
+import { Select } from '../Select';
 
 type Tab = 'invoices' | 'new' | 'payments' | 'payables' | 'suppliers';
 const REGIMES: [CounterpartyRegime, string][] = [['standard', 'Standard'], ['gta', 'GTA · sous-traitant enregistré'], ['exempt', 'Exonéré'], ['non_resident', 'Non-résident'], ['public', 'Organisme public']];
@@ -163,13 +164,13 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
       <form className="grow" onSubmit={(e) => { e.preventDefault(); save(); }}>
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="grid3">
-            <Field label="Fournisseur"><select className="in" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>{suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
+            <Field label="Fournisseur"><Select recent="suppliers" className="in" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>{suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field>
             <Field label="N° de facture du fournisseur"><input className="in mono" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="F-2026-0412" /></Field>
             <Field label={`${t('date')} · échéance ${dueDays.trim() ? dueDays + ' j' : (supplier?.paymentTermsDays ?? 30) + ' j (fiche)'}`}><div style={{ display: 'flex', gap: 6 }}><input className="in mono" type="date" value={date} onChange={(e) => setDate(e.target.value)} /><input className="in num" style={{ width: 70 }} placeholder={String(supplier?.paymentTermsDays ?? 30)} value={dueDays} onChange={(e) => setDueDays(e.target.value)} aria-label="Délai en jours" /></div></Field>
-            <Field label={`Montant HT · ${currency}${currency !== entity.functionalCurrency ? ` · taux ${rate}` : ''}`}><div style={{ display: 'flex', gap: 6 }}><select className="in" style={{ width: 90 }} value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>{['MRU', 'USD', 'EUR', 'MAD'].map((c) => <option key={c}>{c}</option>)}</select><input className="in num" value={ht} onChange={(e) => setHt(e.target.value)} placeholder="0,00" /></div></Field>
-            <Field label="TVA"><select className="in" value={taxCodeId} onChange={(e) => setTaxCodeId(e.target.value)}><option value="">Sans TVA</option>{vatCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {x.rate * 100} %</option>)}</select></Field>
-            <Field label="Retenue à la source (que nous retenons)"><select className="in" value={wht} onChange={(e) => setWht(e.target.value)}><option value="default">{supplier?.withholdingCodeId ? `Fiche · ${state.taxCodes.find((x) => x.id === supplier.withholdingCodeId)?.code}` : 'Fiche · aucune'}</option><option value="">Aucune</option>{whtCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {Math.round(x.rate * 1000) / 10} %</option>)}</select></Field>
-            <Field label="Compte de charge ou d'immobilisation"><select className="in mono" value={expenseAccountId} onChange={(e) => setExpenseAccountId(e.target.value)}>{expenseAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</select></Field>
+            <Field label={`Montant HT · ${currency}${currency !== entity.functionalCurrency ? ` · taux ${rate}` : ''}`}><div style={{ display: 'flex', gap: 6 }}><Select className="in" style={{ width: 90 }} value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>{['MRU', 'USD', 'EUR', 'MAD'].map((c) => <option key={c}>{c}</option>)}</Select><input className="in num" value={ht} onChange={(e) => setHt(e.target.value)} placeholder="0,00" /></div></Field>
+            <Field label="TVA"><Select className="in" value={taxCodeId} onChange={(e) => setTaxCodeId(e.target.value)}><option value="">Sans TVA</option>{vatCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {x.rate * 100} %</option>)}</Select></Field>
+            <Field label="Retenue à la source (que nous retenons)"><Select className="in" value={wht} onChange={(e) => setWht(e.target.value)}><option value="default">{supplier?.withholdingCodeId ? `Fiche · ${state.taxCodes.find((x) => x.id === supplier.withholdingCodeId)?.code}` : 'Fiche · aucune'}</option><option value="">Aucune</option>{whtCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {Math.round(x.rate * 1000) / 10} %</option>)}</Select></Field>
+            <Field label="Compte de charge ou d'immobilisation"><Select recent="accounts" className="in mono" value={expenseAccountId} onChange={(e) => setExpenseAccountId(e.target.value)}>{expenseAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
             <Field label="Libellé" style={{ gridColumn: 'span 2' }}><input className="in" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Loyer octobre · Licences · Honoraires…" /></Field>
           </div>
           <table>
@@ -221,10 +222,10 @@ function Payments({ entityId, preselect }: { entityId: Id; preselect: Id | null 
       <aside className="side">
         <div className="card">
           <h2>Régler une facture</h2>
-          <Field label="Facture comptabilisée"><select className="in" value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)}>{open.map((o) => <option key={o.id} value={o.id}>{state.suppliers.find((s) => s.id === o.supplierId)?.name} · {o.supplierRef} · {o.currency} {fmt(r2(o.netPayable - o.amountPaid))}</option>)}</select></Field>
+          <Field label="Facture comptabilisée"><Select recent="supplier-invoices" className="in" value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)}>{open.map((o) => <option key={o.id} value={o.id}>{state.suppliers.find((s) => s.id === o.supplierId)?.name} · {o.supplierRef} · {o.currency} {fmt(r2(o.netPayable - o.amountPaid))}</option>)}</Select></Field>
           <Field label={`${t('amount')} (${sel?.currency ?? ''})`} style={{ marginTop: 8 }}><input className="in num" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
           <Field label={t('date')} style={{ marginTop: 8 }}><input className="in mono" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-          <Field label="Compte bancaire (même devise)" style={{ marginTop: 8 }}><select className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name}</option>)}</select></Field>
+          <Field label="Compte bancaire (même devise)" style={{ marginTop: 8 }}><Select recent="banks" className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name}</option>)}</Select></Field>
           <Field label="Référence du virement" style={{ marginTop: 8 }}><input className="in" value={ref} onChange={(e) => setRef(e.target.value)} /></Field>
           <button className="btn primary" style={{ marginTop: 10, width: '100%', justifyContent: 'center' }} disabled={!sel || !bankId} onClick={() => { const amt = parseAmount(amount); if (!sel || amt === null) return; apply((s) => paySupplierInvoice(s, { invoiceId: sel.id, date, bankAccountId: bankId, amount: amt, reference: ref || undefined }), 'Règlement comptabilisé'); }}>Enregistrer le règlement</button>
           <div className="small muted" style={{ marginTop: 8 }}>Écriture fournisseur D · banque C ; un règlement partiel laisse la facture ouverte pour le solde.</div>
@@ -317,19 +318,19 @@ function Suppliers({ entityId }: { entityId: Id }) {
           <Field label="Nom"><input className="in" value={name} onChange={(e) => setName(e.target.value)} /></Field>
           <div className="grid2" style={{ marginTop: 8 }}>
             <Field label="Code auxiliaire (unique)"><input className="in mono" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder={editing ? editing.code : `auto · ${nextCode}`} /></Field>
-            <Field label="Compte collectif"><select className="in mono" value={collectiveId} onChange={(e) => setCollectiveId(e.target.value)}><option value="">{defaultCollective ? `Paramétrage · ${defaultCollective.code}` : '—'}</option>{collectives.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</select></Field>
+            <Field label="Compte collectif"><Select recent="accounts" className="in mono" value={collectiveId} onChange={(e) => setCollectiveId(e.target.value)}><option value="">{defaultCollective ? `Paramétrage · ${defaultCollective.code}` : '—'}</option>{collectives.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
           </div>
           {editing && auxOf(editing) && <div className="small muted" style={{ marginTop: 4 }}>Compte auxiliaire <span className="mono">{auxOf(editing)!.code}</span> · solde {fmt(-accountBalance(state, entityId, auxOf(editing)!.id), 0)} · renommer le code renomme le compte.</div>}
           <div className="grid2" style={{ marginTop: 8 }}>
-            <Field label="Régime"><select className="in" value={regime} onChange={(e) => setRegime(e.target.value as CounterpartyRegime)}>{REGIMES.map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></Field>
-            <Field label="Retenue à la source"><select className="in" value={wht} onChange={(e) => setWht(e.target.value)}><option value="">Aucune</option>{whtCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {Math.round(x.rate * 1000) / 10} %</option>)}</select></Field>
+            <Field label="Régime"><Select className="in" value={regime} onChange={(e) => setRegime(e.target.value as CounterpartyRegime)}>{REGIMES.map(([k, n]) => <option key={k} value={k}>{n}</option>)}</Select></Field>
+            <Field label="Retenue à la source"><Select className="in" value={wht} onChange={(e) => setWht(e.target.value)}><option value="">Aucune</option>{whtCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {Math.round(x.rate * 1000) / 10} %</option>)}</Select></Field>
             <Field label="Délai (jours)"><input className="in num" value={terms} onChange={(e) => setTerms(e.target.value)} /></Field>
             <Field label="NIF"><input className="in mono" value={nif} onChange={(e) => setNif(e.target.value)} /></Field>
             <Field label="E-mail"><input className="in" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
             <Field label="Téléphone"><input className="in" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
           </div>
           <Field label="Adresse" style={{ marginTop: 8 }}><input className="in" value={address} onChange={(e) => setAddress(e.target.value)} /></Field>
-          <Field label="Compte de charge par défaut" style={{ marginTop: 8 }}><select className="in mono" value={expense} onChange={(e) => setExpense(e.target.value)}><option value="">—</option>{expenseAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</select></Field>
+          <Field label="Compte de charge par défaut" style={{ marginTop: 8 }}><Select recent="accounts" className="in mono" value={expense} onChange={(e) => setExpense(e.target.value)}><option value="">—</option>{expenseAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
           <div className="actions" style={{ marginTop: 10 }}>
             {editing && <button className="btn" onClick={() => load(null)}>Annuler</button>}
             <button className="btn primary" disabled={!name.trim()} onClick={save}>{editing ? 'Enregistrer' : 'Créer'}</button>

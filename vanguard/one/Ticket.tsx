@@ -7,6 +7,7 @@ import { Chip, D, Field, Icon } from '../ui/common';
 import { PRIORITY, STATUS, TYPES, label, reload, typeLabel } from './Tasks';
 import { Comments, type Result, type Run, type Say, when } from './Conversation';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // A ticket in the Tasks room, as BUMEX One's ticket page had it: where it stands on its board, what to do next, its
 // details and time budget, the edit form, the reporter's sign-off, its sub-tasks, the conversation and its history.
@@ -222,17 +223,17 @@ function EditForm({ view, busy, say, onSave }: { view: TicketView; busy: boolean
       <h2>{say('Modifier le ticket', 'Edit the ticket')}</h2>
       <div className="grid3">
         <Field label={say('Titre', 'Title')} style={{ gridColumn: 'span 2' }}><input className="in" value={v.title} onChange={(e) => set({ title: e.target.value })} /></Field>
-        <Field label={say('Mission', 'Mission')}><select className="in" value={v.project_id} disabled={!canManage} onChange={(e) => set({ project_id: e.target.value })}>{view.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
+        <Field label={say('Mission', 'Mission')}><Select recent="missions" className="in" value={v.project_id} disabled={!canManage} onChange={(e) => set({ project_id: e.target.value })}>{view.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
         <Field label={say('Étape', 'Stage')}>
           {sameBoard
-            ? <select className="in" value={v.stage_id} onChange={(e) => set({ stage_id: e.target.value })}>{getActiveStages(workflow).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}{canManage && <option value={ARCHIVED_STAGE_VALUE}>{say('Archivé', 'Archived')}</option>}</select>
+            ? <Select className="in" value={v.stage_id} onChange={(e) => set({ stage_id: e.target.value })}>{getActiveStages(workflow).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}{canManage && <option value={ARCHIVED_STAGE_VALUE}>{say('Archivé', 'Archived')}</option>}</Select>
             : <input className="in" disabled value={say('première étape de son tableau', "its board's first stage")} />}
         </Field>
         {moving && <Field label={say("Motif du changement d'étape", 'Reason for the stage change')} style={{ gridColumn: 'span 2' }}><input className="in" value={v.stage_reason} onChange={(e) => set({ stage_reason: e.target.value })} placeholder={say('si le tableau le demande', 'if the board asks for one')} /></Field>}
-        <Field label={say('Assigné à', 'Assignee')}><select className="in" value={v.assignee_id} disabled={!canManage} onChange={(e) => set({ assignee_id: e.target.value })}><option value="">—</option>{view.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-        <Field label={say('Rapporteur', 'Reporter')}><select className="in" value={v.reporter_id} disabled={!canManage} onChange={(e) => set({ reporter_id: e.target.value })}><option value="">—</option>{view.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-        <Field label={say('Priorité', 'Priority')}><select className="in" value={v.priority} onChange={(e) => set({ priority: e.target.value as typeof v.priority })}>{Object.entries(PRIORITY).map(([k, [fr, en]]) => <option key={k} value={k}>{say(fr, en)}</option>)}</select></Field>
-        <Field label="Type"><select className="in" value={v.type} onChange={(e) => set({ type: e.target.value as typeof v.type })}>{TYPES.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</select></Field>
+        <Field label={say('Assigné à', 'Assignee')}><Select recent="people" className="in" value={v.assignee_id} disabled={!canManage} onChange={(e) => set({ assignee_id: e.target.value })}><option value="">—</option>{view.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
+        <Field label={say('Rapporteur', 'Reporter')}><Select recent="people" className="in" value={v.reporter_id} disabled={!canManage} onChange={(e) => set({ reporter_id: e.target.value })}><option value="">—</option>{view.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
+        <Field label={say('Priorité', 'Priority')}><Select className="in" value={v.priority} onChange={(e) => set({ priority: e.target.value as typeof v.priority })}>{Object.entries(PRIORITY).map(([k, [fr, en]]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
+        <Field label="Type"><Select className="in" value={v.type} onChange={(e) => set({ type: e.target.value as typeof v.type })}>{TYPES.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
         <Field label={say('Échéance', 'Due')}><input className="in mono" type="date" value={v.due_date} onChange={(e) => set({ due_date: e.target.value })} /></Field>
         <Field label={say('Estimation (h)', 'Estimate (h)')}><input className="in num" value={v.estimated_hours} onChange={(e) => set({ estimated_hours: e.target.value })} /></Field>
         <Field label={say('Temps réel (h)', 'Actual (h)')}><input className="in num" value={v.actual_hours} onChange={(e) => set({ actual_hours: e.target.value })} /></Field>
@@ -273,9 +274,9 @@ function Subtasks({ view, busy, run, say }: { view: TicketView; busy: boolean; r
             {renaming?.id === s.id
               ? <input className="in" style={{ flex: 1 }} value={renaming.title} autoFocus onChange={(e) => setRenaming({ id: s.id, title: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter' && renaming.title.trim()) { void run(() => renameSubtaskAction(s.id, renaming.title)); setRenaming(null); } if (e.key === 'Escape') setRenaming(null); }} />
               : <span style={{ flex: 1, textDecoration: s.is_done ? 'line-through' : undefined, color: s.is_done ? 'var(--muted)' : undefined, cursor: canUpdate ? 'text' : undefined }} onClick={() => canUpdate && setRenaming({ id: s.id, title: s.title })}>{s.title}</span>}
-            <select className="in" style={{ width: 150 }} value={s.assignee_id ?? ''} disabled={!canManage || busy} onChange={(e) => run(() => setSubtaskOwnerAction(s.id, e.target.value || null))} aria-label={say('Responsable', 'Owner')}>
+            <Select recent="people" className="in" style={{ width: 150 }} value={s.assignee_id ?? ''} disabled={!canManage || busy} onChange={(e) => run(() => setSubtaskOwnerAction(s.id, e.target.value || null))} aria-label={say('Responsable', 'Owner')}>
               <option value="">—</option>{view.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            </Select>
             <input className="in mono" type="date" style={{ width: 140 }} value={s.due_date?.slice(0, 10) ?? ''} disabled={!canUpdate || busy} onChange={(e) => run(() => setSubtaskDueDateAction(s.id, e.target.value || null))} aria-label={say('Échéance', 'Due')} />
             {canUpdate && <>
               <button className="btn sm ghost" disabled={busy || i === 0} onClick={() => move(i, -1)} aria-label={say('Monter', 'Up')}><Icon name="chevronUp" size={13} /></button>

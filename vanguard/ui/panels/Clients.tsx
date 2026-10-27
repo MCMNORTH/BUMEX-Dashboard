@@ -9,6 +9,7 @@ import { ClientPanel } from '../../one/ClientPage'; // [bumex-one] a client's pa
 import { ContractPanel, ContractsTab } from '../../one/Contracts'; // [bumex-one] BUMEX One's contracts
 import { useSay } from '../../one/say'; // [bumex-one]
 import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, DeleteButton, downloadXlsx } from '../common';
+import { Select } from '../Select';
 
 // Withholding codes that a customer applies on our invoices (the receivable side), as opposed to the ones we apply on suppliers.
 export function salesWithholdingCodes(codes: TaxCode[], entityId: Id): TaxCode[] {
@@ -193,18 +194,18 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
       <form className="grow" onSubmit={(e) => e.preventDefault()}>
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="grid4">
-            <Field label={t('customer')}><select className="in" value={customerId} onChange={(e) => { setCustomerId(e.target.value); const c = customers.find((x) => x.id === e.target.value); if (c) { setCurrency(c.defaultCurrency); setBankId(banks.find((b) => b.currency === c.defaultCurrency)?.id ?? banks[0]?.id ?? ''); } }}>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+            <Field label={t('customer')}><Select recent="customers" className="in" value={customerId} onChange={(e) => { setCustomerId(e.target.value); const c = customers.find((x) => x.id === e.target.value); if (c) { setCurrency(c.defaultCurrency); setBankId(banks.find((b) => b.currency === c.defaultCurrency)?.id ?? banks[0]?.id ?? ''); } }}>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
             <Field label="Régime du client"><input className="in" readOnly value={REGIMES.find((r) => r[0] === customer?.regime)?.[1] ?? ''} /></Field>
             <Field label={`${t('date')} · échéance ${customer?.paymentTermsDays ?? 30} j`}><input className="in mono" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-            <Field label={`${t('currency')} · taux du jour ${autoRate}`}><div style={{ display: 'flex', gap: 6 }}><select className="in" style={{ width: 90 }} value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>{['MRU', 'USD', 'EUR', 'MAD'].map((c) => <option key={c}>{c}</option>)}</select><input className="in num" placeholder={String(autoRate)} value={rate} onChange={(e) => setRate(e.target.value)} disabled={currency === entity.functionalCurrency} aria-label="Taux forcé" /></div></Field>
-            <Field label="Mission"><select className="in" value={engagementId} onChange={(e) => setEngagementId(e.target.value)}><option value="">—</option>{state.engagements.filter((x) => x.entityId === entityId && x.customerId === customerId).map((x) => <option key={x.id} value={x.id}>{x.code} · {x.name}</option>)}</select></Field>
-            <Field label="Bloc bancaire imprimé"><select className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name}</option>)}</select></Field>
+            <Field label={`${t('currency')} · taux du jour ${autoRate}`}><div style={{ display: 'flex', gap: 6 }}><Select className="in" style={{ width: 90 }} value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>{['MRU', 'USD', 'EUR', 'MAD'].map((c) => <option key={c}>{c}</option>)}</Select><input className="in num" placeholder={String(autoRate)} value={rate} onChange={(e) => setRate(e.target.value)} disabled={currency === entity.functionalCurrency} aria-label="Taux forcé" /></div></Field>
+            <Field label="Mission"><Select recent="missions" className="in" value={engagementId} onChange={(e) => setEngagementId(e.target.value)}><option value="">—</option>{state.engagements.filter((x) => x.entityId === entityId && x.customerId === customerId).map((x) => <option key={x.id} value={x.id}>{x.code} · {x.name}</option>)}</Select></Field>
+            <Field label="Bloc bancaire imprimé"><Select recent="banks" className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name}</option>)}</Select></Field>
             <Field label="Retenue à la source appliquée par le client">
-              <select className="in" value={wht} onChange={(e) => setWht(e.target.value)}>
+              <Select className="in" value={wht} onChange={(e) => setWht(e.target.value)}>
                 <option value="default">{customer?.withholdingCodeId ? `Fiche client · ${whtCodes.find((x) => x.id === customer.withholdingCodeId)?.code ?? ''} (${Math.round((whtCodes.find((x) => x.id === customer.withholdingCodeId)?.rate ?? 0) * 100)} %)` : 'Fiche client · aucune retenue'}</option>
                 <option value="">Aucune retenue</option>
                 {whtCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {Math.round(x.rate * 1000) / 10} % · {x.nameFr}</option>)}
-              </select>
+              </Select>
             </Field>
           </div>
           <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 6 }}>
@@ -223,9 +224,9 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
                       <td><input className="in" value={l.description} onChange={(e) => setLine(i, { description: e.target.value })} aria-label={`Désignation ${i + 1}`} placeholder="Audit des comptes · phase intérimaire" /></td>
                       <td><input className="in num" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} aria-label={`Quantité ${i + 1}`} /></td>
                       <td><input className="in num" value={l.unitPrice} onChange={(e) => setLine(i, { unitPrice: e.target.value })} aria-label={`Prix ${i + 1}`} /></td>
-                      <td><select className="in" value={l.serviceCategory} onChange={(e) => setLine(i, { serviceCategory: e.target.value })} aria-label={`Catégorie ${i + 1}`}>{CATEGORIES.map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></td>
-                      <td><select className="in" value={l.taxCodeId} onChange={(e) => setLine(i, { taxCodeId: e.target.value })} aria-label={`Code taxe ${i + 1}`}><option value="">{auto ? `${auto.code} · ${auto.rate * 100} % (règle)` : '—'}</option>{taxCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {x.rate * 100} %</option>)}</select></td>
-                      <td><select className="in mono" value={l.revenueAccountId} onChange={(e) => setLine(i, { revenueAccountId: e.target.value })} aria-label={`Compte de produit ${i + 1}`}><option value="">{defaultRevenue ? `${defaultRevenue.code} (défaut · ${REVENUE_STATUS_LABEL[status]})` : '—'}</option>{revenueAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</select></td>
+                      <td><Select className="in" value={l.serviceCategory} onChange={(e) => setLine(i, { serviceCategory: e.target.value })} aria-label={`Catégorie ${i + 1}`}>{CATEGORIES.map(([k, n]) => <option key={k} value={k}>{n}</option>)}</Select></td>
+                      <td><Select className="in" value={l.taxCodeId} onChange={(e) => setLine(i, { taxCodeId: e.target.value })} aria-label={`Code taxe ${i + 1}`}><option value="">{auto ? `${auto.code} · ${auto.rate * 100} % (règle)` : '—'}</option>{taxCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {x.rate * 100} %</option>)}</Select></td>
+                      <td><Select recent="accounts" className="in mono" value={l.revenueAccountId} onChange={(e) => setLine(i, { revenueAccountId: e.target.value })} aria-label={`Compte de produit ${i + 1}`}><option value="">{defaultRevenue ? `${defaultRevenue.code} (défaut · ${REVENUE_STATUS_LABEL[status]})` : '—'}</option>{revenueAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></td>
                       <td className="num">{fmt(ht)}</td>
                       <td><button type="button" className="btn sm" aria-label="Supprimer la ligne" onClick={() => setLines((ls) => (ls.length > 1 ? ls.filter((_, k) => k !== i) : ls))}>×</button></td>
                     </tr>
@@ -288,10 +289,10 @@ function Payments({ entityId, preselect }: { entityId: Id; preselect: Id | null 
       <aside className="side">
         <div className="card">
           <h2>Encaissement</h2>
-          <Field label="Facture ouverte"><select className="in" value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)}>{open.map((o) => <option key={o.invoice.id} value={o.invoice.id}>{o.invoice.number} · {o.customer.name} · {o.invoice.currency} {fmt(o.openTxn)}</option>)}</select></Field>
+          <Field label="Facture ouverte"><Select className="in" value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)}>{open.map((o) => <option key={o.invoice.id} value={o.invoice.id}>{o.invoice.number} · {o.customer.name} · {o.invoice.currency} {fmt(o.openTxn)}</option>)}</Select></Field>
           <Field label={`${t('amount')} reçu (${sel?.invoice.currency ?? ''})`} style={{ marginTop: 8 }}><input className="in num" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
           <Field label={t('date')} style={{ marginTop: 8 }}><input className="in mono" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-          <Field label="Compte bancaire (même devise)" style={{ marginTop: 8 }}><select className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name}</option>)}</select></Field>
+          <Field label="Compte bancaire (même devise)" style={{ marginTop: 8 }}><Select recent="banks" className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name}</option>)}</Select></Field>
           <Field label="Référence" style={{ marginTop: 8 }}><input className="in" value={ref} onChange={(e) => setRef(e.target.value)} /></Field>
           <button className="btn primary" style={{ marginTop: 10, width: '100%', justifyContent: 'center' }} disabled={!sel || !bankId} onClick={() => { const amt = parseAmount(amount); if (!sel || amt === null) return; apply((s) => recordPayment(s, { entityId, customerId: sel.customer.id, date, currency: sel.invoice.currency, amountTxn: amt, bankAccountId: bankId, invoiceId: sel.invoice.id, reference: ref || sel.invoice.number }), "Encaissement comptabilisé et lettré"); }}>Enregistrer l'encaissement</button>
           <div className="small muted" style={{ marginTop: 8 }}>Lettrage automatique ; en devise, l'écart entre le cours de la facture et celui du jour est passé en 778 / 678.</div>
@@ -407,13 +408,13 @@ function Customers({ entityId }: { entityId: Id }) {
           <Field label="Nom"><input className="in" value={name} onChange={(e) => setName(e.target.value)} /></Field>
           <div className="grid2" style={{ marginTop: 8 }}>
             <Field label="Code auxiliaire (unique)"><input className="in mono" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder={editing ? editing.code : `auto · ${nextCode}`} /></Field>
-            <Field label="Compte collectif"><select className="in mono" value={collectiveId} onChange={(e) => setCollectiveId(e.target.value)}><option value="">{defaultCollective ? `Paramétrage · ${defaultCollective.code}` : '—'}</option>{collectives.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</select></Field>
+            <Field label="Compte collectif"><Select recent="accounts" className="in mono" value={collectiveId} onChange={(e) => setCollectiveId(e.target.value)}><option value="">{defaultCollective ? `Paramétrage · ${defaultCollective.code}` : '—'}</option>{collectives.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
           </div>
           {editing && auxOf(editing) && <div className="small muted" style={{ marginTop: 4 }}>Compte auxiliaire <span className="mono">{auxOf(editing)!.code}</span> · solde {fmt(accountBalance(state, entityId, auxOf(editing)!.id), 0)} · renommer le code renomme le compte.</div>}
-          <Field label="Régime TVA" style={{ marginTop: 8 }}><select className="in" value={regime} onChange={(e) => setRegime(e.target.value as CounterpartyRegime)}>{REGIMES.map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select></Field>
-          <Field label="Retenue à la source appliquée par ce client" style={{ marginTop: 8 }}><select className="in" value={wht} onChange={(e) => setWht(e.target.value)}><option value="">Aucune</option>{whtCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {Math.round(x.rate * 1000) / 10} %</option>)}</select></Field>
+          <Field label="Régime TVA" style={{ marginTop: 8 }}><Select className="in" value={regime} onChange={(e) => setRegime(e.target.value as CounterpartyRegime)}>{REGIMES.map(([k, n]) => <option key={k} value={k}>{n}</option>)}</Select></Field>
+          <Field label="Retenue à la source appliquée par ce client" style={{ marginTop: 8 }}><Select className="in" value={wht} onChange={(e) => setWht(e.target.value)}><option value="">Aucune</option>{whtCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {Math.round(x.rate * 1000) / 10} %</option>)}</Select></Field>
           <div className="grid2" style={{ marginTop: 8 }}>
-            <Field label="Devise"><select className="in" value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>{['MRU', 'USD', 'EUR', 'MAD'].map((c) => <option key={c}>{c}</option>)}</select></Field>
+            <Field label="Devise"><Select className="in" value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>{['MRU', 'USD', 'EUR', 'MAD'].map((c) => <option key={c}>{c}</option>)}</Select></Field>
             <Field label="Délai (jours)"><input className="in num" value={terms} onChange={(e) => setTerms(e.target.value)} /></Field>
             <Field label="NIF"><input className="in mono" value={nif} onChange={(e) => setNif(e.target.value)} /></Field>
             <Field label="E-mail"><input className="in" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>

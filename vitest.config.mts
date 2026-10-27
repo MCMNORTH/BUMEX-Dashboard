@@ -13,7 +13,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["lib/**/*.test.ts"],
+    include: ["lib/**/*.test.ts", "vanguard/**/*.test.ts"],
     testTimeout: 60_000,
     hookTimeout: 120_000,
   },

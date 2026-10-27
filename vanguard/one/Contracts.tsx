@@ -7,6 +7,7 @@ import { useStore } from '../store';
 import { Chip, D, Field, Icon } from '../ui/common';
 import { Comments, Notes, type Result, type Say, when } from './Conversation';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // The Clients room's "Contrats" tab: BUMEX One's contracts, with what renews soon, and each contract's page (details,
 // edit form, archive, notes, conversation, history). Saved by BUMEX One's contract actions, under their rules.
@@ -58,10 +59,10 @@ function ContractForm({ id, initial, options, onDone, say }: { id?: string; init
       <div className="grid3">
         <Field label={say('Titre', 'Title')}><input className="in" value={v.title} onChange={(e) => set({ title: e.target.value })} /></Field>
         <Field label={say('Numéro', 'Number')}><input className="in mono" value={v.contract_number} onChange={(e) => set({ contract_number: e.target.value })} /></Field>
-        <Field label="Client"><select className="in" value={v.client_id} onChange={(e) => set({ client_id: e.target.value })}><option value="">{say('— choisir —', '— choose —')}</option>{options.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
-        <Field label={say('Mission', 'Mission')}><select className="in" value={v.project_id} onChange={(e) => set({ project_id: e.target.value })}><option value="">—</option>{options.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-        <Field label={say('Statut', 'Status')}><select className="in" value={v.status} onChange={(e) => set({ status: e.target.value as ContractStatus })}>{(Object.keys(STATUS) as ContractStatus[]).filter((s) => s !== 'archived').map((s) => <option key={s} value={s}>{say(STATUS[s][0], STATUS[s][1])}</option>)}</select></Field>
-        <Field label="Type"><select className="in" value={v.contract_type} onChange={(e) => set({ contract_type: e.target.value as ContractType })}>{(Object.keys(TYPES) as ContractType[]).map((t) => <option key={t} value={t}>{say(...TYPES[t])}</option>)}</select></Field>
+        <Field label="Client"><Select recent="clients" className="in" value={v.client_id} onChange={(e) => set({ client_id: e.target.value })}><option value="">{say('— choisir —', '— choose —')}</option>{options.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
+        <Field label={say('Mission', 'Mission')}><Select recent="missions" className="in" value={v.project_id} onChange={(e) => set({ project_id: e.target.value })}><option value="">—</option>{options.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
+        <Field label={say('Statut', 'Status')}><Select className="in" value={v.status} onChange={(e) => set({ status: e.target.value as ContractStatus })}>{(Object.keys(STATUS) as ContractStatus[]).filter((s) => s !== 'archived').map((s) => <option key={s} value={s}>{say(STATUS[s][0], STATUS[s][1])}</option>)}</Select></Field>
+        <Field label="Type"><Select className="in" value={v.contract_type} onChange={(e) => set({ contract_type: e.target.value as ContractType })}>{(Object.keys(TYPES) as ContractType[]).map((t) => <option key={t} value={t}>{say(...TYPES[t])}</option>)}</Select></Field>
         {date('start_date', say('Début', 'Start'))}
         {date('end_date', say('Fin', 'End'))}
         {date('signed_date', say('Signé le', 'Signed'))}
@@ -69,7 +70,7 @@ function ContractForm({ id, initial, options, onDone, say }: { id?: string; init
         <Field label={say('Montant', 'Amount')}><input className="in num" value={v.amount} onChange={(e) => set({ amount: e.target.value })} /></Field>
         <Field label={say('Devise', 'Currency')}><input className="in mono" value={v.currency} onChange={(e) => set({ currency: e.target.value.toUpperCase() })} /></Field>
         <Field label={say('Conditions de paiement', 'Payment terms')}><input className="in" value={v.payment_terms} onChange={(e) => set({ payment_terms: e.target.value })} /></Field>
-        <Field label={say('Responsable', 'Responsible')}><select className="in" value={v.responsible_user_id} onChange={(e) => set({ responsible_user_id: e.target.value })}><option value="">—</option>{options.responsibleUsers.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}</select></Field>
+        <Field label={say('Responsable', 'Responsible')}><Select className="in" value={v.responsible_user_id} onChange={(e) => set({ responsible_user_id: e.target.value })}><option value="">—</option>{options.responsibleUsers.map((u) => <option key={u.id} value={u.id}>{u.full_name}</option>)}</Select></Field>
       </div>
       <Field label="Notes"><textarea className="in" style={{ height: 60, padding: 8 }} value={v.notes} onChange={(e) => set({ notes: e.target.value })} /></Field>
       <div className="actions"><button className="btn sm" onClick={() => onDone(false)} disabled={busy}>{say('Annuler', 'Cancel')}</button><button className="btn sm primary" disabled={busy || !v.title.trim() || !v.client_id} onClick={save}>{say('Enregistrer', 'Save')}</button></div>
@@ -108,7 +109,7 @@ export function ContractsTab() {
       )}
       <div className="actions" style={{ justifyContent: 'flex-start' }}>
         <input className="in" style={{ maxWidth: 280 }} placeholder={say('Rechercher un contrat…', 'Search for a contract…')} value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="in" style={{ width: 170 }} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">{say('Tous les statuts', 'Every status')}</option>{(Object.keys(STATUS) as ContractStatus[]).map((k) => <option key={k} value={k}>{say(STATUS[k][0], STATUS[k][1])}</option>)}</select>
+        <Select className="in" style={{ width: 170 }} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">{say('Tous les statuts', 'Every status')}</option>{(Object.keys(STATUS) as ContractStatus[]).map((k) => <option key={k} value={k}>{say(STATUS[k][0], STATUS[k][1])}</option>)}</Select>
         {data.canEdit && !creating && <button className="btn sm primary" style={{ marginLeft: 'auto' }} onClick={() => setCreating(true)}><Icon name="plus" size={13} /> {say('Nouveau contrat', 'New contract')}</button>}
       </div>
       {creating && <ContractForm initial={{ title: '', contract_number: '', client_id: '', project_id: '', status: 'draft', contract_type: 'audit', start_date: '', end_date: '', signed_date: '', renewal_date: '', amount: '', currency: 'MRU', payment_terms: '', responsible_user_id: data.me, notes: '' }} options={data.options} onDone={(saved) => { setCreating(false); if (saved) void load(); }} say={say} />}

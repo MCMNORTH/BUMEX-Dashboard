@@ -3,6 +3,7 @@ import { taskStats, createTask, startTask, completeTask, reopenTask, addDays, fm
 import { useStore, MODULE_ROOM } from '../../store';
 import type { Room } from '../../i18n';
 import { Tabs, Chip, Field, D, Icon, DeleteButton } from '../common';
+import { Select } from '../Select';
 
 type Tab = 'open' | 'overdue' | 'done' | 'all';
 const MODULES = ['missions', 'clients', 'accounting', 'bank', 'suppliers', 'assets', 'closing', 'archives', 'tax', 'hr', 'penthouse'];
@@ -134,11 +135,11 @@ function NewTask({ entityId, onDone }: { entityId: Id; onDone: () => void }) {
       <h2>{t('tsk_new')}</h2>
       <div className="grid4">
         <Field label={t('label')} style={{ gridColumn: 'span 2' }}><input className="in" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('tsk_title_ph')} autoFocus onKeyDown={(e) => e.key === 'Enter' && submit()} /></Field>
-        <Field label={t('tsk_module')}><select className="in" value={module} onChange={(e) => setModule(e.target.value)}>{MODULES.map((m) => <option key={m} value={m}>{t(`room_${m}`) === `room_${m}` ? (m === 'closing' ? t('tab_closing') : t('nav_archives')) : t(`room_${m}`)}</option>)}</select></Field>
+        <Field label={t('tsk_module')}><Select className="in" value={module} onChange={(e) => setModule(e.target.value)}>{MODULES.map((m) => <option key={m} value={m}>{t(`room_${m}`) === `room_${m}` ? (m === 'closing' ? t('tab_closing') : t('nav_archives')) : t(`room_${m}`)}</option>)}</Select></Field>
         <Field label={t('tsk_assignee')}><input className="in" value={assignee} onChange={(e) => setAssignee(e.target.value)} /></Field>
         <Field label={t('tsk_mine')}><input className="in" type="date" value={due} onChange={(e) => setDue(e.target.value)} /></Field>
-        <Field label={t('tsk_priority')}><select className="in" value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)}><option value="low">{t('tsk_low')}</option><option value="normal">{t('tsk_normal')}</option><option value="high">{t('tsk_high')}</option></select></Field>
-        <Field label={t('tsk_engagement')} style={{ gridColumn: 'span 2' }}><select className="in" value={engagementId} onChange={(e) => setEngagementId(e.target.value)}><option value="">—</option>{engs.map((e) => <option key={e.id} value={e.id}>{e.code} · {e.name}</option>)}</select></Field>
+        <Field label={t('tsk_priority')}><Select className="in" value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)}><option value="low">{t('tsk_low')}</option><option value="normal">{t('tsk_normal')}</option><option value="high">{t('tsk_high')}</option></Select></Field>
+        <Field label={t('tsk_engagement')} style={{ gridColumn: 'span 2' }}><Select className="in" value={engagementId} onChange={(e) => setEngagementId(e.target.value)}><option value="">—</option>{engs.map((e) => <option key={e.id} value={e.id}>{e.code} · {e.name}</option>)}</Select></Field>
         <Field label={t('tsk_notes')} style={{ gridColumn: 'span 4' }}><input className="in" value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
       </div>
       <div className="actions" style={{ marginTop: 10 }}>

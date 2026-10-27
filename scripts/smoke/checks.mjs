@@ -288,6 +288,9 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
           const shown = await tab.until("document.readyState === 'complete' && document.body.innerText.length > 150", 25_000);
           await new Promise((resolve) => setTimeout(resolve, 600));
           const crashed = await tab.evaluate("/Application error|client-side exception|This page couldn’t load/i.test(document.body.innerText) || Boolean(document.querySelector('[role=alert] h2'))").catch(() => true);
+          // every dropdown is the app's own (vanguard/ui/Select.tsx), never the browser's
+          const native = await tab.evaluate("document.querySelectorAll('select, datalist').length").catch(() => 0);
+          if (native) broken.push({ path, native });
           const errors = tab.takeErrors();
           if (!shown || crashed || errors.length) broken.push({ path, shown, crashed, errors: errors.slice(0, 2) });
         } catch (error) {
@@ -302,6 +305,34 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     await tab.evaluate("[...document.querySelectorAll('button')].find((b) => b.innerText.includes('Mariem Sow'))?.click()");
     const editor = await tab.until("document.body.innerText.includes('Modificateur de rôles') && document.body.innerText.includes('Bâtiment 3D') && document.body.innerText.includes('BUMEX Testing') && document.body.innerText.includes('Étage de test · sous-sol') && document.querySelectorAll('table input[type=checkbox]').length > 60");
     check("the Permissions tab lists everyone and opens a person's grid", listed && editor && tab.takeErrors().length === 0);
+    // a dropdown, by the keyboard: typed to search from the closed field, Enter picks the best match
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const role = "[...document.querySelectorAll('.field')].find((f) => f.querySelector('label')?.innerText.trim() === 'Rôle')?.querySelector('button.vsel')";
+    await tab.evaluate(`(() => { const b = ${role}; b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', bubbles: true, cancelable: true })); })()`);
+    const searching = await tab.until("document.querySelector('.vsel-pop .vsel-search input')?.value === 'c'", 5_000);
+    await tab.evaluate(`(() => {
+      const input = document.querySelector('.vsel-pop .vsel-search input');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'compt');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    await sleep(150);
+    const ranked = await tab.evaluate("[...document.querySelectorAll('.vsel-pop [role=option]')].map((o) => o.innerText.trim())");
+    await tab.evaluate("document.querySelector('.vsel-pop .vsel-search input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))");
+    await sleep(150);
+    const typed = await tab.evaluate(`({ label: ${role}.innerText.trim(), open: Boolean(document.querySelector('.vsel-pop')), marked: ${JSON.stringify(ranked)} })`);
+    check("a dropdown searches as one types and Enter picks the match", searching && ranked[0] === "Comptable" && typed.label === "Comptable" && !typed.open, { ranked, typed });
+    // …and by the mouse: opened, an option clicked; Escape closes it without closing the room
+    await tab.evaluate(`${role}.click()`);
+    const opened = await tab.until("document.querySelectorAll('.vsel-pop [role=option]').length >= 6", 5_000);
+    await tab.evaluate("[...document.querySelectorAll('.vsel-pop [role=option]')].find((o) => o.innerText.trim() === 'Associé').click()");
+    await sleep(150);
+    const clicked = await tab.evaluate(`${role}.innerText.trim()`);
+    await tab.evaluate(`${role}.click()`);
+    await tab.until("Boolean(document.querySelector('.vsel-pop'))", 5_000);
+    await tab.evaluate("document.querySelector('.vsel-pop .vsel-search input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))");
+    await sleep(150);
+    const escaped = await tab.evaluate("({ open: Boolean(document.querySelector('.vsel-pop')), room: document.body.innerText.includes('Modificateur de rôles') })");
+    check("…and by the mouse; Escape closes the list, not the room", opened && clicked === "Associé" && !escaped.open && escaped.room && tab.takeErrors().length === 0, { clicked, escaped });
     await tab.signIn(cookies["fatimetou.admin"]);
     await tab.go("/vanguard?room=settings");
     await tab.until("document.body.innerText.includes('Mon compte')");

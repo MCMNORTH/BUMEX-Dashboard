@@ -11,6 +11,7 @@ import { KINDS, MissionForm, PRIORITIES, STATUSES } from './Missions';
 import { reload } from './Tasks';
 import { WorkflowEditor } from './Workflow';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // A mission's page in the Missions room, as BUMEX One's project page had it: delivery figures and health, alerts,
 // tickets, team, notes, conversation, history, and its board's columns and rules (vanguard/one/Workflow.tsx). Its
@@ -200,10 +201,10 @@ function Team({ view, busy, run, say }: { view: ProjectView; busy: boolean; run:
       </table>
       {view.canManageTeam && (
         <div style={{ display: 'flex', gap: 8, padding: 10 }}>
-          <select className="in" style={{ maxWidth: 320 }} value={adding} onChange={(e) => setAdding(e.target.value)} aria-label={say('Ajouter quelqu’un', 'Add someone')}>
+          <Select recent="people" className="in" style={{ maxWidth: 320 }} value={adding} onChange={(e) => setAdding(e.target.value)} aria-label={say('Ajouter quelqu’un', 'Add someone')}>
             <option value="">{say('Ajouter quelqu’un…', 'Add someone…')}</option>
             {view.candidates.map((p) => <option key={p.id} value={p.id}>{p.name}{p.entity ? ` · ${floorOf(p.entity)}` : ''}</option>)}
-          </select>
+          </Select>
           <button className="btn sm primary" disabled={busy || !adding} onClick={async () => { if (await run(() => change(addProjectMemberAction(view.project.id, adding)), say('Ajouté à l’équipe', 'Added to the team'))) setAdding(''); }}>{say('Ajouter', 'Add')}</button>
         </div>
       )}

@@ -8,6 +8,7 @@ import { PermissionsPanel } from '../../one/Permissions'; // [bumex-one] who see
 import { useSay } from '../../one/say'; // [bumex-one]
 import logoImage from '../../assets/logo.jpg'; // [bumex-one] Next imports images as objects
 const logo = logoImage.src;
+import { Select } from '../Select';
 
 type Tab = 'general' | 'account' | 'access' | 'deletions' | 'history'; // [bumex-one] account
 
@@ -62,9 +63,9 @@ export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
           <div className="row" style={{ borderTop: 0 }}><span>{state.session.actorName}{me ? <div className="small muted">{me.email}</div> : null}</span><Chip kind="good">{t(state.session.role)}</Chip></div>
           <div className="small muted" style={{ margin: '6px 0 10px' }}>Accès : {scope} · {mods}</div>
           <div className="grid2">
-            <Field label={t('set_lang')}><select className="in" value={ui.lang} onChange={(e) => setLang(e.target.value as 'fr' | 'en')}><option value="fr">Français</option><option value="en">English</option></select></Field>
-            <Field label={t('fiscal_year')}><select className="in" value={ui.fiscalYearLabel} onChange={(e) => setUi({ fiscalYearLabel: e.target.value })}>{fys.map((f) => <option key={f} value={f}>{f}</option>)}</select></Field>
-            <Field label={t('set_entity')}><select className="in" value={ui.entityId ?? ''} onChange={(e) => setUi({ entityId: e.target.value, room: e.target.value === state.entities.find((x) => x.isHolding)?.id ? 'penthouse' : ui.room === 'penthouse' ? 'settings' : ui.room })}>{entities.filter((e) => state.session.entityIds === '*' || state.session.entityIds.includes(e.id)).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></Field>
+            <Field label={t('set_lang')}><Select className="in" value={ui.lang} onChange={(e) => setLang(e.target.value as 'fr' | 'en')}><option value="fr">Français</option><option value="en">English</option></Select></Field>
+            <Field label={t('fiscal_year')}><Select className="in" value={ui.fiscalYearLabel} onChange={(e) => setUi({ fiscalYearLabel: e.target.value })}>{fys.map((f) => <option key={f} value={f}>{f}</option>)}</Select></Field>
+            <Field label={t('set_entity')}><Select className="in" value={ui.entityId ?? ''} onChange={(e) => setUi({ entityId: e.target.value, room: e.target.value === state.entities.find((x) => x.isHolding)?.id ? 'penthouse' : ui.room === 'penthouse' ? 'settings' : ui.room })}>{entities.filter((e) => state.session.entityIds === '*' || state.session.entityIds.includes(e.id)).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</Select></Field>
           </div>
           {/* [bumex-one] no demo sign-in: the person is the one signed in to BUMEX One */}
         </div>

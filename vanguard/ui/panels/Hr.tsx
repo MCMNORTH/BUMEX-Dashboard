@@ -11,6 +11,7 @@ import { useSay } from '../../one/say'; // [bumex-one]
 
 type Tab = 'people' | 'employees' | 'sheet' | 'headcount' | 'payroll' | 'statements' | 'rules'; // [bumex-one] people
 const CATS = Object.keys(CATEGORY_FR) as EmployeeCategory[];
+import { Select, Suggest } from '../Select';
 const CONTRACTS = ['CDI', 'CDD', 'Stage', 'Prestataire', 'Associé'];
 
 export function HrPanel({ entityId, initialTab }: { entityId: Id; initialTab?: string | null }) {
@@ -137,12 +138,12 @@ function Sheet({ entityId, employeeId, onSaved }: { entityId: Id; employeeId: Id
             <Field label="Prénom"><input className="in" value={firstName} onChange={(ev) => setFirst(ev.target.value)} /></Field>
             <Field label="Nom"><input className="in" value={lastName} onChange={(ev) => setLast(ev.target.value)} /></Field>
             <Field label="Fonction"><input className="in" value={jobTitle} onChange={(ev) => setJob(ev.target.value)} placeholder="Auditeur senior" /></Field>
-            <Field label="Service · département"><input className="in" list="hr-departments" value={department} onChange={(ev) => setDep(ev.target.value)} /><datalist id="hr-departments">{departments.map((d) => <option key={d} value={d} />)}</datalist></Field>
-            <Field label="Catégorie"><select className="in" value={category} onChange={(ev) => setCat(ev.target.value as EmployeeCategory)}>{CATS.map((c) => <option key={c} value={c}>{CATEGORY_FR[c]}</option>)}</select></Field>
-            <Field label="Contrat"><select className="in" value={contractType} onChange={(ev) => setContract(ev.target.value)}>{CONTRACTS.map((c) => <option key={c}>{c}</option>)}</select></Field>
+            <Field label="Service · département"><Suggest options={departments} value={department} onChange={(ev) => setDep(ev.target.value)} aria-label="Service · département" /></Field>
+            <Field label="Catégorie"><Select className="in" value={category} onChange={(ev) => setCat(ev.target.value as EmployeeCategory)}>{CATS.map((c) => <option key={c} value={c}>{CATEGORY_FR[c]}</option>)}</Select></Field>
+            <Field label="Contrat"><Select className="in" value={contractType} onChange={(ev) => setContract(ev.target.value)}>{CONTRACTS.map((c) => <option key={c}>{c}</option>)}</Select></Field>
             <Field label="Date d'entrée"><input className="in mono" type="date" value={hireDate} onChange={(ev) => setHire(ev.target.value)} /></Field>
             {e && <Field label="Date de sortie"><input className="in mono" type="date" value={endDate} onChange={(ev) => setEnd(ev.target.value)} /></Field>}
-            {e && <Field label="Statut"><select className="in" value={status} onChange={(ev) => setStatus(ev.target.value as Employee['status'])}><option value="active">Actif</option><option value="left">Sorti des effectifs</option></select></Field>}
+            {e && <Field label="Statut"><Select className="in" value={status} onChange={(ev) => setStatus(ev.target.value as Employee['status'])}><option value="active">Actif</option><option value="left">Sorti des effectifs</option></Select></Field>}
             <Field label="E-mail"><input className="in" value={email} onChange={(ev) => setEmail(ev.target.value)} /></Field>
             <Field label="Téléphone"><input className="in" value={phone} onChange={(ev) => setPhone(ev.target.value)} /></Field>
             <Field label="Salaire brut mensuel"><input className="in num" value={gross} onChange={(ev) => setGross(ev.target.value)} /></Field>
@@ -319,7 +320,7 @@ function Rules({ entityId }: { entityId: Id }) {
         <div className="card">
           <h2>Régime de paie · {state.entities.find((e) => e.id === entityId)?.name}</h2>
           <div className="grid3">
-            <Field label="Régime applicable à la société"><select className="in" value={r.regime ?? 'normal'} onChange={(e) => { const regime = e.target.value as PayrollRegime; setR({ ...r, regime, socialExempt: regime === 'gta', healthExempt: regime === 'gta', taxExempt: regime === 'gta' }); }}><option value="normal">Régime normal · impôts et cotisations</option><option value="gta">Régime GTA · exonérations</option></select></Field>
+            <Field label="Régime applicable à la société"><Select className="in" value={r.regime ?? 'normal'} onChange={(e) => { const regime = e.target.value as PayrollRegime; setR({ ...r, regime, socialExempt: regime === 'gta', healthExempt: regime === 'gta', taxExempt: regime === 'gta' }); }}><option value="normal">Régime normal · impôts et cotisations</option><option value="gta">Régime GTA · exonérations</option></Select></Field>
             <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: 4, justifyContent: 'flex-end' }}>
               <label className="small"><input type="checkbox" checked={!!(r.socialExempt ?? r.regime === 'gta')} onChange={(e) => setR({ ...r, socialExempt: e.target.checked })} /> Exonération {r.labels.social} (aucune cotisation salarié ni employeur)</label>
               <label className="small"><input type="checkbox" checked={!!(r.healthExempt ?? r.regime === 'gta')} onChange={(e) => setR({ ...r, healthExempt: e.target.checked })} /> Exonération {r.labels.health}</label>

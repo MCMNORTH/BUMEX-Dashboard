@@ -7,6 +7,7 @@ import { Chip, D, Field, Icon } from '../ui/common';
 import { when } from './Conversation';
 import { reload } from './Tasks';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // A person's page in the HR room's People tab, as BUMEX One's team member page had it: profile and availability, load,
 // missions, tickets, activity and, for the administrator, managers and the person, their delivery figures. The form is
@@ -81,7 +82,7 @@ export function PersonPanel({ personId, onClose }: { personId: string; onClose: 
             <Field label={say('Nom complet', 'Full name')}><input className="in" value={form.full_name} disabled={!view.isSelf && !SENSITIVE_EDITORS.includes(state.session.role)} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></Field>
             <Field label={say('Fonction', 'Job title')}><input className="in" value={form.job_title} onChange={(e) => setForm({ ...form, job_title: e.target.value })} /></Field>
             <Field label={say('Service', 'Department')}><input className="in" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} /></Field>
-            <Field label={say('Disponibilité', 'Availability')}><select className="in" value={form.availability_status} onChange={(e) => setForm({ ...form, availability_status: e.target.value as AvailabilityStatus })}>{(Object.keys(AVAILABILITY) as AvailabilityStatus[]).map((k) => <option key={k} value={k}>{say(AVAILABILITY[k][0], AVAILABILITY[k][1])}</option>)}</select></Field>
+            <Field label={say('Disponibilité', 'Availability')}><Select className="in" value={form.availability_status} onChange={(e) => setForm({ ...form, availability_status: e.target.value as AvailabilityStatus })}>{(Object.keys(AVAILABILITY) as AvailabilityStatus[]).map((k) => <option key={k} value={k}>{say(AVAILABILITY[k][0], AVAILABILITY[k][1])}</option>)}</Select></Field>
             <Field label={say('Capacité hebdomadaire (h)', 'Weekly capacity (h)')}><input className="in num" type="number" min={0} max={80} value={form.weekly_capacity_hours} onChange={(e) => setForm({ ...form, weekly_capacity_hours: e.target.value })} /></Field>
             <Field label={say('Téléphone', 'Phone')}><input className="in" value={form.phone} disabled={!view.isSelf && !SENSITIVE_EDITORS.includes(state.session.role)} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
           </div>

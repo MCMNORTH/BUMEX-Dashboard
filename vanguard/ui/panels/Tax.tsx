@@ -5,6 +5,7 @@ import {
 } from '@bumex/domain';
 import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, downloadXlsx } from '../common';
+import { Select } from '../Select';
 
 type Tab = 'summary' | 'withholding' | 'codes' | 'rules';
 const REGIMES: [CounterpartyRegime, string][] = [['standard', 'Standard'], ['gta', 'GTA · sous-traitant enregistré'], ['exempt', 'Exonéré'], ['non_resident', 'Non-résident · export'], ['public', 'Organisme public']];
@@ -167,14 +168,14 @@ function Codes({ entityId }: { entityId: Id }) {
       <aside className="side">
         <div className="card">
           <h2>{editing ? `Code · ${editing.code}` : 'Nouveau code taxe'}</h2>
-          {!editing && <div className="grid2"><Field label="Code"><input className="in mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder="RAS-7" /></Field><Field label="Nature"><select className="in" value={kind} onChange={(e) => setKind(e.target.value as TaxKind)}><option value="vat">TVA</option><option value="withholding">Retenue à la source</option></select></Field></div>}
+          {!editing && <div className="grid2"><Field label="Code"><input className="in mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder="RAS-7" /></Field><Field label="Nature"><Select className="in" value={kind} onChange={(e) => setKind(e.target.value as TaxKind)}><option value="vat">TVA</option><option value="withholding">Retenue à la source</option></Select></Field></div>}
           <Field label="Libellé" style={{ marginTop: 8 }}><input className="in" value={name} onChange={(e) => setName(e.target.value)} /></Field>
           <div className="grid2" style={{ marginTop: 8 }}>
             <Field label="Taux (%)"><input className="in num" value={rate} onChange={(e) => setRate(e.target.value)} /></Field>
-            {(editing?.kind ?? kind) === 'vat' && <Field label="Statut du produit"><select className="in" value={status} onChange={(e) => setStatus(e.target.value as RevenueStatus | '')}><option value="">—</option>{(Object.keys(REVENUE_STATUS_LABEL) as RevenueStatus[]).map((k) => <option key={k} value={k}>{REVENUE_STATUS_LABEL[k]}</option>)}</select></Field>}
+            {(editing?.kind ?? kind) === 'vat' && <Field label="Statut du produit"><Select className="in" value={status} onChange={(e) => setStatus(e.target.value as RevenueStatus | '')}><option value="">—</option>{(Object.keys(REVENUE_STATUS_LABEL) as RevenueStatus[]).map((k) => <option key={k} value={k}>{REVENUE_STATUS_LABEL[k]}</option>)}</Select></Field>}
           </div>
-          <Field label={(editing?.kind ?? kind) === 'vat' ? 'Compte TVA collectée' : 'Compte retenue à reverser (retenue due sur achats)'} style={{ marginTop: 8 }}><select className="in mono" value={collected} onChange={(e) => setCollected(e.target.value)}><option value="">— (défaut du plan)</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</select></Field>
-          <Field label={(editing?.kind ?? kind) === 'vat' ? 'Compte TVA déductible' : 'Compte retenue subie (créance · retenue sur nos ventes)'} style={{ marginTop: 8 }}><select className="in mono" value={deductible} onChange={(e) => setDeductible(e.target.value)}><option value="">—</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</select></Field>
+          <Field label={(editing?.kind ?? kind) === 'vat' ? 'Compte TVA collectée' : 'Compte retenue à reverser (retenue due sur achats)'} style={{ marginTop: 8 }}><Select recent="accounts" className="in mono" value={collected} onChange={(e) => setCollected(e.target.value)}><option value="">— (défaut du plan)</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
+          <Field label={(editing?.kind ?? kind) === 'vat' ? 'Compte TVA déductible' : 'Compte retenue subie (créance · retenue sur nos ventes)'} style={{ marginTop: 8 }}><Select recent="accounts" className="in mono" value={deductible} onChange={(e) => setDeductible(e.target.value)}><option value="">—</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
           <Field label="Mention légale imprimée" style={{ marginTop: 8 }}><input className="in" value={mention} onChange={(e) => setMention(e.target.value)} /></Field>
           <div className="actions" style={{ marginTop: 10 }}>{editing && <button className="btn" onClick={() => load(null)}>Annuler</button>}<button className="btn primary" disabled={!name.trim() || (!editing && !code.trim())} onClick={save}>{editing ? 'Enregistrer' : 'Créer'}</button></div>
           <div className="small muted" style={{ marginTop: 8 }}>Une retenue « subie » porte un compte de créance (déductible) : elle s'applique aux factures clients. Une retenue « due » porte un compte à reverser : elle s'applique aux factures fournisseurs. Le taux (7 %, 3 %, 15 %…) se modifie ici ; les documents déjà validés gardent leur taux figé.</div>
@@ -190,7 +191,7 @@ function Rules({ entityId }: { entityId: Id }) {
   const rules = state.taxRules.filter((r) => r.entityId === entityId);
   const find = (regime: CounterpartyRegime | null, cat: string | null) => rules.find((r) => r.regime === regime && r.serviceCategory === cat);
   const set = (regime: CounterpartyRegime | null, cat: string | null, taxCodeId: string) => { if (taxCodeId) apply((s) => setTaxRule(s, { entityId, regime, serviceCategory: cat, taxCodeId }), 'Règle enregistrée'); };
-  const Cell = ({ regime, cat }: { regime: CounterpartyRegime | null; cat: string | null }) => { const r = find(regime, cat); return <td><select className="in" value={r?.taxCodeId ?? ''} onChange={(e) => set(regime, cat, e.target.value)}><option value="">— (hérite)</option>{vatCodes.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.rate * 100} %</option>)}</select></td>; };
+  const Cell = ({ regime, cat }: { regime: CounterpartyRegime | null; cat: string | null }) => { const r = find(regime, cat); return <td><Select className="in" value={r?.taxCodeId ?? ''} onChange={(e) => set(regime, cat, e.target.value)}><option value="">— (hérite)</option>{vatCodes.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.rate * 100} %</option>)}</Select></td>; };
   return (
     <>
       <div className="banner info">Résolution d'une ligne de facture client : code forcé sur la ligne › règle régime + catégorie › règle régime seul › défaut de l'entité. Une cellule vide hérite du niveau supérieur.</div>

@@ -8,6 +8,7 @@ import { useStore } from '../store';
 import { Chip, Field, Icon } from '../ui/common';
 import { reload } from './Tasks';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // The Settings room's Permissions tab, for the administrators who manage access (the "role modifiers"): who sees which
 // entity, and which parts of each. A role gives its standard parts; each person's can be tweaked per entity (a tweaked
@@ -238,13 +239,13 @@ function Editor({ person, data, onSaved }: { person: PermissionPerson; data: Per
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 10, alignItems: 'flex-end' }}>
           <Field label={say('Rôle', 'Role')} style={{ width: 190 }}>
-            <select className="in" style={{ height: 28 }} value={draft.role} disabled={self} onChange={(e) => setRole(e.target.value as ErpRole)}>{erpRoles.map((r) => <option key={r} value={r}>{roleName(r)}</option>)}</select>
+            <Select className="in" style={{ height: 28 }} value={draft.role} disabled={self} onChange={(e) => setRole(e.target.value as ErpRole)}>{erpRoles.map((r) => <option key={r} value={r}>{roleName(r)}</option>)}</Select>
           </Field>
           <Field label={say('Entité de rattachement', 'Home entity')} style={{ width: 190 }}>
-            <select className="in" style={{ height: 28 }} value={draft.homeEntity ?? ''} onChange={(e) => setDraft({ ...draft, homeEntity: (e.target.value || null) as BumexEntityCode | null })}>
+            <Select className="in" style={{ height: 28 }} value={draft.homeEntity ?? ''} onChange={(e) => setDraft({ ...draft, homeEntity: (e.target.value || null) as BumexEntityCode | null })}>
               {!draft.homeEntity && <option value="">—</option>}
               {data.entities.filter((e) => !e.isTest).map((e) => <option key={e.code} value={e.code}>{e.name}</option>)}
-            </select>
+            </Select>
           </Field>
           <label className="small" style={{ display: 'flex', gap: 5, alignItems: 'center', height: 28, opacity: draft.role === 'admin' ? 1 : 0.45 }} title={say("Réservé aux administrateurs : change les rôles et les accès de chacun", "Administrators only: changes everyone's roles and access")}>
             <input type="checkbox" checked={draft.managesAccess} disabled={draft.role !== 'admin' || self} onChange={(e) => setDraft({ ...draft, managesAccess: e.target.checked })} />
@@ -370,8 +371,8 @@ function InviteForm({ data, onClose, onDone }: { data: PermissionsData; onClose:
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
           <Field label={say('Nom complet', 'Full name')} style={{ flex: '1 1 160px' }}><input className="in" style={{ height: 28 }} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} placeholder="Prénom Nom" /></Field>
           <Field label="E-mail" style={{ flex: '1 1 180px' }}><input className="in" style={{ height: 28 }} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="prenom.nom@bumex.mr" /></Field>
-          <Field label={say('Entité', 'Entity')} style={{ flex: '1 1 150px' }}><select className="in" style={{ height: 28 }} value={form.homeEntity} onChange={(e) => setForm({ ...form, homeEntity: e.target.value as BumexEntityCode })}>{data.entities.filter((e) => !e.isTest).map((e) => <option key={e.code} value={e.code}>{e.name}</option>)}</select></Field>
-          <Field label={say('Rôle', 'Role')} style={{ flex: '1 1 150px' }}><select className="in" style={{ height: 28 }} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as ErpRole })}>{erpRoles.map((r) => <option key={r} value={r}>{roleName(r)}</option>)}</select></Field>
+          <Field label={say('Entité', 'Entity')} style={{ flex: '1 1 150px' }}><Select className="in" style={{ height: 28 }} value={form.homeEntity} onChange={(e) => setForm({ ...form, homeEntity: e.target.value as BumexEntityCode })}>{data.entities.filter((e) => !e.isTest).map((e) => <option key={e.code} value={e.code}>{e.name}</option>)}</Select></Field>
+          <Field label={say('Rôle', 'Role')} style={{ flex: '1 1 150px' }}><Select className="in" style={{ height: 28 }} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as ErpRole })}>{erpRoles.map((r) => <option key={r} value={r}>{roleName(r)}</option>)}</Select></Field>
           <div className="actions">
             <button className="btn sm" disabled={busy} onClick={onClose}>{say('Annuler', 'Cancel')}</button>
             <button className="btn sm primary" disabled={busy || !form.fullName.trim() || !form.email.trim()} onClick={send}>{busy ? say('Envoi…', 'Sending…') : say('Inviter', 'Invite')}</button>

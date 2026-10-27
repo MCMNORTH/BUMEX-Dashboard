@@ -10,6 +10,7 @@ import { useStore } from '../store';
 import { Chip, Field, Icon, Tabs } from '../ui/common';
 import type { Say } from './Conversation';
 import { useSay } from './say';
+import { Select, Suggest } from '../ui/Select';
 
 // The "Temps" room: BUMEX One's timesheet in Vanguard. My week (missions by day, favourites, copying last week, sending
 // it for review) and, for the administrator and managers, the team's weeks to approve, return or chase. Saved with
@@ -160,9 +161,9 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string } | 
         <button className="btn sm primary" disabled={!data.projects.length || data.week > today || locked} onClick={() => setSelection({ date: defaultDate, projectId: '', mission: '', entries: [] })}><Icon name="plus" size={13} /> {say('Ajouter du temps', 'Log time')}</button>
         {total > 0 && !data.test && (!data.weekStatus || data.weekStatus.status === 'returned') && <button className="btn sm" disabled={busy} onClick={submit}>{data.weekStatus?.status === 'returned' ? say('Renvoyer la semaine', 'Send the week again') : say('Envoyer la semaine', 'Send the week')}</button>}
         {!data.entries.length && data.week <= today && !locked && <button className="btn sm" disabled={busy} onClick={copy}>{say('Reprendre la semaine précédente', 'Copy the previous week')}</button>}
-        <select className="in" style={{ width: 220, marginLeft: 'auto' }} value={filter} onChange={(e) => setFilter(e.target.value)} aria-label={say('Projet', 'Project')}>
+        <Select className="in" style={{ width: 220, marginLeft: 'auto' }} value={filter} onChange={(e) => setFilter(e.target.value)} aria-label={say('Projet', 'Project')}>
           <option value="">{say('Tous les projets', 'All projects')}</option>{[...projectName].map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-        </select>
+        </Select>
       </div>
       {data.favorites.length > 0 && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -255,8 +256,8 @@ function EntryEditor({ data, selection, onPick, onClose, onSaved, say }: { data:
       </div>
       {selection.entries.length > 1 && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><span className="small muted">{say('Saisies de ce jour :', 'Entries that day:')}</span>{selection.entries.map((e) => <button key={e.id} className={`btn sm ${entry?.id === e.id ? 'primary' : ''}`} onClick={() => onPick(e)}>{duration(e.duration_minutes)}{e.note ? ` · ${e.note.slice(0, 24)}` : ''}</button>)}</div>}
       <div className="grid3">
-        <Field label={say('Projet', 'Project')}><select className="in" value={projectId} disabled={Boolean(entry)} onChange={(e) => { setProjectId(e.target.value); setMission(''); }}><option value="">{say('— choisir —', '— choose —')}</option>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
-        <Field label={say('Mission · tâche', 'Mission · task')}><input className="in" list="time-missions" value={mission} maxLength={200} onChange={(e) => setMission(e.target.value)} placeholder={say('Ex. Revue du dossier', 'E.g. File review')} /><datalist id="time-missions">{suggestions.map((s) => <option key={s} value={s} />)}</datalist></Field>
+        <Field label={say('Projet', 'Project')}><Select recent="missions" className="in" value={projectId} disabled={Boolean(entry)} onChange={(e) => { setProjectId(e.target.value); setMission(''); }}><option value="">{say('— choisir —', '— choose —')}</option>{data.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
+        <Field label={say('Mission · tâche', 'Mission · task')}><Suggest options={suggestions} value={mission} maxLength={200} onChange={(e) => setMission(e.target.value)} placeholder={say('Ex. Revue du dossier', 'E.g. File review')} /></Field>
         <Field label={say('Jour', 'Day')}><input className="in mono" type="date" value={date} min={data.week} max={data.days[6] < data.today ? data.days[6] : data.today} onChange={(e) => setDate(e.target.value)} /></Field>
         <Field label={say('Heures', 'Hours')}><input className="in num" type="number" min={0} max={24} value={hours} onChange={(e) => setHours(Number(e.target.value))} /></Field>
         <Field label="Minutes"><input className="in num" type="number" min={0} max={59} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} /></Field>
@@ -335,11 +336,11 @@ function TeamSheet() {
       </div>
       <div className="actions" style={{ justifyContent: 'flex-start' }}>
         <input className="in" style={{ maxWidth: 260 }} placeholder={say('Rechercher une personne…', 'Search for a person…')} value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="in" style={{ width: 180 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+        <Select className="in" style={{ width: 180 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="all">{say('Tous les statuts', 'Every status')}</option>
           {Object.entries(STATUS).map(([k, [fr, en]]) => <option key={k} value={k}>{say(fr, en)}</option>)}
           <option value="incomplete">{say('Incomplètes', 'Incomplete')}</option>
-        </select>
+        </Select>
         {selected.length > 0 && <button className="btn sm primary" disabled={busy} onClick={() => act(() => approveTimesheetWeeksAction(selected, data.week), say(`${selected.length} feuille(s) validée(s)`, `${selected.length} timesheet(s) approved`))}>{say('Valider la sélection', 'Approve the selection')} · {selected.length}</button>}
       </div>
       {returning && (

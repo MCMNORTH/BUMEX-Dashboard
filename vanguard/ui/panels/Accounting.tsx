@@ -7,6 +7,7 @@ import {
 } from '@bumex/domain';
 import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, saveFile, downloadXlsx, readXlsx, DeleteButton } from '../common';
+import { Select, Suggest } from '../Select';
 
 type Tab = 'entry' | 'journals' | 'gl' | 'tb' | 'closing' | 'coa' | 'setup' | 'integrity';
 
@@ -163,13 +164,13 @@ function EntryForm({ entityId, editing, onDone }: { entityId: Id; editing: Id | 
           </div>
           <div className="grid4">
             <Field label={`${t('date')} (toute période ouverte)`}><input className="in mono" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-            <Field label={t('journal')}><select className="in" value={journalId} onChange={(e) => setJournalId(e.target.value)}>{journals.map((j) => <option key={j.id} value={j.id}>{j.code} · {j.name}</option>)}</select></Field>
+            <Field label={t('journal')}><Select recent="journals" className="in" value={journalId} onChange={(e) => setJournalId(e.target.value)}>{journals.map((j) => <option key={j.id} value={j.id}>{j.code} · {j.name}</option>)}</Select></Field>
             <Field label={t('label')}><input className="in" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Pièce / référence" /></Field>
             <Field label={`${t('currency')} · ${t('rate')}`}>
               <div style={{ display: 'flex', gap: 6 }}>
-                <select className="in" style={{ width: 90 }} value={currency} onChange={(e) => { const c = e.target.value as Currency; setCurrency(c); try { setRate(String(c === entity.functionalCurrency ? 1 : fxRate(state, c, entity.functionalCurrency, date))); } catch { setRate('1'); } }}>
+                <Select className="in" style={{ width: 90 }} value={currency} onChange={(e) => { const c = e.target.value as Currency; setCurrency(c); try { setRate(String(c === entity.functionalCurrency ? 1 : fxRate(state, c, entity.functionalCurrency, date))); } catch { setRate('1'); } }}>
                   {['MRU', 'EUR', 'USD', 'MAD'].map((c) => <option key={c}>{c}</option>)}
-                </select>
+                </Select>
                 <input className="in num" value={rate} onChange={(e) => setRate(e.target.value)} disabled={currency === entity.functionalCurrency} />
               </div>
             </Field>
@@ -183,14 +184,14 @@ function EntryForm({ entityId, editing, onDone }: { entityId: Id; editing: Id | 
                   return (
                     <tr key={i} onFocus={() => (focused.current = i)}>
                       <td className="mono">{i + 1}</td>
-                      <td><input className="in mono" list="acc-list" value={l.code} onChange={(e) => setLine(i, { code: e.target.value })} aria-label={`Compte ligne ${i + 1}`} placeholder="code ou nom" /></td>
+                      <td><Suggest className="in mono" recent="account-codes" options={accounts.map((a) => ({ value: a.code, label: `${a.code} ${a.nameFr}` }))} value={l.code} onChange={(e) => setLine(i, { code: e.target.value })} aria-label={`Compte ligne ${i + 1}`} placeholder="code ou nom" /></td>
                       <td className="muted small">{a ? a.nameFr + (a.requiresCustomer ? ' · client requis' : a.requiresSupplier ? ' · fournisseur requis' : '') : l.code ? 'compte inconnu' : ''}</td>
                       <td><input className="in" value={l.description} onChange={(e) => setLine(i, { description: e.target.value })} aria-label={`Libellé ligne ${i + 1}`} /></td>
                       <td>
                         {a?.requiresCustomer ? (
-                          <select className="in" value={l.dim} onChange={(e) => setLine(i, { dim: e.target.value })} aria-label={`Client ligne ${i + 1}`}><option value="">— client —</option>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+                          <Select recent="customers" className="in" value={l.dim} onChange={(e) => setLine(i, { dim: e.target.value })} aria-label={`Client ligne ${i + 1}`}><option value="">— client —</option>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
                         ) : a?.requiresSupplier ? (
-                          <select className="in" value={l.dim} onChange={(e) => setLine(i, { dim: e.target.value })} aria-label={`Fournisseur ligne ${i + 1}`}><option value="">— fournisseur —</option>{suppliers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+                          <Select recent="suppliers" className="in" value={l.dim} onChange={(e) => setLine(i, { dim: e.target.value })} aria-label={`Fournisseur ligne ${i + 1}`}><option value="">— fournisseur —</option>{suppliers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
                         ) : (
                           <span className="muted small">—</span>
                         )}
@@ -215,7 +216,6 @@ function EntryForm({ entityId, editing, onDone }: { entityId: Id; editing: Id | 
                 </tr>
               </tfoot>
             </table>
-            <datalist id="acc-list">{accounts.map((a) => <option key={a.id} value={a.code}>{a.code} {a.nameFr}</option>)}</datalist>
           </div>
           {checks.length > 0 && totals.d + totals.c > 0 && <div className="banner warn">{checks.map((c) => c.message).join(' · ')}</div>}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', fontSize: 12, color: 'var(--muted)' }}>
@@ -317,8 +317,8 @@ function Journals({ entityId, onEdit }: { entityId: Id; onEdit: (id: Id) => void
   return (
     <div className="card flush">
       <div style={{ display: 'flex', gap: 8, padding: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <select className="in" style={{ width: 220 }} value={journalId} onChange={(e) => setJournalId(e.target.value)}><option value="">Tous les journaux</option>{state.journals.filter((j) => j.entityId === entityId).map((j) => <option key={j.id} value={j.id}>{j.code} · {j.name}</option>)}</select>
-        <select className="in" style={{ width: 180 }} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Tous statuts</option><option value="draft">Brouillons</option><option value="posted">Comptabilisées</option><option value="reversed">Extournées</option></select>
+        <Select recent="journals" className="in" style={{ width: 220 }} value={journalId} onChange={(e) => setJournalId(e.target.value)}><option value="">Tous les journaux</option>{state.journals.filter((j) => j.entityId === entityId).map((j) => <option key={j.id} value={j.id}>{j.code} · {j.name}</option>)}</Select>
+        <Select className="in" style={{ width: 180 }} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Tous statuts</option><option value="draft">Brouillons</option><option value="posted">Comptabilisées</option><option value="reversed">Extournées</option></Select>
         <span className="muted small">Exercice {ui.fiscalYearLabel} · {rows.length} écritures · cliquer une ligne pour les détails</span>
         {rows.some((r) => r.status === 'draft') && <button className="btn sm" style={{ marginLeft: 'auto' }} onClick={() => onEdit(rows.find((r) => r.status === 'draft')!.id)}>{t('edit')} le premier brouillon</button>}
       </div>
@@ -340,8 +340,7 @@ function Ledger({ entityId }: { entityId: Id }) {
   return (
     <div className="card flush">
       <div style={{ display: 'flex', gap: 8, padding: 10, alignItems: 'center' }}>
-        <input className="in mono" style={{ width: 260 }} list="gl-list" value={code} onChange={(e) => setCode(e.target.value)} aria-label="Compte" />
-        <datalist id="gl-list">{accounts.map((x) => <option key={x.id} value={x.code}>{x.code} {x.nameFr}{x.isAuxiliary ? ' (auxiliaire)' : ''}</option>)}</datalist>
+        <Suggest className="in mono" style={{ width: 260 }} recent="account-codes" options={accounts.map((x) => ({ value: x.code, label: `${x.code} ${x.nameFr}${x.isAuxiliary ? ' (auxiliaire)' : ''}` }))} value={code} onChange={(e) => setCode(e.target.value)} aria-label="Compte" />
         <span>{a?.nameFr}{a && !a.isAuxiliary && state.accounts.some((x) => x.collectiveId === a.id) ? <span className="small muted"> · collectif, auxiliaires inclus</span> : null}</span>
         <span className="muted small" style={{ marginLeft: 'auto' }}>Exercice {ui.fiscalYearLabel} · solde <b className="mono">{fmt(rows.length ? rows[rows.length - 1].running : 0)}</b></span>
       </div>
@@ -505,7 +504,7 @@ function Chart({ entityId }: { entityId: Id }) {
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <div><b>Plan actif · {tpl?.name ?? entity.coaTemplate}</b><div className="small muted">{all.length} comptes présentés sur {entity.accountCodeLength ?? 6} chiffres · {all.filter((a) => a.isPostable && a.active).length} imputables · utilisé par tous les modules de {entity.name}</div></div>
             <span style={{ marginLeft: 'auto' }} />
-            <select className="in" style={{ width: 300 }} value={template} onChange={(e) => setTemplate(e.target.value as CoaTemplate)}>{CHART_TEMPLATES.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.country} · {x.accounts} comptes</option>)}</select>
+            <Select className="in" style={{ width: 300 }} value={template} onChange={(e) => setTemplate(e.target.value as CoaTemplate)}>{CHART_TEMPLATES.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.country} · {x.accounts} comptes</option>)}</Select>
             <button className="btn sm" onClick={() => apply((s) => applyChartTemplate(s, entityId, template, 'merge'), `Plan complété avec ${template}`)}>Compléter avec ce plan</button>
             <button className="btn sm danger" disabled={hasEntries} title={hasEntries ? 'Des écritures existent : remplacement impossible' : ''} onClick={() => { if (confirm(`Remplacer le plan de ${entity.name} par ${template} ? Les comptes, codes taxe et clés de paramétrage sont réinitialisés.`)) apply((s) => applyChartTemplate(s, entityId, template, 'replace'), `Plan ${template} activé`); }}>Remplacer (entité vierge)</button>
           </div>
@@ -538,7 +537,7 @@ function Chart({ entityId }: { entityId: Id }) {
           <div style={{ display: 'flex', gap: 8, padding: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             {([['moving', 'Comptes mouvementés'], ['unused', 'Non mouvementés'], ['auxiliary', 'Comptes auxiliaires'], ['all', 'Tout le plan']] as const).map(([k, l]) => <button key={k} className={`btn sm ${view === k ? 'on' : ''}`} onClick={() => setView(k)}>{l}</button>)}
             <input className="in" style={{ width: 220 }} placeholder="Filtrer par numéro ou intitulé" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filtrer" />
-            <select className="in" style={{ width: 140 }} value={cls} onChange={(e) => setCls(e.target.value)} aria-label="Classe"><option value="">Toutes classes</option>{['1', '2', '3', '4', '5', '6', '7', '8', '9'].filter((c) => all.some((a) => a.code.startsWith(c))).map((c) => <option key={c} value={c}>Classe {c}</option>)}</select>
+            <Select className="in" style={{ width: 140 }} value={cls} onChange={(e) => setCls(e.target.value)} aria-label="Classe"><option value="">Toutes classes</option>{['1', '2', '3', '4', '5', '6', '7', '8', '9'].filter((c) => all.some((a) => a.code.startsWith(c))).map((c) => <option key={c} value={c}>Classe {c}</option>)}</Select>
             <span className="muted small">{rows.length} comptes{view === 'moving' ? ' avec écritures' : view === 'unused' ? ' sans écriture, racines et regroupements' : view === 'auxiliary' ? ' de tiers, rattachés à leur collectif' : ''} · cliquer pour modifier</span>
           </div>
           <table>
@@ -554,8 +553,8 @@ function Chart({ entityId }: { entityId: Id }) {
           <Field label="Intitulé" style={{ marginTop: 8 }}><input className="in" value={name} onChange={(e) => setName(e.target.value)} placeholder="Audit · export" /></Field>
           <Field label="Intitulé (EN)" style={{ marginTop: 8 }}><input className="in" value={nameEn} onChange={(e) => setNameEn(e.target.value)} /></Field>
           <div className="grid2" style={{ marginTop: 8 }}>
-            <Field label="Type"><select className="in" value={kind} onChange={(e) => setKind(e.target.value as Account['kind'])}>{(Object.keys(ACCOUNT_KIND_FR) as Account['kind'][]).map((k) => <option key={k} value={k}>{ACCOUNT_KIND_FR[k]}</option>)}</select></Field>
-            <Field label="Dimension requise"><select className="in" value={dim} onChange={(e) => setDim(e.target.value as typeof dim)}><option value="">aucune</option><option value="customer">client</option><option value="supplier">fournisseur</option><option value="engagement">mission</option></select></Field>
+            <Field label="Type"><Select className="in" value={kind} onChange={(e) => setKind(e.target.value as Account['kind'])}>{(Object.keys(ACCOUNT_KIND_FR) as Account['kind'][]).map((k) => <option key={k} value={k}>{ACCOUNT_KIND_FR[k]}</option>)}</Select></Field>
+            <Field label="Dimension requise"><Select className="in" value={dim} onChange={(e) => setDim(e.target.value as typeof dim)}><option value="">aucune</option><option value="customer">client</option><option value="supplier">fournisseur</option><option value="engagement">mission</option></Select></Field>
           </div>
           <label className="small" style={{ display: 'block', marginTop: 8 }}><input type="checkbox" checked={postable} onChange={(e) => setPostable(e.target.checked)} /> Imputable (accepte des écritures)</label>
           {editing && <label className="small" style={{ display: 'block', marginTop: 4 }}><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Actif (proposé dans les saisies)</label>}
@@ -603,7 +602,7 @@ function Setup({ entityId }: { entityId: Id }) {
           <div className="grid3">
             <Field label="Code"><input className="in mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder="BQ2" /></Field>
             <Field label="Intitulé"><input className="in" value={name} onChange={(e) => setName(e.target.value)} placeholder="Banque Attijari" /></Field>
-            <Field label="Type"><select className="in" value={kind} onChange={(e) => setKind(e.target.value as JournalKind)}>{JOURNAL_KINDS.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}</select></Field>
+            <Field label="Type"><Select className="in" value={kind} onChange={(e) => setKind(e.target.value as JournalKind)}>{JOURNAL_KINDS.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}</Select></Field>
           </div>
           <div className="actions" style={{ marginTop: 10 }}>{editing && <button className="btn" onClick={() => load(null)}>Annuler</button>}<button className="btn primary" disabled={!code.trim() || !name.trim()} onClick={save}>{editing ? 'Enregistrer' : 'Créer'}</button></div>
           {editing && journalUsage(state, editing.id).posted > 0 && <div className="small muted" style={{ marginTop: 6 }}>Ce journal porte des écritures comptabilisées : code et intitulé restent modifiables, le type est figé.</div>}
@@ -618,8 +617,8 @@ function Setup({ entityId }: { entityId: Id }) {
           <Field label="Chiffres"><input className="in num" value={digits} onChange={(e) => setDigits(e.target.value)} /></Field>
         </div>
         <div className="grid2" style={{ marginTop: 8 }}>
-          <Field label="Collectif clients"><select className="in mono" value={cc} onChange={(e) => setCc(e.target.value)}><option value="">{defaultCustomer ? `Paramétrage · ${defaultCustomer.code} ${defaultCustomer.nameFr}` : '—'}</option>{collectives.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</select></Field>
-          <Field label="Collectif fournisseurs"><select className="in mono" value={sc} onChange={(e) => setSc(e.target.value)}><option value="">{defaultSupplier ? `Paramétrage · ${defaultSupplier.code} ${defaultSupplier.nameFr}` : '—'}</option>{collectives.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</select></Field>
+          <Field label="Collectif clients"><Select recent="accounts" className="in mono" value={cc} onChange={(e) => setCc(e.target.value)}><option value="">{defaultCustomer ? `Paramétrage · ${defaultCustomer.code} ${defaultCustomer.nameFr}` : '—'}</option>{collectives.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
+          <Field label="Collectif fournisseurs"><Select recent="accounts" className="in mono" value={sc} onChange={(e) => setSc(e.target.value)}><option value="">{defaultSupplier ? `Paramétrage · ${defaultSupplier.code} ${defaultSupplier.nameFr}` : '—'}</option>{collectives.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
         </div>
         <div className="small muted" style={{ marginTop: 8 }}>Prochains codes : client <span className="mono">{(() => { try { return nextThirdPartyCode(state, entityId, 'customer'); } catch { return '—'; } })()}</span> · fournisseur <span className="mono">{(() => { try { return nextThirdPartyCode(state, entityId, 'supplier'); } catch { return '—'; } })()}</span></div>
         <div className="actions" style={{ marginTop: 10 }}><button className="btn primary" onClick={() => apply((s) => setThirdPartyRules(s, entityId, { customerPrefix: cp, supplierPrefix: sp, digits: Number(digits) || 3, customerCollectiveId: cc || undefined, supplierCollectiveId: sc || undefined }), 'Règles des tiers enregistrées')}>Enregistrer les règles</button></div>

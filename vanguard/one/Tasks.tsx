@@ -10,6 +10,7 @@ import { Chip, D, Field, Icon, Tabs } from '../ui/common';
 import { MissionBoard } from './Board';
 import { TicketPanel } from './Ticket';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // Vanguard's Tasks room on BUMEX One's tickets (lib/erp/vanguard/tickets.ts): the tickets of the floor's missions,
 // created and moved with BUMEX One's ticket actions, so its rules hold (who may create, the boards' workflows, only
@@ -214,11 +215,11 @@ function NewTask({ entityId, onDone }: { entityId: Id; onDone: () => void }) {
       ) : (
         <div className="grid4">
           <Field label={t('label')} style={{ gridColumn: 'span 2' }}><input className="in" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('tsk_title_ph')} autoFocus onKeyDown={(e) => e.key === 'Enter' && submit()} /></Field>
-          <Field label={t('tsk_engagement')} style={{ gridColumn: 'span 2' }}><select className="in" value={missionId} onChange={(e) => setMissionId(e.target.value)}>{missions.map((m) => <option key={m.id} value={m.id}>{m.code} · {m.name}</option>)}</select></Field>
-          <Field label={t('tsk_assignee')}><select className="in" value={assignee} onChange={(e) => setAssignee(e.target.value)}><option value="">—</option>{(options?.people ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
+          <Field label={t('tsk_engagement')} style={{ gridColumn: 'span 2' }}><Select recent="missions" className="in" value={missionId} onChange={(e) => setMissionId(e.target.value)}>{missions.map((m) => <option key={m.id} value={m.id}>{m.code} · {m.name}</option>)}</Select></Field>
+          <Field label={t('tsk_assignee')}><Select recent="people" className="in" value={assignee} onChange={(e) => setAssignee(e.target.value)}><option value="">—</option>{(options?.people ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
           <Field label={t('tsk_mine')}><input className="in" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></Field>
-          <Field label={t('tsk_priority')}><select className="in" value={priority} onChange={(e) => setPriority(e.target.value)}>{Object.entries(PRIORITY).map(([k, [fr, en]]) => <option key={k} value={k}>{say(fr, en)}</option>)}</select></Field>
-          <Field label="Type"><select className="in" value={type} onChange={(e) => setType(e.target.value)}>{TYPES.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</select></Field>
+          <Field label={t('tsk_priority')}><Select className="in" value={priority} onChange={(e) => setPriority(e.target.value)}>{Object.entries(PRIORITY).map(([k, [fr, en]]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
+          <Field label="Type"><Select className="in" value={type} onChange={(e) => setType(e.target.value)}>{TYPES.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
           <Field label={t('tsk_notes')} style={{ gridColumn: 'span 4' }}><input className="in" value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
         </div>
       )}

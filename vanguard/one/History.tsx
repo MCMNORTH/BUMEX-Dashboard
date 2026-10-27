@@ -4,6 +4,7 @@ import { bumexOneHistoryAction, type BumexOneEvent } from '@/lib/erp/vanguard/hi
 import { useStore } from '../store';
 import { Chip } from '../ui/common';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // The one History (the Settings room's "Historique" tab): the ERP's audit log, which is in the state, and BUMEX One's
 // activity log (projects, tickets, clients, contracts…), latest first, filtered together. Replaces the delivered
@@ -45,21 +46,21 @@ export function History() {
     <>
       <div className="actions" style={{ justifyContent: 'flex-start' }}>
         <input className="in" style={{ maxWidth: 320 }} placeholder={say("Filtrer l'historique…", 'Filter the history…')} value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="in" style={{ maxWidth: 190 }} value={source} onChange={(e) => setSource(e.target.value as '' | 'erp' | 'one')} aria-label={say('Origine', 'Source')}>
+        <Select className="in" style={{ maxWidth: 190 }} value={source} onChange={(e) => setSource(e.target.value as '' | 'erp' | 'one')} aria-label={say('Origine', 'Source')}>
           <option value="">{say('Tout', 'Everything')}</option>
           <option value="erp">{say('ERP · comptabilité, gestion', 'ERP · accounting, management')}</option>
           <option value="one">{say('Travail · projets, tickets, clients', 'Work · projects, tickets, clients')}</option>
-        </select>
-        <select className="in" style={{ maxWidth: 170 }} value={action} onChange={(e) => setAction(e.target.value as '' | 'I' | 'U' | 'D')}>
+        </Select>
+        <Select className="in" style={{ maxWidth: 170 }} value={action} onChange={(e) => setAction(e.target.value as '' | 'I' | 'U' | 'D')}>
           <option value="">{say('Toutes les actions', 'Every action')}</option>
           <option value="I">{say('Créations', 'Creations')}</option>
           <option value="U">{say('Modifications · validations', 'Changes · validations')}</option>
           <option value="D">{say('Suppressions', 'Deletions')}</option>
-        </select>
-        <select className="in" style={{ maxWidth: 160 }} value={scope} onChange={(e) => setScope(e.target.value as 'entity' | 'all')}>
+        </Select>
+        <Select className="in" style={{ maxWidth: 160 }} value={scope} onChange={(e) => setScope(e.target.value as 'entity' | 'all')}>
           <option value="entity">{say('Entité courante', 'Current entity')}</option>
           <option value="all">{say('Tout le groupe', 'The whole group')}</option>
-        </select>
+        </Select>
         <span className="small muted">{rows.length} {say('lignes', 'rows')}{events === null ? ` · ${say('chargement du travail…', 'loading the work…')}` : ''}</span>
       </div>
       <div className="card flush">

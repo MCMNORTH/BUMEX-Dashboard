@@ -6,6 +6,7 @@ import type { NotificationRecord, NotificationType } from '@/types/notification'
 import { Chip } from '../ui/common';
 import { when } from './Conversation';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // The notifications' panel (the header's bell opens a few; "see them all" opens this): BUMEX One's Notifications page.
 // A notification opens what it is about through BUMEX One's link, which lands in the right room
@@ -50,7 +51,7 @@ export function Inbox() {
       <div className="sheet-body">
         <div className="actions" style={{ justifyContent: 'flex-start' }}>
           <input className="in" style={{ maxWidth: 280 }} placeholder={say('Rechercher…', 'Search…')} value={q} onChange={(e) => setQ(e.target.value)} />
-          <select className="in" style={{ width: 180 }} value={type} onChange={(e) => setType(e.target.value as NotificationType | '')}><option value="">{say('Tous les types', 'Every type')}</option>{(Object.keys(TYPES) as NotificationType[]).map((k) => <option key={k} value={k}>{say(TYPES[k][0], TYPES[k][1])}</option>)}</select>
+          <Select className="in" style={{ width: 180 }} value={type} onChange={(e) => setType(e.target.value as NotificationType | '')}><option value="">{say('Tous les types', 'Every type')}</option>{(Object.keys(TYPES) as NotificationType[]).map((k) => <option key={k} value={k}>{say(TYPES[k][0], TYPES[k][1])}</option>)}</Select>
           <label className="small"><input type="checkbox" checked={unreadOnly} onChange={(e) => setUnreadOnly(e.target.checked)} /> {say('non lues seulement', 'unread only')}</label>
           {unread > 0 && <button className="btn sm" style={{ marginLeft: 'auto' }} onClick={async () => { await markAllNotificationsAsReadAction().catch(() => null); await load(); }}>{say('Tout marquer comme lu', 'Mark all as read')}</button>}
         </div>

@@ -5,6 +5,7 @@ import type { AppRole } from '@/types/auth';
 import type { CommentEntityType, CommentRecord } from '@/types/comment';
 import { canCreateNoteByRole, getAllowedNoteVisibilities, type InternalNoteEntityType, type InternalNoteRecord, type NoteVisibility } from '@/types/note';
 import { Chip, Field } from '../ui/common';
+import { Select } from '../ui/Select';
 
 // The conversation that travels with a ticket, a mission, a client or a contract, as BUMEX One had it: comments
 // (mentions with @Full Name, which BUMEX One notifies; internal ones hidden from shareholders) and internal notes
@@ -48,9 +49,9 @@ export function Comments({ entityType, entityId, comments, people, role, me, can
         <>
           <textarea className="in" style={{ height: 70, padding: 8 }} value={body} onChange={(e) => setBody(e.target.value)} placeholder={say('Une mise à jour, un blocage, une passation… @Nom pour mentionner', 'An update, a blocker, a handoff… @Name to mention')} />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <select className="in" style={{ width: 170 }} value="" onChange={(e) => { const name = e.target.value; if (name) setBody((b) => `${b}${b && !b.endsWith(' ') ? ' ' : ''}@${name} `); }} aria-label={say('Mentionner', 'Mention')}>
+            <Select recent="people" className="in" style={{ width: 170 }} value="" onChange={(e) => { const name = e.target.value; if (name) setBody((b) => `${b}${b && !b.endsWith(' ') ? ' ' : ''}@${name} `); }} aria-label={say('Mentionner', 'Mention')}>
               <option value="">{say('Mentionner…', 'Mention…')}</option>{people.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
-            </select>
+            </Select>
             {role !== 'shareholder' && <label className="small"><input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)} /> {say('interne', 'internal')}</label>}
             <button className="btn sm primary" style={{ marginLeft: 'auto' }} disabled={busy || !body.trim()} onClick={send}>{say('Publier', 'Post')}</button>
           </div>
@@ -121,17 +122,17 @@ export function Notes({ entityType, entityId, notes, role, me, busy, run, say }:
     <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0 }}>{say('Notes internes', 'Internal notes')} <span className="small muted">{shown.length}</span></h2>
-        <select className="in" style={{ width: 160, marginLeft: 'auto' }} value={filter} onChange={(e) => setFilter(e.target.value as 'all' | NoteVisibility)} aria-label={say('Visibilité', 'Visibility')}>
+        <Select className="in" style={{ width: 160, marginLeft: 'auto' }} value={filter} onChange={(e) => setFilter(e.target.value as 'all' | NoteVisibility)} aria-label={say('Visibilité', 'Visibility')}>
           <option value="all">{say('Toutes', 'All')}</option>
           {(Object.keys(VISIBILITY) as NoteVisibility[]).map((v) => <option key={v} value={v}>{say(...VISIBILITY[v])}</option>)}
-        </select>
+        </Select>
         {canCreateNoteByRole(role, entityType) && !draft && <button className="btn sm primary" onClick={() => setDraft(blank)}>{say('Nouvelle note', 'New note')}</button>}
       </div>
       {draft && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--line)', paddingTop: 8 }}>
           <div className="grid3">
             <Field label={say('Titre', 'Title')} style={{ gridColumn: 'span 2' }}><input className="in" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></Field>
-            <Field label={say('Visibilité', 'Visibility')}><select className="in" value={draft.visibility} onChange={(e) => setDraft({ ...draft, visibility: e.target.value as NoteVisibility })}>{allowed.map((v) => <option key={v} value={v}>{say(...VISIBILITY[v])}</option>)}</select></Field>
+            <Field label={say('Visibilité', 'Visibility')}><Select className="in" value={draft.visibility} onChange={(e) => setDraft({ ...draft, visibility: e.target.value as NoteVisibility })}>{allowed.map((v) => <option key={v} value={v}>{say(...VISIBILITY[v])}</option>)}</Select></Field>
           </div>
           <textarea className="in" style={{ height: 90, padding: 8 }} value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
           <div className="actions">

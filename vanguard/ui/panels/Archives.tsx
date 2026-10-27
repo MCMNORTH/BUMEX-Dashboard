@@ -9,6 +9,7 @@ import { useSay } from '../../one/say'; // [bumex-one]
 // rack); selecting a box in 3D selects the row here. Actions change the records, so the rack changes too.
 
 const STATUS_KIND: Record<ArchiveStatus, 'good' | 'warn' | 'crit' | 'dim'> = { archived: 'good', retrieved: 'warn', pending_destruction: 'crit', destroyed: 'dim' };
+import { Select } from '../Select';
 
 export function ArchivesPanel({ entityId, compact = false, initialTab }: { entityId: Id; compact?: boolean; initialTab?: string | null }) { // [bumex-one] initialTab
   const { state, t, apply, ui, setUi, openRoom, openArchive } = useStore();
@@ -55,8 +56,8 @@ export function ArchivesPanel({ entityId, compact = false, initialTab }: { entit
               <button key={s} className={`pill ${status === s ? 'on' : ''}`} onClick={() => setStatus(s)}>{l}</button>
             ))}
           </div>
-          <select className="in" style={{ width: 'auto' }} value={year} onChange={(e) => setYear(e.target.value)} aria-label={t('arc_date')}><option value="">{t('arc_all')} · {t('arc_date').toLowerCase()}</option>{years.map((y) => <option key={y} value={y}>{y}</option>)}</select>
-          <select className="in" style={{ width: 'auto' }} value={kind} onChange={(e) => setKind(e.target.value as ArchiveKind | 'all')} aria-label="Type"><option value="all">{t('arc_box')} + {t('arc_binder')}</option><option value="box">{t('arc_box')}</option><option value="binder">{t('arc_binder')}</option></select>
+          <Select className="in" style={{ width: 'auto' }} value={year} onChange={(e) => setYear(e.target.value)} aria-label={t('arc_date')}><option value="">{t('arc_all')} · {t('arc_date').toLowerCase()}</option>{years.map((y) => <option key={y} value={y}>{y}</option>)}</Select>
+          <Select className="in" style={{ width: 'auto' }} value={kind} onChange={(e) => setKind(e.target.value as ArchiveKind | 'all')} aria-label="Type"><option value="all">{t('arc_box')} + {t('arc_binder')}</option><option value="box">{t('arc_box')}</option><option value="binder">{t('arc_binder')}</option></Select>
         </div>
         {queue.length > 0 && (
           <div className="card" style={{ borderColor: 'var(--gold)' }}>
@@ -65,7 +66,7 @@ export function ArchivesPanel({ entityId, compact = false, initialTab }: { entit
               <div key={e.id} className="row" style={{ borderTopColor: 'var(--line)', color: 'var(--ink)' }}>
                 <span><b>{e.code}</b> · {e.name} <span className="muted small">· {state.customers.find((c) => c.id === e.customerId)?.name}</span></span>
                 <span className="toolbar">
-                  <select className="in" style={{ width: 'auto', height: 27 }} value={boxKind} onChange={(ev) => setBoxKind(ev.target.value as ArchiveKind)}><option value="box">{t('arc_box')}</option><option value="binder">{t('arc_binder')}</option></select>
+                  <Select className="in" style={{ width: 'auto', height: 27 }} value={boxKind} onChange={(ev) => setBoxKind(ev.target.value as ArchiveKind)}><option value="box">{t('arc_box')}</option><option value="binder">{t('arc_binder')}</option></Select>
                   <button className="btn sm primary" onClick={() => apply((s) => { const [s1, rec] = archiveEngagement(s, { engagementId: e.id, kind: boxKind }); window.setTimeout(() => openArchive(rec.id, false), 0); return s1; }, t('arc_archive_now'))}>{t('arc_archive_now')}</button>
                 </span>
               </div>

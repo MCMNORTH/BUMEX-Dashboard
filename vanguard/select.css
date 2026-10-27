@@ -1,0 +1,39 @@
+/* [bumex-one] The dropdowns (vanguard/ui/Select.tsx): a trigger the size of the fields it replaces, a list over the
+   page with its search, a sheet from the bottom on a phone. Vanguard's own colours, inside its container. */
+
+.vanguard .vsel { display: flex; align-items: center; gap: 6px; text-align: left; cursor: pointer; color: inherit; font: inherit; min-width: 0; }
+.vanguard .vsel.in { background: var(--paper); }
+.vanguard .vsel:disabled { cursor: default; opacity: .6; }
+.vanguard .vsel.open { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(107,141,193,.25); }
+.vanguard .vsel .vsel-v { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vanguard .vsel .vsel-chev { flex: none; width: 10px; height: 6px; color: var(--muted); transition: transform .15s; }
+.vanguard .vsel.open .vsel-chev { transform: rotate(180deg); }
+/* the header's (the fiscal year) */
+.vanguard .vsel.dark { height: 32px; padding: 0 10px; width: auto; border: 1px solid var(--dark-border); border-radius: var(--r-sm); background: rgba(255,255,255,.08); color: var(--dark-text); }
+.vanguard .vsel.dark .vsel-chev { color: var(--dark-muted); }
+
+.vanguard .vsel-pop { position: fixed; z-index: 1000; display: flex; flex-direction: column; min-height: 0; background: var(--paper); color: var(--ink); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; animation: vg-vsel-in .12s ease-out; }
+@keyframes vg-vsel-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+.vanguard .vsel-search { flex: none; display: flex; align-items: center; gap: 7px; padding: 7px 9px; border-bottom: 1px solid var(--line); }
+.vanguard .vsel-search svg { width: 15px; height: 15px; flex: none; color: var(--muted); }
+.vanguard .vsel-search input { flex: 1; min-width: 0; height: 26px; border: 0; outline: none; background: transparent; font: inherit; color: inherit; padding: 0; }
+.vanguard .vsel-count { flex: none; font-size: 11px; color: var(--muted); background: var(--ground); border-radius: 9px; padding: 1px 7px; font-variant-numeric: tabular-nums; }
+.vanguard .vsel-list { overflow-y: auto; overscroll-behavior: contain; padding: 4px; outline: none; min-height: 0; }
+.vanguard .vsel-head { padding: 7px 8px 3px; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.vanguard .vsel-opt { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; line-height: 1.3; }
+.vanguard .vsel-opt.on { background: var(--blue-pale); }
+.vanguard .vsel-opt.sel { font-weight: 600; color: var(--accent-dark); }
+.vanguard .vsel-opt.off { opacity: .45; cursor: default; }
+.vanguard .vsel-opt .vsel-l { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.vanguard .vsel-opt mark { background: rgba(217,161,62,.28); color: inherit; border-radius: 2px; padding: 0 1px; }
+.vanguard .vsel-tick { flex: none; width: 14px; height: 14px; color: var(--accent); }
+.vanguard .vsel-empty { padding: 10px 8px; font-size: 12.5px; color: var(--muted); }
+
+/* a phone: a sheet from the bottom, big rows, the search on top */
+.vanguard .vsel-backdrop { position: fixed; inset: 0; z-index: 999; background: rgba(19,29,51,.35); animation: vg-vsel-fade .15s ease-out; }
+@keyframes vg-vsel-fade { from { opacity: 0; } to { opacity: 1; } }
+.vanguard .vsel-pop.vsel-sheet { left: 0; right: 0; bottom: 0; max-height: 72vh; border-radius: 14px 14px 0 0; border-bottom: 0; padding-bottom: env(safe-area-inset-bottom); animation: vg-vsel-up .18s ease-out; }
+@keyframes vg-vsel-up { from { transform: translateY(30px); opacity: .6; } to { transform: none; opacity: 1; } }
+.vanguard .vsel-pop.vsel-sheet .vsel-search { padding: 12px 14px; }
+.vanguard .vsel-pop.vsel-sheet .vsel-search input { height: 34px; font-size: 16px; }
+.vanguard .vsel-pop.vsel-sheet .vsel-opt { padding: 12px 12px; font-size: 15px; }

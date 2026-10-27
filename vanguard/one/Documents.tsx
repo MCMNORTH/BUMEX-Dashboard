@@ -6,6 +6,7 @@ import { useStore } from '../store';
 import { Chip, Field, Icon } from '../ui/common';
 import { type Say, when } from './Conversation';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // The Archives room's "Documents" tab: BUMEX One's documents (the files; the room's boxes are the paper). Upload,
 // describe, link to a client, mission, contract or ticket, archive, restore, delete; download through BUMEX One's
@@ -52,10 +53,10 @@ function DocumentForm({ draft, options, onDone, say }: { draft: Draft; options: 
       <div className="grid3">
         {!v.id && <Field label={say('Fichier', 'File')}><input className="in" type="file" onChange={(e) => { const file = e.target.files?.[0] ?? null; set({ file, title: v.title || (file?.name.replace(/\.[^.]+$/, '') ?? '') }); }} /></Field>}
         <Field label={say('Titre', 'Title')}><input className="in" value={v.title} onChange={(e) => set({ title: e.target.value })} /></Field>
-        <Field label="Type"><select className="in" value={v.document_type} onChange={(e) => set({ document_type: e.target.value as DocumentType })}>{(Object.keys(TYPES) as DocumentType[]).map((k) => <option key={k} value={k}>{say(...TYPES[k])}</option>)}</select></Field>
-        <Field label={say('Lié à', 'Linked to')}><select className="in" value={v.related_type} onChange={(e) => set({ related_type: e.target.value as DocumentRelatedType, related_id: '' })}>{LINKS.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</select></Field>
-        <Field label={say('Élément', 'Item')}><select className="in" value={v.related_id} onChange={(e) => set({ related_id: e.target.value })}><option value="">{say('— choisir —', '— choose —')}</option>{targets.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select></Field>
-        <Field label={say('Visibilité', 'Visibility')}><select className="in" value={v.visibility} onChange={(e) => set({ visibility: e.target.value as DocumentVisibility })}>{(Object.keys(VISIBILITY) as DocumentVisibility[]).map((k) => <option key={k} value={k}>{say(...VISIBILITY[k])}</option>)}</select></Field>
+        <Field label="Type"><Select className="in" value={v.document_type} onChange={(e) => set({ document_type: e.target.value as DocumentType })}>{(Object.keys(TYPES) as DocumentType[]).map((k) => <option key={k} value={k}>{say(...TYPES[k])}</option>)}</Select></Field>
+        <Field label={say('Lié à', 'Linked to')}><Select className="in" value={v.related_type} onChange={(e) => set({ related_type: e.target.value as DocumentRelatedType, related_id: '' })}>{LINKS.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
+        <Field label={say('Élément', 'Item')}><Select className="in" value={v.related_id} onChange={(e) => set({ related_id: e.target.value })}><option value="">{say('— choisir —', '— choose —')}</option>{targets.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</Select></Field>
+        <Field label={say('Visibilité', 'Visibility')}><Select className="in" value={v.visibility} onChange={(e) => set({ visibility: e.target.value as DocumentVisibility })}>{(Object.keys(VISIBILITY) as DocumentVisibility[]).map((k) => <option key={k} value={k}>{say(...VISIBILITY[k])}</option>)}</Select></Field>
       </div>
       <Field label="Description"><textarea className="in" style={{ height: 50, padding: 8 }} value={v.description} onChange={(e) => set({ description: e.target.value })} /></Field>
       <div className="actions"><button className="btn sm" onClick={() => onDone(false)} disabled={busy}>{say('Annuler', 'Cancel')}</button><button className="btn sm primary" disabled={busy || !v.title.trim() || !v.related_id || (!v.id && !v.file)} onClick={save}>{busy ? say('Envoi…', 'Sending…') : say('Enregistrer', 'Save')}</button></div>
@@ -102,7 +103,7 @@ export function DocumentsTab() {
     <>
       <div className="actions" style={{ justifyContent: 'flex-start' }}>
         <input className="in" style={{ maxWidth: 280 }} placeholder={say('Rechercher un document…', 'Search for a document…')} value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="in" style={{ width: 190 }} value={type} onChange={(e) => setType(e.target.value)}><option value="">{say('Tous les types', 'Every type')}</option>{(Object.keys(TYPES) as DocumentType[]).map((k) => <option key={k} value={k}>{say(...TYPES[k])}</option>)}</select>
+        <Select className="in" style={{ width: 190 }} value={type} onChange={(e) => setType(e.target.value)}><option value="">{say('Tous les types', 'Every type')}</option>{(Object.keys(TYPES) as DocumentType[]).map((k) => <option key={k} value={k}>{say(...TYPES[k])}</option>)}</Select>
         <label className="small"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> {say('archivés', 'archived')}</label>
         {data.canManage && !draft && <button className="btn sm primary" style={{ marginLeft: 'auto' }} onClick={() => setDraft({ id: '', title: '', description: '', document_type: 'report', related_type: 'project', related_id: '', visibility: 'internal', file: null })}><Icon name="upload" size={13} /> {say('Déposer', 'Upload')}</button>}
       </div>

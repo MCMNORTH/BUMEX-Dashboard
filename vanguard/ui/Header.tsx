@@ -5,6 +5,7 @@ import { Icon } from './common';
 import emblemImage from '../assets/emblem.png'; // [bumex-one] Next imports images as objects
 import { useBumexOneSearch } from '../one/search'; // [bumex-one] one search for everything
 const emblem = emblemImage.src;
+import { Select } from './Select';
 
 export function Header() {
   const { ui, state, t, setUi, goTower, goFloor, openRoom, setLang, focusRoom, openArchive } = useStore();
@@ -111,13 +112,13 @@ export function Header() {
         )}
       </div>
       <div className="hright">
-        <select aria-label={t('fiscal_year')} value={ui.fiscalYearLabel} onChange={(e) => setUi({ fiscalYearLabel: e.target.value })}>
+        <Select className="dark" aria-label={t('fiscal_year')} value={ui.fiscalYearLabel} onChange={(e) => setUi({ fiscalYearLabel: e.target.value })}>
           {fys.map((f) => (
             <option key={f} value={f}>
               {t('fiscal_year')} {f}
             </option>
           ))}
-        </select>
+        </Select>
         {ui.scene3d && ( // [bumex-one] the building is the person's option (0010)
           <div className="seg" role="group" aria-label="Mode">
             <button className={`btn dark ${ui.view !== 'flat' ? 'on' : ''}`} disabled={!ui.webgl} title={ui.webgl ? '' : t('no_webgl')} onClick={() => setUi({ view: 'tower', room: null, focusRoom: null, rackFocus: false, transition: 'none' })}>

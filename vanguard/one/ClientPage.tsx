@@ -7,6 +7,7 @@ import { Chip, D, Field, Icon, Tabs } from '../ui/common';
 import { Comments, Notes, type Result, type Say, when } from './Conversation';
 import { reload } from './Tasks';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // A client's page in the Clients room, as BUMEX One's client page had it: the relationship (contact details, prospect
 // stage and next follow-up, account manager), its customer accounts in the entities (the accounting side), what it
@@ -58,11 +59,11 @@ export function ClientForm({ id, initial, managers, floor, onDone, say }: { id?:
       <div className="grid3">
         <Field label={say('Nom', 'Name')}><input className="in" value={v.name} onChange={(e) => set({ name: e.target.value })} /></Field>
         <Field label={say('Raison sociale', 'Legal name')}><input className="in" value={v.legal_name} onChange={(e) => set({ legal_name: e.target.value })} /></Field>
-        <Field label="Type"><select className="in" value={v.type} onChange={(e) => set({ type: e.target.value as ClientType })}>{(Object.keys(TYPES) as ClientType[]).map((k) => <option key={k} value={k}>{say(...TYPES[k])}</option>)}</select></Field>
-        <Field label={say('Statut', 'Status')}><select className="in" value={v.status} onChange={(e) => set({ status: e.target.value as ClientStatus })}>{Object.entries(CLIENT_STATUS).filter(([k]) => k !== 'archived').map(([k, [fr, en]]) => <option key={k} value={k}>{say(fr, en)}</option>)}</select></Field>
-        {v.status === 'prospect' && <Field label={say('Phase commerciale', 'Sales stage')}><select className="in" value={v.prospect_stage} onChange={(e) => set({ prospect_stage: e.target.value as ProspectStage })}>{(Object.keys(STAGES) as ProspectStage[]).map((k) => <option key={k} value={k}>{say(...STAGES[k])}</option>)}</select></Field>}
+        <Field label="Type"><Select className="in" value={v.type} onChange={(e) => set({ type: e.target.value as ClientType })}>{(Object.keys(TYPES) as ClientType[]).map((k) => <option key={k} value={k}>{say(...TYPES[k])}</option>)}</Select></Field>
+        <Field label={say('Statut', 'Status')}><Select className="in" value={v.status} onChange={(e) => set({ status: e.target.value as ClientStatus })}>{Object.entries(CLIENT_STATUS).filter(([k]) => k !== 'archived').map(([k, [fr, en]]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
+        {v.status === 'prospect' && <Field label={say('Phase commerciale', 'Sales stage')}><Select className="in" value={v.prospect_stage} onChange={(e) => set({ prospect_stage: e.target.value as ProspectStage })}>{(Object.keys(STAGES) as ProspectStage[]).map((k) => <option key={k} value={k}>{say(...STAGES[k])}</option>)}</Select></Field>}
         {v.status === 'prospect' && <Field label={say('Prochain suivi', 'Next follow-up')}><input className="in mono" type="date" value={v.next_follow_up_at.slice(0, 10)} onChange={(e) => set({ next_follow_up_at: e.target.value })} /></Field>}
-        <Field label={say('Responsable', 'Account manager')}><select className="in" value={v.account_manager_id} onChange={(e) => set({ account_manager_id: e.target.value })}><option value="">—</option>{managers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></Field>
+        <Field label={say('Responsable', 'Account manager')}><Select recent="people" className="in" value={v.account_manager_id} onChange={(e) => set({ account_manager_id: e.target.value })}><option value="">—</option>{managers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></Field>
         <Field label={say('Secteur', 'Industry')}><input className="in" value={v.industry} onChange={(e) => set({ industry: e.target.value })} /></Field>
         <Field label="E-mail"><input className="in" value={v.contact_email} onChange={(e) => set({ contact_email: e.target.value })} /></Field>
         <Field label={say('Téléphone', 'Phone')}><input className="in" value={v.contact_phone} onChange={(e) => set({ contact_phone: e.target.value })} /></Field>
@@ -245,9 +246,9 @@ export function ClientPanel({ clientId, onClose }: { clientId: string; onClose: 
       {tab === 'comments' && <Comments entityType="client" entityId={client.id} comments={view.comments} people={view.people} role={view.role} me={view.me} canComment={view.canComment} busy={busy} run={run} say={say} />}
       {tab === 'history' && (
         <div className="card">
-          <select className="in" style={{ width: 200, marginBottom: 8 }} value={historyFilter} onChange={(e) => setHistoryFilter(e.target.value)} aria-label={say('Filtrer', 'Filter')}>
+          <Select className="in" style={{ width: 200, marginBottom: 8 }} value={historyFilter} onChange={(e) => setHistoryFilter(e.target.value)} aria-label={say('Filtrer', 'Filter')}>
             {[['all', 'Tout', 'Everything'], ['projects', 'Missions', 'Missions'], ['tickets', 'Tickets', 'Tickets'], ['contracts', 'Contrats', 'Contracts'], ['documents', 'Documents', 'Documents'], ['client', 'Client', 'Client']].map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}
-          </select>
+          </Select>
           {view.timeline.filter((h) => historyFilter === 'all' || h.type === historyFilter).map((h) => (
             <div key={h.id} style={{ borderTop: '1px solid var(--line)', padding: '7px 0', fontSize: 12.5 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}><b>{h.title}</b><span className="muted mono">{when(h.date)}</span></div>

@@ -8,6 +8,7 @@ import { useStore } from '../store';
 import { Chip, D } from '../ui/common';
 import { reload } from './Tasks';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // The Tasks room's "Tableau" tab: one mission's board as BUMEX One's workflow sets it (its own columns, or the built-in
 // ones), the mission's tickets in their column. A card dropped in another column moves with BUMEX One's ticket action,
@@ -89,9 +90,9 @@ export function MissionBoard({ entityId, engagementId }: { entityId: Id; engagem
   return (
     <>
       <div className="toolbar" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <select className="in" style={{ width: 320 }} value={missionId} onChange={(e) => setMissionId(e.target.value)} aria-label={say('Mission', 'Mission')}>
+        <Select recent="missions" className="in" style={{ width: 320 }} value={missionId} onChange={(e) => setMissionId(e.target.value)} aria-label={say('Mission', 'Mission')}>
           {missions.map((m) => <option key={m.id} value={m.id}>{m.code} · {m.name}{m.status === 'completed' ? ` (${say('terminée', 'completed')})` : ''}</option>)}
-        </select>
+        </Select>
         <span className="small muted">{tasks.length} {say('ticket(s)', 'ticket(s)')}</span>
         <span style={{ marginLeft: 'auto' }} />
         {projectId && <button className="btn sm" onClick={() => openRoom('missions', `mission:${projectId}`)}>{say('Ouvrir la mission', 'Open the mission')}</button>}
