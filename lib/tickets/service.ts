@@ -299,12 +299,29 @@ function parseTicketPayload(values: TicketFormValues) {
     estimated_hours: values.estimated_hours ? Number(values.estimated_hours) : null,
     actual_hours: values.actual_hours ? Number(values.actual_hours) : null,
     github_issue_url: values.github_issue_url.trim() || null,
+    labels: values.labels === undefined ? null : normalizeLabels(values.labels),
   };
+}
+
+/** A label list as the database takes it (0012): trimmed, at most 40 characters, no duplicates, at most 10. */
+export function normalizeLabels(raw: string) {
+  let list: unknown;
+  try {
+    list = JSON.parse(raw);
+  } catch {
+    list = raw.split(",");
+  }
+  const labels: string[] = [];
+  for (const item of Array.isArray(list) ? list : []) {
+    const label = String(item ?? "").replace(/\s+/g, " ").trim().slice(0, 40).trim();
+    if (label && !labels.some((l) => l.toLocaleLowerCase("fr") === label.toLocaleLowerCase("fr"))) labels.push(label);
+  }
+  return labels.slice(0, 10);
 }
 
 const payloadParams = (p: ReturnType<typeof parseTicketPayload>) => [
   p.project_id, p.title, p.description, p.assignee_id, p.reporter_id, p.status, p.stage_id || null, p.priority, p.type, p.due_date,
-  p.estimated_hours, p.actual_hours, p.github_issue_url,
+  p.estimated_hours, p.actual_hours, p.github_issue_url, p.labels,
 ];
 
 export async function createTicket(
@@ -317,8 +334,9 @@ export async function createTicket(
     selectOne<{ id: string }>(
       tx,
       `insert into erp.task (engagement_id, title, notes, assignee_id, reporter_id, status, completed_at, stage_id, priority, type, due_date,
-                             estimated_hours, actual_hours, github_issue_url)
-       values ($1::uuid, $2, $3, $4, $5, $6, case when $6 = 'done' then current_date end, $7, $8, $9, $10::date, $11::numeric, $12::numeric, $13)
+                             estimated_hours, actual_hours, github_issue_url, labels)
+       values ($1::uuid, $2, $3, $4, $5, $6, case when $6 = 'done' then current_date end, $7, $8, $9, $10::date, $11::numeric, $12::numeric, $13,
+               coalesce($14::text[], '{}'))
        returning id`,
       payloadParams(payload),
     ),
@@ -400,8 +418,9 @@ export async function updateTicket(
     const updated = await tx.run(
       `update erp.task
           set engagement_id = $1::uuid, title = $2, notes = $3, assignee_id = $4, reporter_id = $5, ${statusSet("$6")}, stage_id = $7, priority = $8,
-              type = $9, due_date = $10::date, estimated_hours = $11::numeric, actual_hours = $12::numeric, github_issue_url = $13
-        where id = $14::uuid`,
+              type = $9, due_date = $10::date, estimated_hours = $11::numeric, actual_hours = $12::numeric, github_issue_url = $13,
+              labels = coalesce($14::text[], labels)
+        where id = $15::uuid`,
       [...payloadParams(payload), id],
     );
     if (!updated) throw new Error("You cannot edit this ticket.");

@@ -145,6 +145,8 @@ export type TicketFormValues = {
   estimated_hours: string;
   actual_hours: string;
   github_issue_url: string;
+  /** The ticket's labels, as a JSON array (absent: unchanged on an edit, none on a new ticket). */
+  labels?: string;
 };
 
 /** A project whose team has people from other entities than its own. */

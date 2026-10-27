@@ -85,6 +85,7 @@ function parseTicketFormData(formData: FormData): TicketFormValues {
     estimated_hours: getString(formData, "estimated_hours"),
     actual_hours: getString(formData, "actual_hours"),
     github_issue_url: getString(formData, "github_issue_url"),
+    labels: formData.has("labels") ? getString(formData, "labels") : undefined,
   };
 }
 
@@ -288,6 +289,48 @@ async function saveTicketEdit(formData: FormData): Promise<TicketActionState> {
   revalidatePath(`/tickets/${ticketId}`);
   revalidatePath(`/projects/${currentTicket.project_id}`);
   return { success: true };
+}
+
+const EDITABLE_FIELDS = ["title", "description", "stage_id", "project_id", "assignee_id", "reporter_id", "priority", "type", "due_date", "estimated_hours", "labels", "github_issue_url"] as const;
+export type TicketField = (typeof EDITABLE_FIELDS)[number];
+
+/**
+ * One field of a ticket changed in place (BUMEX Vanguard's ticket page, vanguard/one/Ticket.tsx): the ticket as it is,
+ * that field changed, through the edit's checks, history and notifications.
+ */
+export async function updateTicketFieldAction(ticketId: string, field: TicketField, value: string | string[] | null): Promise<TicketActionState> {
+  const auth = await requireRouteAccess("tickets");
+  if (!EDITABLE_FIELDS.includes(field)) {
+    return { error: "This field cannot be changed here." };
+  }
+  const current = await getTicketById(String(ticketId), auth.role);
+  if (!current) {
+    return { error: "The ticket could not be found." };
+  }
+  const values: Record<string, string> = {
+    ticket_id: current.id,
+    title: current.title,
+    description: current.description ?? "",
+    project_id: current.project_id,
+    assignee_id: current.assignee_id ?? "",
+    reporter_id: current.reporter_id ?? "",
+    stage_id: current.status === "archived" ? ARCHIVED_STAGE_VALUE : current.stage_id,
+    priority: current.priority,
+    type: current.type,
+    due_date: current.due_date?.slice(0, 10) ?? "",
+    estimated_hours: current.estimated_hours?.toString() ?? "",
+    actual_hours: current.actual_hours?.toString() ?? "",
+    github_issue_url: current.github_issue_url ?? "",
+    labels: JSON.stringify(current.labels ?? []),
+  };
+  values[field] = Array.isArray(value) ? JSON.stringify(value) : (value ?? "");
+  // another mission's board: its default stage (the server picks it)
+  if (field === "project_id" && values.project_id !== current.project_id) {
+    values.stage_id = "";
+  }
+  const form = new FormData();
+  for (const [key, entry] of Object.entries(values)) form.set(key, entry);
+  return saveTicketEdit(form);
 }
 
 /** Deleting a ticket from BUMEX Vanguard: the same rules as deleteTicketAction, an answer instead of a redirect. */

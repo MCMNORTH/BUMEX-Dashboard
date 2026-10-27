@@ -40,6 +40,21 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
   r = await act("khadija.diallo", "toggleSubtaskAction", { args: [id(602), true] });
   check("a sub-task's owner ticks theirs", (await one("select is_done from work.subtask where id = $1", [id(602)])).is_done === true, r);
 
+  // ---- the ticket as Jira has it (0012): a key, fields changed in place into its history, links ---------------------
+  r = await act("ahmed.ba", "updateTicketFieldAction", { args: [T.t1, "estimated_hours", "6"] });
+  const estimated = await one("select estimated_hours::float8 h, (select ticket_prefix from erp.entity where id = t.entity_id) || '-' || t.number as key from erp.task t where id = $1", [T.t1]);
+  const logged = await one("select user_id, metadata from work.activity where subject_id = $1 and metadata->>'field' = 'estimated_hours'", [T.t1]);
+  check("the assignee estimates their ticket in place; the database writes it to its history", r?.success === true && estimated?.h === 6 && logged?.user_id === uid.ahmed && /^AUD-\d+$/.test(estimated?.key ?? ""), { r, estimated, logged: logged?.metadata });
+  r = await act("ahmed.ba", "updateTicketFieldAction", { args: [T.t1, "labels", ["Revue", "Revue", " BCM "]] });
+  check("…labels it (trimmed, once each)", JSON.stringify((await one("select labels from erp.task where id = $1", [T.t1])).labels) === JSON.stringify(["Revue", "BCM"]), r);
+  r = await act("khadija.diallo", "updateTicketFieldAction", { args: [T.t1, "priority", "urgent"] });
+  check("…someone not on it cannot change it", Boolean(r?.error), r);
+  r = await act("mariem.sow", "addTicketLinkAction", { args: [created, T.t1, "blocks"] });
+  const linkView = await act("ahmed.ba", "ticketViewAction", { args: [T.t1] });
+  const blocked = linkView?.links?.find((l) => l.ticket?.id === created);
+  check("the manager links two tickets; the other side reads it as \"blocked by\"", !r?.error && blocked?.kind === "blocks" && blocked?.direction === "in" && /^AUD-\d+$/.test(blocked?.ticket?.key ?? ""), { r, blocked });
+  check("…and both tickets' history says so", (await one("select count(*)::int n from work.activity where metadata->>'kind' = 'link' and subject_id in ($1, $2)", [T.t1, created])).n === 2);
+
   // ---- conversation -------------------------------------------------------------------------------------------------
   r = await act("ahmed.ba", "createCommentAction", { prev: {}, form: { body: "Relances envoyées @Mariem Sow", entity_type: "ticket", entity_id: T.t1 } });
   check("the assignee comments the ticket", r?.success === true, r);
@@ -336,6 +351,12 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
       }
       check(`${who}: ${rooms.length} rooms and tabs open without an error`, broken.length === 0, broken.length ? broken.slice(0, 3) : `${Math.round((Date.now() - began) / 1000)} s`);
     }
+    // the ticket page, as Jira lays it out
+    await tab.signIn(cookies["mariem.sow"]);
+    await tab.go(`/vanguard?room=tasks&tab=${encodeURIComponent(`ticket:${T.t1}`)}`);
+    const page = await tab.until("/^AUD-\\d+$/.test(document.querySelector('.tk-key')?.innerText.trim() ?? '') && document.querySelectorAll('.tk-acttabs [role=tab]').length === 4 && document.body.innerText.includes('Pièces jointes') && document.body.innerText.includes('Tickets associés') && Boolean(document.querySelector('.tk-details'))", 25_000);
+    const historyShown = await tab.evaluate("[...document.querySelectorAll('.tk-entry-h')].some((h) => h.innerText.includes(\"a mis à jour l'estimation\"))");
+    check("the ticket page shows its key, details, attachments, links and activity (with the estimate in its history)", page && historyShown && tab.takeErrors().length === 0, { page, historyShown });
     await tab.signIn(cookies["mohamed.cheikh"]);
     await tab.go("/vanguard?room=settings&tab=access");
     const listed = await tab.until("document.body.innerText.includes('Modificateurs') && document.body.innerText.includes('Salma Fall')");

@@ -37,3 +37,9 @@
 .vanguard .vsel-pop.vsel-sheet .vsel-search { padding: 12px 14px; }
 .vanguard .vsel-pop.vsel-sheet .vsel-search input { height: 34px; font-size: 16px; }
 .vanguard .vsel-pop.vsel-sheet .vsel-opt { padding: 12px 12px; font-size: 15px; }
+
+/* an option's hint on the right (a person's load in the pickers), coloured by its level */
+.vanguard .vsel-hint { flex: none; margin-left: auto; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.vanguard .vsel-hint.balanced { color: var(--navy); }
+.vanguard .vsel-hint.high { color: var(--warn); }
+.vanguard .vsel-hint.overloaded { color: var(--crit); font-weight: 600; }

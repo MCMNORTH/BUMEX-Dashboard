@@ -15,7 +15,7 @@ import { highlights, rank } from './select-search';
 
 export type SelectChange = { target: { value: string }; currentTarget: { value: string } };
 
-type Option = { value: string; label: string; disabled: boolean; keywords?: string };
+type Option = { value: string; label: string; disabled: boolean; keywords?: string; hint?: string; tone?: string }; // hint: shown on the right (a person's load); tone: its colour
 
 const SEARCH_FROM = 6;
 const RECENTS = 5;
@@ -32,11 +32,11 @@ function text(node: ReactNode): string {
 // the <option>s of the children, through fragments, arrays and conditions
 function optionsOf(children: ReactNode, out: Option[] = []): Option[] {
   Children.forEach(children, (child) => {
-    if (!isValidElement<{ value?: string | number; disabled?: boolean; children?: ReactNode; 'data-search'?: string }>(child)) return;
+    if (!isValidElement<{ value?: string | number; disabled?: boolean; children?: ReactNode; 'data-search'?: string; 'data-hint'?: string; 'data-tone'?: string }>(child)) return;
     if (child.type === Fragment || child.type === 'optgroup') optionsOf(child.props.children, out);
     else if (child.type === 'option') {
       const label = text(child.props.children);
-      out.push({ value: child.props.value === undefined ? label : String(child.props.value), label, disabled: Boolean(child.props.disabled), keywords: child.props['data-search'] });
+      out.push({ value: child.props.value === undefined ? label : String(child.props.value), label, disabled: Boolean(child.props.disabled), keywords: child.props['data-search'], hint: child.props['data-hint'], tone: child.props['data-tone'] });
     }
   });
   return out;
@@ -216,6 +216,7 @@ function useList({ options, value, recent, anchor, onPick, onClose, searchAlways
                 onPointerMove={() => i !== active && !row.option.disabled && setActive(i)}
                 onClick={() => !row.option.disabled && onPick(row.option)}>
                 <span className="vsel-l">{row.option.label ? <Marked label={row.option.label} query={query} /> : ' '}</span>
+                {row.option.hint && <span className={`vsel-hint ${row.option.tone ?? ''}`}>{row.option.hint}</span>}
                 {row.option.value === value && <svg className="vsel-tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg>}
               </div>
             </Fragment>

@@ -1,0 +1,168 @@
+/* [bumex-one] The tickets as Jira draws them (asked on 2026-10-27): the ticket page (vanguard/one/Ticket.tsx,
+   TicketActivity.tsx), the board and the list (Board.tsx, Tasks.tsx), My work (MyWork.tsx) and the small pieces they
+   share (work-ui.tsx). Vanguard's colours, inside its container. */
+
+.vanguard { --t-todo-bg: #e9ebef; --t-todo: #44546f; --t-prog-bg: #dde9fb; --t-prog: #0c4fb0; --t-rev-bg: #ebe6fb; --t-rev: #4b3a99;
+  --t-block-bg: #fde7e3; --t-block: #ae2a19; --t-done-bg: #dcf3e6; --t-done: #1f6b43; }
+
+/* ---- shared pieces ---- */
+.vanguard .grow { flex: 1; min-width: 0; }
+.vanguard .linkish { border: none; background: none; padding: 0; color: var(--navy); cursor: pointer; font: inherit; text-align: left; }
+.vanguard .linkish:hover { text-decoration: underline; }
+.vanguard .linkish:disabled { opacity: .5; cursor: default; text-decoration: none; }
+.vanguard .av { display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 50%; font-weight: 600; line-height: 1; letter-spacing: .02em; }
+.vanguard .av.none { border: 1.5px dashed var(--border); background: var(--paper); }
+.vanguard .prio { flex: none; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.vanguard .prio.urgent { stroke: #c9372c; } .vanguard .prio.high { stroke: #e2733a; } .vanguard .prio.medium { stroke: #d39b23; } .vanguard .prio.low { stroke: #3d7be0; }
+.vanguard .ttype { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 16px; height: 16px; border-radius: 3px; color: #fff; }
+.vanguard .ttype svg { fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.vanguard .ttype.task { background: #4688ec; } .vanguard .ttype.bug { background: #e5493a; } .vanguard .ttype.bug svg { fill: currentColor; stroke: none; }
+.vanguard .ttype.feature { background: #63ba3c; } .vanguard .ttype.support { background: #8f7ee7; } .vanguard .ttype.client_request { background: #f79232; } .vanguard .ttype.internal { background: #8590a2; }
+.vanguard .loz { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 3px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.vanguard .loz.todo, .vanguard .loz.plain { background: var(--t-todo-bg); color: var(--t-todo); }
+.vanguard .loz.in_progress { background: var(--t-prog-bg); color: var(--t-prog); }
+.vanguard .loz.review { background: var(--t-rev-bg); color: var(--t-rev); }
+.vanguard .loz.blocked { background: var(--t-block-bg); color: var(--t-block); }
+.vanguard .loz.done { background: var(--t-done-bg); color: var(--t-done); }
+.vanguard .loz.archived { background: transparent; color: var(--muted); border: 1px dashed var(--border); }
+.vanguard .tag { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border: 1px solid var(--border); border-radius: 3px; font-size: 11.5px; color: var(--graphite); background: var(--paper); white-space: nowrap; }
+.vanguard .tag.dim { border-color: transparent; background: var(--ground); color: var(--muted); }
+.vanguard .tag button { border: none; background: none; padding: 0 0 0 2px; cursor: pointer; color: var(--muted); font-size: 13px; line-height: 1; }
+.vanguard .seg-mini { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--paper); }
+.vanguard .seg-mini button { border: none; background: none; height: 24px; padding: 0 9px; border-radius: 4px; font-size: 12.5px; color: var(--graphite); cursor: pointer; white-space: nowrap; }
+.vanguard .seg-mini button.on { background: var(--blue-pale); color: var(--navy-deep); font-weight: 600; box-shadow: inset 0 0 0 1px rgba(43,63,102,.25); }
+.vanguard .menu-wrap { position: relative; }
+.vanguard .menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 40; min-width: 200px; padding: 4px; background: var(--paper); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: flex; flex-direction: column; }
+.vanguard .menu.right { left: auto; right: 0; }
+.vanguard .menu button { border: none; background: none; text-align: left; padding: 7px 10px; border-radius: 5px; font-size: 13px; cursor: pointer; color: var(--ink); white-space: nowrap; }
+.vanguard .menu button:hover { background: var(--ground); }
+.vanguard .menu button.danger { color: var(--crit); }
+/* a person's load */
+.vanguard .loadbar { min-width: 0; }
+.vanguard .loadbar-head { display: flex; align-items: baseline; gap: 4px; font-size: 13px; margin-bottom: 4px; flex-wrap: wrap; }
+.vanguard .loadlvl { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.vanguard .loadlvl.balanced { color: var(--navy); } .vanguard .loadlvl.high { color: var(--warn); } .vanguard .loadlvl.overloaded { color: var(--crit); }
+.vanguard .loadbar-track { position: relative; display: flex; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.vanguard .loadbar.compact .loadbar-track { height: 6px; }
+.vanguard .loadbar-track i { display: block; height: 100%; }
+.vanguard .loadbar-track i.urgent { background: #c9372c; } .vanguard .loadbar-track i.high { background: #e2733a; } .vanguard .loadbar-track i.medium { background: var(--blue); } .vanguard .loadbar-track i.low { background: var(--blue-soft); }
+.vanguard .loadbar-track .cap { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: .55; }
+
+/* ---- the ticket page ---- */
+.vanguard .tk { display: flex; flex-direction: column; gap: 12px; }
+.vanguard .tk-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.vanguard .tk-crumbs { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); min-width: 0; flex-wrap: wrap; }
+.vanguard .tk-crumbs .linkish { color: var(--muted); }
+.vanguard .tk-key { display: inline-flex; align-items: center; gap: 5px; color: var(--graphite); font-weight: 600; }
+.vanguard .tk-top-actions { margin-left: auto; display: flex; gap: 6px; }
+.vanguard .tk-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+.vanguard .tk-main { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.vanguard .tk-side { display: flex; flex-direction: column; gap: 12px; position: sticky; top: 62px; }
+.vanguard .tk-title { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.3; padding: 2px 6px; margin-left: -6px; border-radius: 6px; }
+.vanguard .tk-title.editable { cursor: text; } .vanguard .tk-title.editable:hover { background: var(--ground); }
+.vanguard .tk-title-in { height: 40px; font-size: 20px; font-weight: 600; }
+.vanguard .tk-sec { display: flex; flex-direction: column; gap: 8px; }
+.vanguard .tk-sec-h { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+.vanguard .tk-sec-h h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.vanguard .tk-fold { display: inline-flex; align-items: center; gap: 6px; border: none; background: none; padding: 0; cursor: pointer; color: var(--ink); }
+.vanguard .tk-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--line); font-size: 11.5px; font-weight: 600; color: var(--graphite); }
+.vanguard .tk-sec-x { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.vanguard .tk-sec-b { padding-left: 20px; }
+.vanguard .tk-desc { padding: 4px 8px; margin-left: -8px; border-radius: 6px; }
+.vanguard .tk-desc.editable { cursor: text; } .vanguard .tk-desc.editable:hover { background: var(--ground); }
+.vanguard .tk-empty { width: 100%; text-align: left; border: 1px solid var(--border); background: var(--paper); border-radius: 6px; padding: 9px 11px; color: var(--muted); cursor: text; font: inherit; font-size: 13.5px; }
+.vanguard .tk-empty:hover { border-color: var(--blue); }
+.vanguard .tk-desc-edit textarea, .vanguard .tk-compose textarea { height: auto; padding: 8px 10px; line-height: 1.5; resize: vertical; font: inherit; font-size: 13.5px; }
+.vanguard .tk-desc-bar, .vanguard .tk-compose-bar { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.vanguard .tk-desc-bar .small { margin-right: auto; }
+/* the description's light markdown */
+.vanguard .md { font-size: 13.5px; line-height: 1.6; color: var(--ink); overflow-wrap: anywhere; }
+.vanguard .md > :first-child { margin-top: 0; } .vanguard .md > :last-child { margin-bottom: 0; }
+.vanguard .md h3 { font-size: 17px; margin: 14px 0 6px; color: var(--navy); } .vanguard .md h4 { font-size: 15px; margin: 12px 0 4px; color: var(--navy); } .vanguard .md h5 { font-size: 13.5px; margin: 10px 0 4px; }
+.vanguard .md p { margin: 0 0 8px; } .vanguard .md ul, .vanguard .md ol { margin: 0 0 8px; padding-left: 22px; }
+.vanguard .md ul.checks { list-style: none; padding-left: 4px; } .vanguard .md ul.checks input { margin-right: 6px; vertical-align: -2px; }
+.vanguard .md code { background: var(--ground); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-size: 12.5px; }
+.vanguard .md a { color: var(--navy); }
+/* attachments, sub-tasks, links */
+.vanguard .tk-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.vanguard .tk-table th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 2px solid var(--line); }
+.vanguard .tk-table td { padding: 8px; border-bottom: 1px solid var(--line); }
+.vanguard .tk-table .num { text-align: right; white-space: nowrap; }
+.vanguard .tk-file { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); text-decoration: none; }
+.vanguard .tk-file:hover { text-decoration: underline; }
+.vanguard .ficon { flex: none; width: 26px; height: 30px; border: 1px solid var(--border); border-radius: 3px; background: linear-gradient(135deg, transparent 70%, var(--line) 70%), var(--paper); }
+.vanguard .ficon.img { background: linear-gradient(160deg, var(--blue-pale), var(--paper)); }
+.vanguard .tk-drop { width: 100%; padding: 16px; border: 1.5px dashed var(--border); border-radius: 8px; background: var(--paper); color: var(--muted); cursor: pointer; font: inherit; font-size: 13px; }
+.vanguard .tk-drop:hover { border-color: var(--blue); color: var(--navy); }
+.vanguard .tk-rows { display: flex; flex-direction: column; }
+.vanguard .tk-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.vanguard .tk-mini { width: 150px; height: 28px; }
+.vanguard .tk-date { width: 140px; height: 28px; }
+.vanguard .tk-date.late, .vanguard .late { color: var(--crit); font-weight: 600; }
+.vanguard .tk-add { display: flex; gap: 8px; margin-top: 6px; }
+.vanguard .tk-linkgrp { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.vanguard .tk-linkh { font-weight: 600; }
+.vanguard .tk-link { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--paper); font-size: 13px; }
+.vanguard .tk-link:hover { background: var(--ground); }
+.vanguard .tk-link-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.vanguard .tk-linkform { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+.vanguard .tk-search { position: relative; min-width: 220px; }
+.vanguard .tk-found, .vanguard .tk-mentions { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--paper); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); padding: 4px; display: flex; flex-direction: column; max-height: 280px; overflow: auto; }
+.vanguard .tk-found button, .vanguard .tk-mentions button { display: flex; align-items: center; gap: 8px; border: none; background: none; text-align: left; padding: 7px 8px; border-radius: 5px; cursor: pointer; font-size: 13px; color: var(--ink); }
+.vanguard .tk-found button:hover, .vanguard .tk-mentions button:hover, .vanguard .tk-mentions button.on { background: var(--blue-pale); }
+.vanguard .tk-mentions { right: auto; min-width: 240px; top: auto; bottom: calc(100% + 4px); }
+/* the right column */
+.vanguard .tk-status { display: flex; flex-direction: column; gap: 8px; }
+.vanguard .tk-status-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.vanguard .vsel.stsel { height: 32px; padding: 0 10px; border: none; border-radius: 4px; font-weight: 700; font-size: 12.5px; text-transform: uppercase; letter-spacing: .02em; width: auto; max-width: 100%; background: var(--t-todo-bg); color: var(--t-todo); }
+.vanguard .vsel.stsel.in_progress { background: var(--t-prog-bg); color: var(--t-prog); } .vanguard .vsel.stsel.review { background: var(--t-rev-bg); color: var(--t-rev); }
+.vanguard .vsel.stsel.blocked { background: var(--t-block-bg); color: var(--t-block); } .vanguard .vsel.stsel.done { background: var(--t-done-bg); color: var(--t-done); }
+.vanguard .vsel.stsel.archived { background: var(--paper); color: var(--muted); border: 1px dashed var(--border); }
+.vanguard .vsel.stsel .vsel-chev { color: currentColor; }
+.vanguard .tk-reason { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--paper); }
+.vanguard .tk-details { border: 1px solid var(--border); border-radius: 8px; background: var(--paper); }
+.vanguard .tk-details-h { padding: 10px 14px; font-weight: 600; border-bottom: 1px solid var(--line); }
+.vanguard .tk-details dl { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px 10px; margin: 0; padding: 12px 14px 14px; align-items: start; font-size: 13px; }
+.vanguard .tk-details dt { color: var(--muted); font-weight: 600; font-size: 12.5px; padding-top: 6px; }
+.vanguard .tk-details dd { margin: 0; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.vanguard .tk-fieldsel { height: 30px; width: 100%; }
+.vanguard .tk-person, .vanguard .tk-inline { display: inline-flex; align-items: center; gap: 8px; min-width: 0; width: 100%; padding-top: 4px; }
+.vanguard .tk-inline .tk-fieldsel { flex: 1; }
+.vanguard .tk-loadline { color: var(--muted); } .vanguard .tk-loadline.high { color: var(--warn); } .vanguard .tk-loadline.overloaded { color: var(--crit); font-weight: 600; }
+.vanguard .tk-value { border: 1px solid transparent; background: none; border-radius: 5px; padding: 5px 7px; margin-left: -7px; text-align: left; font: inherit; color: var(--ink); }
+.vanguard .tk-value.editable { cursor: pointer; } .vanguard .tk-value.editable:hover { background: var(--ground); border-color: var(--line); }
+.vanguard .tk-estimate { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.vanguard .tk-presets { display: flex; gap: 4px; flex-wrap: wrap; }
+.vanguard .tk-estimate .in { width: 90px; height: 28px; }
+.vanguard .tk-time { display: flex; justify-content: space-between; gap: 8px; width: 100%; padding-top: 5px; flex-wrap: wrap; }
+.vanguard .tk-time + .bar { width: 100%; }
+.vanguard .tk-labels { display: flex; gap: 4px; flex-wrap: wrap; padding-top: 4px; }
+.vanguard .tk-labelin { height: 28px; width: 100%; }
+.vanguard .tk-stamps { padding: 0 2px; display: flex; flex-direction: column; gap: 2px; }
+/* the activity */
+.vanguard .tk-acttabs { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vanguard .tk-acttabs > .btn { margin-left: auto; }
+.vanguard .tk-composer { display: flex; gap: 10px; align-items: flex-start; }
+.vanguard .tk-feed { display: flex; flex-direction: column; gap: 16px; margin-top: 6px; }
+.vanguard .tk-entry { display: flex; gap: 10px; align-items: flex-start; }
+.vanguard .tk-entry-h { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; font-size: 13.5px; }
+.vanguard .tk-entry-h .small { margin-left: 2px; }
+.vanguard .tk-kind { margin: 4px 0; }
+.vanguard .tk-change { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; font-size: 13px; }
+.vanguard .tk-hval { color: var(--graphite); }
+.vanguard .tk-cbody { white-space: pre-wrap; font-size: 13.5px; line-height: 1.55; margin-top: 4px; overflow-wrap: anywhere; }
+.vanguard .tk-cbody a { color: var(--navy); }
+.vanguard .mention { display: inline-block; padding: 0 5px; border-radius: 10px; background: var(--blue-pale); color: var(--navy-deep); font-weight: 600; }
+.vanguard .tk-cacts { display: flex; gap: 10px; margin-top: 4px; }
+.vanguard .tk-cacts .linkish { color: var(--muted); }
+
+@media (max-width: 1100px) {
+  .vanguard .tk-grid { grid-template-columns: minmax(0, 1fr); }
+  .vanguard .tk-side { position: static; order: -1; }
+}
+@media (max-width: 640px) {
+  .vanguard .tk-sec-b { padding-left: 0; }
+  .vanguard .tk-row { flex-wrap: wrap; }
+  .vanguard .tk-details dl { grid-template-columns: 96px minmax(0, 1fr); }
+  .vanguard .tk-table th:nth-child(2), .vanguard .tk-table td:nth-child(2) { display: none; }
+}
