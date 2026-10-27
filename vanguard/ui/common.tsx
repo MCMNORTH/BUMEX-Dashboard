@@ -113,6 +113,7 @@ export const ICONS: Record<string, ReactNode> = {
   plus: <><path d="M12 5v14M5 12h14" /></>,
   download: <><path d="M12 4v11M7 10l5 5 5-5" /><path d="M4 20h16" /></>,
   upload: <><path d="M12 15V4M7 9l5-5 5 5" /><path d="M4 20h16" /></>,
+  mywork: <><path d="M4 6h10M4 12h10M4 18h7" /><path d="m15 17 2 2 4-4" /></>, // [bumex-one] My work
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
 };
 

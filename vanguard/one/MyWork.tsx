@@ -15,6 +15,18 @@ const COLUMNS: [TicketStatus, string, string][] = [['todo', 'À faire', 'To do']
 const columnOf = (status: string) => (status === 'backlog' ? 'todo' : status);
 const minutes = (m: number) => `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
 
+// the room: the rail's "Mon travail" (ui/Sidebar.tsx)
+export function MyWorkRoom() {
+  const say = useSay();
+  const name = useStore((s) => s.state.session.actorName);
+  return (
+    <>
+      <div className="sheet-head"><h1>{say('Mon travail', 'My work')}</h1><span className="small muted">{name}</span></div>
+      <div className="sheet-body"><MyWork /></div>
+    </>
+  );
+}
+
 export function MyWork() {
   const { toast, openRoom } = useStore();
   const say = useSay();

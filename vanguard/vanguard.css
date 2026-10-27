@@ -37,7 +37,7 @@
   --r: 10px; --r-sm: 7px;
   --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 10px 30px rgba(16, 24, 40, .12);
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, .06), 0 2px 8px rgba(16, 24, 40, .06);
-  --rail: 60px; --rail-open: 232px; --bar: 58px;
+  --rail: 52px; --rail-open: 232px; --bar: 58px;
 }
 .vanguard *:not(:where(.bumex-page, .bumex-page *)) { box-sizing: border-box; }
 .vanguard { height: 100%; margin: 0; }
@@ -165,18 +165,18 @@
 /* Left rail */
 .vanguard .rail:not(:where(.bumex-page, .bumex-page *)) { flex: none; width: var(--rail); background: rgba(19, 28, 50, .96); border-right: 1px solid var(--dark-border); color: var(--dark-text); display: flex; flex-direction: column; padding: 10px 0; z-index: 25; transition: width .2s ease; backdrop-filter: blur(10px); }
 .vanguard .rail.open:not(:where(.bumex-page, .bumex-page *)) { width: var(--rail-open); }
-.vanguard .rail .grp:not(:where(.bumex-page, .bumex-page *)) { display: flex; flex-direction: column; gap: 2px; padding: 4px 10px; }
-.vanguard .rail .grp + .grp:not(:where(.bumex-page, .bumex-page *)) { border-top: 1px solid var(--dark-border); margin-top: 6px; padding-top: 10px; }
+.vanguard .rail .grp:not(:where(.bumex-page, .bumex-page *)) { display: flex; flex-direction: column; gap: 1px; padding: 2px 8px; }
+.vanguard .rail .grp + .grp:not(:where(.bumex-page, .bumex-page *)) { border-top: 1px solid var(--dark-border); margin-top: 4px; padding-top: 6px; }
 .vanguard .rail .grow:not(:where(.bumex-page, .bumex-page *)) { flex: 1; }
-.vanguard .sb-item:not(:where(.bumex-page, .bumex-page *)) { position: relative; display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 9px; border: none; border-radius: 9px; background: none; color: var(--dark-muted); cursor: pointer; text-align: left; white-space: nowrap; transition: background .12s, color .12s; }
-.vanguard .sb-item svg:not(:where(.bumex-page, .bumex-page *)) { width: 21px; height: 21px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.vanguard .sb-item:not(:where(.bumex-page, .bumex-page *)) { position: relative; display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border: none; border-radius: 8px; background: none; color: var(--dark-muted); cursor: pointer; text-align: left; white-space: nowrap; transition: background .12s, color .12s; }
+.vanguard .sb-item svg:not(:where(.bumex-page, .bumex-page *)) { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .vanguard .sb-item:hover:not(:where(.bumex-page, .bumex-page *)) { background: rgba(255,255,255,.08); color: var(--dark-text); }
 .vanguard .sb-item.on:not(:where(.bumex-page, .bumex-page *)) { background: rgba(107,141,193,.22); color: #fff; }
-.vanguard .sb-item.on:before:not(:where(.bumex-page, .bumex-page *)) { content: ''; position: absolute; left: -10px; top: 10px; bottom: 10px; width: 3px; border-radius: 2px; background: var(--blue-soft); }
+.vanguard .sb-item.on:before:not(:where(.bumex-page, .bumex-page *)) { content: ''; position: absolute; left: -8px; top: 7px; bottom: 7px; width: 3px; border-radius: 2px; background: var(--blue-soft); }
 .vanguard .sb-item.off:not(:where(.bumex-page, .bumex-page *)) { opacity: .4; cursor: not-allowed; }
-.vanguard .sb-item .lbl:not(:where(.bumex-page, .bumex-page *)) { font-size: 13.5px; opacity: 0; transition: opacity .15s; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.vanguard .sb-item .lbl:not(:where(.bumex-page, .bumex-page *)) { font-size: 13px; opacity: 0; transition: opacity .15s; flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .vanguard .rail.open .sb-item .lbl:not(:where(.bumex-page, .bumex-page *)) { opacity: 1; }
-.vanguard .sb-item .badge:not(:where(.bumex-page, .bumex-page *)) { position: absolute; right: 6px; top: 6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--gold); color: #1c1200; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.vanguard .sb-item .badge:not(:where(.bumex-page, .bumex-page *)) { position: absolute; right: 2px; top: 2px; min-width: 14px; height: 14px; padding: 0 4px; border-radius: 8px; background: var(--gold); color: #1c1200; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
 .vanguard .rail.open .sb-item .badge:not(:where(.bumex-page, .bumex-page *)) { position: static; }
 .vanguard .sb-item .tip:not(:where(.bumex-page, .bumex-page *)) { position: absolute; left: calc(100% + 12px); top: 50%; transform: translateY(-50%); background: var(--navy-ink); color: #fff; font-size: 12px; padding: 5px 9px; border-radius: 6px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .12s; border: 1px solid var(--dark-border); box-shadow: var(--shadow-sm); z-index: 50; }
 .vanguard .sb-item:hover .tip:not(:where(.bumex-page, .bumex-page *)) { opacity: 1; transition-delay: .25s; }
@@ -184,6 +184,10 @@
 .vanguard .sb-item kbd:not(:where(.bumex-page, .bumex-page *)) { margin-left: 6px; font-size: 10px; background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.2); color: #fff; }
 .vanguard .rail .mini:not(:where(.bumex-page, .bumex-page *)) { padding: 0 10px; color: var(--dark-muted); font-size: 11px; line-height: 1.35; opacity: 0; transition: opacity .15s; white-space: normal; }
 .vanguard .rail.open .mini:not(:where(.bumex-page, .bumex-page *)) { opacity: 1; }
+/* [bumex-one] a group's name, when the rail is open; the rail scrolls only on a short screen */
+.vanguard .rail .grp-h:not(:where(.bumex-page, .bumex-page *)) { height: 0; overflow: hidden; padding: 0 8px; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--dark-muted); opacity: 0; transition: opacity .15s; }
+.vanguard .rail.open .grp-h:not(:where(.bumex-page, .bumex-page *)) { height: 18px; line-height: 18px; opacity: 1; }
+@media (max-height: 640px) { .vanguard .rail:not(:where(.bumex-page, .bumex-page *)) { overflow-y: auto; scrollbar-width: none; } }
 
 /* Floor picker flyout next to the rail */
 .vanguard .flyout-back:not(:where(.bumex-page, .bumex-page *)) { position: fixed; inset: 0; z-index: 26; }

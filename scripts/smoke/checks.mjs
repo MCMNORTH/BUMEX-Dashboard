@@ -291,6 +291,10 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     const flatOnly = await tab.evaluate("!document.querySelector('.stage') && !document.querySelector('canvas') && !document.querySelector('.hright .seg')");
     check("without the 3D option, Vanguard opens flat: no building, no switch (WebGL on)", flatOnly && tab.takeErrors().length === 0);
     check("…the floors are chosen from the rail only (no entity list beside the page)", await tab.evaluate("!document.querySelector('.page > .nav')"));
+    const railWork = await tab.evaluate("[...document.querySelectorAll('.rail .grp')].map((g) => [...g.querySelectorAll('.sb-item')].map((b) => b.getAttribute('aria-label')))");
+    const workGroup = railWork?.find((g) => g.length === 5 && /Ma journée|My day/.test(g[0]));
+    check("the rail keeps the person's work together (My day, My work, tasks, time, archives) and fits without scrolling",
+      Boolean(workGroup) && /Mon travail|My work/.test(workGroup[1]) && await tab.evaluate("(() => { const r = document.querySelector('.rail'); return r.scrollHeight <= r.clientHeight + 1; })()"), railWork);
     const profile = "document.querySelector('.bumex-tools button[aria-label=\"Mon profil\"], .bumex-tools button[aria-label=\"My profile\"]')";
     await tab.evaluate(`${profile}.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse' }))`);
     const menuOpen = await tab.until("[...document.querySelectorAll('[role=menu] [role=menuitem]')].some((i) => /Mon compte|My account/.test(i.innerText))");
@@ -304,7 +308,7 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     check("the building is drawn in 3D (WebGL)", drawn && tab.takeErrors().length === 0);
     await tab.webgl(false);
     const rooms = [
-      "/vanguard", "/vanguard?room=myday", "/vanguard?room=myday&tab=work", `/vanguard?room=missions&tab=mission%3A${A}`, "/vanguard?room=missions&tab=week",
+      "/vanguard", "/vanguard?room=myday", "/vanguard?room=mywork", `/vanguard?room=missions&tab=mission%3A${A}`, "/vanguard?room=missions&tab=week",
       "/vanguard?room=missions&tab=calendar", "/vanguard?room=missions&tab=milestones", "/vanguard?room=tasks", `/vanguard?room=tasks&tab=ticket%3A${T.t1}`,
       `/vanguard?room=tasks&tab=board%3A${A}`, "/vanguard?room=time", "/vanguard?room=inbox", "/vanguard?room=clients&tab=customers", "/vanguard?room=clients&tab=contracts",
       `/vanguard?room=clients&tab=client%3A${C.snim}`, `/vanguard?room=clients&tab=contract%3A${id(701)}`, "/vanguard?room=hr&tab=people", `/vanguard?room=hr&tab=person%3A${uid.ahmed}`,

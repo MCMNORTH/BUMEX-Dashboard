@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
       room("/erp", "room=accounting"),
       room("/erp/:path*", "room=accounting"),
       room("/overview", "room=myday"),
-      room("/my-work", "room=myday&tab=work"),
+      room("/my-work", "room=mywork"),
       room("/projects", "room=missions"),
       room("/projects/:id/workflow", "room=missions&tab=mission%3A:id%3Arules"),
       room("/projects/:id", "room=missions&tab=mission%3A:id"),

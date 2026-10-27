@@ -5,13 +5,12 @@ import { reloadVanguardAction } from '@/lib/erp/vanguard/actions';
 import { myDayAction, type MyDayData } from '@/lib/erp/vanguard/myday-actions';
 import type { VanguardData } from '@/lib/erp/vanguard/run';
 import { useStore } from '../store';
-import { Chip, D, Tabs } from '../ui/common';
-import { MyWork } from './MyWork';
+import { Chip, D } from '../ui/common';
 import { useSay } from './say';
 
 // "My day": the home's panel (the building stays the home), with what BUMEX One's overview showed: my tickets, what
-// waits for my sign-off, the missions at risk, the coming deadlines and the team's workload; and, on its "Mon travail"
-// tab, BUMEX One's My Work page (vanguard/one/MyWork.tsx).
+// waits for my sign-off, the missions at risk, the coming deadlines and the team's workload. "Mon travail" is a room
+// of its own (vanguard/one/MyWork.tsx).
 
 const PRIORITY: Record<string, [string, string]> = { low: ['Basse', 'Low'], medium: ['Moyenne', 'Medium'], high: ['Haute', 'High'], urgent: ['Urgente', 'Urgent'] };
 const HEALTH: Record<string, [string, string, 'crit' | 'warn' | 'good']> = { delayed: ['En retard', 'Delayed', 'crit'], at_risk: ['À risque', 'At risk', 'crit'], warning: ['À surveiller', 'Watch', 'warn'], healthy: ['Sain', 'Healthy', 'good'] };
@@ -33,9 +32,10 @@ export function MyDayButton() {
 
 export function MyDay({ initialTab }: { initialTab?: string | null }) {
   const { state, toast, openRoom } = useStore();
-  const [tab, setTab] = useState<'today' | 'work'>(initialTab === 'work' ? 'work' : 'today');
   const say = useSay();
   const router = useRouter();
+  // the old "Mon travail" tab (links, bookmarks) is a room of its own now
+  useEffect(() => { if (initialTab === 'work') openRoom('mywork'); }, [initialTab, openRoom]);
   const loadedAt = useStore((s) => s.loadedAt);
   const [data, setData] = useState<MyDayData | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -65,9 +65,9 @@ export function MyDay({ initialTab }: { initialTab?: string | null }) {
 
   return (
     <>
-      <div className="sheet-head"><h1>{say('Ma journée', 'My day')}</h1><Tabs tabs={[{ id: 'today' as const, label: say("Aujourd'hui", 'Today') }, { id: 'work' as const, label: say('Mon travail', 'My work') }]} value={tab} onChange={setTab} /><span className="small muted">{state.session.actorName}</span></div>
+      <div className="sheet-head"><h1>{say('Ma journée', 'My day')}</h1><button className="btn sm" onClick={() => openRoom('mywork')}>{say('Mon travail', 'My work')} →</button><span className="small muted">{state.session.actorName}</span></div>
       <div className="sheet-body">
-        {tab === 'work' ? <MyWork /> : !data ? <span className="muted">{say('Chargement…', 'Loading…')}</span> : (
+        {!data ? <span className="muted">{say('Chargement…', 'Loading…')}</span> : (
           <>
             <div className="grid4">
               <div className="kpi"><div className="l">{say('Mes tâches ouvertes', 'My open tasks')}</div><div className="v">{data.myTickets.total}</div></div>

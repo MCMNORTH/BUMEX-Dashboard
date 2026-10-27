@@ -32,12 +32,14 @@ export function Sidebar() {
         { id: 'hr', icon: 'hr', label: t('room_hr'), room: 'hr', off: !allowed('hr') },
         { id: 'tax', icon: 'tax', label: t('room_tax'), room: 'tax', off: !allowed('tax') },
       ];
+  // [bumex-one] the person's work together (asked on 2026-10-27): My day, My work, the tasks, the time, the archives
   const work: Item[] = [
+    { id: 'mywork', icon: 'mywork', label: t('nav_mywork'), room: 'mywork' },
     { id: 'tasks', icon: 'tasks', label: t('nav_tasks'), badge: ts.overdue, room: 'tasks' },
     { id: 'time', icon: 'clock', label: t('nav_time'), room: 'time' }, // [bumex-one] BUMEX One's timesheet (vanguard/one/Time.tsx)
     { id: 'archives', icon: 'archives', label: t('nav_archives'), badge: toArchive, room: 'archives', off: entity.isHolding || !allowed('archives') },
-    { id: 'reports', icon: 'reports', label: t('nav_reports'), room: 'reports' },
   ];
+  const reports: Item = { id: 'reports', icon: 'reports', label: t('nav_reports'), room: 'reports' };
   const open = (item: Item) => {
     if (item.off || !item.room) return;
     if (ui.view === 'tower') {
@@ -69,7 +71,6 @@ export function Sidebar() {
           <span className="lbl">{t('nav_overview')}</span>
           <span className="tip">{t('nav_overview')}<kbd>Échap</kbd></span>
         </button>
-        <MyDayButton />{/* [bumex-one] the home's panel */}
         <button className={`sb-item ${(ui.view === 'floor' && !ui.room) || ui.flyout === 'floors' ? 'on' : ''}`} onClick={() => setUi({ flyout: ui.flyout === 'floors' ? null : 'floors' })} aria-label={t('nav_floors')} aria-haspopup="menu" aria-expanded={ui.flyout === 'floors'}>
           <Icon name="floors" />
           <span className="lbl">{entity.name}</span>
@@ -102,14 +103,17 @@ export function Sidebar() {
         </>
       )}
       <div className="grp">
-        {modules.map((m) => <Btn key={m.id} item={m} on={ui.room === m.room} />)}
+        <div className="grp-h">{t('grp_work')}</div>
+        <MyDayButton />{/* [bumex-one] the home's panel */}
+        {work.map((m) => <Btn key={m.id} item={m} on={ui.room === m.room} />)}
       </div>
       <div className="grp">
-        {work.map((m) => <Btn key={m.id} item={m} on={ui.room === m.room} />)}
+        <div className="grp-h">{t('grp_modules')}</div>
+        {modules.map((m) => <Btn key={m.id} item={m} on={ui.room === m.room} />)}
+        <Btn item={reports} on={ui.room === 'reports'} />
       </div>
       <div className="grow" />
       <div className="grp">
-        <div className="mini">{entity.name} · {entity.functionalCurrency}<br />{state.session.actorName} · {t(state.session.role)}</div>
         <Btn item={{ id: 'settings', icon: 'settings', label: t('nav_settings'), room: 'settings' }} on={ui.room === 'settings'} />
         <button className="sb-item" onClick={() => setUi({ sidebarOpen: !ui.sidebarOpen })} aria-label={ui.sidebarOpen ? t('collapse') : t('expand')} aria-expanded={ui.sidebarOpen}>
           <Icon name={ui.sidebarOpen ? 'chevronLeft' : 'chevronRight'} />

@@ -34,7 +34,7 @@ function RoomLink() {
     if (!ROOMS.includes(room)) return;
     const target = room as Room;
     // the person's own panels open over the building; a module takes you onto the floor first
-    if (target === "myday" || target === "time" || target === "inbox" || ui.view !== "tower") openRoom(target, tab);
+    if (target === "myday" || target === "mywork" || target === "time" || target === "inbox" || ui.view !== "tower") openRoom(target, tab);
     else setUi({ view: "floor", transition: "to-floor", focusRoom: MODULE_ROOM[target] ?? target, room: target, tab, rackFocus: false });
   }, [loaded, room, tab]);
   return null;

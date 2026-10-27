@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, Clock, Languages, LogOut, Settings, ShieldCheck, Sun, UserRound } from "lucide-react";
+import { Bell, Clock, Languages, ListChecks, LogOut, Settings, ShieldCheck, Sun, UserRound } from "lucide-react";
 
 import { signOutAction } from "@/app/login/actions";
 import { useNotifications } from "@/hooks/use-notifications";
@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dialog";
 
 // The signed-in person's menu in Vanguard's header: who they are, their own panels (my day, time, notifications,
-// account), settings and permissions, the language, sign out. The floor is chosen from the rail (vanguard/ui/Sidebar.tsx).
+// work, account), settings and permissions, the language, sign out. The floor is chosen from the rail (vanguard/ui/Sidebar.tsx).
 export function AccountMenu() {
   const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
   const { profile } = useUser();
@@ -90,6 +90,9 @@ export function AccountMenu() {
           <DropdownMenuGroup>
             <DropdownMenuItem disabled={!loaded} onSelect={() => go("myday")}>
               <Sun className="size-4 text-muted-foreground" /> {say("Ma journée", "My day")}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!loaded} onSelect={() => go("mywork")}>
+              <ListChecks className="size-4 text-muted-foreground" /> {say("Mon travail", "My work")}
             </DropdownMenuItem>
             <DropdownMenuItem disabled={!loaded} onSelect={() => go("time")}>
               <Clock className="size-4 text-muted-foreground" /> {say("Mon temps", "My time")}

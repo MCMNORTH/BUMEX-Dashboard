@@ -12,6 +12,7 @@ import { HrPanel } from './panels/Hr';
 import { TaxPanel } from './panels/Tax';
 import { TasksRoom } from '../one/Tasks'; // [bumex-one] the tasks are BUMEX One's tickets
 import { MyDay } from '../one/MyDay'; // [bumex-one] the home's panel
+import { MyWorkRoom } from '../one/MyWork'; // [bumex-one] everything the person has to do
 import { TimeRoom } from '../one/Time'; // [bumex-one]
 import { Inbox } from '../one/Inbox'; // [bumex-one]
 import { ArchivesPanel } from './panels/Archives';
@@ -35,6 +36,7 @@ export function RoomContent({ room, entityId, tab, compact }: { room: Room; enti
     case 'reports': return <ReportsPanel entityId={entityId} />;
     case 'settings': return <SettingsPanel initialTab={tab} />;
     case 'myday': return <MyDay initialTab={tab} />; // [bumex-one]
+    case 'mywork': return <MyWorkRoom />; // [bumex-one]
     case 'time': return <TimeRoom initialTab={tab} />; // [bumex-one] BUMEX One's timesheet
     case 'inbox': return <Inbox />; // [bumex-one] BUMEX One's notifications
   }

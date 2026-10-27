@@ -89,6 +89,7 @@ features rebuilt in Vanguard (linted, unlike the delivered files).
 | `ui/Rooms.tsx` | My day passes its tab on (its "Mon travail" tab is BUMEX One's My Work, `vanguard/one/MyWork.tsx`) | My Work merged into My day |
 | `ui/Rooms.tsx` | the flat view has no entity list beside the page: the floor is chosen from the rail | the list repeated the rail's floors |
 | `ui/Header.tsx` | no user chip: the person's menu (`components/layout/account-menu.tsx`) carries their panels, settings, permissions, language and sign out | two profile buttons side by side |
+| `ui/Sidebar.tsx`, `styles.css`, `ui/Rooms.tsx`, `i18n.ts`, `store.ts` | the rail groups the person's work (My day, "Mon travail", Tasks, Time, Archives) apart from the modules (Reports with them), is compact (32 px items, 52 px wide) and names its groups when open; "Mon travail" is a room of its own (`vanguard/one/MyWork.tsx`), out of My day's tabs | asked on 2026-10-27 |
 
 `styles.css` is theirs; `vanguard.css` is generated from it by `node scripts/vanguard-css.mjs` (every rule scoped to
 the `.vanguard` container, keyframes prefixed, BUMEX One's base reset undone inside it). Re-run it after a new
