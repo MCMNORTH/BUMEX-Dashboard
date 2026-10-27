@@ -17,11 +17,12 @@ on the day of the copy (`scripts/work-copy.mjs`), the way back.
 | `db/erp/migrations/0009_permissions.sql` | Permissions: a person's modules per entity (`entity_modules`), the "role modifier" (`manages_access`, an administrator's only) who alone changes access, the invitations' links |
 | `db/erp/migrations/0010_view_3d.sql` | The building in 3D, a person's option (`view_3d`), off by default; given by the role modifiers like the rest of the access |
 | `db/erp/migrations/0011_test_floor.sql` | The test floor, BUMEX Testing (the basement): an entity apart (`is_test`), given by `test_floor`, hidden from whoever lacks it, no e-mails, time apart, its own clients |
+| `db/erp/migrations/0012_tickets.sql` | Tickets as Jira has them: a key per floor (`ticket_prefix` + `number`, AUD-142), labels, links between tickets (`work.task_link`), time entered on a ticket (`time_entry.task_id`, its total and work log), every field change written to its history by the database, attachments by its assignee and reporter |
 | `db/erp/test/work.test.mjs` | Tests of 0008: who reads and writes what, the timesheet's guards, the e-mails, one client with two sides |
 | `scripts/work-copy.mjs` | The one-shot copy of BUMEX One's Firestore data into 0008's tables (dry run first) |
 | `lib/erp/vanguard/` | BUMEX Vanguard on this database: the state read for a person, their changes replayed with the engine and written (see `vanguard/VENDOR.md`); tests in `test/` run on the real schema |
 | `db/erp/test/guarantees.test.mjs` | The ERP team's 35 guarantee tests (now run against every migration, 0004 included) |
-| `db/erp/test/bumex-one.test.mjs` | Tests of 0004–0006, 0009 and 0010 (0011's in `work.test.mjs`) |
+| `db/erp/test/bumex-one.test.mjs` | Tests of 0004–0006, 0009 and 0010 (0011's and 0012's in `work.test.mjs`) |
 | `lib/erp/engine/` | The ERP team's TypeScript engine, **as delivered** but for marked changes (`withIdSource` and the rooms per entity in `core.ts`, two session fields in `types.ts`); 65 tests in `lib/erp/engine/test` |
 | `lib/erp/*.ts` | Our code: connection, access, pages' data |
 | `scripts/erp-migrate.mjs` | Applies pending migrations |

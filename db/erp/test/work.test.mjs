@@ -416,6 +416,56 @@ await test('test floor (0011): hidden from whoever lacks it, whatever their role
   return 'hidden from admin/shareholder, seen by testers; 0 e-mails; test time past a sent week; clients, missions, contracts apart; access checked';
 });
 
+await test('tickets (0012): keys per floor, renumbered on another floor; every field change in the history', async () => {
+  await office();
+  const keys = async () => Object.fromEntries((await all(`select title, work.task_key(id) k from erp.task order by title`)).map((r) => [r.title, r.k]));
+  same(await keys(), { 'Ticket Deux': 'IT-1', 'Ticket Trois': 'AUD-2', 'Ticket Un': 'AUD-1' }, 'numbered in creation order');
+  const t4 = await as('mgr', async () => (await one(`insert into erp.task (engagement_id, title, assignee_id, reporter_id) values ($1, 'Ticket Quatre', 'emp', 'mgr') returning id`, [ids.P1])).id);
+  same((await one('select work.task_key($1) k', [t4])).k, 'AUD-3', 'the next number');
+  await expectError(() => asSystem(() => db.query('update erp.task set number = 9 where id = $1', [ids.T1])), /task_number_immutable/);
+  await as('mgr', () => db.query(
+    `update erp.task set priority = 'high', estimated_hours = 6, notes = 'Le texte', labels = '{RH,Démo}', due_date = '2026-11-30', status = 'in_progress' where id = $1`, [ids.T1]));
+  const rows = await all(`select user_id, metadata from work.activity where subject_type = 'task' and subject_id = $1 order by metadata->>'field'`, [ids.T1]);
+  same(rows.map((r) => [r.user_id, r.metadata.field, r.metadata.from, r.metadata.to]), [
+    ['mgr', 'due_date', null, '2026-11-30'], ['mgr', 'estimated_hours', null, 6], ['mgr', 'labels', [], ['RH', 'Démo']],
+    ['mgr', 'notes', null, null], ['mgr', 'priority', 'medium', 'high'],
+  ], 'one line per field, the stage apart, no description text');
+  await expectError(() => as('mgr', () => db.query(`update erp.task set labels = '{" RH"}' where id = $1`, [ids.T1])), /task_labels_check/);
+  // moved to the IT floor: IT's next number, the old key in its history
+  await asSystem(() => db.query('update erp.task set engagement_id = $2 where id = $1', [ids.T3, ids.P2]));
+  same((await one('select work.task_key($1) k', [ids.T3])).k, 'IT-2', 'renumbered');
+  const moved = await one(`select metadata from work.activity where subject_id = $1 and metadata->>'field' = 'key'`, [ids.T3]);
+  same([moved.metadata.from, moved.metadata.to], ['AUD-2', 'IT-2'], 'the old key kept');
+  return 'AUD-1/2, IT-1, AUD-3 next; 5 fields logged by mgr; AUD-2 → IT-2';
+});
+
+await test('tickets (0012): links both ways; time on a ticket, its total and work log; attachments by its people', async () => {
+  await office();
+  await as('mgr', () => db.query(`insert into work.task_link (from_task, to_task, kind) values ($1, $2, 'blocks')`, [ids.T1, ids.T3]));
+  await expectError(() => as('mgr', () => db.query(`insert into work.task_link (from_task, to_task, kind) values ($1, $2, 'blocks')`, [ids.T1, ids.T3])), /duplicate key/);
+  await expectError(() => as('mgr', () => db.query(`insert into work.task_link (from_task, to_task, kind) values ($1, $1, 'relates')`, [ids.T1])), /check constraint/);
+  await expectError(() => as('sh', () => db.query(`insert into work.task_link (from_task, to_task, kind) values ($1, $2, 'relates')`, [ids.T3, ids.T1])), /row-level security/);
+  same(await as('sh', async () => (await all('select kind from work.task_link')).map((r) => r.kind)), ['blocks'], 'a reader sees the link');
+  const logged = await all(`select subject_id, metadata->>'direction' d, metadata->>'other_key' k from work.activity where metadata->>'kind' = 'link' order by d`);
+  same(logged.map((r) => [r.subject_id === ids.T3 ? 'T3' : 'T1', r.d, r.k]), [['T3', 'in', 'AUD-1'], ['T1', 'out', 'AUD-2']], 'logged on both tickets');
+  // a test ticket never links to a real one
+  const testTask = await asSystem(async () => {
+    const p = (await one(`insert into erp.engagement (entity_id, owner_id, name, project_kind, status, deadline) values ($1, 'adm', 'Essai', 'client_mission', 'active', '2026-12-31') returning id`, [ids.bumex_testing])).id;
+    return (await one(`insert into erp.task (engagement_id, title) values ($1, 'Essai') returning id`, [p])).id;
+  });
+  await expectError(() => asSystem(() => db.query(`insert into work.task_link (from_task, to_task, kind) values ($1, $2, 'relates')`, [ids.T1, testTask])), /test_task_mismatch/);
+  // time on a ticket of the entry's mission only
+  await as('emp', () => db.query(`insert into erp.time_entry (engagement_id, task_id, user_id, work_date, minutes, description) values ($1, $2, 'emp', '2026-10-20', 90, 'Revue')`, [ids.P1, ids.T1]));
+  await expectError(() => as('emp', () => db.query(`insert into erp.time_entry (engagement_id, task_id, user_id, work_date, minutes) values ($1, $2, 'emp', '2026-10-20', 30)`, [ids.P1, ids.T2])), /time_entry_task_mismatch/);
+  same(await as('sh', async () => (await one('select work.task_logged_minutes($1) m', [ids.T1])).m), 90, 'the total, for a reader of the ticket');
+  same(await as('mgr2', async () => (await one('select work.task_logged_minutes($1) m', [ids.T1])).m), 0, 'nothing for someone who cannot read it');
+  same(await as('mgr', async () => (await all('select user_id, minutes, note from work.task_worklog($1)', [ids.T1])).map((r) => [r.user_id, r.minutes, r.note])), [['emp', 90, 'Revue']], 'the work log');
+  // attachments: the assignee (and reporter) of the ticket, not another employee
+  const can = (uid, task) => as(uid, async () => (await one(`select work.can_manage_document('task', $1) c`, [task])).c);
+  same([await can('emp', ids.T1), await can('emp2', ids.T1), await can('emp2', ids.T3)], [true, false, true], 'emp on T1; emp2 not on T1, but reporter of T3');
+  return 'link logged both ways, no duplicate/self/reader/test mix; 90 min on T1 for readers; attachments by assignee and reporter';
+});
+
 // ---------------------------------------------------------------------------
 let failed = 0;
 for (const r of results) {
