@@ -13,8 +13,14 @@ export const BUILDING = {
 };
 
 export function floorY(index: number): number {
-  // index 0 = lowest office floor, sitting on the podium
+  // index 0 = lowest office floor, sitting on the podium; [bumex-one] -1 = the test floor, a basement under the plaza (0011)
+  if (index < 0) return index * BUILDING.floorH - 0.6;
   return BUILDING.podiumH + index * BUILDING.floorH;
+}
+
+// [bumex-one] A floor's index in the tower of n office floors (the test floor is the basement, not one of them)
+export function floorIndex(entity: { floorOrder: number; isTest?: boolean }, n: number): number {
+  return entity.isTest ? -1 : n - 1 - entity.floorOrder;
 }
 
 export interface Rect {

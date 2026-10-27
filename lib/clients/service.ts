@@ -603,16 +603,18 @@ const payloadParams = (p: ReturnType<typeof parseClientPayload>) => [
   p.prospect_stage, p.next_follow_up_at, p.account_manager_id, p.notes,
 ];
 
-export async function createClientRecord(values: ClientFormValues, actorUserId: string) {
+// floor: the entity it is created from; the test floor's clients are its own (0011)
+export async function createClientRecord(values: ClientFormValues, actorUserId: string, floor: string | null = null) {
   const payload = parseClientPayload(values);
   const data = await asPerson((tx) =>
     selectOne<{ id: string }>(
       tx,
       `insert into work.client (name, legal_name, type, industry, contact_email, contact_phone, address, country, city, website, tax_id, status,
-                                prospect_stage, next_follow_up_at, account_manager_id, notes, entity_code)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::date, $15, $16, (select entity_code from work.person where id = erp.actor_id()))
+                                prospect_stage, next_follow_up_at, account_manager_id, notes, entity_code, is_test)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::date, $15, $16, (select entity_code from work.person where id = erp.actor_id()),
+               erp.is_test_entity($17::uuid))
        returning id`,
-      payloadParams(payload),
+      [...payloadParams(payload), floor],
     ),
   );
 

@@ -49,10 +49,15 @@ async function missionAccess(input: MissionInput) {
   return { auth, access, fr, allowed };
 }
 
-export async function missionOptionsAction(): Promise<MissionOptions> {
+// on a floor, its kind of clients: a test mission takes the test floor's, a real one the real ones (0011)
+export async function missionOptionsAction(entityId?: string | null): Promise<MissionOptions> {
   const { auth } = await requireErpAccess();
   const { clients, people } = await asPerson(async (tx) => ({
-    clients: await select<{ id: string; name: string }>(tx, "select id, name from work.client order by name"),
+    clients: await select<{ id: string; name: string }>(
+      tx,
+      "select id, name from work.client where $1::uuid is null or is_test = erp.is_test_entity($1::uuid) order by name",
+      [entityId ?? null],
+    ),
     people: await select<{ id: string; name: string }>(tx, "select id, coalesce(nullif(trim(full_name), ''), email) as name from work.person order by full_name"),
   }));
   return { clients, people, me: auth.profile.id };

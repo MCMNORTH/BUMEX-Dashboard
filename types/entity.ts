@@ -13,6 +13,11 @@ export const bumexEntityCodes = [
 
 export type BumexEntityCode = (typeof bumexEntityCodes)[number];
 
+// The test floor (BUMEX Testing, the basement; migration 0011): an ERP entity nobody belongs to, given apart in the
+// permissions page. It is not a BUMEX entity a person chooses as theirs.
+export const bumexTestEntityCode = "bumex_testing";
+export type ErpEntityCode = BumexEntityCode | typeof bumexTestEntityCode;
+
 export const DEFAULT_BUMEX_ENTITY_CODE: BumexEntityCode = "bumex_it";
 
 export type LocalizedEntityCopy = Record<Locale, string>;

@@ -8,6 +8,7 @@ export const floors: Record<string, { code: string; activity: string }> = {
   bumex_avocat: { code: "AVO", activity: "Cabinet d'avocats" },
   bumex_it: { code: "IT", activity: "Solutions IT" },
   bumex_maroc: { code: "MAR", activity: "Casablanca Finance City" },
+  bumex_testing: { code: "TEST", activity: "Sous-sol · essais" }, // the test floor (0011)
 };
 
 // The floor code of a BUMEX One entity code (bumex_audit → AUD), for the screens.

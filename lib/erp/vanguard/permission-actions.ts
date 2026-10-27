@@ -14,6 +14,7 @@ import {
   type PermissionsInput,
 } from "@/lib/erp/permissions";
 import { requireErpAccess } from "@/lib/erp/server";
+import { prepareTestFloor } from "@/lib/erp/test-floor";
 
 // The Settings room's Permissions tab (vanguard/one/Permissions.tsx), for the administrators who manage access (the
 // "role modifiers", migration 0009) and nobody else: the database refuses the others' changes too.
@@ -50,4 +51,11 @@ export async function resendInvitationAction(userId: string): Promise<{ mailed?:
   const auth = await modifier();
   if (!auth) return { error: "not_allowed" };
   return resendInvitation(auth.profile.id, auth.profile.full_name || auth.profile.email, userId, await getAppBaseUrl());
+}
+
+// The test floor's sample data (lib/erp/test-floor.ts), once.
+export async function prepareTestFloorAction(): Promise<{ error?: "not_allowed" | "ready" | "unavailable" }> {
+  const auth = await modifier();
+  if (!auth) return { error: "not_allowed" };
+  return prepareTestFloor(auth.profile.id, auth.profile.full_name || auth.profile.email);
 }

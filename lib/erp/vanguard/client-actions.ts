@@ -31,7 +31,8 @@ export type ClientRelation = Pick<ClientRecord, "id" | "name" | "status" | "pros
   accounts: { entityId: string; customerId: string; code: string }[];
 };
 
-export async function clientRelationsAction(): Promise<ClientRelation[]> {
+// on a floor, its kind of clients: the test floor's own there, the real ones elsewhere (0011)
+export async function clientRelationsAction(entityId?: string | null): Promise<ClientRelation[]> {
   await requireErpAccess();
   return asPerson((tx) =>
     select<ClientRelation>(
@@ -40,7 +41,10 @@ export async function clientRelationsAction(): Promise<ClientRelation[]> {
               (select p.full_name from work.person p where p.id = c.account_manager_id) as manager,
               coalesce((select jsonb_agg(jsonb_build_object('entityId', k.entity_id, 'customerId', k.id, 'code', k.code) order by k.code)
                           from erp.customer k where k.client_id = c.id), '[]'::jsonb) as accounts
-         from work.client c order by c.name`,
+         from work.client c
+        where $1::uuid is null or c.is_test = erp.is_test_entity($1::uuid)
+        order by c.name`,
+      [entityId ?? null],
     ),
   );
 }

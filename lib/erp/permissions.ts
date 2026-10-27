@@ -9,25 +9,27 @@ import { withErpSession, withErpSystemSession, type ErpTransaction } from "@/lib
 import { floors } from "@/lib/erp/vanguard/floors";
 import { sendAppMail } from "@/lib/email/send";
 import { adminAuth } from "@/lib/firebase/admin";
-import type { BumexEntityCode } from "@/types/entity";
+import type { BumexEntityCode, ErpEntityCode } from "@/types/entity";
 import type { ErpEntityModules, ErpModuleKey, ErpRole } from "@/types/erp";
 
 // The permissions page (vanguard/one/Permissions.tsx): everyone's access, read by the server, changed in the role
 // modifier's own ERP session, where the database refuses anyone else and what nobody may do to themselves (migration
 // 0009). A role gives its standard parts (lib/erp/config.ts); the page tweaks them per person and per entity, and
 // what is stored is the person's usual parts (modules, null = the role's) and the entities where they differ
-// (entity_modules). Invitations: a Firebase account without a password, the person, their access, and a link sent to
-// them where they choose their password (app/invite).
+// (entity_modules). The test floor (0011) is apart: "every entity" leaves it out, test_floor gives it, with its own
+// parts when they differ. Invitations: a Firebase account without a password, the person, their access, and a link
+// sent to them where they choose their password (app/invite).
 
 export type PermissionsError =
   | "not_allowed" | "own_access" | "invalid" | "no_entity" | "email" | "name" | "exists" | "signed_in" | "expired" | "password" | "unavailable";
 
-// What a person reaches: their role, and on every entity they see, its parts (consolidation is the group's); and
-// whether they see the building in 3D (0010, off unless given).
+// What a person reaches: their role, and on every entity they see, its parts (consolidation is the group's; the test
+// floor is among them when they have it, whatever allEntities says); and whether they see the building in 3D (0010,
+// off unless given).
 export type PersonAccess = {
   role: ErpRole;
   allEntities: boolean;
-  parts: Partial<Record<BumexEntityCode, ErpModuleKey[]>>;
+  parts: Partial<Record<ErpEntityCode, ErpModuleKey[]>>;
   consolidation: boolean;
   managesAccess: boolean;
   view3d: boolean;
@@ -48,7 +50,9 @@ export type PermissionPerson = {
 export type PermissionsData = {
   me: string;
   people: PermissionPerson[];
-  entities: { code: BumexEntityCode; name: string; floor: string }[];
+  entities: { code: ErpEntityCode; name: string; floor: string; isTest: boolean }[];
+  // the test floor's sample data: whether it is there (a chart of accounts)
+  testFloorReady: boolean;
 };
 
 export type PermissionsInput = PersonAccess & { homeEntity: BumexEntityCode | null };
@@ -69,22 +73,34 @@ type PersonRow = {
   entity_modules: ErpEntityModules | null;
   manages_access: boolean | null;
   view_3d: boolean | null;
+  test_floor: boolean | null;
   removed: boolean;
   invited_until: Date | null;
 };
 
-async function entityCodes(tx: ErpTransaction) {
-  return tx.query<{ code: BumexEntityCode; name: string }>("select code, name from erp.entity where active order by floor_order");
+type EntityRow = { code: ErpEntityCode; name: string; is_test: boolean };
+
+async function entityRows(tx: ErpTransaction) {
+  return tx.query<EntityRow>("select code, name, is_test from erp.entity where active order by floor_order");
 }
 
-function personAccess(row: PersonRow, all: BumexEntityCode[]): PersonAccess | null {
+// the real entities, and the test floor's code
+function split(rows: EntityRow[]) {
+  return { all: rows.filter((e) => !e.is_test).map((e) => e.code as BumexEntityCode), test: rows.find((e) => e.is_test)?.code ?? null };
+}
+
+function personAccess(row: PersonRow, all: BumexEntityCode[], test: ErpEntityCode | null): PersonAccess | null {
   if (!row.erp_role) return null;
-  const access = accessOf({ erp_role: row.erp_role, entity_codes: row.entity_codes, modules: row.modules, entity_modules: row.entity_modules, manages_access: row.manages_access === true, view_3d: row.view_3d === true });
+  const access = accessOf({
+    erp_role: row.erp_role, entity_codes: row.entity_codes, modules: row.modules, entity_modules: row.entity_modules,
+    manages_access: row.manages_access === true, view_3d: row.view_3d === true, test_floor: row.test_floor === true,
+  });
   const usual = access.modules.filter((m) => m !== "consolidation");
+  const seen: ErpEntityCode[] = [...(access.entityCodes ?? all), ...(access.testFloor && test ? [test] : [])];
   return {
     role: access.role,
     allEntities: access.entityCodes === null,
-    parts: Object.fromEntries((access.entityCodes ?? all).map((code) => [code, access.entityModules[code] ?? usual])),
+    parts: Object.fromEntries(seen.map((code) => [code, access.entityModules[code] ?? usual])),
     consolidation: access.modules.includes("consolidation"),
     managesAccess: access.managesAccess,
     view3d: access.view3d,
@@ -107,11 +123,14 @@ async function neverSignedIn(ids: string[]): Promise<Set<string>> {
 
 // Everyone, with their access: the server's read (the caller checked the person manages access).
 export async function listPermissions(actorId: string): Promise<PermissionsData> {
-  const { rows, entities } = await withErpSystemSession(actorId, async (tx) => ({
-    entities: await entityCodes(tx),
+  const { rows, entities, ready } = await withErpSystemSession(actorId, async (tx) => ({
+    entities: await entityRows(tx),
+    ready: (await tx.query<{ ready: boolean }>(
+      "select exists (select 1 from erp.account a join erp.entity e on e.id = a.entity_id where e.is_test) as ready",
+    ))[0].ready,
     rows: await tx.query<PersonRow>(
       `select p.id, coalesce(nullif(trim(p.full_name), ''), p.email) as name, p.email, p.entity_code, p.job_title,
-              u.erp_role, u.entity_codes, u.modules, u.entity_modules, u.manages_access, u.view_3d,
+              u.erp_role, u.entity_codes, u.modules, u.entity_modules, u.manages_access, u.view_3d, u.test_floor,
               u.user_id is null and exists (select 1 from erp.audit_log a where a.table_name = 'user_access'
                                                 and coalesce(a.after_row, a.before_row) ->> 'user_id' = p.id) as removed,
               (select max(i.expires_at) from work.invitation i where i.person_id = p.id and i.used_at is null) as invited_until
@@ -119,18 +138,19 @@ export async function listPermissions(actorId: string): Promise<PermissionsData>
         order by 2`,
     ),
   }));
-  const all = entities.map((e) => e.code);
+  const { all, test } = split(entities);
   const fresh = await neverSignedIn(rows.map((r) => r.id));
   return {
     me: actorId,
-    entities: entities.map((e) => ({ ...e, floor: floors[e.code]?.code ?? e.code.toUpperCase() })),
+    entities: entities.map((e) => ({ code: e.code, name: e.name, isTest: e.is_test, floor: floors[e.code]?.code ?? e.code.toUpperCase() })),
+    testFloorReady: ready,
     people: rows.map((r) => ({
       id: r.id,
       name: r.name,
       email: r.email,
       homeEntity: r.entity_code,
       jobTitle: r.job_title,
-      access: personAccess(r, all),
+      access: personAccess(r, all, test),
       removed: r.removed,
       invitedUntil: r.invited_until ? r.invited_until.toISOString() : null,
       neverSignedIn: fresh.has(r.id),
@@ -141,30 +161,33 @@ export async function listPermissions(actorId: string): Promise<PermissionsData>
 const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x));
 const canonical = (modules: readonly string[]) => erpEntityModuleKeys.filter((m) => modules.includes(m));
 
-// The page's choices as stored: the usual parts are the ones most entities have (the role's on a tie), null when they
-// are the role's; the entities that differ keep their own.
-export function storedAccess(input: PersonAccess, all: readonly BumexEntityCode[]): ErpAccessInput | PermissionsError {
+// The page's choices as stored: the usual parts are the ones most real entities have (the role's on a tie), null
+// when they are the role's; the entities that differ keep their own. The test floor is test_floor, its parts an
+// exception when they are not the usual ones; someone may have it alone.
+export function storedAccess(input: PersonAccess, all: readonly BumexEntityCode[], test: ErpEntityCode | null = null): ErpAccessInput | PermissionsError {
   if (!input || typeof input !== "object" || !isErpRole(input.role) || typeof input.parts !== "object" || !input.parts) return "invalid";
-  const chosen = Object.keys(input.parts) as BumexEntityCode[];
-  if (chosen.some((code) => !all.includes(code))) return "invalid";
+  const chosen = Object.keys(input.parts) as ErpEntityCode[];
+  if (chosen.some((code) => code !== test && !(all as readonly string[]).includes(code))) return "invalid";
   for (const code of chosen) {
     const modules = input.parts[code];
     if (!Array.isArray(modules) || modules.some((m) => typeof m !== "string" || !(erpEntityModuleKeys as string[]).includes(m))) return "invalid";
   }
   const seen = input.allEntities === true ? [...all] : all.filter((code) => chosen.includes(code));
-  if (!seen.length) return "no_entity";
+  const testFloor = test !== null && chosen.includes(test);
+  if (!seen.length && !testFloor) return "no_entity";
 
   const role = input.role;
   const roleParts = resolveErpModules(role, null).filter((m) => m !== "consolidation");
-  const sets = new Map(seen.map((code) => [code, input.parts[code] ? canonical(input.parts[code]!) : roleParts]));
+  const sets = new Map<ErpEntityCode, ErpModuleKey[]>(seen.map((code) => [code, input.parts[code] ? canonical(input.parts[code]!) : roleParts]));
   const count = new Map<string, number>();
   for (const set of sets.values()) count.set(set.join(), (count.get(set.join()) ?? 0) + 1);
-  const most = Math.max(...count.values());
-  const usual = count.get(roleParts.join()) === most ? roleParts : [...sets.values()].find((set) => count.get(set.join()) === most)!;
+  const most = Math.max(0, ...count.values());
+  const usual = count.get(roleParts.join()) === most || !seen.length ? roleParts : [...sets.values()].find((set) => count.get(set.join()) === most)!;
+  if (testFloor) sets.set(test, canonical(input.parts[test]!));
 
   const group = input.consolidation === true && erpConsolidationRoles.includes(role);
   const modules: ErpModuleKey[] = [...usual, ...(group ? (["consolidation"] as const) : [])];
-  const exceptions = seen.filter((code) => sets.get(code)!.join() !== usual.join());
+  const exceptions = [...sets.keys()].filter((code) => sets.get(code)!.join() !== usual.join());
   return {
     role,
     entityCodes: input.allEntities === true ? null : seen,
@@ -172,6 +195,7 @@ export function storedAccess(input: PersonAccess, all: readonly BumexEntityCode[
     entityModules: exceptions.length ? Object.fromEntries(exceptions.map((code) => [code, sets.get(code)!])) : null,
     managesAccess: role === "admin" && input.managesAccess === true,
     view3d: input.view3d === true,
+    testFloor,
   };
 }
 
@@ -189,8 +213,10 @@ export async function savePermissions(actorId: string, userId: string, input: Pe
   if (typeof userId !== "string" || !userId) return { error: "invalid" };
   try {
     return await withErpSession(actorId, async (tx) => {
-      const stored = storedAccess(input, (await entityCodes(tx)).map((e) => e.code));
+      const { all, test } = split(await entityRows(tx));
+      const stored = storedAccess(input, all, test);
       if (typeof stored === "string") return { error: stored };
+      if (input.homeEntity && !(all as readonly string[]).includes(input.homeEntity)) return { error: "invalid" };
       await writeErpAccess(tx, userId, stored);
       if (typeof input.homeEntity === "string" && input.homeEntity) {
         await tx.run("update work.person set entity_code = $2 where id = $1 and entity_code is distinct from $2", [userId, input.homeEntity]);
@@ -276,7 +302,7 @@ export async function invitePerson(actorId: string, inviter: string, input: Invi
   if (!isErpRole(input.role)) return { error: "invalid" };
 
   const known = await withErpSystemSession(actorId, async (tx) => ({
-    entities: (await entityCodes(tx)).map((e) => e.code),
+    entities: split(await entityRows(tx)).all,
     person: (await tx.query<{ id: string }>("select id from work.person where lower(email) = $1", [email]))[0],
   }));
   if (!known.entities.includes(input.homeEntity)) return { error: "invalid" };

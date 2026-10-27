@@ -1,6 +1,6 @@
 import "server-only";
 
-import { requireCurrentEntityContext } from "@/lib/entities/scope";
+import { requireCurrentEntityContext, requireTimeEntityContext } from "@/lib/entities/scope";
 import { weekBounds } from "@/lib/timesheet/validation";
 import { asPerson, select, selectOne } from "@/lib/work/db";
 import type { TimeEntry, TimeProject, TimeMission, TimeMissionFavorite, TimesheetProfile, TimesheetWeekEvent, TimesheetWeekStatus } from "@/types/timesheet";
@@ -26,7 +26,8 @@ export const TIMESHEET_PROJECTS_SQL = `
   select e.id, e.name from erp.engagement e join erp.entity x on x.id = e.entity_id
    where x.code = $1 and work.is_timesheet_project(e.id)`;
 
-export async function getTimesheet(week: string): Promise<{
+// test: the person's test lines on the test floor (0011), without a week
+export async function getTimesheet(week: string, test = false): Promise<{
   entries: TimeEntry[];
   projects: TimeProject[];
   missions: TimeMission[];
@@ -34,7 +35,7 @@ export async function getTimesheet(week: string): Promise<{
   weekStatus: TimesheetWeekStatus | null;
   events: TimesheetWeekEvent[];
 }> {
-  const { auth, entityCode } = await requireCurrentEntityContext();
+  const { auth, entityCode } = await requireTimeEntityContext(test);
   const bounds = weekBounds(week);
   if (!bounds) throw new Error("Timesheet unavailable");
 
@@ -61,12 +62,12 @@ export async function getTimesheet(week: string): Promise<{
           where f.user_id = $1 and x.code = $2 order by f.created_at desc`,
         [auth.user.id, entityCode],
       );
-      const weekStatus = await selectOne<TimesheetWeekStatus>(
+      const weekStatus = test ? null : await selectOne<TimesheetWeekStatus>(
         tx,
         `select ${WEEK_COLUMNS} from work.timesheet_week w join erp.entity x on x.id = w.entity_id where w.user_id = $1 and w.week_start = $2::date`,
         [auth.user.id, bounds.start],
       );
-      const events = await select<TimesheetWeekEvent>(
+      const events = test ? [] : await select<TimesheetWeekEvent>(
         tx,
         `${EVENT_SQL} where v.user_id = $1 and v.week_start = $2::date order by v.created_at desc, v.id`,
         [auth.user.id, bounds.start],
@@ -105,7 +106,7 @@ export async function getAdminTimesheetOverview(week: string) {
       entries: await select<TimeEntry>(
         tx,
         `select ${TIME_ENTRY_COLUMNS} from erp.time_entry t join erp.entity x on x.id = t.entity_id
-          where t.work_date >= $1::date and t.work_date < $2::date and ($3::text is null or x.code = $3)
+          where t.work_date >= $1::date and t.work_date < $2::date and ($3::text is null or x.code = $3) and not x.is_test
           order by t.work_date, t.user_id, t.id`,
         [bounds.start, bounds.end, scope],
       ),

@@ -9,14 +9,15 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { resolveErpModules } from "@/lib/erp/config";
 import type { ErpTransaction } from "@/lib/erp/db";
-import { DomainError, type DraftInput, type State } from "@/lib/erp/engine";
+import { DomainError, groupFigures, withIdSource, type DraftInput, type State } from "@/lib/erp/engine";
+import { testFloorBooks } from "@/lib/erp/test-floor";
 import { vanguardCommands } from "@/lib/erp/vanguard/commands";
 import * as domain from "@/lib/erp/vanguard/domain";
 import { vanguardErrorMessage } from "@/lib/erp/vanguard/errors";
 import { loadVanguardState, type VanguardPerson } from "@/lib/erp/vanguard/load";
 import { record, type VanguardChange } from "@/lib/erp/vanguard/record";
 import { ReplayError } from "@/lib/erp/vanguard/replay";
-import { applyVanguardChange } from "@/lib/erp/vanguard/save";
+import { applyVanguardChange, saveVanguardChange } from "@/lib/erp/vanguard/save";
 import { visibleState } from "@/lib/erp/vanguard/visible";
 import { storedAccess } from "@/lib/erp/permissions";
 import type { BumexEntityCode } from "@/types/entity";
@@ -49,7 +50,7 @@ const grants: Record<string, [ErpRole, string[] | null, ErpModuleKey[] | null, E
 };
 const accessOf = (uid: string): ErpAccess => {
   const [role, entityCodes, modules, entityModules] = grants[uid];
-  return { role, entityCodes: entityCodes as ErpAccess["entityCodes"], modules: resolveErpModules(role, modules), entityModules: entityModules ?? {}, managesAccess: false, view3d: false };
+  return { role, entityCodes: entityCodes as ErpAccess["entityCodes"], modules: resolveErpModules(role, modules), entityModules: entityModules ?? {}, managesAccess: false, view3d: false, testFloor: false };
 };
 const who = (uid: string) => ({ id: uid, name: people.find((p) => p.id === uid)!.name });
 
@@ -557,7 +558,7 @@ describe("the modules", () => {
     const std = resolveErpModules("accountant", null);
     const base = { role: "accountant" as ErpRole, allEntities: false, consolidation: false, managesAccess: false, view3d: false };
     expect(storedAccess({ ...base, parts: { bumex_audit: std, bumex_it: [...std].reverse() }, managesAccess: true }, all))
-      .toEqual({ role: "accountant", entityCodes: ["bumex_audit", "bumex_it"], modules: null, entityModules: null, managesAccess: false, view3d: false });
+      .toEqual({ role: "accountant", entityCodes: ["bumex_audit", "bumex_it"], modules: null, entityModules: null, managesAccess: false, view3d: false, testFloor: false });
     // the building in 3D is anyone's option, apart from their parts
     expect(storedAccess({ ...base, parts: { bumex_audit: std }, view3d: true }, all)).toMatchObject({ modules: null, entityModules: null, view3d: true });
     expect(storedAccess({ ...base, parts: { bumex_audit: std, bumex_it: ["archives"] } }, all))
@@ -568,13 +569,44 @@ describe("the modules", () => {
     // an administrator without the group's consolidation, who manages access
     const every = resolveErpModules("admin", null).filter((m) => m !== "consolidation");
     expect(storedAccess({ role: "admin", allEntities: true, parts: {}, consolidation: false, managesAccess: true, view3d: false }, all))
-      .toEqual({ role: "admin", entityCodes: null, modules: every, entityModules: null, managesAccess: true, view3d: false });
+      .toEqual({ role: "admin", entityCodes: null, modules: every, entityModules: null, managesAccess: true, view3d: false, testFloor: false });
     expect(storedAccess({ role: "admin", allEntities: true, parts: {}, consolidation: true, managesAccess: false, view3d: false }, all)).toMatchObject({ modules: null });
     expect(storedAccess({ ...base, parts: {} }, all)).toBe("no_entity");
     expect(storedAccess({ ...base, parts: { bumex_audit: ["missions" as ErpModuleKey] } }, all)).toBe("invalid");
     expect(storedAccess({ ...base, parts: { bumex_audit: ["consolidation"] } }, all)).toBe("invalid");
     expect(storedAccess({ ...base, parts: { bumex_sa: std } }, all)).toBe("invalid");
     expect(storedAccess({ ...base, role: "boss" as ErpRole, parts: { bumex_audit: std } }, all)).toBe("invalid");
+    // the test floor (0011): its own flag, never among the entities, its parts an exception when not the usual ones
+    expect(storedAccess({ ...base, allEntities: true, parts: { bumex_testing: std } }, all, "bumex_testing"))
+      .toMatchObject({ entityCodes: null, modules: null, entityModules: null, testFloor: true });
+    expect(storedAccess({ ...base, parts: { bumex_audit: std, bumex_testing: ["accounting"] } }, all, "bumex_testing"))
+      .toMatchObject({ entityCodes: ["bumex_audit"], modules: null, entityModules: { bumex_testing: ["accounting"] }, testFloor: true });
+    expect(storedAccess({ ...base, parts: { bumex_testing: std } }, all, "bumex_testing")).toMatchObject({ entityCodes: [], testFloor: true });
+    expect(storedAccess({ ...base, parts: { bumex_testing: std } }, all)).toBe("invalid");
+  });
+
+  it("the test floor (0011): only whoever has it gets it; its sample books go through the writers; the group's figures leave it out", async () => {
+    expect((await load("adm")).state.entities.some((e) => e.isTest)).toBe(false);
+    const tester = { ...accessOf("adm"), testFloor: true };
+    await asSystem(() => tx.query("update erp.user_access set test_floor = true where user_id = 'adm'"));
+    try {
+      const { state: before } = await as("adm", () => loadVanguardState(tx, who("adm"), tester, people, { checkChains: false, full: true }));
+      const floor = before.entities.find((e) => e.isTest)!;
+      expect(floor.code).toBe("TEST");
+      const after = withIdSource(() => crypto.randomUUID(), () => testFloorBooks(before, floor.id));
+      await asSystem(() => saveVanguardChange(tx, before, after));
+      const { state } = await as("adm", () => loadVanguardState(tx, who("adm"), tester, people));
+      expect(state.accounts.some((a) => a.entityId === floor.id)).toBe(true);
+      expect(state.salesInvoices.filter((i) => i.entityId === floor.id).map((i) => i.status).sort()).toEqual(["draft", "posted", "posted"]);
+      // its clients are the floor's own
+      expect((await db.query<{ n: number }>("select count(*)::int as n from work.client where is_test")).rows[0].n).toBe(3);
+      // the group's figures: the same with or without the test floor's revenue
+      const without = { ...state, entities: state.entities.filter((e) => !e.isTest) };
+      expect(groupFigures(state).sumRevenue).toBe(groupFigures(without).sumRevenue);
+      expect(groupFigures(state).floors.some((f) => f.entity.isTest)).toBe(false);
+    } finally {
+      await asSystem(() => tx.query("update erp.user_access set test_floor = false where user_id = 'adm'"));
+    }
   });
 
   it("a partner deletes a customer without documents; its auxiliary account stays in the ledger history", async () => {

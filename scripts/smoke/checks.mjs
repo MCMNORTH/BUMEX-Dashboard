@@ -173,6 +173,47 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
   check("the role modifier removes Salma's access", !r?.error && !(await one("select 1 from erp.user_access where user_id = $1", [uid.salma])), r);
   check("…she no longer opens the app", (await act("salma.fall", "reloadVanguardAction"))?.state === undefined);
 
+  // ---- the test floor (0011): off by default, filled once, invisible without it, no e-mail, time apart ------------------
+  const floor = entity.bumex_testing;
+  check("the test floor is off for everyone", !(await act("mohamed.cheikh", "reloadVanguardAction"))?.state?.entities?.some((e) => e.isTest));
+  r = await act("fatimetou.admin", "prepareTestFloorAction");
+  check("…only a role modifier fills it with samples", r?.error === "not_allowed", r);
+  r = await act("mohamed.cheikh", "prepareTestFloorAction");
+  const sample = await one(
+    `select (select count(*)::int from erp.account where entity_id = $1) accounts, (select count(*)::int from erp.sales_invoice where entity_id = $1) invoices,
+            (select count(*)::int from erp.engagement where entity_id = $1) missions, (select count(*)::int from erp.task where entity_id = $1) tickets,
+            (select count(*)::int from work.client where is_test) clients`,
+    [floor],
+  );
+  check("the role modifier fills it: books, clients, missions, tickets", !r?.error && sample.accounts > 0 && sample.invoices === 3 && sample.missions === 2 && sample.tickets === 4 && sample.clients === 3, { r, sample });
+  check("…once", (await act("mohamed.cheikh", "prepareTestFloorAction"))?.error === "ready");
+  const demo = (await one("select id from erp.engagement where entity_id = $1 and name = 'Mission de démonstration'", [floor]))?.id;
+  const blind = (await act("fatimetou.admin", "reloadVanguardAction"))?.state;
+  check("…an administrator without the floor sees nothing of it", Boolean(blind) && !blind.entities.some((e) => e.isTest) && !blind.engagements.some((e) => e.id === demo), blind?.entities?.length);
+  const every = ["accounting", "clients", "suppliers", "bank", "assets", "hr", "tax", "archives", "reports"];
+  r = await act("mohamed.cheikh", "savePermissionsAction", { args: [uid.mohamed, { role: "admin", allEntities: true, parts: { bumex_testing: every }, consolidation: true, managesAccess: true, view3d: false, homeEntity: "bumex_holding" }] });
+  const r2 = await act("mohamed.cheikh", "savePermissionsAction", { args: [uid.ahmed, { role: "staff", allEntities: false, parts: { bumex_audit: ["archives"], bumex_testing: ["archives"] }, consolidation: false, managesAccess: false, view3d: false, homeEntity: "bumex_audit" }] });
+  const testers = await all("select user_id, entity_codes, test_floor from erp.user_access where test_floor order by user_id");
+  check("the role modifier gives the floor to himself and to Ahmed", !r?.error && !r2?.error && testers.length === 2 && testers.some((t) => t.user_id === uid.ahmed && t.entity_codes.join() === "bumex_audit"), { r, r2, testers });
+  const seenBy = (await act("ahmed.ba", "reloadVanguardAction"))?.state;
+  check("…Ahmed now sees the basement and its missions", Boolean(seenBy?.entities?.some((e) => e.isTest && e.code === "TEST") && seenBy.engagements.some((e) => e.id === demo)));
+  const testClients = (await act("mohamed.cheikh", "missionOptionsAction", { args: [floor] }))?.clients ?? [];
+  const realClients = (await act("mohamed.cheikh", "missionOptionsAction", { args: [entity.bumex_audit] }))?.clients ?? [];
+  check("a mission there is offered the floor's clients only", testClients.length === 3 && !realClients.some((c) => testClients.some((t) => t.id === c.id)), { test: testClients.length, real: realClients.length });
+  r = await act("mohamed.cheikh", "createTicketAction", { prev: {}, form: { title: "Ticket de test", project_id: demo, assignee_id: uid.ahmed, reporter_id: uid.mohamed, priority: "medium", type: "task", create_another: "1" } });
+  const testTicket = r?.created?.id;
+  const testNotes = testTicket ? await all("select n.id, e.status from work.notification n left join work.notification_email e on e.notification_id = n.id where n.subject_id = $1", [testTicket]) : [];
+  check("a ticket there notifies Ahmed in the app, never by e-mail", Boolean(testTicket) && testNotes.length > 0 && testNotes.every((n) => !n.status), { r, testNotes });
+  const testLine = randomUUID();
+  r = await act("ahmed.ba", "saveTimeAction", { args: [{ id: testLine, project_id: demo, work_date: "2026-10-26", hours: "1", minutes: "0", note: "", mission: "Essai" }, true] });
+  const written = await one("select entity_id from erp.time_entry where id = $1", [testLine]);
+  check("Ahmed enters test time on a day of his approved week", r?.success === true && written?.entity_id === floor, { r, written });
+  const real = await act("ahmed.ba", "myTimeAction", { args: ["2026-10-26"] });
+  const team = await act("mariem.sow", "teamTimeAction", { args: ["2026-10-26"] });
+  check("…kept apart: not in his real sheet nor his manager's review", Boolean(real) && !real.entries.some((e) => e.id === testLine) && !team?.entries?.some((e) => e.id === testLine));
+  check("…but in his test sheet", (await act("ahmed.ba", "myTimeAction", { args: ["2026-10-26", true] }))?.entries?.some((e) => e.id === testLine) === true);
+  check("…which someone without the floor cannot open", !(await act("khadija.diallo", "myTimeAction", { args: ["2026-10-26", true] }))?.entries);
+
   // ---- invitations ----------------------------------------------------------------------------------------------------
   r = await act("fatimetou.admin", "invitePersonAction", { args: [{ email: "x@bumex.mr", fullName: "X", homeEntity: "bumex_it", role: "staff" }] });
   check("an administrator who is not a role modifier cannot invite", r?.error === "not_allowed", r);
@@ -259,7 +300,7 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     await tab.go("/vanguard?room=settings&tab=access");
     const listed = await tab.until("document.body.innerText.includes('Modificateurs') && document.body.innerText.includes('Salma Fall')");
     await tab.evaluate("[...document.querySelectorAll('button')].find((b) => b.innerText.includes('Mariem Sow'))?.click()");
-    const editor = await tab.until("document.body.innerText.includes('Modificateur de rôles') && document.body.innerText.includes('Bâtiment 3D') && document.querySelectorAll('table input[type=checkbox]').length > 60");
+    const editor = await tab.until("document.body.innerText.includes('Modificateur de rôles') && document.body.innerText.includes('Bâtiment 3D') && document.body.innerText.includes('BUMEX Testing') && document.body.innerText.includes('Étage de test · sous-sol') && document.querySelectorAll('table input[type=checkbox]').length > 60");
     check("the Permissions tab lists everyone and opens a person's grid", listed && editor && tab.takeErrors().length === 0);
     await tab.signIn(cookies["fatimetou.admin"]);
     await tab.go("/vanguard?room=settings");

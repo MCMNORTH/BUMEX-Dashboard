@@ -24,13 +24,15 @@ export type MyTime = Week & {
   weekStatus: TimesheetWeekStatus | null;
   events: TimesheetWeekEvent[];
   capacityHours: number;
+  test: boolean; // the test floor's lines (0011)
 };
 
-export async function myTimeAction(week?: string | null): Promise<MyTime> {
+// test: the test floor's lines (0011), apart from the person's real week
+export async function myTimeAction(week?: string | null, test = false): Promise<MyTime> {
   const auth = await requireRouteAccess("timesheet");
   const at = weekOf(week);
-  const sheet = await getTimesheet(at.week);
-  return { ...at, ...sheet, capacityHours: auth.profile.weekly_capacity_hours };
+  const sheet = await getTimesheet(at.week, test);
+  return { ...at, ...sheet, capacityHours: auth.profile.weekly_capacity_hours, test };
 }
 
 export type TeamTime = Week & {

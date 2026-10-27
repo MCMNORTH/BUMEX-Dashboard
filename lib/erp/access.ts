@@ -15,13 +15,14 @@ type AccessRow = {
   entity_modules: ErpEntityModules | null;
   manages_access: boolean;
   view_3d: boolean;
+  test_floor: boolean;
   granted_by: string;
   granted_at: Date;
   updated_by: string | null;
   updated_at: Date;
 };
 
-const accessColumns = "user_id, erp_role, entity_codes, modules, entity_modules, manages_access, view_3d, granted_by, granted_at, updated_by, updated_at";
+const accessColumns = "user_id, erp_role, entity_codes, modules, entity_modules, manages_access, view_3d, test_floor, granted_by, granted_at, updated_by, updated_at";
 
 function toGrant(row: AccessRow): ErpAccessGrant {
   return {
@@ -32,6 +33,7 @@ function toGrant(row: AccessRow): ErpAccessGrant {
     entityModules: row.entity_modules,
     managesAccess: row.manages_access,
     view3d: row.view_3d,
+    testFloor: row.test_floor,
     grantedBy: row.granted_by,
     grantedAt: row.granted_at.toISOString(),
     updatedBy: row.updated_by,
@@ -40,7 +42,7 @@ function toGrant(row: AccessRow): ErpAccessGrant {
 }
 
 // A row as what the person may open: the role's modules when none were chosen.
-export function accessOf(row: Pick<AccessRow, "erp_role" | "entity_codes" | "modules" | "entity_modules" | "manages_access" | "view_3d">): ErpAccess {
+export function accessOf(row: Pick<AccessRow, "erp_role" | "entity_codes" | "modules" | "entity_modules" | "manages_access" | "view_3d" | "test_floor">): ErpAccess {
   return {
     role: row.erp_role,
     entityCodes: row.entity_codes,
@@ -48,6 +50,7 @@ export function accessOf(row: Pick<AccessRow, "erp_role" | "entity_codes" | "mod
     entityModules: row.entity_modules ?? {},
     managesAccess: row.manages_access,
     view3d: row.view_3d,
+    testFloor: row.test_floor,
   };
 }
 
@@ -93,18 +96,21 @@ export type ErpAccessInput = {
   entityModules?: ErpEntityModules | null;
   managesAccess?: boolean;
   view3d?: boolean;
+  testFloor?: boolean;
 };
 
 // Written in the role modifier's own session (lib/erp/permissions.ts), where the schema refuses anyone else and what
 // nobody may do to themselves.
 export async function writeErpAccess(tx: ErpTransaction, userId: string, input: ErpAccessInput) {
   await tx.query(
-    `insert into erp.user_access (user_id, erp_role, entity_codes, modules, entity_modules, manages_access, view_3d)
-     values ($1, $2, $3, $4, $5, $6, $7)
+    `insert into erp.user_access (user_id, erp_role, entity_codes, modules, entity_modules, manages_access, view_3d, test_floor)
+     values ($1, $2, $3, $4, $5, $6, $7, $8)
      on conflict (user_id) do update
        set erp_role = excluded.erp_role, entity_codes = excluded.entity_codes, modules = excluded.modules,
-           entity_modules = excluded.entity_modules, manages_access = excluded.manages_access, view_3d = excluded.view_3d`,
-    [userId, input.role, input.entityCodes, input.modules, input.entityModules ?? null, input.managesAccess === true, input.view3d === true],
+           entity_modules = excluded.entity_modules, manages_access = excluded.manages_access, view_3d = excluded.view_3d,
+           test_floor = excluded.test_floor`,
+    [userId, input.role, input.entityCodes, input.modules, input.entityModules ?? null, input.managesAccess === true, input.view3d === true,
+     input.testFloor === true],
   );
 }
 

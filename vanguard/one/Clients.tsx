@@ -32,9 +32,9 @@ export function ClientRelations({ entityId }: { entityId: Id }) {
   // read again with the state: a customer just created here is linked to its client on the server
   useEffect(() => {
     let live = true;
-    void clientRelationsAction().then((list) => live && setClients(list)).catch(() => live && setClients([]));
+    void clientRelationsAction(entityId).then((list) => live && setClients(list)).catch(() => live && setClients([]));
     return () => { live = false; };
-  }, [loadedAt]);
+  }, [loadedAt, entityId]);
 
   if (!clients) return <div className="card"><span className="muted">{say('Chargement des relations…', 'Loading the relations…')}</span></div>;
   const here = (c: ClientRelation) => c.accounts.find((a) => a.entityId === entityId);
@@ -59,7 +59,7 @@ export function ClientRelations({ entityId }: { entityId: Id }) {
           <button className={`btn sm ${filter === 'without' ? 'on' : ''}`} onClick={() => setFilter('without')}>{say('Sans compte ici', 'No account here')}</button>
         </div>
       </div>
-      {creating && <div style={{ padding: '0 12px 12px' }}><ClientForm initial={blankClient(state.session.userId)} managers={creating} onDone={(saved) => { setCreating(null); if (saved) void clientRelationsAction().then(setClients); }} say={say} /></div>}
+      {creating && <div style={{ padding: '0 12px 12px' }}><ClientForm initial={blankClient(state.session.userId)} managers={creating} floor={entityId} onDone={(saved) => { setCreating(null); if (saved) void clientRelationsAction(entityId).then(setClients); }} say={say} /></div>}
       <table>
         <thead><tr><th>{say('Client', 'Client')}</th><th>{say('Statut', 'Status')}</th><th>{say('Responsable', 'Account manager')}</th><th>{say('Contact', 'Contact')}</th><th>{say('Compte ici', 'Account here')}</th><th></th></tr></thead>
         <tbody>

@@ -49,7 +49,7 @@ export function MissionForm({ entityId, projectId, onClose }: { entityId: Id; pr
 
   useEffect(() => {
     let live = true;
-    void Promise.all([missionOptionsAction(), projectId ? missionDetailsAction(projectId) : Promise.resolve(null)]).then(([o, details]) => {
+    void Promise.all([missionOptionsAction(entityId), projectId ? missionDetailsAction(projectId) : Promise.resolve(null)]).then(([o, details]) => {
       if (!live) return;
       setOptions(o);
       setV(details ?? {
@@ -58,7 +58,7 @@ export function MissionForm({ entityId, projectId, onClose }: { entityId: Id; pr
       });
     });
     return () => { live = false; };
-  }, [projectId]);
+  }, [projectId, entityId]);
 
   if (!options || !v) return <div className="card"><span className="muted">{say('Chargement…', 'Loading…')}</span></div>;
   const internal = v.project_kind === 'internal_product' || v.project_kind === 'internal_tool';

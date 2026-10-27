@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { erpConsolidationRoles, erpEntityModuleKeys, erpModules, erpRoleLabels, resolveErpModules } from '@/lib/erp/config';
 import type { PermissionPerson, PermissionsData, PermissionsError, PersonAccess } from '@/lib/erp/permissions';
-import { invitePersonAction, permissionsAction, removeAccessAction, resendInvitationAction, savePermissionsAction } from '@/lib/erp/vanguard/permission-actions';
+import { invitePersonAction, permissionsAction, prepareTestFloorAction, removeAccessAction, resendInvitationAction, savePermissionsAction } from '@/lib/erp/vanguard/permission-actions';
 import { erpRoles, type ErpModuleKey, type ErpRole } from '@/types/erp';
-import type { BumexEntityCode } from '@/types/entity';
+import type { BumexEntityCode, ErpEntityCode } from '@/types/entity';
 import { useStore } from '../store';
 import { Chip, Field, Icon } from '../ui/common';
 import { reload } from './Tasks';
@@ -12,8 +12,8 @@ import { useSay } from './say';
 // The Settings room's Permissions tab, for the administrators who manage access (the "role modifiers"): who sees which
 // entity, and which parts of each. A role gives its standard parts; each person's can be tweaked per entity (a tweaked
 // cell is marked). Missions, tasks and time are everyone's, by their role and their missions. The building in 3D is
-// an option, off unless given (0010). Saved by lib/erp/permissions.ts, in the modifier's own session: the database
-// refuses anyone else.
+// an option, off unless given (0010); so is the test floor (the basement, 0011), a row of its own that "every entity"
+// leaves out. Saved by lib/erp/permissions.ts, in the modifier's own session: the database refuses anyone else.
 
 type Filter = 'all' | 'access' | 'none' | 'modifiers';
 type Draft = PersonAccess & { homeEntity: BumexEntityCode | null };
@@ -46,6 +46,9 @@ function useWords() {
   return { say, lang, errorText, roleName: (role: ErpRole) => erpRoleLabels[role][lang] };
 }
 
+// the real entities (the test floor is apart)
+const realEntities = (data: PermissionsData) => data.entities.filter((e) => !e.isTest).map((e) => e.code as BumexEntityCode);
+
 function draftOf(p: PermissionPerson, entities: BumexEntityCode[]): Draft {
   if (p.access) return { ...p.access, homeEntity: p.homeEntity };
   const home = p.homeEntity ?? entities[0];
@@ -72,12 +75,14 @@ export function PermissionsPanel() {
   if (data === undefined) return <span className="muted">{say('Chargement…', 'Loading…')}</span>;
   if (data === null) return <div className="banner info">{say("Les accès sont gérés par les administrateurs qui modifient les rôles.", 'Access is managed by the administrators who modify roles.')}</div>;
 
-  const floorOf = (code: BumexEntityCode | null) => data.entities.find((e) => e.code === code);
+  const floorOf = (code: ErpEntityCode | null) => data.entities.find((e) => e.code === code);
+  const testCode = data.entities.find((e) => e.isTest)?.code ?? null;
   const scope = (p: PermissionPerson) => {
     if (!p.access) return p.removed ? say('Accès retiré', 'Access removed') : say('Sans accès', 'No access');
-    const seen = Object.keys(p.access.parts) as BumexEntityCode[];
+    const seen = Object.keys(p.access.parts) as ErpEntityCode[];
+    const real = seen.filter((c) => !floorOf(c)?.isTest);
     const tweaked = seen.some((code) => !sameSet(p.access!.parts[code] ?? [], standard(p.access!.role)));
-    return `${roleName(p.access.role)} · ${p.access.allEntities ? say('toutes entités', 'all entities') : seen.map((c) => floorOf(c)?.floor ?? c).join(', ')}${tweaked ? ' · ' + say('ajusté', 'tweaked') : ''}`;
+    return `${roleName(p.access.role)} · ${p.access.allEntities ? say('toutes entités', 'all entities') : real.map((c) => floorOf(c)?.floor ?? c).join(', ') || '—'}${tweaked ? ' · ' + say('ajusté', 'tweaked') : ''}`;
   };
   const q = query.trim().toLowerCase();
   const people = data.people.filter((p) =>
@@ -111,6 +116,7 @@ export function PermissionsPanel() {
                 <span style={{ display: 'flex', gap: 3, flex: 'none' }}>
                   {p.access?.managesAccess && <Chip kind="good">{say('Rôles', 'Roles')}</Chip>}
                   {p.access?.view3d && <Chip kind="dim">3D</Chip>}
+                  {testCode && p.access?.parts[testCode] && <Chip kind="warn">TEST</Chip>}
                   {p.neverSignedIn && <Chip kind="warn">{say('Invité', 'Invited')}</Chip>}
                   {!p.access && <Chip kind="dim">{p.removed ? say('Retiré', 'Removed') : '—'}</Chip>}
                 </span>
@@ -126,6 +132,7 @@ export function PermissionsPanel() {
         {inviting && <InviteForm data={data} onClose={() => setInviting(false)} onDone={async (id) => { await refresh(); setInviting(false); setSelected(id); }} />}
         {person && !inviting && <Editor key={`${person.id}:${JSON.stringify(person.access)}:${person.homeEntity}`} person={person} data={data} onSaved={refresh} />}
         {!person && !inviting && <div className="card small muted">{say("Choisissez une personne pour voir et ajuster ce qu'elle voit, ou invitez-en une.", 'Choose a person to see and adjust what they reach, or invite someone.')}</div>}
+        {testCode && <TestFloorCard ready={data.testFloorReady} testers={data.people.filter((p) => p.access?.parts[testCode]).length} onDone={refresh} />}
         <div className="card" style={{ padding: '8px 12px' }}>
           <button className="btn ghost sm" style={{ padding: 0 }} onClick={() => setShowRoles(!showRoles)}>{showRoles ? '▾' : '▸'} {say('Standard de chaque rôle', "Each role's standard")}</button>
           {showRoles && (
@@ -152,12 +159,14 @@ export function PermissionsPanel() {
 function Editor({ person, data, onSaved }: { person: PermissionPerson; data: PermissionsData; onSaved: () => Promise<void> }) {
     const { say, lang, errorText, roleName } = useWords();
     const { toast } = useStore();
-    const entityCodes = data.entities.map((e) => e.code);
-    const initial = useMemo(() => draftOf(person, data.entities.map((e) => e.code)), [person, data]);
+    const entityCodes = realEntities(data);
+    const testCode = data.entities.find((e) => e.isTest)?.code ?? null;
+    const initial = useMemo(() => draftOf(person, realEntities(data)), [person, data]);
     const [draft, setDraft] = useState<Draft>(initial);
     const [busy, setBusy] = useState(false);
     const self = person.id === data.me;
-    const seen = (code: BumexEntityCode) => draft.allEntities || Boolean(draft.parts[code]);
+    // the test floor is ticked on its own, whatever "every entity" says
+    const seen = (code: ErpEntityCode) => (code === testCode ? false : draft.allEntities) || Boolean(draft.parts[code]);
     const dirty = JSON.stringify(draft) !== JSON.stringify(initial) || !person.access;
     const group = erpConsolidationRoles.includes(draft.role);
 
@@ -169,22 +178,22 @@ function Editor({ person, data, onSaved }: { person: PermissionPerson; data: Per
       managesAccess: role === 'admin' && d.managesAccess,
     }));
     const setAll = (all: boolean) => setDraft((d) => ({ ...d, allEntities: all, parts: all ? Object.fromEntries(entityCodes.map((code) => [code, d.parts[code] ?? standard(d.role)])) : d.parts }));
-    const toggleEntity = (code: BumexEntityCode) => setDraft((d) => {
+    const toggleEntity = (code: ErpEntityCode) => setDraft((d) => {
       const parts = { ...d.parts };
       if (parts[code]) delete parts[code];
       else parts[code] = standard(d.role);
       return { ...d, parts };
     });
-    const toggleCell = (code: BumexEntityCode, m: ErpModuleKey) => setDraft((d) => {
+    const toggleCell = (code: ErpEntityCode, m: ErpModuleKey) => setDraft((d) => {
       const now = d.parts[code] ?? [];
       return { ...d, parts: { ...d.parts, [code]: now.includes(m) ? now.filter((x) => x !== m) : [...now, m] } };
     });
-    const visible = entityCodes.filter(seen);
+    const visible = data.entities.map((e) => e.code).filter(seen);
     const toggleColumn = (m: ErpModuleKey) => setDraft((d) => {
       const on = visible.every((code) => d.parts[code]?.includes(m));
       return { ...d, parts: { ...d.parts, ...Object.fromEntries(visible.map((code) => { const now = d.parts[code] ?? []; return [code, on ? now.filter((x) => x !== m) : [...new Set([...now, m])]]; })) } };
     });
-    const toggleRow = (code: BumexEntityCode) => setDraft((d) => ({ ...d, parts: { ...d.parts, [code]: (d.parts[code]?.length ?? 0) === erpEntityModuleKeys.length ? [] : [...erpEntityModuleKeys] } }));
+    const toggleRow = (code: ErpEntityCode) => setDraft((d) => ({ ...d, parts: { ...d.parts, [code]: (d.parts[code]?.length ?? 0) === erpEntityModuleKeys.length ? [] : [...erpEntityModuleKeys] } }));
     const resetToRole = () => setDraft((d) => ({ ...d, parts: Object.fromEntries(Object.keys(d.parts).map((code) => [code, standard(d.role)])), consolidation: erpConsolidationRoles.includes(d.role), view3d: false }));
 
     const run = async (work: () => Promise<{ error?: PermissionsError }>, ok: string) => {
@@ -234,7 +243,7 @@ function Editor({ person, data, onSaved }: { person: PermissionPerson; data: Per
           <Field label={say('Entité de rattachement', 'Home entity')} style={{ width: 190 }}>
             <select className="in" style={{ height: 28 }} value={draft.homeEntity ?? ''} onChange={(e) => setDraft({ ...draft, homeEntity: (e.target.value || null) as BumexEntityCode | null })}>
               {!draft.homeEntity && <option value="">—</option>}
-              {data.entities.map((e) => <option key={e.code} value={e.code}>{e.name}</option>)}
+              {data.entities.filter((e) => !e.isTest).map((e) => <option key={e.code} value={e.code}>{e.name}</option>)}
             </select>
           </Field>
           <label className="small" style={{ display: 'flex', gap: 5, alignItems: 'center', height: 28, opacity: draft.role === 'admin' ? 1 : 0.45 }} title={say("Réservé aux administrateurs : change les rôles et les accès de chacun", "Administrators only: changes everyone's roles and access")}>
@@ -252,7 +261,7 @@ function Editor({ person, data, onSaved }: { person: PermissionPerson; data: Per
         </div>
 
         <div className="toolbar" style={{ marginTop: 10, gap: 12 }}>
-          <label className="small" style={{ display: 'flex', gap: 5, alignItems: 'center' }}><input type="radio" checked={draft.allEntities} onChange={() => setAll(true)} /> {say('Toutes les entités, et les futures', 'Every entity, and future ones')}</label>
+          <label className="small" style={{ display: 'flex', gap: 5, alignItems: 'center' }}><input type="radio" checked={draft.allEntities} onChange={() => setAll(true)} /> {say("Toutes les entités, et les futures (hors étage de test)", 'Every entity, and future ones (not the test floor)')}</label>
           <label className="small" style={{ display: 'flex', gap: 5, alignItems: 'center' }}><input type="radio" checked={!draft.allEntities} onChange={() => setAll(false)} /> {say('Entités choisies', 'Chosen entities')}</label>
         </div>
 
@@ -271,17 +280,18 @@ function Editor({ person, data, onSaved }: { person: PermissionPerson; data: Per
                 const on = seen(e.code);
                 const parts = draft.parts[e.code] ?? [];
                 return (
-                  <tr key={e.code} style={{ opacity: on ? 1 : 0.5 }}>
+                  <tr key={e.code} style={{ opacity: on ? 1 : 0.5, background: e.isTest ? 'var(--warn-bg)' : undefined, borderTop: e.isTest ? '2px dashed var(--border)' : undefined }}
+                    title={e.isTest ? say("Étage de test (sous-sol) : à part de « toutes les entités », désactivé par défaut. Rien n'y touche les autres étages.", "The test floor (basement): apart from 'every entity', off by default. Nothing there touches the other floors.") : undefined}>
                     <td style={{ padding: '3px 6px', whiteSpace: 'nowrap', borderBottom: '1px solid var(--line)' }}>
                       <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <input type="checkbox" checked={on} disabled={draft.allEntities} onChange={() => toggleEntity(e.code)} aria-label={say(`Voit ${e.name}`, `Sees ${e.name}`)} />
+                        <input type="checkbox" checked={on} disabled={draft.allEntities && !e.isTest} onChange={() => toggleEntity(e.code)} aria-label={say(`Voit ${e.name}`, `Sees ${e.name}`)} />
                         <span style={{ fontWeight: 600, width: 34 }}>{e.floor}</span>
                         <span className="muted" style={{ cursor: on ? 'pointer' : 'default' }} title={on ? say('cliquer : toute la ligne', 'click: the whole row') : undefined} onClick={(ev) => { ev.preventDefault(); if (on) toggleRow(e.code); }}>{e.name}</span>
                       </label>
                     </td>
                     {erpEntityModuleKeys.map((m) => {
                       const has = parts.includes(m);
-                      const tweaked = on && has !== standard(draft.role).includes(m);
+                      const tweaked = on && !e.isTest && has !== standard(draft.role).includes(m);
                       return (
                         <td key={m} style={{ ...cell, background: tweaked ? 'var(--warn-bg)' : undefined }} title={tweaked ? say('Différent du standard du rôle', "Differs from the role's standard") : undefined}>
                           <input type="checkbox" checked={on && has} disabled={!on} onChange={() => toggleCell(e.code, m)} aria-label={`${e.name} · ${erpModules[m].label[lang]}`} />
@@ -307,10 +317,37 @@ function Editor({ person, data, onSaved }: { person: PermissionPerson; data: Per
     );
 }
 
+// The test floor (the basement): who has it, and its sample data, put there once.
+function TestFloorCard({ ready, testers, onDone }: { ready: boolean; testers: number; onDone: () => Promise<void> }) {
+    const say = useSay();
+    const { toast } = useStore();
+    const [busy, setBusy] = useState(false);
+    const prepare = async () => {
+      setBusy(true);
+      const result = await prepareTestFloorAction().catch(() => ({ error: 'unavailable' as const }));
+      setBusy(false);
+      if (result.error && result.error !== 'ready') { toast('error', say("L'étage de test n'a pas pu être préparé, réessayez.", 'The test floor could not be prepared, try again.')); return; }
+      toast('ok', say('Étage de test prêt : exemples ajoutés', 'Test floor ready: samples added'));
+      await onDone();
+      await reload();
+    };
+    return (
+      <div className="card" style={{ padding: '8px 12px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', background: 'var(--warn-bg)' }}>
+        <b style={{ fontSize: 13 }}>{say('Étage de test · sous-sol', 'Test floor · basement')}</b>
+        <span className="small muted" style={{ flex: '1 1 260px' }}>
+          {say(`Pour essayer l'application sans rien toucher ailleurs : invisible sans l'avoir, pas d'e-mails, temps à part. ${testers} personne(s) l'ont ; cochez sa ligne pour la donner.`,
+            `To try the app without touching anything else: invisible without it, no e-mails, time kept apart. ${testers} person(s) have it; tick its row to give it.`)}
+        </span>
+        {ready ? <Chip kind="good">{say('Exemples en place', 'Samples in place')}</Chip>
+          : <button className="btn sm primary" disabled={busy} onClick={prepare}>{busy ? say('Préparation…', 'Preparing…') : say('Remplir avec des exemples', 'Fill with samples')}</button>}
+      </div>
+    );
+}
+
 function InviteForm({ data, onClose, onDone }: { data: PermissionsData; onClose: () => void; onDone: (id: string) => Promise<void> }) {
     const { say, errorText, roleName } = useWords();
     const { toast } = useStore();
-    const [form, setForm] = useState({ fullName: '', email: '', homeEntity: data.entities[0]?.code ?? ('' as BumexEntityCode), role: 'staff' as ErpRole });
+    const [form, setForm] = useState({ fullName: '', email: '', homeEntity: realEntities(data)[0] ?? ('' as BumexEntityCode), role: 'staff' as ErpRole });
     const [busy, setBusy] = useState(false);
     const send = async () => {
       setBusy(true);
@@ -333,7 +370,7 @@ function InviteForm({ data, onClose, onDone }: { data: PermissionsData; onClose:
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
           <Field label={say('Nom complet', 'Full name')} style={{ flex: '1 1 160px' }}><input className="in" style={{ height: 28 }} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} placeholder="Prénom Nom" /></Field>
           <Field label="E-mail" style={{ flex: '1 1 180px' }}><input className="in" style={{ height: 28 }} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="prenom.nom@bumex.mr" /></Field>
-          <Field label={say('Entité', 'Entity')} style={{ flex: '1 1 150px' }}><select className="in" style={{ height: 28 }} value={form.homeEntity} onChange={(e) => setForm({ ...form, homeEntity: e.target.value as BumexEntityCode })}>{data.entities.map((e) => <option key={e.code} value={e.code}>{e.name}</option>)}</select></Field>
+          <Field label={say('Entité', 'Entity')} style={{ flex: '1 1 150px' }}><select className="in" style={{ height: 28 }} value={form.homeEntity} onChange={(e) => setForm({ ...form, homeEntity: e.target.value as BumexEntityCode })}>{data.entities.filter((e) => !e.isTest).map((e) => <option key={e.code} value={e.code}>{e.name}</option>)}</select></Field>
           <Field label={say('Rôle', 'Role')} style={{ flex: '1 1 150px' }}><select className="in" style={{ height: 28 }} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as ErpRole })}>{erpRoles.map((r) => <option key={r} value={r}>{roleName(r)}</option>)}</select></Field>
           <div className="actions">
             <button className="btn sm" disabled={busy} onClick={onClose}>{say('Annuler', 'Cancel')}</button>

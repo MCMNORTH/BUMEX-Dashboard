@@ -94,7 +94,7 @@ export function Sidebar() {
                   if (f.entity.isHolding) openRoom('penthouse');
                 }}
               >
-                <span><b>{state.entities.length - f.entity.floorOrder}</b> {f.entity.name}<span className="small muted" style={{ marginLeft: 6 }}>{f.entity.activity}</span></span>
+                <span><b>{f.entity.isTest ? '−1' : state.entities.filter((e) => !e.isTest).length - f.entity.floorOrder}</b> {f.entity.name}<span className="small muted" style={{ marginLeft: 6 }}>{f.entity.activity}</span></span>
                 {f.visible ? <span className="sigs"><Lamp kind={f.cashSignal} letter="T" /><Lamp kind={f.overdueSignal} letter="C" /><Lamp kind={f.engagementSignal} letter="M" /><Lamp kind={f.draftSignal === 'good' ? 'off' : f.draftSignal} letter="É" /></span> : <span className="small">non autorisé</span>}
               </button>
             ))}

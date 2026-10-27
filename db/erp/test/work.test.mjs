@@ -365,6 +365,57 @@ await test('review fixes: missions keep their floor; no client, no customer; odd
   return 'floor locked; customer cleared with the client; an e-mail without @ and a group company handled';
 });
 
+await test('test floor (0011): hidden from whoever lacks it, whatever their role; no e-mail; time apart; clients never mixed', async () => {
+  await office();
+  await asSystem(async () => {
+    await db.query(`insert into work.person (id, email, full_name, entity_code) values ('tst', 'tst@bumex.mr', 'Testeur', 'bumex_audit')`);
+    await db.query(`insert into erp.user_access (user_id, erp_role, entity_codes, test_floor) values ('tst', 'staff', '{bumex_audit}', true)`);
+    ids.KT = (await one(`insert into work.client (name, status, is_test) values ('Client Test', 'active', true) returning id`)).id;
+    ids.PT = (await one(`insert into erp.engagement (entity_id, owner_id, client_id, name, project_kind, status, deadline) values ($1, 'tst', $2, 'Mission Test', 'client_mission', 'active', '2026-12-31') returning id`,
+      [ids.bumex_testing, ids.KT])).id;
+    ids.TT = (await one(`insert into erp.task (engagement_id, title, assignee_id, reporter_id, priority) values ($1, 'Ticket Test', 'tst', 'tst', 'medium') returning id`, [ids.PT])).id;
+    for (const user of ['tst', 'adm']) {
+      await db.query(`insert into work.notification (user_id, type, title, body, subject_type, subject_id) values ($1, 'assignment', 'T', 'B', 'ticket', $2)`, [user, ids.TT]);
+    }
+  });
+  const sees = (uid) => as(uid, async () => ({
+    mission: (await all(`select 1 from erp.engagement where id = $1`, [ids.PT])).length,
+    ticket: (await all(`select 1 from erp.task where id = $1`, [ids.TT])).length,
+    client: (await all(`select 1 from work.client where id = $1`, [ids.KT])).length,
+    notes: (await all(`select 1 from work.notification where subject_id = $1::text`, [ids.TT])).length,
+    floor: (await one(`select erp.can_see_entity($1) s`, [ids.bumex_testing])).s,
+  }));
+  same(await sees('adm'), { mission: 0, ticket: 0, client: 0, notes: 0, floor: false }, 'an administrator without the floor');
+  same(await sees('sh'), { mission: 0, ticket: 0, client: 0, notes: 0, floor: false }, 'a shareholder');
+  same(await sees('tst'), { mission: 1, ticket: 1, client: 1, notes: 1, floor: true }, 'the tester');
+  await asSystem(() => db.query(`update erp.user_access set test_floor = true where user_id = 'adm'`));
+  same(await sees('adm'), { mission: 1, ticket: 1, client: 1, notes: 2, floor: true }, 'the administrator given the floor');
+  same((await all('select user_id from work.notification_email')).length, 0, 'no e-mail about a test record');
+  // time: the tester's real week sent, a test line still goes in; a real one does not
+  await as('tst', () => db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'tst', '2026-10-19', 60)`, [ids.PT]));
+  await as('tst', () => db.query(`insert into work.timesheet_week (user_id, week_start, entity_id) values ('tst', '2026-10-19', $1)`, [ids.bumex_audit]));
+  await as('tst', () => db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'tst', '2026-10-20', 30)`, [ids.PT]));
+  await expectError(() => as('tst', () => db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'tst', '2026-10-20', 30)`, [ids.P3])), /timesheet_week_locked/);
+  await asSystem(() => db.query(`update erp.user_access set test_floor = false where user_id = 'adm'`));
+  same(await as('adm', async () => (await all(`select 1 from erp.time_entry where user_id = 'tst'`)).length), 0, 'test time hidden from the administrator');
+  // clients: a test customer named like a real client gets a test client; renaming it leaves the real one
+  await asSystem(async () => {
+    const ar = (await one(`insert into erp.account (entity_id, code, name_fr, class, kind) values ($1, '411000', 'Clients', 4, 'asset') returning id`, [ids.bumex_testing])).id;
+    await db.query(`insert into erp.account_mapping (entity_id, key, account_id) values ($1, 'AR_CONTROL', $2)`, [ids.bumex_testing, ar]);
+    await db.query(`insert into erp.customer (entity_id, code, name) values ($1, null, 'Client Un')`, [ids.bumex_testing]);
+    await db.query(`update erp.customer set name = 'Client Un bis' where entity_id = $1 and name = 'Client Un'`, [ids.bumex_testing]);
+  });
+  same((await all(`select name, is_test from work.client where lower(name) like 'client un%' order by name`)).map((c) => [c.name, c.is_test]), [['Client Un', false], ['Client Un bis', true]], 'clients kept apart');
+  await expectError(() => asSystem(() => db.query(`insert into erp.engagement (entity_id, owner_id, client_id, name) values ($1, 'tst', $2, 'X')`, [ids.bumex_testing, ids.K1])), /test_client_mismatch/);
+  await expectError(() => asSystem(() => db.query(`update erp.engagement set client_id = $2 where id = $1`, [ids.P1, ids.KT])), /test_client_mismatch/);
+  await expectError(() => asSystem(() => db.query(`insert into work.contract (client_id, engagement_id, title) values ($1, $2, 'C')`, [ids.KT, ids.P1])), /test_client_mismatch/);
+  // access: the floor is test_floor, never an entity code; its parts only with it
+  await expectError(() => asSystem(() => db.query(`update erp.user_access set entity_codes = '{bumex_testing}' where user_id = 'emp'`)), /unknown entity code/);
+  await expectError(() => asSystem(() => db.query(`update erp.user_access set entity_modules = '{"bumex_testing": ["accounting"]}' where user_id = 'emp'`)), /wrong modules/);
+  await asSystem(() => db.query(`update erp.user_access set entity_modules = '{"bumex_testing": ["accounting"]}' where user_id = 'tst'`));
+  return 'hidden from admin/shareholder, seen by testers; 0 e-mails; test time past a sent week; clients, missions, contracts apart; access checked';
+});
+
 // ---------------------------------------------------------------------------
 let failed = 0;
 for (const r of results) {

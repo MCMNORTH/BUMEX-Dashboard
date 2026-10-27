@@ -95,7 +95,7 @@ export function FloorHud() {
       </div>
       {!ui.focusRoom && !ui.rackFocus && <div className="hud right">
         <section className="panel">
-          <h2>{f.entity.name} · {t('floor')} {state.entities.length - f.entity.floorOrder} · {ui.fiscalYearLabel}</h2>
+          <h2>{f.entity.name} · {t('floor')} {f.entity.isTest ? '−1' : state.entities.filter((e) => !e.isTest).length - f.entity.floorOrder} · {ui.fiscalYearLabel}</h2>
           {finance ? <>
             <div className="row"><span>{t('revenue')}</span><span className="mono">{fmt(f.revenue, 0)}</span></div>
             <div className="row"><span>{t('result')}</span><span className="mono">{fmt(f.result, 0)}</span></div>

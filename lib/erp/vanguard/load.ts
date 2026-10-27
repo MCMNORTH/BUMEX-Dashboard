@@ -8,6 +8,7 @@ import { listTickets, ticketTasks } from "@/lib/erp/vanguard/tickets";
 import { visibleState } from "@/lib/erp/vanguard/visible";
 import { floors } from "@/lib/erp/vanguard/floors";
 import type { ErpAccess, ErpModuleKey } from "@/types/erp";
+import { bumexTestEntityCode } from "@/types/entity";
 
 // BUMEX Vanguard's state, read from PostgreSQL for one person (in their ERP session: row-level security applies).
 
@@ -87,17 +88,20 @@ export async function loadVanguardState(
     code: string;
     rules?: Entity["thirdPartyRules"];
   };
-  // every floor of the building, visible or not (the entity list is not restricted; their data is)
+  // every floor of the building, visible or not (the entity list is not restricted; their data is), but the test
+  // floor: only whoever has it knows it is there (0011)
   const entityRows = await records<EntityRow>(
     tx,
     `select e.id, e.code, e.name, e.country, e.functional_currency as "functionalCurrency", e.coa_template as "coaTemplate",
             e.fx_method as "fxMethod", e.cash_threshold::float8 as "cashThreshold", e.floor_order as "floorOrder", e.is_holding as "isHolding",
+            e.is_test as "isTest",
             e.nif, e.address_lines as address, e.account_code_length as "accountCodeLength",
             case when r.entity_id is not null then jsonb_strip_nulls(jsonb_build_object(
               'customerPrefix', r.customer_prefix, 'supplierPrefix', r.supplier_prefix, 'digits', r.digits,
               'customerCollectiveId', r.customer_collective_id, 'supplierCollectiveId', r.supplier_collective_id)) end as rules
        from erp.entity e left join erp.third_party_rules r on r.entity_id = e.id
-      where e.active order by e.floor_order`,
+      where e.active and (not e.is_test or $1) order by e.floor_order`,
+    [access.testFloor],
   );
   const entities: Entity[] = entityRows.map(({ rules, ...e }) => {
     const staff = people.filter((p) => p.entityCode === e.code && p.active);
@@ -119,7 +123,10 @@ export async function loadVanguardState(
     actorId: person.id,
     actorName: person.name,
     role: access.role,
-    entityIds: access.entityCodes ? access.entityCodes.map((code) => entityIdByCode.get(code)).filter((id): id is string => Boolean(id)) : "*",
+    // every entity read ("*" when every real one: the test floor is there only for whoever has it)
+    entityIds: access.entityCodes
+      ? [...access.entityCodes, ...(access.testFloor ? [bumexTestEntityCode] : [])].map((code) => entityIdByCode.get(code)).filter((id): id is string => Boolean(id))
+      : "*",
     modules: rooms(access.modules),
     entityModules: Object.fromEntries(
       Object.entries(access.entityModules).flatMap(([code, modules]) => (entityIdByCode.has(code) && modules ? [[entityIdByCode.get(code)!, rooms(modules)]] : [])),

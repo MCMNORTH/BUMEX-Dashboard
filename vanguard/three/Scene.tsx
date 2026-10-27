@@ -11,7 +11,7 @@ import type { Room } from '../i18n';
 import { Building } from './Building';
 import { OfficeFloor } from './Floor';
 import { labelRegistry, labelCamera } from './textures';
-import { BUILDING, CAM, COMMON_ROOMS, floorY, roomRect } from './plan';
+import { BUILDING, CAM, COMMON_ROOMS, floorIndex, floorY, roomRect } from './plan';
 import emblemImage from '../assets/emblem.png'; // [bumex-one] Next imports images as objects
 const emblem = emblemImage.src;
 
@@ -75,6 +75,7 @@ function CameraRig({ n }: { n: number }) {
   const transition = useStore((s) => s.ui.transition);
   const setUi = useStore((s) => s.setUi);
   const floorOrder = useStore((s) => s.state.entities.find((e) => e.id === s.ui.entityId)?.floorOrder ?? 0);
+  const isTest = useStore((s) => Boolean(s.state.entities.find((e) => e.id === s.ui.entityId)?.isTest)); // [bumex-one] the basement
   const tween = useRef<{ from: Pose; to: Pose; t: number; dur: number; ctx: Ctx } | null>(null);
   const ctxRef = useRef<Ctx>('exterior');
   const lastInteraction = useRef(0);
@@ -94,7 +95,7 @@ function CameraRig({ n }: { n: number }) {
   }, [camera, gl]);
 
   const goal = useMemo((): { pose: Pose; ctx: Ctx } => {
-    const idx = n - 1 - floorOrder;
+    const idx = floorIndex({ floorOrder, isTest }, n);
     const fy = floorY(idx);
     if (view !== 'floor') {
       // keep the current azimuth so returning to the exterior does not snap around the building
@@ -111,7 +112,7 @@ function CameraRig({ n }: { n: number }) {
     }
     return { pose: { pos: new THREE.Vector3(CAM.floor.pos[0], fy + CAM.floor.pos[1], CAM.floor.pos[2]), target: new THREE.Vector3(CAM.floor.target[0], fy + CAM.floor.target[1], CAM.floor.target[2]) }, ctx: 'floor' };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, entityId, focusRoom, rackFocus, floorOrder, n]);
+  }, [view, entityId, focusRoom, rackFocus, floorOrder, isTest, n]);
 
   useEffect(() => {
     const c = controls.current;
@@ -158,7 +159,7 @@ function CameraRig({ n }: { n: number }) {
     }
     // keep the target on the plate when panning inside, and idle-orbit outside
     if (ctxRef.current === 'floor' || ctxRef.current === 'room') {
-      const fy = floorY(n - 1 - floorOrder);
+      const fy = floorY(floorIndex({ floorOrder, isTest }, n));
       c.target.x = THREE.MathUtils.clamp(c.target.x, -BUILDING.w / 2, BUILDING.w / 2);
       c.target.z = THREE.MathUtils.clamp(c.target.z, -BUILDING.d / 2, BUILDING.d / 2);
       c.target.y = THREE.MathUtils.clamp(c.target.y, fy, fy + 2.2);
@@ -229,11 +230,12 @@ function SceneContent() {
   const entityId = useStore((s) => s.ui.entityId);
   const quality = useStore((s) => s.ui.quality);
   const setUi = useStore((s) => s.setUi);
-  const floors = useMemo(() => allFloors(state), [state]);
+  // [bumex-one] the tower's office floors; the test floor is the basement, drawn alone when one goes down there
+  const floors = useMemo(() => allFloors(state).filter((f) => !f.entity.isTest), [state]);
   const n = floors.length;
   const entity = state.entities.find((e) => e.id === entityId);
   const inside = view === 'floor' && !!entity;
-  const idx = entity ? n - 1 - entity.floorOrder : 0;
+  const idx = entity ? floorIndex(entity, n) : 0;
   const fy = floorY(idx);
   const signals = useMemo(() => (entityId ? floorSignals(state, entityId) : null), [state, entityId]);
   const engagements = useMemo(() => state.engagements.filter((e) => e.entityId === entityId), [state, entityId]);
@@ -256,7 +258,7 @@ function SceneContent() {
       <Sky />
       <SkyEnvironment />
       <Lighting inside={inside} fy={fy} />
-      <Building floors={floors} insideIndex={inside ? idx : null} />
+      {!(inside && idx < 0) && <Building floors={floors} insideIndex={inside ? idx : null} />}
       {inside && signals && (
         <OfficeFloor y={fy} signals={signals} engagements={engagements} assets={assets} archives={archives} tasks={tasks} today={state.today} people={quality.people} />
       )}

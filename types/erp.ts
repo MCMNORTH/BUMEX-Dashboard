@@ -1,4 +1,4 @@
-import type { BumexEntityCode } from "@/types/entity";
+import type { BumexEntityCode, ErpEntityCode } from "@/types/entity";
 
 // ERP access is a second dimension next to the BUMEX One role (profiles.role), stored in Postgres (erp.user_access).
 export const erpRoles = ["admin", "partner", "raf", "manager", "accountant", "staff", "intern"] as const;
@@ -20,10 +20,11 @@ export const erpModuleKeys = [
 export type ErpModuleKey = (typeof erpModuleKeys)[number];
 
 // The modules of the entities where a person's differ from their usual ones (consolidation is never an entity's).
-export type ErpEntityModules = Partial<Record<BumexEntityCode, ErpModuleKey[]>>;
+export type ErpEntityModules = Partial<Record<ErpEntityCode, ErpModuleKey[]>>;
 
-// One row of erp.user_access. null entityCodes = every entity; null modules = the role's modules; managesAccess = an
-// administrator who changes everyone's access (the "role modifier", 0009); view3d = the building in 3D (0010).
+// One row of erp.user_access. null entityCodes = every real entity; null modules = the role's modules; managesAccess = an
+// administrator who changes everyone's access (the "role modifier", 0009); view3d = the building in 3D (0010);
+// testFloor = sees the test floor, which "every entity" leaves out (0011).
 export type ErpAccessGrant = {
   userId: string;
   role: ErpRole;
@@ -32,6 +33,7 @@ export type ErpAccessGrant = {
   entityModules: ErpEntityModules | null;
   managesAccess: boolean;
   view3d: boolean;
+  testFloor: boolean;
   grantedBy: string;
   grantedAt: string;
   updatedBy: string | null;
@@ -47,4 +49,5 @@ export type ErpAccess = {
   entityModules: ErpEntityModules;
   managesAccess: boolean;
   view3d: boolean;
+  testFloor: boolean;
 };

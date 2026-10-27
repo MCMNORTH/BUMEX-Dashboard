@@ -55,6 +55,7 @@ export function Sheet() {
           <button className="btn sm" onClick={() => setUi({ view: 'flat' })}>{t('flat')}</button>
           <button className="btn sm" onClick={() => openRoom(null)} aria-label={t('close')} title={t('close')}><Icon name="close" size={15} /> {t('close')}</button>
         </div>
+        <TestFloorBanner entityId={ui.entityId} />
         <RoomContent room={ui.room} entityId={ui.entityId} tab={ui.tab} />
       </section>
     </>
@@ -62,6 +63,20 @@ export function Sheet() {
 }
 
 // Flat mode: the same panels as full pages, entity navigation on the left, the rail carries the modules.
+// [bumex-one] the test floor (the basement, 0011) says so on every room: what is done there stays there
+function TestFloorBanner({ entityId }: { entityId: string }) {
+  const test = useStore((s) => Boolean(s.state.entities.find((e) => e.id === entityId)?.isTest));
+  const fr = useStore((s) => s.ui.lang === 'fr');
+  if (!test) return null;
+  return (
+    <div className="banner warn" role="note" style={{ margin: '0 0 10px' }}>
+      <b>{fr ? 'Étage de test (sous-sol)' : 'Test floor (basement)'}</b>
+      {fr ? " · tout ce qui se fait ici reste ici : invisible aux autres étages, sans e-mails, hors des chiffres du groupe et des feuilles de temps réelles."
+        : ' · everything done here stays here: unseen from the other floors, no e-mails, outside the group figures and real timesheets.'}
+    </div>
+  );
+}
+
 export function FlatLayout() {
   const { state, ui, t, setUi, openRoom } = useStore();
   const entityId = ui.entityId ?? state.entities.find((e) => e.code === 'AUD')!.id;
@@ -77,13 +92,14 @@ export function FlatLayout() {
           return (
             <button key={e.id} className={`${e.id === entityId ? 'on' : ''} ${vis ? '' : 'off'}`} disabled={!vis} onClick={() => { setUi({ entityId: e.id }); openRoom(e.isHolding ? 'penthouse' : ['tasks', 'reports', 'settings', 'archives'].includes(room) ? room : 'accounting'); }}>
               <span>{e.name}</span>
-              <span className="small">{e.isHolding ? 'consolidé' : e.functionalCurrency}</span>
+              <span className="small">{e.isHolding ? 'consolidé' : e.isTest ? 'sous-sol · test' : e.functionalCurrency}</span>
             </button>
           );
         })}
         <div className="small muted" style={{ padding: '14px 10px' }}>{t('demo_note')}</div>
       </nav>
       <main className="page-main">
+        <TestFloorBanner entityId={entityId} />
         <RoomContent room={room} entityId={entityId} tab={ui.tab} />
       </main>
     </div>

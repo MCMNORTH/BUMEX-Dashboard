@@ -31,14 +31,15 @@ export type ClientFormValues = {
 };
 export const blankClient = (me: string): ClientFormValues => ({ name: '', legal_name: '', type: 'company', industry: '', contact_email: '', contact_phone: '', address: '', country: 'MR', city: '', website: '', tax_id: '', status: 'prospect', prospect_stage: 'initial_contact', next_follow_up_at: '', account_manager_id: me, notes: '' });
 
-export function ClientForm({ id, initial, managers, onDone, say }: { id?: string; initial: ClientFormValues; managers: { id: string; name: string }[]; onDone: (saved: boolean) => void; say: Say }) {
+// floor: where a new client is created (the test floor's are its own, 0011)
+export function ClientForm({ id, initial, managers, floor, onDone, say }: { id?: string; initial: ClientFormValues; managers: { id: string; name: string }[]; floor?: string; onDone: (saved: boolean) => void; say: Say }) {
   const { toast } = useStore();
   const [v, setV] = useState(initial);
   const [busy, setBusy] = useState(false);
   const set = (patch: Partial<ClientFormValues>) => setV((x) => ({ ...x, ...patch }));
   const save = async () => {
     const form = new FormData();
-    for (const [k, value] of Object.entries({ ...v, ...(id ? { client_id: id } : {}) })) form.set(k, value);
+    for (const [k, value] of Object.entries({ ...v, ...(id ? { client_id: id } : floor ? { floor } : {}) })) form.set(k, value);
     setBusy(true);
     try {
       const result = await saveClientAction(form);

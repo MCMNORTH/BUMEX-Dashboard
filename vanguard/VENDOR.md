@@ -73,6 +73,9 @@ features rebuilt in Vanguard (linted, unlike the delivered files).
 | `ui/panels/Settings.tsx`, `i18n.ts` | no demo sign-in; "reload the data" instead of "reset the demo"; the data note | real data |
 | `lib/erp/engine/core.ts` | `nextId` takes its ids from `withIdSource` when one is set | the browser makes UUIDs, the server replays them |
 | `lib/erp/engine/core.ts`, `types.ts` | `Session.entityModules` (a person's rooms where an entity's differ) read by `canOpenRoom`, and by `canUseModule` as "on one entity"; `Session.managesAccess` | modules per entity, the role modifiers (0009) |
+| `lib/erp/engine/types.ts`, `signals.ts` | `Entity.isTest`; `groupFigures` leaves the test floor out | the test floor, BUMEX Testing (0011) |
+| `three/plan.ts`, `three/Scene.tsx`, `ui/Sidebar.tsx`, `ui/Hud.tsx` | the test floor is a basement (`floorIndex` −1, `floorY` below the plaza), drawn alone when one goes down there, not part of the tower; numbered −1 | the test floor (0011) |
+| `ui/Rooms.tsx` | a banner on every room of the test floor; "sous-sol · test" in the flat view's list | the test floor (0011) |
 | `store.ts`, `ui/Header.tsx`, `lib/erp/engine/types.ts` | the building in 3D only with `Session.view3d` (`ui.scene3d`, read by `hydrate`): without it the app opens flat, with no Building/Flat switch and no "Flat" in the breadcrumb; with it, on the building as before | the 3D building is an option of the permissions page, off by default (0010, asked on 2026-10-27) |
 | `ui/panels/Accounting.tsx` | an entity with no chart yet opens on its chart, the entry form waits for it | real entities start without a chart (the demo had all eight set up) |
 | `ui/Rooms.tsx` | the flat view opens the first room the person may open (missions otherwise) | it opened Accounting for everyone |

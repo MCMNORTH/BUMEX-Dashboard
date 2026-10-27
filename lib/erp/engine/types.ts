@@ -80,6 +80,7 @@ export interface Entity {
   cashThreshold: number;
   floorOrder: number;
   isHolding: boolean;
+  isTest?: boolean; // [bumex-one] the test floor (BUMEX Testing, the basement, 0011): left out of the group's figures
   nif?: string;
   address?: string;
   staffPresent: number;

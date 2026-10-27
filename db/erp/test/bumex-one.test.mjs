@@ -81,8 +81,11 @@ async function test(name, fn) {
 // ---------------------------------------------------------------------------
 await test('entities: the eight BUMEX One codes, Maroc on CGNC / MAD, OHADA chart accepted', async () => {
   const ids = await fresh();
-  const codes = (await db.query('select code from erp.entity order by floor_order')).rows.map((r) => r.code);
+  const codes = (await db.query('select code from erp.entity where not is_test order by floor_order')).rows.map((r) => r.code);
   if (JSON.stringify(codes) !== JSON.stringify(BUMEX_ONE_CODES)) throw new Error(codes.join(','));
+  // the test floor (0011): an entity apart
+  const test = (await db.query('select code, is_holding from erp.entity where is_test')).rows;
+  if (JSON.stringify(test) !== '[{"code":"bumex_testing","is_holding":false}]') throw new Error(JSON.stringify(test));
   const ma = await one(`select country, functional_currency, coa_template from erp.entity where code = 'bumex_maroc'`);
   if (ma.country !== 'MA' || ma.functional_currency !== 'MAD' || ma.coa_template !== 'CGNC') throw new Error(JSON.stringify(ma));
   const hold = await one(`select is_holding from erp.entity where id = $1`, [ids.bumex_holding]);

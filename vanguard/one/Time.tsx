@@ -69,7 +69,9 @@ export function TimeRoom({ initialTab }: { initialTab?: string | null }) {
   const [tab, setTab] = useState<'mine' | 'team'>(initialTab === 'team' ? 'team' : 'mine');
   // the administrator and managers review their people's weeks (BUMEX One's rule; the server checks it again)
   const { role } = usePermissions();
-  const canReview = role === 'admin' || role === 'manager';
+  // on the test floor, the person's test lines alone (0011): no week to send, no review
+  const test = useStore((s) => Boolean(s.state.entities.find((e) => e.id === s.ui.entityId)?.isTest));
+  const canReview = (role === 'admin' || role === 'manager') && !test;
   return (
     <>
       <div className="sheet-head">
@@ -77,7 +79,7 @@ export function TimeRoom({ initialTab }: { initialTab?: string | null }) {
         <Tabs tabs={[{ id: 'mine' as const, label: say('Ma feuille', 'My timesheet') }, ...(canReview ? [{ id: 'team' as const, label: say("L'équipe", 'The team') }] : [])]} value={tab} onChange={setTab} />
       </div>
       <div className="sheet-body">
-        {tab === 'team' && canReview ? <TeamSheet /> : <MySheet key={initialTab ?? ''} log={logOf(initialTab)} />}
+        {tab === 'team' && canReview ? <TeamSheet /> : <MySheet key={`${initialTab ?? ''}:${test}`} log={logOf(initialTab)} test={test} />}
       </div>
     </>
   );
@@ -85,7 +87,7 @@ export function TimeRoom({ initialTab }: { initialTab?: string | null }) {
 
 type Selection = { date: string; projectId: string; mission: string; entry?: TimeEntry; entries: TimeEntry[] };
 
-function MySheet({ log }: { log: { projectId: string; mission: string } | null }) {
+function MySheet({ log, test }: { log: { projectId: string; mission: string } | null; test: boolean }) {
   const say = useSay();
   const { toast } = useStore();
   const day = useDayLabel();
@@ -98,12 +100,12 @@ function MySheet({ log }: { log: { projectId: string; mission: string } | null }
 
   useEffect(() => {
     let live = true;
-    myTimeAction(week).then((d) => live && setData(d)).catch(() => {
+    myTimeAction(week, test).then((d) => live && setData(d)).catch(() => {
       const { toast: show, ui } = useStore.getState();
       if (live) show('error', ui.lang === 'fr' ? 'La feuille de temps est indisponible.' : 'The timesheet is unavailable.');
     });
     return () => { live = false; };
-  }, [week]);
+  }, [week, test]);
 
   if (!data) return <span className="muted">{say('Chargement…', 'Loading…')}</span>;
   // the entry asked for from a ticket, once the week is read (if the project is open to the person's timesheet)
@@ -111,7 +113,7 @@ function MySheet({ log }: { log: { projectId: string; mission: string } | null }
     setOpened(true);
     if (log && data.projects.some((p) => p.id === log.projectId) && !(data.weekStatus && data.weekStatus.status !== 'returned')) setSelection({ date: data.today, projectId: log.projectId, mission: log.mission, entries: [] });
   }
-  const refresh = async () => setData(await myTimeAction(data.week));
+  const refresh = async () => setData(await myTimeAction(data.week, data.test));
   const { days, today } = data;
   const visible = filter ? data.entries.filter((e) => e.project_id === filter) : data.entries;
   const groups = groupWeeklyEntries(visible);
@@ -136,7 +138,7 @@ function MySheet({ log }: { log: { projectId: string; mission: string } | null }
   };
   const copy = async () => {
     setBusy(true);
-    const result = await copyPreviousWeekAction(data.week).catch(() => ({ error: 'unavailable' as const }));
+    const result = await copyPreviousWeekAction(data.week, data.test).catch(() => ({ error: 'unavailable' as const }));
     setBusy(false);
     if ('error' in result) toast('error', result.error === 'no_source' ? say('La semaine précédente est vide.', 'The previous week is empty.') : result.error === 'not_empty' ? say('Cette semaine a déjà du temps.', 'This week already has time.') : say('Copie impossible.', 'Could not copy.'));
     else toast('ok', say(`${result.count} saisie(s) reprise(s)`, `${result.count} entr(ies) copied`));
@@ -152,10 +154,11 @@ function MySheet({ log }: { log: { projectId: string; mission: string } | null }
         <div className="kpi"><div className="l">{say('Jours renseignés', 'Days logged')}</div><div className="v">{daily.filter((m) => m > 0).length} / 7</div></div>
         <div className="kpi"><div className="l">{say('Statut', 'Status')}</div><div className="v" style={{ fontSize: 15 }}><Chip kind={STATUS[status][2]}>{say(STATUS[status][0], STATUS[status][1])}</Chip></div></div>
       </div>
+      {data.test && <div className="banner info">{say("Temps de l'étage de test : à part de votre feuille réelle. Il ne s'envoie pas et n'est compté nulle part ailleurs.", 'Test floor time: apart from your real timesheet. It is not sent and counts nowhere else.')}</div>}
       {data.weekStatus?.status === 'returned' && <div className="banner crit"><b>{say('Feuille retournée pour correction', 'Timesheet returned for changes')}</b>{data.weekStatus.review_note ? ` · ${data.weekStatus.review_note}` : ''}</div>}
       <div className="actions" style={{ justifyContent: 'flex-start' }}>
         <button className="btn sm primary" disabled={!data.projects.length || data.week > today || locked} onClick={() => setSelection({ date: defaultDate, projectId: '', mission: '', entries: [] })}><Icon name="plus" size={13} /> {say('Ajouter du temps', 'Log time')}</button>
-        {total > 0 && (!data.weekStatus || data.weekStatus.status === 'returned') && <button className="btn sm" disabled={busy} onClick={submit}>{data.weekStatus?.status === 'returned' ? say('Renvoyer la semaine', 'Send the week again') : say('Envoyer la semaine', 'Send the week')}</button>}
+        {total > 0 && !data.test && (!data.weekStatus || data.weekStatus.status === 'returned') && <button className="btn sm" disabled={busy} onClick={submit}>{data.weekStatus?.status === 'returned' ? say('Renvoyer la semaine', 'Send the week again') : say('Envoyer la semaine', 'Send the week')}</button>}
         {!data.entries.length && data.week <= today && !locked && <button className="btn sm" disabled={busy} onClick={copy}>{say('Reprendre la semaine précédente', 'Copy the previous week')}</button>}
         <select className="in" style={{ width: 220, marginLeft: 'auto' }} value={filter} onChange={(e) => setFilter(e.target.value)} aria-label={say('Projet', 'Project')}>
           <option value="">{say('Tous les projets', 'All projects')}</option>{[...projectName].map(([id, name]) => <option key={id} value={id}>{name}</option>)}
@@ -230,7 +233,7 @@ function EntryEditor({ data, selection, onPick, onClose, onSaved, say }: { data:
     setSaving(true);
     setError(null);
     try {
-      const result = await saveTimeAction({ id: entry?.id ?? submission.current, project_id: projectId, mission, work_date: date, hours: String(hours), minutes: String(minutes), note, ...(entry ? { updated_at: entry.updated_at } : {}) });
+      const result = await saveTimeAction({ id: entry?.id ?? submission.current, project_id: projectId, mission, work_date: date, hours: String(hours), minutes: String(minutes), note, ...(entry ? { updated_at: entry.updated_at } : {}) }, data.test);
       if ('error' in result) setError(result.error);
       else onSaved();
     } catch {
@@ -262,7 +265,7 @@ function EntryEditor({ data, selection, onPick, onClose, onSaved, say }: { data:
       <Field label={say('Détail du travail (facultatif)', 'Work details (optional)')}><textarea className="in" style={{ height: 60, padding: 8 }} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
       {error && <div className="banner crit">{say(...ERRORS[error])}</div>}
       <div className="actions">
-        {projectId && mission.trim() && <button className="btn sm ghost" style={{ marginRight: 'auto' }} onClick={toggleFavorite}>{favorite ? say('★ Retirer des favorites', '★ Remove from favourites') : say('☆ Ajouter aux favorites', '☆ Add to favourites')}</button>}
+        {projectId && mission.trim() && !data.test && <button className="btn sm ghost" style={{ marginRight: 'auto' }} onClick={toggleFavorite}>{favorite ? say('★ Retirer des favorites', '★ Remove from favourites') : say('☆ Ajouter aux favorites', '☆ Add to favourites')}</button>}
         <button className="btn sm" onClick={onClose} disabled={saving}>{say('Annuler', 'Cancel')}</button>
         <button className="btn sm primary" disabled={saving || !projectId || !mission.trim() || hours * 60 + minutes <= 0} onClick={save}>{saving ? say('Enregistrement…', 'Saving…') : say('Enregistrer', 'Save')}</button>
       </div>

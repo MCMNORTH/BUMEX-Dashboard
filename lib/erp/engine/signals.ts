@@ -96,8 +96,10 @@ export interface GroupFigures {
 }
 
 export function groupFigures(state: State): GroupFigures {
-  const floors = allFloors(state);
-  const ic = sum(state.salesInvoices.filter((i) => i.status !== 'draft' && state.customers.find((c) => c.id === i.customerId)?.groupEntityId).map((i) => r2(i.totalHt * i.fxRate)));
+  // [bumex-one] the test floor is no part of the group
+  const floors = allFloors(state).filter((f) => !f.entity.isTest);
+  const test = new Set(state.entities.filter((e) => e.isTest).map((e) => e.id));
+  const ic = sum(state.salesInvoices.filter((i) => i.status !== 'draft' && !test.has(i.entityId) && state.customers.find((c) => c.id === i.customerId)?.groupEntityId).map((i) => r2(i.totalHt * i.fxRate)));
   const sumRevenue = sum(floors.map((f) => f.revenue));
   return { floors, sumRevenue, intercompanyRevenue: ic, consolidatedRevenue: r2(sumRevenue - ic), result: sum(floors.map((f) => f.result)), cash: sum(floors.map((f) => f.cash)), overdue: sum(floors.map((f) => f.overdue)), overdueCount: floors.reduce((a, f) => a + f.overdueCount, 0) };
 }

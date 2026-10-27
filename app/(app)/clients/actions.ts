@@ -157,7 +157,7 @@ async function saveClient(formData: FormData): Promise<ClientActionState & { suc
     if (clientId) {
       await updateClient(clientId, values, auth.profile.id);
     } else {
-      await createClientRecord(values, auth.profile.id);
+      await createClientRecord(values, auth.profile.id, getString(formData, "floor") || null);
     }
   } catch (error) {
     return { error: getClientMutationErrorMessage(error), values };

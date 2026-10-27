@@ -1,6 +1,6 @@
 "use server";
 
-import { requireCurrentEntityContext } from "@/lib/entities/scope";
+import { requireCurrentEntityContext, requireTimeEntityContext } from "@/lib/entities/scope";
 import { createScopedNotifications } from "@/lib/notifications/service";
 import { TIMESHEET_PROJECTS_SQL } from "@/lib/timesheet/service";
 import { addDays, validateTimeInput, weekBounds } from "@/lib/timesheet/validation";
@@ -9,7 +9,8 @@ import type { TimeInput, TimeResult } from "@/types/timesheet";
 
 // The Temps room's actions (vanguard/one/Time.tsx), in the person's current entity. The database refuses a line in a
 // sent week, in the future or beyond 24 hours a day (0008 erp.time_entry_guard), and the rules a line that is not the
-// person's own.
+// person's own. On the test floor (test, 0011) the lines are its missions', apart from the person's real week: no
+// favourites and no week to send there.
 
 const isTimesheetProject = async (tx: Tx, projectId: string, entityCode: string) =>
   Boolean(await selectOne(tx, `${TIMESHEET_PROJECTS_SQL} and e.id = $2::uuid`, [entityCode, projectId]));
@@ -18,8 +19,8 @@ const entityOf = "(select id from erp.entity where code = $ENTITY)";
 
 const guardError = (error: unknown) => (error instanceof Error ? error.message : "");
 
-export async function saveTimeAction(input: TimeInput): Promise<TimeResult> {
-  const { auth, entityCode } = await requireCurrentEntityContext();
+export async function saveTimeAction(input: TimeInput, test = false): Promise<TimeResult> {
+  const { auth, entityCode } = await requireTimeEntityContext(test);
   const validation = validateTimeInput(input);
   if (validation) return { error: validation };
   const minutes = Number(input.hours) * 60 + Number(input.minutes);
@@ -53,8 +54,8 @@ export async function saveTimeAction(input: TimeInput): Promise<TimeResult> {
   }
 }
 
-export async function copyPreviousWeekAction(targetWeek: string): Promise<{ success: true; count: number } | { error: "invalid" | "not_empty" | "no_source" | "unavailable" }> {
-  const { auth, entityCode } = await requireCurrentEntityContext();
+export async function copyPreviousWeekAction(targetWeek: string, test = false): Promise<{ success: true; count: number } | { error: "invalid" | "not_empty" | "no_source" | "unavailable" }> {
+  const { auth, entityCode } = await requireTimeEntityContext(test);
   const target = weekBounds(targetWeek);
   const today = new Date().toISOString().slice(0, 10);
   if (!target || target.start > today) return { error: "invalid" };
