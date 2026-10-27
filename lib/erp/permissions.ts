@@ -350,19 +350,21 @@ export async function resendInvitation(actorId: string, inviter: string, userId:
   return { mailed: await sendInvitation(actorId, inviter, person, baseUrl) };
 }
 
-export type Invitation = { email: string; name: string } | { error: "expired" };
+// A password link (an invitation, or a new password for someone who already signed in: `returning`).
+export type Invitation = { email: string; name: string; returning: boolean } | { error: "expired" };
 
 export async function findInvitation(token: string): Promise<Invitation> {
   if (typeof token !== "string" || token.length < 20) return { error: "expired" };
   const [row] = await withErpSystemSession("invitation", (tx) =>
-    tx.query<{ email: string; name: string }>(
-      `select p.email, coalesce(nullif(trim(p.full_name), ''), p.email) as name
+    tx.query<{ id: string; email: string; name: string }>(
+      `select p.id, p.email, coalesce(nullif(trim(p.full_name), ''), p.email) as name
          from work.invitation i join work.person p on p.id = i.person_id
         where i.token_hash = $1 and i.used_at is null and i.expires_at > now()`,
       [digest(token)],
     ),
   );
-  return row ?? { error: "expired" };
+  if (!row) return { error: "expired" };
+  return { email: row.email, name: row.name, returning: await hasPassword(row.id) };
 }
 
 // The person chooses their password: the link proves their address. Used once; the caller signs them in.
@@ -378,11 +380,123 @@ export async function acceptInvitation(token: string, password: string): Promise
       );
       if (!row) return { error: "expired" as const };
       await adminAuth().updateUser(row.person_id, { password, emailVerified: true });
+      // the sessions opened with the old password end (lib/firebase/session.ts checks it); the caller opens a new one
+      await adminAuth().revokeRefreshTokens(row.person_id);
       await tx.query("update work.invitation set used_at = now() where person_id = $1 and used_at is null", [row.person_id]);
       return { email: row.email };
     });
   } catch (error) {
     console.error("[permissions:accept]", error instanceof Error ? error.message : error);
     return { error: "unavailable" };
+  }
+}
+
+// ---- passwords -----------------------------------------------------------------------------------------------------
+
+const PASSWORD_LINK_PAUSE_MINUTES = 10;
+
+// Whether the account has a password already (an invited person has none until they choose it).
+async function hasPassword(uid: string) {
+  try {
+    return (await adminAuth().getUser(uid)).providerData.some((p) => p.providerId === "password");
+  } catch {
+    return false;
+  }
+}
+
+async function mailPasswordLink(to: { email: string; name: string }, by: string | null, link: string) {
+  const subject = "Votre mot de passe BUMEX Vanguard · Your BUMEX Vanguard password";
+  const why = {
+    fr: by ? `${by} vous envoie un lien pour choisir un nouveau mot de passe.` : "Vous avez demandé à changer votre mot de passe.",
+    en: by ? `${by} sent you a link to choose a new password.` : "You asked to change your password.",
+  };
+  const text = [
+    `Bonjour ${to.name},`, `${why.fr} Lien valable ${INVITATION_DAYS} jours, une seule fois :`, link,
+    "Si vous n'avez rien demandé, ignorez ce message : votre mot de passe reste le même.", "",
+    `Hello ${to.name},`, `${why.en} The link works once, for ${INVITATION_DAYS} days:`, link,
+    "If you did not ask for it, ignore this message: your password stays the same.",
+  ].join("\n");
+  const button = `<p><a href="${escapeHtml(link)}" style="display:inline-block;padding:10px 18px;border-radius:6px;background:#1f3a68;color:#fff;text-decoration:none">`;
+  const html = [
+    `<p>Bonjour ${escapeHtml(to.name)},</p>`,
+    `<p>${escapeHtml(why.fr)} Le lien est valable ${INVITATION_DAYS} jours, une seule fois.</p>`,
+    `${button}Choisir un nouveau mot de passe</a></p>`,
+    `<p style="color:#666">Si vous n'avez rien demandé, ignorez ce message : votre mot de passe reste le même.</p>`,
+    `<hr style="border:none;border-top:1px solid #ddd;margin:20px 0">`,
+    `<p>Hello ${escapeHtml(to.name)},</p>`,
+    `<p>${escapeHtml(why.en)} The link works once, for ${INVITATION_DAYS} days.</p>`,
+    `${button}Choose a new password</a></p>`,
+    `<p style="color:#666">If you did not ask for it, ignore this message: your password stays the same.</p>`,
+  ].join("\n");
+  await sendAppMail({ to: to.email, subject, html, text });
+}
+
+async function personById(actorId: string, userId: string) {
+  return withErpSystemSession(actorId, async (tx) =>
+    (await tx.query<{ id: string; email: string; name: string }>(
+      "select id, email, coalesce(nullif(trim(full_name), ''), email) as name from work.person where id = $1",
+      [userId],
+    ))[0],
+  );
+}
+
+// A role modifier sends someone a link to choose a new password (an invitation for someone who never signed in).
+export async function sendPasswordLink(actorId: string, by: string, userId: string, baseUrl: string): Promise<{ mailed?: boolean; error?: PermissionsError }> {
+  if (typeof userId !== "string" || !userId) return { error: "invalid" };
+  const person = await personById(actorId, userId);
+  if (!person) return { error: "invalid" };
+  if (!(await hasPassword(person.id))) return { mailed: await sendInvitation(actorId, by, person, baseUrl) };
+  const token = await newInvitation(actorId, person.id);
+  try {
+    await mailPasswordLink(person, by, `${baseUrl}/invite/${token}`);
+    console.info("[permissions:password-link]", actorId, "sent a password link to", person.id);
+    return { mailed: true };
+  } catch (error) {
+    console.error("[permissions:password-link]", error instanceof Error ? error.message : error);
+    return { mailed: false };
+  }
+}
+
+// A role modifier sets someone's password themselves. The person's open sessions end (but the modifier's own, when it
+// is theirs), and any link they had stops working.
+export async function setPassword(actorId: string, userId: string, password: string): Promise<{ error?: PermissionsError }> {
+  if (typeof userId !== "string" || !userId) return { error: "invalid" };
+  if (typeof password !== "string" || password.length < 8 || password.length > 128) return { error: "password" };
+  try {
+    const person = await personById(actorId, userId);
+    if (!person) return { error: "invalid" };
+    await adminAuth().updateUser(userId, { password });
+    if (userId !== actorId) await adminAuth().revokeRefreshTokens(userId);
+    await withErpSystemSession(actorId, (tx) => tx.query("update work.invitation set used_at = now() where person_id = $1 and used_at is null", [userId]));
+    console.info("[permissions:password]", actorId, "set the password of", userId);
+    return {};
+  } catch (error) {
+    console.error("[permissions:password]", error instanceof Error ? error.message : error);
+    return { error: "unavailable" };
+  }
+}
+
+// Someone asks for a link from the sign-in page ("forgot password"). Nothing tells whether the address has an
+// account: a company address of a person who has one gets the link, at most once every few minutes; any other request
+// is quietly dropped.
+export async function requestPasswordLink(rawEmail: string, baseUrl: string): Promise<void> {
+  const email = normalizeEmail(typeof rawEmail === "string" ? rawEmail : "");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || !isAllowedCompanyEmail(email)) return;
+  try {
+    const person = await withErpSystemSession("password-request", async (tx) =>
+      (await tx.query<{ id: string; email: string; name: string; recent: boolean }>(
+        `select p.id, p.email, coalesce(nullif(trim(p.full_name), ''), p.email) as name,
+                exists (select 1 from work.invitation i where i.person_id = p.id and i.used_at is null
+                         and i.created_at > now() - make_interval(mins => $2)) as recent
+           from work.person p where lower(p.email) = $1`,
+        [email, PASSWORD_LINK_PAUSE_MINUTES],
+      ))[0],
+    );
+    if (!person || person.recent) return;
+    await adminAuth().getUser(person.id);
+    const token = await newInvitation("password-request", person.id);
+    await mailPasswordLink(person, null, `${baseUrl}/invite/${token}`);
+  } catch (error) {
+    console.error("[permissions:password-request]", error instanceof Error ? error.message : error);
   }
 }

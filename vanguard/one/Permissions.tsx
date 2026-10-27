@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { erpConsolidationRoles, erpEntityModuleKeys, erpModules, erpRoleLabels, resolveErpModules } from '@/lib/erp/config';
 import type { PermissionPerson, PermissionsData, PermissionsError, PersonAccess } from '@/lib/erp/permissions';
-import { invitePersonAction, permissionsAction, prepareTestFloorAction, removeAccessAction, resendInvitationAction, savePermissionsAction } from '@/lib/erp/vanguard/permission-actions';
+import { invitePersonAction, permissionsAction, prepareTestFloorAction, removeAccessAction, resendInvitationAction, savePermissionsAction, sendPasswordLinkAction, setPasswordAction } from '@/lib/erp/vanguard/permission-actions';
 import { erpRoles, type ErpModuleKey, type ErpRole } from '@/types/erp';
 import type { BumexEntityCode, ErpEntityCode } from '@/types/entity';
 import { useStore } from '../store';
@@ -314,6 +314,7 @@ function Editor({ person, data, onSaved }: { person: PermissionPerson; data: Per
             <button className="btn sm primary" disabled={busy || !dirty} onClick={save}>{person.access ? say('Enregistrer', 'Save') : say("Ouvrir l'accès", 'Open access')}</button>
           </div>
         </div>
+        <PasswordRow person={person} self={self} />
       </div>
     );
 }
@@ -341,6 +342,69 @@ function TestFloorCard({ ready, testers, onDone }: { ready: boolean; testers: nu
         </span>
         {ready ? <Chip kind="good">{say('Exemples en place', 'Samples in place')}</Chip>
           : <button className="btn sm primary" disabled={busy} onClick={prepare}>{busy ? say('Préparation…', 'Preparing…') : say('Remplir avec des exemples', 'Fill with samples')}</button>}
+      </div>
+    );
+}
+
+// A strong password, drawn in the browser: 16 characters without the look-alikes (0/O, 1/l/I), each kind at least once.
+const PASSWORD_KINDS = ['abcdefghijkmnpqrstuvwxyz', 'ABCDEFGHJKLMNPQRSTUVWXYZ', '23456789', '!@#$%&*?-+='];
+function generatePassword(length = 16) {
+  const pick = (chars: string) => {
+    const limit = 256 - (256 % chars.length);
+    const byte = new Uint8Array(1);
+    do crypto.getRandomValues(byte); while (byte[0] >= limit);
+    return chars[byte[0] % chars.length];
+  };
+  const all = PASSWORD_KINDS.join('');
+  const out = [...PASSWORD_KINDS.map(pick), ...Array.from({ length: length - PASSWORD_KINDS.length }, () => pick(all))];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Number(crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out.join('');
+}
+
+// Someone's password: set by the role modifier (typed or generated, shown so it can be passed on), or a link sent to
+// them to choose it. Their open sessions end when it is set.
+function PasswordRow({ person, self }: { person: PermissionPerson; self: boolean }) {
+    const { say, errorText } = useWords();
+    const { toast } = useStore();
+    const [password, setPassword] = useState('');
+    const [busy, setBusy] = useState(false);
+    const set = async () => {
+      if (!window.confirm(self ? say('Changer votre mot de passe ?', 'Change your password?') : say(`Définir ce mot de passe pour ${person.name} ? Ses sessions ouvertes se fermeront.`, `Set this password for ${person.name}? Their open sessions will end.`))) return;
+      setBusy(true);
+      const result = await setPasswordAction(person.id, password).catch(() => ({ error: 'unavailable' as const }));
+      setBusy(false);
+      if (result.error) toast('error', errorText(result.error));
+      else toast('ok', say('Mot de passe défini : transmettez-le à la personne', 'Password set: pass it on to the person'));
+    };
+    const send = async () => {
+      setBusy(true);
+      const result = await sendPasswordLinkAction(person.id).catch(() => ({ error: 'unavailable' as const, mailed: undefined }));
+      setBusy(false);
+      if (result.error) toast('error', errorText(result.error));
+      else if (!result.mailed) toast('error', say("Le lien est prêt mais l'e-mail n'est pas parti : réessayez.", 'The link is ready but the e-mail did not go out: try again.'));
+      else toast('ok', say(`Lien envoyé à ${person.email}`, `Link sent to ${person.email}`));
+    };
+    const copy = async () => {
+      try {
+        await navigator.clipboard.writeText(password);
+        toast('ok', say('Copié', 'Copied'));
+      } catch {
+        toast('error', say('Copie impossible : sélectionnez le texte', 'Could not copy: select the text'));
+      }
+    };
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)' }}>
+        <span className="small" style={{ fontWeight: 600, width: 96 }}>{say('Mot de passe', 'Password')}</span>
+        <input className="in mono" style={{ width: 210, height: 28 }} value={password} onChange={(e) => setPassword(e.target.value)} maxLength={128}
+          placeholder={say('Nouveau mot de passe', 'New password')} autoComplete="new-password" spellCheck={false} aria-label={say('Nouveau mot de passe', 'New password')} />
+        <button className="btn sm" disabled={busy} onClick={() => setPassword(generatePassword())} title={say('16 caractères aléatoires', '16 random characters')}>{say('Générer', 'Generate')}</button>
+        <button className="btn sm" disabled={busy || !password} onClick={copy}>{say('Copier', 'Copy')}</button>
+        <button className="btn sm primary" disabled={busy || password.length < 8} onClick={set} title={password && password.length < 8 ? say('8 caractères au moins', 'At least 8 characters') : undefined}>{say('Définir', 'Set')}</button>
+        <span className="small muted">{say('ou', 'or')}</span>
+        <button className="btn sm" disabled={busy} onClick={send} title={say('La personne choisit elle-même un nouveau mot de passe (lien valable 7 jours)', 'The person chooses a new password themselves (link valid 7 days)')}>{say('Envoyer un lien', 'Send a link')}</button>
       </div>
     );
 }

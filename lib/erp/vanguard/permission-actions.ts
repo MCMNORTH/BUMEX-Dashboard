@@ -8,6 +8,8 @@ import {
   removeAccess,
   resendInvitation,
   savePermissions,
+  sendPasswordLink,
+  setPassword,
   type InviteInput,
   type PermissionsData,
   type PermissionsError,
@@ -58,4 +60,17 @@ export async function prepareTestFloorAction(): Promise<{ error?: "not_allowed" 
   const auth = await modifier();
   if (!auth) return { error: "not_allowed" };
   return prepareTestFloor(auth.profile.id, auth.profile.full_name || auth.profile.email);
+}
+
+// Someone's password: a link sent to them, or set by the role modifier.
+export async function sendPasswordLinkAction(userId: string): Promise<{ mailed?: boolean; error?: PermissionsError }> {
+  const auth = await modifier();
+  if (!auth) return { error: "not_allowed" };
+  return sendPasswordLink(auth.profile.id, auth.profile.full_name || auth.profile.email, userId, await getAppBaseUrl());
+}
+
+export async function setPasswordAction(userId: string, password: string): Promise<{ error?: PermissionsError }> {
+  const auth = await modifier();
+  if (!auth) return { error: "not_allowed" };
+  return setPassword(auth.profile.id, userId, password);
 }

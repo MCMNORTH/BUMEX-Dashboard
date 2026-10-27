@@ -2,7 +2,7 @@
 // routes and its pages in Chrome; each write looked up in the database afterwards.
 import { randomUUID } from "node:crypto";
 
-import { C, M, OLD_PROJECT, T, id, uid } from "./seed.mjs";
+import { C, M, OLD_PROJECT, PASSWORD, T, id, uid } from "./seed.mjs";
 
 export async function runChecks({ act, db, base, authPort, cookies, openBrowser, mail, cronSecret, check }) {
   const one = async (sql, params = []) => (await db.query(sql, params)).rows[0];
@@ -231,6 +231,31 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
   check("…who receives the link to choose their password", Boolean(link), letter ? letter.raw.slice(0, 200) : "no e-mail");
   r = await act("mohamed.cheikh", "resendInvitationAction", { args: [uid.ahmed] });
   check("…no invitation again for someone who has signed in", r?.error === "signed_in", r);
+
+  // ---- passwords: set by the role modifier, a link sent, or asked for from the sign-in page ----------------------------
+  const signInWith = (email, password) =>
+    fetch(`http://127.0.0.1:${authPort}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=smoke`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password, returnSecureToken: true }) }).then((res) => res.ok);
+  r = await act("fatimetou.admin", "setPasswordAction", { args: [uid.khadija, "Nouveau-Pass-2026"] });
+  check("an administrator who is not a role modifier cannot set a password", r?.error === "not_allowed", r);
+  r = await act("mohamed.cheikh", "setPasswordAction", { args: [uid.khadija, "court"] });
+  check("…nor anyone a password under 8 characters", r?.error === "password", r);
+  r = await act("mohamed.cheikh", "setPasswordAction", { args: [uid.khadija, "Nouveau-Pass-2026"] });
+  check("the role modifier sets Khadija's password: the new one signs in, the old one no longer",
+    !r?.error && (await signInWith("khadija.diallo@bumex.mr", "Nouveau-Pass-2026")) && !(await signInWith("khadija.diallo@bumex.mr", PASSWORD)), r);
+  check("…and her open session ends", (await act("khadija.diallo", "reloadVanguardAction"))?.state === undefined);
+  let mailed = mail.messages.length;
+  r = await act("mohamed.cheikh", "sendPasswordLinkAction", { args: [uid.ahmed] });
+  const resetMail = mail.messages.slice(mailed).find((m) => m.to.includes("ahmed.ba@bumex.mr"));
+  const resetLink = resetMail?.raw.match(/https?:\/\/[^\s"<>]+\/invite\/[A-Za-z0-9_-]{20,}/)?.[0];
+  check("the role modifier sends Ahmed a link to choose a new password", r?.mailed === true && /mot de passe/i.test(resetMail?.raw ?? "") && Boolean(resetLink), { r, to: resetMail?.to });
+  const resetPage = resetLink ? await (await get(null, new URL(resetLink).pathname)).text() : "";
+  check("…its page asks for a new password", resetPage.includes("Nouveau mot de passe"));
+  const forgot = (email) => act("mohamed.cheikh", "forgotPasswordAction", { prev: {}, form: { email } });
+  mailed = mail.messages.length;
+  const answers = [await forgot("personne@bumex.mr"), await forgot("someone@gmail.com"), await forgot("Oumar.Sy@bumex.mr"), await forgot("oumar.sy@bumex.mr")];
+  const toOumar = mail.messages.slice(mailed).filter((m) => m.to.includes("oumar.sy@bumex.mr")).length;
+  check("“Forgot password?” answers the same whoever asks, and mails a known address once in a while",
+    answers.every((a) => a?.sent === true) && toOumar === 1 && mail.messages.length - mailed === 1, { answers, toOumar, all: mail.messages.length - mailed });
 
   const tab = await openBrowser();
   try {

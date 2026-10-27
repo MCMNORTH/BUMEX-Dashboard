@@ -26,7 +26,7 @@ export function AcceptInvitationForm({ token, email }: { token: string; email: s
   const error = state.error && {
     mismatch: tr("Les deux mots de passe diffèrent.", "The two passwords differ."),
     password: tr("Le mot de passe doit faire au moins 8 caractères.", "The password must be at least 8 characters."),
-    expired: tr("Ce lien a expiré ou a déjà servi : demandez une nouvelle invitation.", "This link has expired or was already used: ask for a new invitation."),
+    expired: tr("Ce lien a expiré ou a déjà servi : demandez-en un nouveau.", "This link has expired or was already used: ask for a new one."),
   }[state.error as string];
 
   return (

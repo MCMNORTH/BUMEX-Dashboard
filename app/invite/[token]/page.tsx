@@ -28,9 +28,13 @@ export default async function InvitationPage({ params }: { params: Promise<{ tok
           {invitation && !("error" in invitation) ? (
             <>
               <CardHeader className="space-y-2 p-5 sm:p-6">
-                <CardTitle className="text-2xl">{tr(`Bienvenue, ${invitation.name}`, `Welcome, ${invitation.name}`)}</CardTitle>
+                <CardTitle className="text-2xl">
+                  {invitation.returning ? tr("Nouveau mot de passe", "New password") : tr(`Bienvenue, ${invitation.name}`, `Welcome, ${invitation.name}`)}
+                </CardTitle>
                 <CardDescription>
-                  {tr(`Choisissez le mot de passe de ${invitation.email} pour ouvrir BUMEX Vanguard.`, `Choose the password of ${invitation.email} to open BUMEX Vanguard.`)}
+                  {invitation.returning
+                    ? tr(`Choisissez le nouveau mot de passe de ${invitation.email}. L’ancien ne servira plus.`, `Choose the new password of ${invitation.email}. The old one will no longer work.`)
+                    : tr(`Choisissez le mot de passe de ${invitation.email} pour ouvrir BUMEX Vanguard.`, `Choose the password of ${invitation.email} to open BUMEX Vanguard.`)}
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-5 pt-0 sm:p-6 sm:pt-0">
@@ -44,7 +48,7 @@ export default async function InvitationPage({ params }: { params: Promise<{ tok
               </CardTitle>
               <CardDescription>
                 {invitation
-                  ? tr("Demandez à l’administrateur qui vous a invité de vous renvoyer l’invitation, ou connectez-vous si votre mot de passe est déjà choisi.", "Ask the administrator who invited you to send the invitation again, or sign in if you already chose your password.")
+                  ? tr("Demandez un nouveau lien (« Mot de passe oublié ? » à la connexion, ou à votre administrateur), ou connectez-vous si votre mot de passe est déjà choisi.", "Ask for a new link ('Forgot password?' on the sign-in page, or your administrator), or sign in if your password is already chosen.")
                   : tr("Réessayez dans un instant.", "Try again in a moment.")}
               </CardDescription>
               <Link href="/login" className="text-sm font-medium text-primary underline-offset-4 hover:underline">

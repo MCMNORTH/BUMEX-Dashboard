@@ -43,7 +43,10 @@ compared. Changes we need go into new migrations / files of ours.
   refuses everyone else, whatever their role, and nobody removes their own access, administrator role or flag. The
   page also invites people: a Firebase account without a password, their `work.person` on their entity, their role's
   access there, and an e-mail with a link (`/invite/<token>`, 7 days, used once; only its digest is kept in
-  `work.invitation`) where they choose their password. The building in 3D is one more option there (`view_3d`, 0010),
+  `work.invitation`) where they choose their password. The same link resets a password: a role modifier sends it ("Envoyer
+  un lien") or sets the password themselves (typed or generated; the person's open sessions end), and anyone asks for
+  it from the sign-in page ("Mot de passe oublié ?", `app/forgot`: the same answer whatever the address, one link at
+  most every 10 minutes). The building in 3D is one more option there (`view_3d`, 0010),
   off by default: without it Vanguard opens on its flat pages, with the same data.
 - The test floor (BUMEX Testing, the basement, 0011) is where anyone, whatever their role, tries the app. "Every
   entity" leaves it out; a role modifier gives it (`test_floor`, a row of its own in the permissions grid, off by

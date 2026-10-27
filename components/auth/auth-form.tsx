@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { Eye, EyeOff, LogIn, UserPlus } from "lucide-react";
 import { useFormStatus } from "react-dom";
 
@@ -111,9 +112,16 @@ export function AuthForm() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="password">
-              {tr("Mot de passe", "Password")}
-            </label>
+            <div className="flex items-baseline justify-between gap-2">
+              <label className="text-sm font-medium" htmlFor="password">
+                {tr("Mot de passe", "Password")}
+              </label>
+              {mode === "signin" ? (
+                <Link href="/forgot" className="text-xs font-medium text-primary underline-offset-4 hover:underline">
+                  {tr("Mot de passe oublié ?", "Forgot password?")}
+                </Link>
+              ) : null}
+            </div>
             <div className="relative">
               <Input
                 id="password"
