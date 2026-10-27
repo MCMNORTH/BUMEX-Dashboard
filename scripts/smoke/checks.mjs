@@ -162,6 +162,13 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
   check("the role modifier cannot drop their own flag", r?.error === "own_access", r);
   r = await act("mohamed.cheikh", "removeAccessAction", { args: [uid.mohamed] });
   check("…nor their own access", r?.error === "own_access", r);
+  // the building in 3D: off for everyone until a role modifier gives it
+  const managerStd = ["accounting", "clients", "suppliers", "bank", "assets", "hr", "tax", "archives", "reports"];
+  check("the building in 3D is off by default", (await act("ahmed.ba", "reloadVanguardAction"))?.state?.session?.view3d === false);
+  r = await act("mohamed.cheikh", "savePermissionsAction", { args: [uid.mariem, { role: "manager", allEntities: false, parts: { bumex_audit: managerStd }, consolidation: false, managesAccess: false, view3d: true, homeEntity: "bumex_audit" }] });
+  const mariem = await one("select erp_role, entity_codes, modules, entity_modules, view_3d from erp.user_access where user_id = $1", [uid.mariem]);
+  check("…the role modifier gives it to Mariem, her parts unchanged", !r?.error && mariem.view_3d === true && mariem.modules === null && mariem.entity_modules === null && mariem.entity_codes.join() === "bumex_audit", { r, mariem });
+  check("…her session says so", (await act("mariem.sow", "reloadVanguardAction"))?.state?.session?.view3d === true);
   r = await act("mohamed.cheikh", "removeAccessAction", { args: [uid.salma] });
   check("the role modifier removes Salma's access", !r?.error && !(await one("select 1 from erp.user_access where user_id = $1", [uid.salma])), r);
   check("…she no longer opens the app", (await act("salma.fall", "reloadVanguardAction"))?.state === undefined);
@@ -210,7 +217,13 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     res = await fetch(`${base}/api/cron/notifications`, { headers: { authorization: "Bearer wrong" } });
     check("…and refuses a caller without the secret", res.status === 401, { status: res.status });
 
-    // ---- the building in 3D, then every room and tab, in Chrome, with no error ----------------------------------------
+    // ---- the building in 3D for whoever has it, then every room and tab, in Chrome, with no error ----------------------
+    await tab.signIn(cookies["ahmed.ba"]);
+    await tab.go("/vanguard");
+    await tab.until("Boolean(document.querySelector('.app .main')) && document.body.innerText.length > 150", 25_000);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const flatOnly = await tab.evaluate("!document.querySelector('.stage') && !document.querySelector('canvas') && !document.querySelector('.hright .seg')");
+    check("without the 3D option, Vanguard opens flat: no building, no switch (WebGL on)", flatOnly && tab.takeErrors().length === 0);
     await tab.signIn(cookies["mariem.sow"]);
     await tab.go("/vanguard");
     const drawn = await tab.until("(() => { const c = document.querySelector('canvas'); return Boolean(c) && (c.getContext('webgl2') ?? c.getContext('webgl')) !== null; })()", 30_000);
@@ -246,7 +259,7 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     await tab.go("/vanguard?room=settings&tab=access");
     const listed = await tab.until("document.body.innerText.includes('Modificateurs') && document.body.innerText.includes('Salma Fall')");
     await tab.evaluate("[...document.querySelectorAll('button')].find((b) => b.innerText.includes('Mariem Sow'))?.click()");
-    const editor = await tab.until("document.body.innerText.includes('Modificateur de rôles') && document.querySelectorAll('table input[type=checkbox]').length > 60");
+    const editor = await tab.until("document.body.innerText.includes('Modificateur de rôles') && document.body.innerText.includes('Bâtiment 3D') && document.querySelectorAll('table input[type=checkbox]').length > 60");
     check("the Permissions tab lists everyone and opens a person's grid", listed && editor && tab.takeErrors().length === 0);
     await tab.signIn(cookies["fatimetou.admin"]);
     await tab.go("/vanguard?room=settings");

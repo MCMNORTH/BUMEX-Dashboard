@@ -11,8 +11,9 @@ import { useSay } from './say';
 
 // The Settings room's Permissions tab, for the administrators who manage access (the "role modifiers"): who sees which
 // entity, and which parts of each. A role gives its standard parts; each person's can be tweaked per entity (a tweaked
-// cell is marked). Missions, tasks and time are everyone's, by their role and their missions. Saved by
-// lib/erp/permissions.ts, in the modifier's own session: the database refuses anyone else.
+// cell is marked). Missions, tasks and time are everyone's, by their role and their missions. The building in 3D is
+// an option, off unless given (0010). Saved by lib/erp/permissions.ts, in the modifier's own session: the database
+// refuses anyone else.
 
 type Filter = 'all' | 'access' | 'none' | 'modifiers';
 type Draft = PersonAccess & { homeEntity: BumexEntityCode | null };
@@ -48,7 +49,7 @@ function useWords() {
 function draftOf(p: PermissionPerson, entities: BumexEntityCode[]): Draft {
   if (p.access) return { ...p.access, homeEntity: p.homeEntity };
   const home = p.homeEntity ?? entities[0];
-  return { role: 'staff', allEntities: false, parts: { [home]: standard('staff') }, consolidation: false, managesAccess: false, homeEntity: p.homeEntity };
+  return { role: 'staff', allEntities: false, parts: { [home]: standard('staff') }, consolidation: false, managesAccess: false, view3d: false, homeEntity: p.homeEntity };
 }
 
 export function PermissionsPanel() {
@@ -109,6 +110,7 @@ export function PermissionsPanel() {
                 <b style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</b>
                 <span style={{ display: 'flex', gap: 3, flex: 'none' }}>
                   {p.access?.managesAccess && <Chip kind="good">{say('Rôles', 'Roles')}</Chip>}
+                  {p.access?.view3d && <Chip kind="dim">3D</Chip>}
                   {p.neverSignedIn && <Chip kind="warn">{say('Invité', 'Invited')}</Chip>}
                   {!p.access && <Chip kind="dim">{p.removed ? say('Retiré', 'Removed') : '—'}</Chip>}
                 </span>
@@ -140,7 +142,7 @@ export function PermissionsPanel() {
               </tbody>
             </table>
           )}
-          {showRoles && <div className="small muted" style={{ marginTop: 6 }}>{say("Missions, tâches et temps : ouverts à tous, selon le rôle et les missions de chacun. Seuls les administrateurs « modificateurs de rôles » changent les accès.", "Missions, tasks and time: open to everyone, by their role and missions. Only administrators who are 'role modifiers' change access.")}</div>}
+          {showRoles && <div className="small muted" style={{ marginTop: 6 }}>{say("Missions, tâches et temps : ouverts à tous, selon le rôle et les missions de chacun. Bâtiment 3D : désactivé par défaut, pour tous les rôles. Seuls les administrateurs « modificateurs de rôles » changent les accès.", "Missions, tasks and time: open to everyone, by their role and missions. 3D building: off by default, for every role. Only administrators who are 'role modifiers' change access.")}</div>}
         </div>
       </div>
     </div>
@@ -183,7 +185,7 @@ function Editor({ person, data, onSaved }: { person: PermissionPerson; data: Per
       return { ...d, parts: { ...d.parts, ...Object.fromEntries(visible.map((code) => { const now = d.parts[code] ?? []; return [code, on ? now.filter((x) => x !== m) : [...new Set([...now, m])]]; })) } };
     });
     const toggleRow = (code: BumexEntityCode) => setDraft((d) => ({ ...d, parts: { ...d.parts, [code]: (d.parts[code]?.length ?? 0) === erpEntityModuleKeys.length ? [] : [...erpEntityModuleKeys] } }));
-    const resetToRole = () => setDraft((d) => ({ ...d, parts: Object.fromEntries(Object.keys(d.parts).map((code) => [code, standard(d.role)])), consolidation: erpConsolidationRoles.includes(d.role) }));
+    const resetToRole = () => setDraft((d) => ({ ...d, parts: Object.fromEntries(Object.keys(d.parts).map((code) => [code, standard(d.role)])), consolidation: erpConsolidationRoles.includes(d.role), view3d: false }));
 
     const run = async (work: () => Promise<{ error?: PermissionsError }>, ok: string) => {
       setBusy(true);
@@ -242,6 +244,10 @@ function Editor({ person, data, onSaved }: { person: PermissionPerson; data: Per
           <label className="small" style={{ display: 'flex', gap: 5, alignItems: 'center', height: 28, opacity: group ? 1 : 0.45 }} title={say('Vue consolidée du groupe (associés, RAF, administrateurs) : lit les comptes de toutes les entités', "The group's consolidated view (partners, finance lead, administrators): reads every entity's books")}>
             <input type="checkbox" checked={group && draft.consolidation} disabled={!group} onChange={(e) => setDraft({ ...draft, consolidation: e.target.checked })} />
             {say('Consolidation du groupe', 'Group consolidation')}
+          </label>
+          <label className="small" style={{ display: 'flex', gap: 5, alignItems: 'center', height: 28 }} title={say("Le bâtiment en 3D ; sans cette option, les pages à plat uniquement (par défaut). Les données sont les mêmes", 'The building in 3D; without this option, the flat pages only (the default). The data is the same')}>
+            <input type="checkbox" checked={draft.view3d} onChange={(e) => setDraft({ ...draft, view3d: e.target.checked })} />
+            {say('Bâtiment 3D', '3D building')}
           </label>
         </div>
 

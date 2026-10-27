@@ -20,6 +20,7 @@ export interface Session {
   modules: string[] | '*';
   entityModules?: Record<Id, string[]>; // [bumex-one] the rooms of the entities where they are not `modules` (0009)
   managesAccess?: boolean; // [bumex-one] changes everyone's access (the permissions page)
+  view3d?: boolean; // [bumex-one] sees the building in 3D (0010); without it, the flat pages only
 }
 
 export type UserStatus = 'invited' | 'active' | 'disabled';

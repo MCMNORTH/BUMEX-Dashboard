@@ -15,11 +15,12 @@ on the day of the copy (`scripts/work-copy.mjs`), the way back.
 | `db/erp/migrations/0007_vanguard.sql` | The fields Vanguard keeps that the schema lacked, the invoices' service categories, row-level security on the remaining open tables (document lines, bank lines, counters…) |
 | `db/erp/migrations/0008_work.sql` | The work: a project is an `erp.engagement`, a ticket an `erp.task`, a time line an `erp.time_entry`, a member an `erp.engagement_staff` row; everything else in schema `work`. BUMEX One's access rules as row-level security |
 | `db/erp/migrations/0009_permissions.sql` | Permissions: a person's modules per entity (`entity_modules`), the "role modifier" (`manages_access`, an administrator's only) who alone changes access, the invitations' links |
+| `db/erp/migrations/0010_view_3d.sql` | The building in 3D, a person's option (`view_3d`), off by default; given by the role modifiers like the rest of the access |
 | `db/erp/test/work.test.mjs` | Tests of 0008: who reads and writes what, the timesheet's guards, the e-mails, one client with two sides |
 | `scripts/work-copy.mjs` | The one-shot copy of BUMEX One's Firestore data into 0008's tables (dry run first) |
 | `lib/erp/vanguard/` | BUMEX Vanguard on this database: the state read for a person, their changes replayed with the engine and written (see `vanguard/VENDOR.md`); tests in `test/` run on the real schema |
 | `db/erp/test/guarantees.test.mjs` | The ERP team's 35 guarantee tests (now run against every migration, 0004 included) |
-| `db/erp/test/bumex-one.test.mjs` | Tests of 0004–0006 and 0009 |
+| `db/erp/test/bumex-one.test.mjs` | Tests of 0004–0006, 0009 and 0010 |
 | `lib/erp/engine/` | The ERP team's TypeScript engine, **as delivered** but for marked changes (`withIdSource` and the rooms per entity in `core.ts`, two session fields in `types.ts`); 65 tests in `lib/erp/engine/test` |
 | `lib/erp/*.ts` | Our code: connection, access, pages' data |
 | `scripts/erp-migrate.mjs` | Applies pending migrations |
@@ -41,7 +42,8 @@ compared. Changes we need go into new migrations / files of ours.
   refuses everyone else, whatever their role, and nobody removes their own access, administrator role or flag. The
   page also invites people: a Firebase account without a password, their `work.person` on their entity, their role's
   access there, and an e-mail with a link (`/invite/<token>`, 7 days, used once; only its digest is kept in
-  `work.invitation`) where they choose their password.
+  `work.invitation`) where they choose their password. The building in 3D is one more option there (`view_3d`, 0010),
+  off by default: without it Vanguard opens on its flat pages, with the same data.
 - The books' row-level security is by entity; what each person's browser receives is then narrowed to the modules of
   each row's entity (`lib/erp/vanguard/visible.ts`), and every change the server replays must open its room on every
   entity it touches (`lib/erp/vanguard/replay.ts`).

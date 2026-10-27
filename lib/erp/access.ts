@@ -14,13 +14,14 @@ type AccessRow = {
   modules: ErpModuleKey[] | null;
   entity_modules: ErpEntityModules | null;
   manages_access: boolean;
+  view_3d: boolean;
   granted_by: string;
   granted_at: Date;
   updated_by: string | null;
   updated_at: Date;
 };
 
-const accessColumns = "user_id, erp_role, entity_codes, modules, entity_modules, manages_access, granted_by, granted_at, updated_by, updated_at";
+const accessColumns = "user_id, erp_role, entity_codes, modules, entity_modules, manages_access, view_3d, granted_by, granted_at, updated_by, updated_at";
 
 function toGrant(row: AccessRow): ErpAccessGrant {
   return {
@@ -30,6 +31,7 @@ function toGrant(row: AccessRow): ErpAccessGrant {
     modules: row.modules,
     entityModules: row.entity_modules,
     managesAccess: row.manages_access,
+    view3d: row.view_3d,
     grantedBy: row.granted_by,
     grantedAt: row.granted_at.toISOString(),
     updatedBy: row.updated_by,
@@ -38,13 +40,14 @@ function toGrant(row: AccessRow): ErpAccessGrant {
 }
 
 // A row as what the person may open: the role's modules when none were chosen.
-export function accessOf(row: Pick<AccessRow, "erp_role" | "entity_codes" | "modules" | "entity_modules" | "manages_access">): ErpAccess {
+export function accessOf(row: Pick<AccessRow, "erp_role" | "entity_codes" | "modules" | "entity_modules" | "manages_access" | "view_3d">): ErpAccess {
   return {
     role: row.erp_role,
     entityCodes: row.entity_codes,
     modules: resolveErpModules(row.erp_role, row.modules),
     entityModules: row.entity_modules ?? {},
     managesAccess: row.manages_access,
+    view3d: row.view_3d,
   };
 }
 
@@ -89,18 +92,19 @@ export type ErpAccessInput = {
   modules: ErpModuleKey[] | null;
   entityModules?: ErpEntityModules | null;
   managesAccess?: boolean;
+  view3d?: boolean;
 };
 
 // Written in the role modifier's own session (lib/erp/permissions.ts), where the schema refuses anyone else and what
 // nobody may do to themselves.
 export async function writeErpAccess(tx: ErpTransaction, userId: string, input: ErpAccessInput) {
   await tx.query(
-    `insert into erp.user_access (user_id, erp_role, entity_codes, modules, entity_modules, manages_access)
-     values ($1, $2, $3, $4, $5, $6)
+    `insert into erp.user_access (user_id, erp_role, entity_codes, modules, entity_modules, manages_access, view_3d)
+     values ($1, $2, $3, $4, $5, $6, $7)
      on conflict (user_id) do update
        set erp_role = excluded.erp_role, entity_codes = excluded.entity_codes, modules = excluded.modules,
-           entity_modules = excluded.entity_modules, manages_access = excluded.manages_access`,
-    [userId, input.role, input.entityCodes, input.modules, input.entityModules ?? null, input.managesAccess === true],
+           entity_modules = excluded.entity_modules, manages_access = excluded.manages_access, view_3d = excluded.view_3d`,
+    [userId, input.role, input.entityCodes, input.modules, input.entityModules ?? null, input.managesAccess === true, input.view3d === true],
   );
 }
 

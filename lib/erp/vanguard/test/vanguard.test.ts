@@ -49,7 +49,7 @@ const grants: Record<string, [ErpRole, string[] | null, ErpModuleKey[] | null, E
 };
 const accessOf = (uid: string): ErpAccess => {
   const [role, entityCodes, modules, entityModules] = grants[uid];
-  return { role, entityCodes: entityCodes as ErpAccess["entityCodes"], modules: resolveErpModules(role, modules), entityModules: entityModules ?? {}, managesAccess: false };
+  return { role, entityCodes: entityCodes as ErpAccess["entityCodes"], modules: resolveErpModules(role, modules), entityModules: entityModules ?? {}, managesAccess: false, view3d: false };
 };
 const who = (uid: string) => ({ id: uid, name: people.find((p) => p.id === uid)!.name });
 
@@ -555,9 +555,11 @@ describe("the modules", () => {
   it("the permissions page's choices are stored as the usual modules and the entities that differ", () => {
     const all = ["bumex_holding", "bumex_audit", "bumex_it"] as BumexEntityCode[];
     const std = resolveErpModules("accountant", null);
-    const base = { role: "accountant" as ErpRole, allEntities: false, consolidation: false, managesAccess: false };
+    const base = { role: "accountant" as ErpRole, allEntities: false, consolidation: false, managesAccess: false, view3d: false };
     expect(storedAccess({ ...base, parts: { bumex_audit: std, bumex_it: [...std].reverse() }, managesAccess: true }, all))
-      .toEqual({ role: "accountant", entityCodes: ["bumex_audit", "bumex_it"], modules: null, entityModules: null, managesAccess: false });
+      .toEqual({ role: "accountant", entityCodes: ["bumex_audit", "bumex_it"], modules: null, entityModules: null, managesAccess: false, view3d: false });
+    // the building in 3D is anyone's option, apart from their parts
+    expect(storedAccess({ ...base, parts: { bumex_audit: std }, view3d: true }, all)).toMatchObject({ modules: null, entityModules: null, view3d: true });
     expect(storedAccess({ ...base, parts: { bumex_audit: std, bumex_it: ["archives"] } }, all))
       .toMatchObject({ modules: null, entityModules: { bumex_it: ["archives"] } });
     // what most entities have becomes the usual modules
@@ -565,9 +567,9 @@ describe("the modules", () => {
       .toMatchObject({ entityCodes: null, modules: ["reports"], entityModules: { bumex_it: std } });
     // an administrator without the group's consolidation, who manages access
     const every = resolveErpModules("admin", null).filter((m) => m !== "consolidation");
-    expect(storedAccess({ role: "admin", allEntities: true, parts: {}, consolidation: false, managesAccess: true }, all))
-      .toEqual({ role: "admin", entityCodes: null, modules: every, entityModules: null, managesAccess: true });
-    expect(storedAccess({ role: "admin", allEntities: true, parts: {}, consolidation: true, managesAccess: false }, all)).toMatchObject({ modules: null });
+    expect(storedAccess({ role: "admin", allEntities: true, parts: {}, consolidation: false, managesAccess: true, view3d: false }, all))
+      .toEqual({ role: "admin", entityCodes: null, modules: every, entityModules: null, managesAccess: true, view3d: false });
+    expect(storedAccess({ role: "admin", allEntities: true, parts: {}, consolidation: true, managesAccess: false, view3d: false }, all)).toMatchObject({ modules: null });
     expect(storedAccess({ ...base, parts: {} }, all)).toBe("no_entity");
     expect(storedAccess({ ...base, parts: { bumex_audit: ["missions" as ErpModuleKey] } }, all)).toBe("invalid");
     expect(storedAccess({ ...base, parts: { bumex_audit: ["consolidation"] } }, all)).toBe("invalid");

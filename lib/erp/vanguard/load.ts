@@ -125,6 +125,7 @@ export async function loadVanguardState(
       Object.entries(access.entityModules).flatMap(([code, modules]) => (entityIdByCode.has(code) && modules ? [[entityIdByCode.get(code)!, rooms(modules)]] : [])),
     ),
     managesAccess: access.managesAccess,
+    view3d: access.view3d,
   };
 
   const fxRates = await rows<FxRate>(tx, `select rate_date::text as date, from_currency as "from", to_currency as "to", rate::float8 as rate, source from erp.fx_rate order by rate_date`);

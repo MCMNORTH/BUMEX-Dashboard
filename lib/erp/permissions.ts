@@ -22,13 +22,15 @@ import type { ErpEntityModules, ErpModuleKey, ErpRole } from "@/types/erp";
 export type PermissionsError =
   | "not_allowed" | "own_access" | "invalid" | "no_entity" | "email" | "name" | "exists" | "signed_in" | "expired" | "password" | "unavailable";
 
-// What a person reaches: their role, and on every entity they see, its parts (consolidation is the group's).
+// What a person reaches: their role, and on every entity they see, its parts (consolidation is the group's); and
+// whether they see the building in 3D (0010, off unless given).
 export type PersonAccess = {
   role: ErpRole;
   allEntities: boolean;
   parts: Partial<Record<BumexEntityCode, ErpModuleKey[]>>;
   consolidation: boolean;
   managesAccess: boolean;
+  view3d: boolean;
 };
 
 export type PermissionPerson = {
@@ -66,6 +68,7 @@ type PersonRow = {
   modules: ErpModuleKey[] | null;
   entity_modules: ErpEntityModules | null;
   manages_access: boolean | null;
+  view_3d: boolean | null;
   removed: boolean;
   invited_until: Date | null;
 };
@@ -76,7 +79,7 @@ async function entityCodes(tx: ErpTransaction) {
 
 function personAccess(row: PersonRow, all: BumexEntityCode[]): PersonAccess | null {
   if (!row.erp_role) return null;
-  const access = accessOf({ erp_role: row.erp_role, entity_codes: row.entity_codes, modules: row.modules, entity_modules: row.entity_modules, manages_access: row.manages_access === true });
+  const access = accessOf({ erp_role: row.erp_role, entity_codes: row.entity_codes, modules: row.modules, entity_modules: row.entity_modules, manages_access: row.manages_access === true, view_3d: row.view_3d === true });
   const usual = access.modules.filter((m) => m !== "consolidation");
   return {
     role: access.role,
@@ -84,6 +87,7 @@ function personAccess(row: PersonRow, all: BumexEntityCode[]): PersonAccess | nu
     parts: Object.fromEntries((access.entityCodes ?? all).map((code) => [code, access.entityModules[code] ?? usual])),
     consolidation: access.modules.includes("consolidation"),
     managesAccess: access.managesAccess,
+    view3d: access.view3d,
   };
 }
 
@@ -107,7 +111,7 @@ export async function listPermissions(actorId: string): Promise<PermissionsData>
     entities: await entityCodes(tx),
     rows: await tx.query<PersonRow>(
       `select p.id, coalesce(nullif(trim(p.full_name), ''), p.email) as name, p.email, p.entity_code, p.job_title,
-              u.erp_role, u.entity_codes, u.modules, u.entity_modules, u.manages_access,
+              u.erp_role, u.entity_codes, u.modules, u.entity_modules, u.manages_access, u.view_3d,
               u.user_id is null and exists (select 1 from erp.audit_log a where a.table_name = 'user_access'
                                                 and coalesce(a.after_row, a.before_row) ->> 'user_id' = p.id) as removed,
               (select max(i.expires_at) from work.invitation i where i.person_id = p.id and i.used_at is null) as invited_until
@@ -167,6 +171,7 @@ export function storedAccess(input: PersonAccess, all: readonly BumexEntityCode[
     modules: sameList(modules, resolveErpModules(role, null)) ? null : modules,
     entityModules: exceptions.length ? Object.fromEntries(exceptions.map((code) => [code, sets.get(code)!])) : null,
     managesAccess: role === "admin" && input.managesAccess === true,
+    view3d: input.view3d === true,
   };
 }
 

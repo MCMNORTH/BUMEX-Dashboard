@@ -38,7 +38,8 @@ interface UI {
   hoverFloor: Id | null;
   hoverRoom: string | null;
   toast: Toast | null;
-  webgl: boolean;
+  webgl: boolean; // [bumex-one] the building can be drawn: the person's option (scene3d) and a browser with WebGL
+  scene3d: boolean; // [bumex-one] the person's access gives the building in 3D (0010); without it, the flat pages only
   fiscalYearLabel: string;
   transition: 'none' | 'to-floor' | 'to-tower';
   search: string;
@@ -127,7 +128,7 @@ const EMPTY: State = {
 };
 // BUMEX One's language (it keeps the two apps on the same one: components/vanguard/vanguard-app.tsx)
 const initialLang: Lang = typeof document !== 'undefined' && document.documentElement.lang === 'en' ? 'en' : 'fr';
-const webgl = typeof document !== 'undefined' ? webglAvailable() : false;
+const webgl = typeof document !== 'undefined' ? webglAvailable() : false; // the browser's; hydrate() adds the person's option
 const prefs = loadPrefs();
 
 // The floor shown first: BUMEX Audit when the person sees it, else the first floor they see.
@@ -168,7 +169,7 @@ export const useStore = create<Store>((set, get) => ({
   loadedAt: 0,
   version: 0,
   ui: {
-    view: webgl ? 'tower' : 'flat',
+    view: 'flat', // [bumex-one] until hydrate() reads the person's option
     entityId: null,
     room: null,
     tab: null,
@@ -181,8 +182,9 @@ export const useStore = create<Store>((set, get) => ({
     lang: initialLang,
     hoverFloor: null,
     hoverRoom: null,
-    toast: webgl ? null : { kind: 'info', text: makeT(initialLang)('no_webgl'), at: Date.now() },
-    webgl,
+    toast: null,
+    webgl: false,
+    scene3d: false,
     fiscalYearLabel: String(new Date().getFullYear()),
     transition: 'none',
     search: '',
@@ -212,7 +214,8 @@ export const useStore = create<Store>((set, get) => ({
     }
   },
   // [bumex-one] The database's state, unless the store already shows a newer one. The floor stays when the person
-  // still sees it; the fiscal year is chosen on the first state.
+  // still sees it; the fiscal year is chosen on the first state. The building in 3D is the person's option (0010):
+  // the first state opens on it when they have it, and its loss goes back to the flat pages.
   hydrate: (data) => {
     if (data.loadedAt <= get().loadedAt) return;
     setChainBreaks(data.chainBreaks);
@@ -221,7 +224,10 @@ export const useStore = create<Store>((set, get) => ({
     const keep = ui.entityId && state.entities.some((e) => e.id === ui.entityId) && canSee(state, ui.entityId);
     const entity = keep ? state.entities.find((e) => e.id === ui.entityId) : defaultEntity(state);
     const fiscalYearLabel = loadedAt ? ui.fiscalYearLabel : state.fiscalYears.find((f) => f.entityId === entity?.id && state.today >= f.start && state.today <= f.end)?.label ?? ui.fiscalYearLabel;
-    set({ state, loadedAt: data.loadedAt, version: data.version, ui: { ...ui, entityId: entity?.id ?? null, fiscalYearLabel } });
+    const scene3d = state.session.view3d === true;
+    const view: View = !(scene3d && webgl) ? 'flat' : loadedAt ? ui.view : 'tower';
+    set({ state, loadedAt: data.loadedAt, version: data.version, ui: { ...ui, entityId: entity?.id ?? null, fiscalYearLabel, scene3d, webgl: scene3d && webgl, view } });
+    if (!loadedAt && scene3d && !webgl) get().toast('info', get().t('no_webgl'));
   },
   refreshIfChanged: () => {
     if (pending > 0 || checking) return;

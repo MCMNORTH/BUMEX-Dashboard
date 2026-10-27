@@ -23,7 +23,7 @@ export type ErpModuleKey = (typeof erpModuleKeys)[number];
 export type ErpEntityModules = Partial<Record<BumexEntityCode, ErpModuleKey[]>>;
 
 // One row of erp.user_access. null entityCodes = every entity; null modules = the role's modules; managesAccess = an
-// administrator who changes everyone's access (the "role modifier", 0009).
+// administrator who changes everyone's access (the "role modifier", 0009); view3d = the building in 3D (0010).
 export type ErpAccessGrant = {
   userId: string;
   role: ErpRole;
@@ -31,6 +31,7 @@ export type ErpAccessGrant = {
   modules: ErpModuleKey[] | null;
   entityModules: ErpEntityModules | null;
   managesAccess: boolean;
+  view3d: boolean;
   grantedBy: string;
   grantedAt: string;
   updatedBy: string | null;
@@ -45,4 +46,5 @@ export type ErpAccess = {
   modules: ErpModuleKey[];
   entityModules: ErpEntityModules;
   managesAccess: boolean;
+  view3d: boolean;
 };

@@ -192,6 +192,20 @@ await test('permissions (0009): only a role modifier changes access; parts per e
   return 'admin refused ×3, 6 wrong parts refused, flag admins-only, own flag/role/row kept, el.havedh granted';
 });
 
+await test('the 3D building (0010): off by default; only a role modifier gives it, their own included', async () => {
+  await fresh();
+  await asSystem('super-admin-uid', async () => {
+    await grant('u_mod', 'admin');
+    await db.query(`update erp.user_access set manages_access = true where user_id = 'u_mod'`);
+    await grant('u_acc', 'accountant', ['bumex_audit']);
+  });
+  same(await one(`select count(*)::int as n from erp.user_access where view_3d`), { n: 0 }, 'off by default');
+  await expectError(() => asUser('u_acc', () => db.query(`update erp.user_access set view_3d = true where user_id = 'u_acc'`)), /manages access/);
+  await asUser('u_mod', () => db.query(`update erp.user_access set view_3d = true where user_id in ('u_acc', 'u_mod')`));
+  same(await one(`select count(*)::int as n from erp.user_access where view_3d`), { n: 2 }, 'given');
+  return 'off for new rows, refused to the person, given by the modifier (their own too)';
+});
+
 await test('session: the context lasts one transaction and ends with it', async () => {
   await fresh();
   await asSystem('super-admin-uid', () => grant('u_acc', 'accountant', ['bumex_audit']));

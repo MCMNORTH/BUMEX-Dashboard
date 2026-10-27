@@ -68,8 +68,8 @@ export function Header() {
       <nav className="crumbs" aria-label="Fil d'Ariane">
         {ui.view === 'flat' ? (
           <>
-            <span className="cur">{t('flat')}</span>
-            {entity && (<><span aria-hidden="true">›</span><span className="cur">{entity.name}</span></>)}
+            {ui.scene3d && <span className="cur">{t('flat')}</span>}{/* [bumex-one] no "Flat" without the building (0010) */}
+            {entity && (<>{ui.scene3d && <span aria-hidden="true">›</span>}<span className="cur">{entity.name}</span></>)}
           </>
         ) : (
           <>
@@ -118,14 +118,16 @@ export function Header() {
             </option>
           ))}
         </select>
-        <div className="seg" role="group" aria-label="Mode">
-          <button className={`btn dark ${ui.view !== 'flat' ? 'on' : ''}`} disabled={!ui.webgl} title={ui.webgl ? '' : t('no_webgl')} onClick={() => setUi({ view: 'tower', room: null, focusRoom: null, rackFocus: false, transition: 'none' })}>
-            {t('tower')}
-          </button>
-          <button className={`btn dark ${ui.view === 'flat' ? 'on' : ''}`} onClick={() => setUi({ view: 'flat' })}>
-            {t('flat')}
-          </button>
-        </div>
+        {ui.scene3d && ( // [bumex-one] the building is the person's option (0010)
+          <div className="seg" role="group" aria-label="Mode">
+            <button className={`btn dark ${ui.view !== 'flat' ? 'on' : ''}`} disabled={!ui.webgl} title={ui.webgl ? '' : t('no_webgl')} onClick={() => setUi({ view: 'tower', room: null, focusRoom: null, rackFocus: false, transition: 'none' })}>
+              {t('tower')}
+            </button>
+            <button className={`btn dark ${ui.view === 'flat' ? 'on' : ''}`} onClick={() => setUi({ view: 'flat' })}>
+              {t('flat')}
+            </button>
+          </div>
+        )}
         <button className="btn dark" onClick={() => setLang(ui.lang === 'fr' ? 'en' : 'fr')} aria-label="Langue">
           {t('lang')}
         </button>
