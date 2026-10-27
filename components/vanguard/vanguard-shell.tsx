@@ -6,7 +6,6 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import "@/vanguard/vanguard.css";
 import "@/vanguard/select.css";
-import { EntitySwitchProvider } from "@/components/entities/entity-switch-dialog";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { NavigationProgress } from "@/components/layout/navigation-progress";
 import { NotificationBell } from "@/components/notifications/notification-bell";
@@ -42,7 +41,7 @@ function RoomLink() {
 }
 
 // BUMEX Vanguard, the app (/vanguard), with two of BUMEX One's controls in its header: the notifications' bell and the
-// account menu (vanguard/ui/Header.tsx keeps room for them).
+// person's menu (vanguard/ui/Header.tsx keeps room for them). The floor is chosen from Vanguard's rail only.
 export function VanguardShell({ children }: { children: React.ReactNode }) {
   const frame = useRef<HTMLDivElement>(null);
   const tools = useRef<HTMLDivElement>(null);
@@ -57,7 +56,7 @@ export function VanguardShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <EntitySwitchProvider>
+    <>
       <Suspense fallback={null}>
         <NavigationProgress />
         <RoomLink />
@@ -68,10 +67,10 @@ export function VanguardShell({ children }: { children: React.ReactNode }) {
         <div className="dark">
           <div ref={tools} className="bumex-page bumex-tools text-foreground">
             <NotificationBell />
-            <AccountMenu compact />
+            <AccountMenu />
           </div>
         </div>
       </div>
-    </EntitySwitchProvider>
+    </>
   );
 }

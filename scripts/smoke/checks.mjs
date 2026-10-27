@@ -290,6 +290,14 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     await new Promise((resolve) => setTimeout(resolve, 1500));
     const flatOnly = await tab.evaluate("!document.querySelector('.stage') && !document.querySelector('canvas') && !document.querySelector('.hright .seg')");
     check("without the 3D option, Vanguard opens flat: no building, no switch (WebGL on)", flatOnly && tab.takeErrors().length === 0);
+    check("…the floors are chosen from the rail only (no entity list beside the page)", await tab.evaluate("!document.querySelector('.page > .nav')"));
+    const profile = "document.querySelector('.bumex-tools button[aria-label=\"Mon profil\"], .bumex-tools button[aria-label=\"My profile\"]')";
+    await tab.evaluate(`${profile}.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse' }))`);
+    const menuOpen = await tab.until("[...document.querySelectorAll('[role=menu] [role=menuitem]')].some((i) => /Mon compte|My account/.test(i.innerText))");
+    const oldSwitcher = await tab.evaluate("/Entité active|Active entity/.test(document.querySelector('[role=menu]')?.innerText ?? '')");
+    check("the profile menu opens on the person's own panels, without the old entity switcher", menuOpen && !oldSwitcher);
+    await tab.evaluate("[...document.querySelectorAll('[role=menu] [role=menuitem]')].find((i) => /Mon compte|My account/.test(i.innerText)).click()");
+    check("…and \"My account\" opens the settings on that tab", await tab.until("/Paramètres|Settings/.test(document.querySelector('.page-main .sheet-head')?.innerText ?? '') && !document.querySelector('[role=menu]')") && tab.takeErrors().length === 0);
     await tab.signIn(cookies["mariem.sow"]);
     await tab.go("/vanguard");
     const drawn = await tab.until("(() => { const c = document.querySelector('canvas'); return Boolean(c) && (c.getContext('webgl2') ?? c.getContext('webgl')) !== null; })()", 30_000);

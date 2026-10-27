@@ -87,6 +87,8 @@ features rebuilt in Vanguard (linted, unlike the delivered files).
 | `ui/panels/Hr.tsx` | a person's page on the People tab (`person:<id>`, `vanguard/one/Person.tsx`) | BUMEX One's team member page |
 | `ui/panels/Settings.tsx` | a "Mon compte" tab (`vanguard/one/Account.tsx`: profile, preferences, password); the accounts tab is the Permissions tab (`vanguard/one/Permissions.tsx`: everyone, with or without access, their role, entities and modules per entity, invitations), for the role modifiers only; the demo sign-in, account form and status buttons are gone | BUMEX One's account pages and Users page, merged; access managed by the role modifiers |
 | `ui/Rooms.tsx` | My day passes its tab on (its "Mon travail" tab is BUMEX One's My Work, `vanguard/one/MyWork.tsx`) | My Work merged into My day |
+| `ui/Rooms.tsx` | the flat view has no entity list beside the page: the floor is chosen from the rail | the list repeated the rail's floors |
+| `ui/Header.tsx` | no user chip: the person's menu (`components/layout/account-menu.tsx`) carries their panels, settings, permissions, language and sign out | two profile buttons side by side |
 
 `styles.css` is theirs; `vanguard.css` is generated from it by `node scripts/vanguard-css.mjs` (every rule scoped to
 the `.vanguard` container, keyframes prefixed, BUMEX One's base reset undone inside it). Re-run it after a new

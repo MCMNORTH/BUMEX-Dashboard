@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { canOpenRoom, floorSignals } from '@bumex/domain';
+import { canOpenRoom } from '@bumex/domain';
 import { useStore } from '../store';
 import type { Room } from '../i18n';
 import { AccountingPanel } from './panels/Accounting';
@@ -62,7 +62,7 @@ export function Sheet() {
   );
 }
 
-// Flat mode: the same panels as full pages, entity navigation on the left, the rail carries the modules.
+// Flat mode: the same panels as full pages; the rail carries the floors and the modules.
 // [bumex-one] the test floor (the basement, 0011) says so on every room: what is done there stays there
 function TestFloorBanner({ entityId }: { entityId: string }) {
   const test = useStore((s) => Boolean(s.state.entities.find((e) => e.id === entityId)?.isTest));
@@ -78,26 +78,14 @@ function TestFloorBanner({ entityId }: { entityId: string }) {
 }
 
 export function FlatLayout() {
-  const { state, ui, t, setUi, openRoom } = useStore();
+  const { state, ui } = useStore();
   const entityId = ui.entityId ?? state.entities.find((e) => e.code === 'AUD')!.id;
   const entity = state.entities.find((e) => e.id === entityId)!;
   // [bumex-one] the first room the person may open (the missions are open to everyone)
   const room: Room = ui.room ?? (entity.isHolding ? (canOpenRoom(state, entityId, 'penthouse') ? 'penthouse' : 'tasks') : canOpenRoom(state, entityId, 'accounting') ? 'accounting' : 'missions');
   return (
     <div className="page">
-      <nav className="nav" aria-label="Entités et salles">
-        <h3>{t('entities')}</h3>
-        {[...state.entities].sort((a, b) => a.floorOrder - b.floorOrder).map((e) => {
-          const vis = floorSignals(state, e.id).visible;
-          return (
-            <button key={e.id} className={`${e.id === entityId ? 'on' : ''} ${vis ? '' : 'off'}`} disabled={!vis} onClick={() => { setUi({ entityId: e.id }); openRoom(e.isHolding ? 'penthouse' : ['tasks', 'reports', 'settings', 'archives'].includes(room) ? room : 'accounting'); }}>
-              <span>{e.name}</span>
-              <span className="small">{e.isHolding ? 'consolidé' : e.isTest ? 'sous-sol · test' : e.functionalCurrency}</span>
-            </button>
-          );
-        })}
-        <div className="small muted" style={{ padding: '14px 10px' }}>{t('demo_note')}</div>
-      </nav>
+      {/* [bumex-one] no entity list here: the floor is chosen from the rail (ui/Sidebar.tsx) */}
       <main className="page-main">
         <TestFloorBanner entityId={entityId} />
         <RoomContent room={room} entityId={entityId} tab={ui.tab} />

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
 import type { Room } from '../i18n';
-import { Icon } from './common';
 import emblemImage from '../assets/emblem.png'; // [bumex-one] Next imports images as objects
 import { useBumexOneSearch } from '../one/search'; // [bumex-one] one search for everything
 const emblem = emblemImage.src;
@@ -132,11 +131,7 @@ export function Header() {
         <button className="btn dark" onClick={() => setLang(ui.lang === 'fr' ? 'en' : 'fr')} aria-label="Langue">
           {t('lang')}
         </button>
-        <button className="user-chip" onClick={() => openRoom(ui.room === 'settings' ? null : 'settings')} title={t('nav_settings')}>
-          <i>{state.session.actorName.slice(0, 1).toUpperCase()}</i>
-          <span>{t(state.session.role)}</span>
-          <Icon name="settings" size={15} />
-        </button>
+        {/* [bumex-one] the person's chip is the account menu now (components/layout/account-menu.tsx) */}
         {/* [bumex-one] room for BUMEX One's controls (refresh, notifications, theme, account: vanguard-shell.tsx) */}
         <span aria-hidden="true" style={{ flex: 'none', width: 'var(--bumex-tools, 132px)' }} />
       </div>
