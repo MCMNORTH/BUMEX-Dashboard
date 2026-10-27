@@ -23,10 +23,14 @@ export type VanguardTicket = {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  key: string; // the floor's prefix and its number (0012): AUD-142
+  labels: string[];
+  estimated_hours: number | null;
+  logged_minutes: number; // time entered on the ticket
 };
 
 // What Vanguard's screens read of a ticket beyond the engine's task (vanguard/one/Tasks.tsx).
-export type TaskTicket = Pick<VanguardTicket, "project_id" | "assignee_id" | "reporter_id" | "status" | "stage_id" | "priority" | "type">;
+export type TaskTicket = Pick<VanguardTicket, "project_id" | "assignee_id" | "reporter_id" | "status" | "stage_id" | "priority" | "type" | "key" | "labels" | "estimated_hours" | "logged_minutes">;
 
 // A task with no due date sorts after every dated one and is never late.
 export const NO_DUE_DATE = "9999-12-31";
@@ -38,7 +42,9 @@ export async function listTickets(tx: ErpTransaction): Promise<VanguardTicket[]>
               'id', t.id, 'title', t.title, 'description', t.notes, 'project_id', t.engagement_id, 'assignee_id', t.assignee_id,
               'reporter_id', t.reporter_id, 'status', t.status, 'stage_id', t.stage_id,
               'priority', case when t.priority = 'normal' then 'medium' else t.priority end, 'type', t.type,
-              'due_date', t.due_date, 'created_at', t.created_at, 'updated_at', t.updated_at, 'completed_at', t.completed_at)), '[]'::jsonb) as rows
+              'due_date', t.due_date, 'created_at', t.created_at, 'updated_at', t.updated_at, 'completed_at', t.completed_at,
+              'key', (select x.ticket_prefix || '-' || t.number from erp.entity x where x.id = t.entity_id), 'labels', t.labels,
+              'estimated_hours', t.estimated_hours::float8, 'logged_minutes', work.task_logged_minutes(t.id))), '[]'::jsonb) as rows
        from erp.task t
       where t.engagement_id is not null and t.status <> 'archived'`,
   );
@@ -71,7 +77,10 @@ export function ticketTasks(
       createdAt: t.created_at.slice(0, 10),
       completedAt: done ? (t.completed_at ?? t.updated_at).slice(0, 10) : undefined,
       notes: t.description || undefined,
-      ticket: { project_id: t.project_id, assignee_id: t.assignee_id, reporter_id: t.reporter_id, status: t.status, stage_id: t.stage_id ?? null, priority: t.priority, type: t.type },
+      ticket: {
+        project_id: t.project_id, assignee_id: t.assignee_id, reporter_id: t.reporter_id, status: t.status, stage_id: t.stage_id ?? null, priority: t.priority, type: t.type,
+        key: t.key, labels: t.labels ?? [], estimated_hours: t.estimated_hours, logged_minutes: t.logged_minutes ?? 0,
+      },
     }];
   });
 }

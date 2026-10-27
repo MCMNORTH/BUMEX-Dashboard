@@ -81,6 +81,10 @@ type TicketRow = {
   due_date: string | null;
   estimated_hours: number | null;
   actual_hours: number | null;
+  logged_minutes: number | null;
+  number: number | null;
+  key: string | null;
+  labels: string[] | null;
   github_issue_url: string | null;
   created_at: string;
   updated_at: string;
@@ -417,6 +421,8 @@ export async function getClientLinkedTickets(clientId: string, role: AppRole) {
       `select t.id, t.title, t.notes as description, t.engagement_id as project_id, t.assignee_id, t.reporter_id, t.status,
               case when t.priority = 'normal' then 'medium' else t.priority end as priority, t.type, t.due_date,
               t.estimated_hours::float8 as estimated_hours, t.actual_hours::float8 as actual_hours, t.github_issue_url, t.created_at, t.updated_at,
+              work.task_logged_minutes(t.id) as logged_minutes, t.number, t.labels,
+              (select x.ticket_prefix || '-' || t.number from erp.entity x where x.id = t.entity_id) as key,
               jsonb_build_object('id', e.id, 'name', e.name, 'status', case when e.status = 'planned' then 'draft' else e.status::text end, 'end_date', e.deadline,
                                  'client', (select jsonb_build_object('id', c.id, 'name', c.name, 'contact_email', c.contact_email) from work.client c where c.id = e.client_id)) as project,
               work.person_card(t.assignee_id) as assignee, work.person_card(t.reporter_id) as reporter
@@ -463,6 +469,10 @@ function mapTicketForClient(row: TicketRow, role: AppRole): Omit<TicketRecord, "
     due_date: row.due_date,
     estimated_hours: row.estimated_hours,
     actual_hours: row.actual_hours,
+    logged_minutes: row.logged_minutes ?? 0,
+    number: row.number ?? null,
+    key: row.key ?? null,
+    labels: row.labels ?? [],
     github_issue_url: role === "shareholder" ? null : row.github_issue_url,
     created_at: row.created_at,
     updated_at: row.updated_at,

@@ -1,3 +1,4 @@
+import type { Load } from "@/lib/work/load";
 import type { ActivityLogRecord } from "@/types/activity";
 import type { AppRole, AvailabilityStatus, Profile } from "@/types/auth";
 
@@ -23,6 +24,8 @@ export type TeamMemberRecord = Profile & {
   last_activity_at: string | null;
   workload_score: number;
   workload_level: TeamWorkloadLevel;
+  /** Hours left on their open tickets, weighted by priority, against their capacity (lib/work/load.ts). */
+  load: Load;
   assignment_state: AssignmentState;
   assigned_projects_preview: TeamMemberProjectPreview[];
   current_focus: TeamMemberTicketPreview[];
@@ -97,6 +100,7 @@ export type TeamWorkloadRecord = {
   utilization_percentage: number;
   workload_level: TeamWorkloadLevel;
   workload_risk: WorkloadRisk;
+  load: Load;
 };
 
 export type AssignmentHelperRecord = {

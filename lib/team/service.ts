@@ -6,6 +6,7 @@ import { asPerson, select, selectOne } from "@/lib/work/db";
 import { PROFILE_COLUMNS } from "@/lib/work/people";
 import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
 import { getTickets } from "@/lib/tickets/service";
+import { loadOf, type Load } from "@/lib/work/load";
 import type { ActivityLogRecord } from "@/types/activity";
 import type { AppRole, Profile } from "@/types/auth";
 import type {
@@ -229,23 +230,9 @@ function buildBlockersSummary(tickets: Awaited<ReturnType<typeof getTickets>>) {
     .slice(0, 6);
 }
 
-function getWorkloadLevel(activeTasks: number, capacityHours: number): TeamWorkloadLevel {
-  const effectiveCapacity = Math.max(capacityHours, 1);
-  const ratio = (activeTasks * 6) / effectiveCapacity;
-
-  if (activeTasks >= 8 || ratio >= 0.9) {
-    return "critical";
-  }
-
-  if (activeTasks >= 5 || ratio >= 0.65) {
-    return "high";
-  }
-
-  if (activeTasks >= 2 || ratio >= 0.35) {
-    return "balanced";
-  }
-
-  return "light";
+// the load's level as the team screens name it (lib/work/load.ts)
+function getWorkloadLevel(load: Load): TeamWorkloadLevel {
+  return load.level === "overloaded" ? "critical" : load.level;
 }
 
 export function calculateUtilization(estimatedHoursTotal: number, weeklyCapacityHours: number) {
@@ -253,21 +240,16 @@ export function calculateUtilization(estimatedHoursTotal: number, weeklyCapacity
   return estimatedHoursTotal / effectiveCapacity;
 }
 
-function getWorkloadRisk(utilization: number, overdueItems: number): WorkloadRisk {
-  if (utilization > 1 || overdueItems >= 2) {
+function getWorkloadRisk(load: Load): WorkloadRisk {
+  if (load.level === "overloaded" || load.pressure) {
     return "high";
   }
 
-  if (utilization >= 0.75 || overdueItems === 1) {
+  if (load.level === "high" || load.overdue === 1) {
     return "moderate";
   }
 
   return "low";
-}
-
-function getWorkloadScore(activeTasks: number, capacityHours: number) {
-  const effectiveCapacity = Math.max(capacityHours, 1);
-  return Math.min(100, Math.round(((activeTasks * 6) / effectiveCapacity) * 100));
 }
 
 function getDerivedAvailability(utilization: number): Profile["availability_status"] {
@@ -468,6 +450,7 @@ export async function getTeamMembers(role: AppRole, filters: TeamFilters = {}): 
   }
 
   const taskCounts = new Map<string, number>();
+  const openTickets = new Map<string, Awaited<ReturnType<typeof getTickets>>>();
   const overdueTaskCounts = new Map<string, number>();
   const blockedTaskCounts = new Map<string, number>();
   const completedTaskCounts = new Map<string, number>();
@@ -488,6 +471,7 @@ export async function getTeamMembers(role: AppRole, filters: TeamFilters = {}): 
     }
 
     taskCounts.set(ticket.assignee.id, (taskCounts.get(ticket.assignee.id) ?? 0) + 1);
+    openTickets.set(ticket.assignee.id, [...(openTickets.get(ticket.assignee.id) ?? []), ticket]);
 
     if (ticket.status === "blocked") {
       blockedTaskCounts.set(ticket.assignee.id, (blockedTaskCounts.get(ticket.assignee.id) ?? 0) + 1);
@@ -502,7 +486,9 @@ export async function getTeamMembers(role: AppRole, filters: TeamFilters = {}): 
     focusMap.set(ticket.assignee.id, focus);
   }
 
+  const todayIso = new Date().toISOString().slice(0, 10);
   const members = profiles.map((profile) => {
+    const load = loadOf(openTickets.get(profile.id) ?? [], { capacityHours: profile.weekly_capacity_hours, today: todayIso });
     const activeTasksCount = taskCounts.get(profile.id) ?? 0;
     const overdueTasksCount = overdueTaskCounts.get(profile.id) ?? 0;
     const blockedTasksCount = blockedTaskCounts.get(profile.id) ?? 0;
@@ -541,8 +527,9 @@ export async function getTeamMembers(role: AppRole, filters: TeamFilters = {}): 
       completion_rate: visibleTicketTotal ? Math.round((completedTasksCount / visibleTicketTotal) * 100) : 0,
       recent_activity_count: summary?.count ?? 0,
       last_activity_at: summary?.lastActivityAt ?? null,
-      workload_score: getWorkloadScore(activeTasksCount, profile.weekly_capacity_hours),
-      workload_level: getWorkloadLevel(activeTasksCount, profile.weekly_capacity_hours),
+      workload_score: Math.min(100, load.percent),
+      workload_level: getWorkloadLevel(load),
+      load,
       assignment_state: getAssignmentState(activeTasksCount, overdueTasksCount, blockedTasksCount),
       assigned_projects_preview: assignedProjects,
       current_focus: currentFocus,
@@ -572,6 +559,7 @@ export async function getTeamWorkload(role: AppRole, currentUserId?: string): Pr
 
   const [profiles, tickets] = await Promise.all([getTeamProfiles(), getTickets(role)]);
   const workloadMap = new Map<string, TeamWorkloadRecord>();
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   for (const profile of profiles) {
     workloadMap.set(profile.id, {
@@ -590,44 +578,38 @@ export async function getTeamWorkload(role: AppRole, currentUserId?: string): Pr
       utilization_percentage: 0,
       workload_level: "light",
       workload_risk: "low",
+      load: loadOf([], { capacityHours: profile.weekly_capacity_hours, today: todayIso }),
     });
   }
 
-  const today = new Date().setHours(0, 0, 0, 0);
+  const open = new Map<string, typeof tickets>();
 
   for (const ticket of tickets) {
-    if (!ticket.assignee?.id || ticket.status === "done" || ticket.status === "archived") {
+    if (!ticket.assignee?.id || !workloadMap.has(ticket.assignee.id)) {
       continue;
     }
 
-    const current = workloadMap.get(ticket.assignee.id);
-    if (!current) {
-      continue;
-    }
-
-    current.active_work_items += 1;
-    current.estimated_hours_total += ticket.estimated_hours ?? 0;
-
-    if (ticket.due_date && new Date(ticket.due_date).getTime() < today) {
-      current.overdue_items += 1;
-    }
+    open.set(ticket.assignee.id, [...(open.get(ticket.assignee.id) ?? []), ticket]);
   }
 
   const records = Array.from(workloadMap.values()).map((record) => {
-    const utilization = calculateUtilization(record.estimated_hours_total, record.weekly_capacity_hours);
-    const workloadLevel = getWorkloadLevel(record.active_work_items, record.weekly_capacity_hours);
-    const derivedAvailability = getDerivedAvailability(utilization);
+    const load = loadOf(open.get(record.id) ?? [], { capacityHours: record.weekly_capacity_hours, today: todayIso });
+    const utilization = load.percent / 100;
 
     return {
       ...record,
       availability_status:
         record.availability_status === "away" || record.availability_status === "inactive"
           ? record.availability_status
-          : derivedAvailability,
+          : getDerivedAvailability(utilization),
+      active_work_items: load.count,
+      overdue_items: load.overdue,
+      estimated_hours_total: load.openHours,
       utilization,
-      utilization_percentage: Math.round(utilization * 100),
-      workload_level: workloadLevel,
-      workload_risk: getWorkloadRisk(utilization, record.overdue_items),
+      utilization_percentage: load.percent,
+      workload_level: getWorkloadLevel(load),
+      workload_risk: getWorkloadRisk(load),
+      load,
     } satisfies TeamWorkloadRecord;
   });
 

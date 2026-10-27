@@ -71,6 +71,12 @@ export type TicketRecord = {
   due_date: string | null;
   estimated_hours: number | null;
   actual_hours: number | null;
+  /** Time entered on the ticket (erp.time_entry.task_id, 0012). */
+  logged_minutes: number;
+  /** Its number on its floor, and its key (the floor's prefix and the number: AUD-142). */
+  number: number | null;
+  key: string | null;
+  labels: string[];
   github_issue_url: string | null;
   created_at: string;
   updated_at: string;

@@ -41,6 +41,10 @@ type TicketRow = {
   due_date: string | null;
   estimated_hours: number | null;
   actual_hours: number | null;
+  logged_minutes: number | null;
+  number: number | null;
+  key: string | null;
+  labels: string[] | null;
   github_issue_url: string | null;
   subtasks_total: number | null;
   subtasks_done: number | null;
@@ -57,6 +61,8 @@ const TICKET_SQL = `
   select t.id, t.title, t.notes as description, t.engagement_id as project_id, t.assignee_id, t.reporter_id, t.status, t.stage_id,
          case when t.priority = 'normal' then 'medium' else t.priority end as priority, t.type, t.due_date,
          t.estimated_hours::float8 as estimated_hours, t.actual_hours::float8 as actual_hours, t.github_issue_url,
+         work.task_logged_minutes(t.id) as logged_minutes, t.number, t.labels,
+         (select x.ticket_prefix || '-' || t.number from erp.entity x where x.id = t.entity_id) as key,
          (select count(*) from work.subtask s where s.task_id = t.id)::int as subtasks_total,
          (select count(*) from work.subtask s where s.task_id = t.id and s.is_done)::int as subtasks_done,
          t.created_at, t.updated_at,
@@ -98,6 +104,10 @@ function mapTicket(row: TicketRow, role: AppRole, activity: TicketActivity[] = [
     due_date: row.due_date,
     estimated_hours: row.estimated_hours,
     actual_hours: row.actual_hours,
+    logged_minutes: row.logged_minutes ?? 0,
+    number: row.number ?? null,
+    key: row.key ?? null,
+    labels: row.labels ?? [],
     github_issue_url: role === "shareholder" ? null : row.github_issue_url,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -414,33 +424,18 @@ export async function updateTicket(
       }),
     );
   } else {
-    const changes = [
-      // A stage change is logged on its own below, with the stage names and the reason.
-      ["status", previousTicket.status, stageChange ? previousTicket.status : payload.status, `Moved ticket to ${payload.status}`, "status_change"],
-      ["assignee_id", previousTicket.assignee_id, payload.assignee_id, "Changed ticket assignee", "assignment_change"],
-      ["priority", previousTicket.priority, payload.priority, `Changed priority to ${payload.priority}`, "priority_change"],
-      ["due_date", previousTicket.due_date, payload.due_date, "Updated due date", "due_date_change"],
-      ["project_id", previousTicket.project_id, payload.project_id, "Moved ticket to another project", "update"],
-      ["title", previousTicket.title, payload.title, `Renamed ticket to ${payload.title}`, "update"],
-    ] as const;
-
-    for (const [field, from, to, action, kind] of changes) {
-      if (from !== to) {
-        activityTasks.push(
-          logActivity({
-            userId: actorUserId,
-            action,
-            entityType: "task",
-            entityId: id,
-            metadata: {
-              kind,
-              field,
-              from,
-              to,
-            },
-          }),
-        );
-      }
+    // Every field's change is written by the database (0012, work.task_history); the stage, with its names and reason,
+    // and a status set without a stage are logged here.
+    if (!stageChange && previousTicket.status !== payload.status) {
+      activityTasks.push(
+        logActivity({
+          userId: actorUserId,
+          action: `Moved ticket to ${payload.status}`,
+          entityType: "task",
+          entityId: id,
+          metadata: { kind: "status_change", field: "status", from: previousTicket.status, to: payload.status },
+        }),
+      );
     }
 
     if (stageChange) {
