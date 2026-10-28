@@ -357,6 +357,14 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     const page = await tab.until("/^AUD-\\d+$/.test(document.querySelector('.tk-key')?.innerText.trim() ?? '') && document.querySelectorAll('.tk-acttabs [role=tab]').length === 4 && document.body.innerText.includes('Pièces jointes') && document.body.innerText.includes('Tickets associés') && Boolean(document.querySelector('.tk-details'))", 25_000);
     const historyShown = await tab.evaluate("[...document.querySelectorAll('.tk-entry-h')].some((h) => h.innerText.includes(\"a mis à jour l'estimation\"))");
     check("the ticket page shows its key, details, attachments, links and activity (with the estimate in its history)", page && historyShown && tab.takeErrors().length === 0, { page, historyShown });
+    // the board: every mission of the floor by state, cards with their key; the search narrows them
+    await tab.go("/vanguard?room=tasks&tab=board");
+    const boardShown = await tab.until("document.querySelectorAll('.wk-col').length === 5 && [...document.querySelectorAll('.wk-card')].some((c) => /AUD-\\d+/.test(c.innerText))", 25_000);
+    const before = await tab.evaluate("document.querySelectorAll('.wk-card').length");
+    await tab.evaluate(`(() => { const i = document.querySelector('.wk-search input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, 'Circularisation'); i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    const narrowed = await tab.until("document.querySelectorAll('.wk-card').length === 1 && document.querySelector('.wk-card').innerText.includes('Circularisation')", 5_000);
+    await tab.evaluate(`(() => { const i = document.querySelector('.wk-search input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, ''); i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    check("the board shows the floor's tickets by state with their keys, and its search narrows them", boardShown && before > 1 && narrowed && tab.takeErrors().length === 0, { boardShown, before, narrowed });
     await tab.signIn(cookies["mohamed.cheikh"]);
     await tab.go("/vanguard?room=settings&tab=access");
     const listed = await tab.until("document.body.innerText.includes('Modificateurs') && document.body.innerText.includes('Salma Fall')");
