@@ -79,6 +79,12 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
   check("an employee enters time on their mission", r?.success === true, r);
   const line = await one("select minutes, entity_id from erp.time_entry where id = $1", [lineId]);
   check("…90 minutes on the mission's entity", line?.minutes === 90 && line?.entity_id === entity.bumex_audit, line);
+  const ticketLine = randomUUID();
+  r = await act("ahmed.ba", "saveTimeAction", { args: [{ id: ticketLine, project_id: A, work_date: "2026-10-26", hours: "0", minutes: "45", note: "Relances", mission: "AUD-1 · Confirmations bancaires", task_id: T.t1 }] });
+  const onTicket = await act("mariem.sow", "ticketViewAction", { args: [T.t1] });
+  check("time entered on a ticket counts on it: its time spent and its work log", r?.success === true && onTicket?.ticket?.logged_minutes === 45 && onTicket?.worklog?.some((w) => w.id === ticketLine && w.minutes === 45), { r, logged: onTicket?.ticket?.logged_minutes, worklog: onTicket?.worklog?.length });
+  const sheetWeek = await act("ahmed.ba", "myTimeAction", { args: ["2026-10-26"] });
+  check("…the week shows the line with the ticket's key, and offers the person's open tickets", sheetWeek?.entries?.some((e) => e.id === ticketLine && /^AUD-\d+$/.test(e.task_key ?? "")) && sheetWeek?.tickets?.some((t) => t.id === T.t1), { tickets: sheetWeek?.tickets?.map((t) => t.key) });
   r = await act("ahmed.ba", "saveTimeAction", { args: [{ id: randomUUID(), project_id: A, work_date: "2026-10-26", hours: "23", minutes: "0", note: "", mission: "Revue" }] });
   check("…never more than 24 hours a day", r?.error === "daily_limit", r);
   r = await act("ahmed.ba", "saveTimeAction", { args: [{ id: lineId, project_id: A, work_date: "2026-10-26", hours: "2", minutes: "0", note: "Revue", mission: "Revue", updated_at: "2020-01-01T00:00:00Z" }] });
@@ -366,6 +372,10 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     const page = await tab.until("/^AUD-\\d+$/.test(document.querySelector('.tk-key')?.innerText.trim() ?? '') && document.querySelectorAll('.tk-acttabs [role=tab]').length === 4 && document.body.innerText.includes('Pièces jointes') && document.body.innerText.includes('Tickets associés') && Boolean(document.querySelector('.tk-details'))", 25_000);
     const historyShown = await tab.evaluate("[...document.querySelectorAll('.tk-entry-h')].some((h) => h.innerText.includes(\"a mis à jour l'estimation\"))");
     check("the ticket page shows its key, details, attachments, links and activity (with the estimate in its history)", page && historyShown && tab.takeErrors().length === 0, { page, historyShown });
+    // the timesheet as BUMEX One had it
+    await tab.go("/vanguard?room=time");
+    const sheet = await tab.until("Boolean(document.querySelector('.ts-hero .ts-ring')) && document.querySelectorAll('.ts-rhythm .ts-day').length === 7 && Boolean(document.querySelector('.ts-grid'))", 25_000);
+    check("the timesheet shows its hero, the week's rhythm and the day-by-day grid", sheet && tab.takeErrors().length === 0);
     // the board: every mission of the floor by state, cards with their key; the search narrows them
     await tab.go("/vanguard?room=tasks&tab=board");
     const boardShown = await tab.until("document.querySelectorAll('.wk-col').length === 5 && [...document.querySelectorAll('.wk-card')].some((c) => /AUD-\\d+/.test(c.innerText))", 25_000);

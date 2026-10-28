@@ -272,3 +272,117 @@
   .vanguard .mw-title { flex-basis: 100%; order: -1; white-space: normal; }
   .vanguard .mw-hours, .vanguard .mw-due { width: auto; }
 }
+
+/* ---- the timesheet, as BUMEX One had it (Time.tsx) ---- */
+.vanguard .ts { display: flex; flex-direction: column; gap: 14px; }
+.vanguard .ts-hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; padding: 20px 22px; border-radius: 12px; color: #fff;
+  background: radial-gradient(120% 140% at 100% 0%, rgba(107,141,193,.45), transparent 55%), linear-gradient(135deg, var(--navy-deep), var(--navy)); box-shadow: 0 18px 50px -36px rgba(19,29,51,.9); }
+.vanguard .ts-hero-t { max-width: 640px; }
+.vanguard .ts-kicker { font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.72); }
+.vanguard .ts-hero h1 { margin: 8px 0 0; font-size: 24px; font-weight: 600; color: #fff; }
+.vanguard .ts-hero p { margin: 8px 0 0; font-size: 13.5px; line-height: 1.55; color: rgba(255,255,255,.75); }
+.vanguard .ts-hero-r { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.vanguard .ts-total { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.vanguard .ts-cap { font-size: 12px; color: rgba(255,255,255,.72); }
+.vanguard .ts-ring .track { fill: none; stroke: rgba(255,255,255,.18); stroke-width: 8; }
+.vanguard .ts-ring .value { fill: none; stroke: #fff; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset .4s ease; }
+.vanguard .ts-ring text { fill: #fff; font-size: 15px; font-weight: 600; }
+.vanguard .ts-pill { display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border-radius: 10px; font-size: 13px; font-weight: 600; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.12); }
+.vanguard .ts-pill.approved { background: rgba(46,125,79,.35); } .vanguard .ts-pill.returned { background: rgba(176,122,30,.4); }
+.vanguard .ts-hero .btn.primary { background: #fff; color: var(--navy-deep); border-color: #fff; height: 38px; }
+.vanguard .ts-weekbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; background: var(--paper); border: 1px solid var(--border); border-radius: 10px; }
+.vanguard .ts-weeknav { display: flex; align-items: center; gap: 6px; }
+.vanguard .ts-weeknav h2 { margin: 0 6px; font-size: 15px; font-weight: 600; white-space: nowrap; }
+.vanguard .ts-weekacts { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+.vanguard .ts-goto { display: grid; gap: 2px; color: var(--muted); }
+.vanguard .ts-goto .in { height: 28px; width: 150px; }
+.vanguard .ts-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.vanguard .ts-kpis.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.vanguard .ts-kpi { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px; border: 1px solid var(--border); border-radius: 10px; background: linear-gradient(135deg, var(--blue-pale), var(--paper) 70%); }
+.vanguard .ts-kpi.good { background: linear-gradient(135deg, var(--good-bg), var(--paper) 70%); } .vanguard .ts-kpi.warn { background: linear-gradient(135deg, var(--warn-bg), var(--paper) 70%); }
+.vanguard .ts-kpi .l { font-size: 12.5px; color: var(--muted); font-weight: 500; }
+.vanguard .ts-kpi .v { margin-top: 6px; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.vanguard .ts-kpi .ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; background: var(--navy); color: #fff; box-shadow: 0 8px 18px -10px rgba(19,29,51,.8); }
+.vanguard .ts-kpi.good .ic { background: var(--good); } .vanguard .ts-kpi.warn .ic { background: var(--warn); }
+.vanguard .ts-kpi .ic svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.6; }
+.vanguard .ts-panel { padding: 14px 18px; background: var(--paper); border: 1px solid var(--border); border-radius: 10px; }
+.vanguard .ts-panel.flush { padding: 0; overflow: hidden; }
+.vanguard .ts-panel .pad { padding: 12px 18px; margin: 0; }
+.vanguard .ts-panel-h { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.vanguard .ts-panel-h.pad { background: var(--ground); border-bottom: 1px solid var(--border); }
+.vanguard .ts-panel-h h2 { margin: 0; font-size: 14px; }
+.vanguard .ts-panel-h p { margin: 2px 0 0; }
+.vanguard .ts-count { padding: 3px 10px; border-radius: 12px; background: var(--blue-pale); color: var(--navy); font-size: 12px; font-weight: 600; }
+.vanguard .ts-count.good { background: var(--good-bg); color: var(--good); }
+.vanguard .ts-events { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 12px; }
+.vanguard .ts-event { padding: 12px 14px; border: 1px solid rgba(43,63,102,.3); border-radius: 10px; background: rgba(43,63,102,.05); }
+.vanguard .ts-event.approved { border-color: rgba(46,125,79,.35); background: rgba(46,125,79,.07); } .vanguard .ts-event.returned { border-color: rgba(176,122,30,.35); background: rgba(176,122,30,.08); }
+.vanguard .ts-event h3 { margin: 0; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.vanguard .ts-event h3 i { width: 9px; height: 9px; border-radius: 50%; background: var(--navy); }
+.vanguard .ts-event.approved h3 i { background: var(--good); } .vanguard .ts-event.returned h3 i { background: var(--warn); }
+.vanguard .ts-event p { margin: 6px 0 0; } .vanguard .ts-note { color: var(--warn); }
+.vanguard .ts-rhythm { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.vanguard .ts-day { display: grid; gap: 6px; text-align: center; font-size: 12px; color: var(--muted); text-transform: capitalize; }
+.vanguard .ts-day.today { color: var(--navy); font-weight: 600; }
+.vanguard .ts-barwrap { display: flex; align-items: flex-end; justify-content: center; height: 80px; padding: 4px; border-radius: 10px; background: var(--ground); }
+.vanguard .ts-bar { width: 100%; border-radius: 7px; background: var(--border); transition: height .3s ease; }
+.vanguard .ts-bar.on { background: linear-gradient(180deg, var(--blue), var(--navy)); }
+.vanguard .ts-favs { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 16px; border-radius: 10px; border: 1px solid rgba(176,122,30,.25); background: var(--warn-bg); }
+.vanguard .ts-favs h2 { margin: 0; font-size: 14px; } .vanguard .ts-favs h2 span { color: var(--warn); } .vanguard .ts-favs p { margin: 2px 0 0; }
+.vanguard .ts-favs > div { margin-right: 6px; }
+.vanguard .ts-favs button { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; max-width: 220px; padding: 7px 11px; border: 1px solid rgba(176,122,30,.3); border-radius: 10px; background: var(--paper); cursor: pointer; text-align: left; font-size: 12px; transition: transform .15s, box-shadow .15s; }
+.vanguard .ts-favs button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.vanguard .ts-favs button:disabled { opacity: .5; cursor: default; }
+.vanguard .ts-favs button b, .vanguard .ts-favs button span { max-width: 196px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .vanguard .ts-favs button span { color: var(--muted); }
+.vanguard .ts-gridwrap { overflow-x: auto; }
+.vanguard .ts-grid { width: 100%; min-width: 980px; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
+.vanguard .ts-grid th, .vanguard .ts-grid td { border-bottom: 1px solid var(--line); }
+.vanguard .ts-grid thead th { padding: 10px 2px; background: var(--ground); text-align: center; font-weight: 500; color: var(--muted); border-left: 1px solid var(--line); }
+.vanguard .ts-grid thead .dn { display: block; font-size: 11.5px; text-transform: capitalize; }
+.vanguard .ts-grid thead .dd { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; margin: 3px auto 0; border-radius: 50%; font-size: 15px; color: var(--ink); }
+.vanguard .ts-grid thead th.today { color: var(--navy); background: var(--blue-pale); } .vanguard .ts-grid thead th.today .dd { background: var(--navy); color: #fff; }
+.vanguard .ts-grid .we { background: rgba(242,243,245,.6); } .vanguard .ts-grid td.today { background: rgba(230,237,247,.45); }
+.vanguard .ts-grid .ts-first { position: sticky; left: 0; z-index: 1; width: 230px; background: var(--paper); text-align: left; padding: 10px 14px; border-left: none; }
+.vanguard .ts-grid thead .ts-first { background: var(--ground); color: var(--ink); font-weight: 600; }
+.vanguard .ts-mission { display: flex; gap: 10px; }
+.vanguard .ts-mission .stripe { flex: none; width: 4px; height: 38px; border-radius: 2px; }
+.vanguard .ts-mission p { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.vanguard .ts-tkey { display: inline-block; margin-right: 6px; padding: 0 5px; border-radius: 3px; background: var(--blue-pale); color: var(--navy-deep); font-size: 11px; font-weight: 700; }
+.vanguard .ts-grid td { padding: 5px; text-align: center; border-left: 1px solid var(--line); }
+.vanguard .ts-cell { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; min-height: 58px; border: none; border-radius: 10px; background: none; color: var(--muted); cursor: pointer; transition: background .15s, transform .15s, box-shadow .15s; font: inherit; }
+.vanguard .ts-cell:hover:not(:disabled) { background: var(--blue-pale); color: var(--navy); }
+.vanguard .ts-cell.on { background: var(--paper); color: var(--navy); box-shadow: 0 1px 2px rgba(19,29,51,.12), 0 6px 14px -10px rgba(19,29,51,.5); }
+.vanguard .ts-cell.on:hover:not(:disabled) { transform: translateY(-1px); }
+.vanguard .ts-cell:disabled { cursor: default; opacity: .6; }
+.vanguard .ts-cell svg { width: 15px; height: 15px; }
+.vanguard .ts-grid .ts-tot { width: 92px; background: rgba(230,237,247,.55); font-variant-numeric: tabular-nums; }
+.vanguard .ts-grid .ts-days { width: 64px; }
+.vanguard .ts-grid tfoot td, .vanguard .ts-grid tfoot th { background: var(--ground); font-weight: 600; padding: 10px 5px; font-variant-numeric: tabular-nums; }
+.vanguard .ts-empty { padding: 34px 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.vanguard .ts-empty h3 { margin: 0; font-size: 15px; }
+.vanguard .ts-modal-back { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 16px; background: rgba(19,29,51,.45); }
+.vanguard .ts-modal { width: min(460px, 100%); max-height: calc(100vh - 32px); overflow: auto; display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; background: var(--paper); border-radius: 14px; box-shadow: 0 30px 80px -30px rgba(19,29,51,.7); }
+.vanguard .ts-modal.wide { width: min(720px, 100%); }
+.vanguard .ts-modal-h { display: flex; justify-content: space-between; align-items: center; }
+.vanguard .ts-modal-h h2 { margin: 0; font-size: 17px; }
+.vanguard .ts-modal p { margin: 0; }
+.vanguard .ts-picks, .vanguard .ts-presets { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.vanguard .ts-sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.vanguard .ts-sum div { display: grid; padding: 10px; border-radius: 10px; background: var(--ground); text-align: center; }
+.vanguard .ts-sum b { font-size: 18px; } .vanguard .ts-sum span { font-size: 12px; color: var(--muted); }
+.vanguard .ts-filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.vanguard .ts-team { width: 100%; }
+.vanguard .ts-detail td { background: var(--ground); }
+@media (max-width: 900px) {
+  .vanguard .ts-kpis, .vanguard .ts-kpis.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .vanguard .ts-hero { padding: 16px; }
+  .vanguard .ts-kpis, .vanguard .ts-kpis.four { grid-template-columns: minmax(0, 1fr); }
+  .vanguard .ts-rhythm { gap: 4px; }
+  .vanguard .ts-barwrap { height: 60px; }
+  .vanguard .ts-grid .ts-first { width: 170px; }
+}
+.vanguard .ts-grid tbody th.ts-first, .vanguard .ts-grid tfoot th.ts-first { text-transform: none; letter-spacing: normal; font-size: 13px; color: var(--ink); white-space: normal; overflow: hidden; vertical-align: middle; }
+.vanguard .ts-grid tfoot th.ts-first { font-size: 12.5px; color: var(--graphite); }
+.vanguard .ts-mission > div { min-width: 0; }

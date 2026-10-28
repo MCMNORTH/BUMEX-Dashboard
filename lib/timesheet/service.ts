@@ -3,7 +3,7 @@ import "server-only";
 import { requireCurrentEntityContext, requireTimeEntityContext } from "@/lib/entities/scope";
 import { weekBounds } from "@/lib/timesheet/validation";
 import { asPerson, select, selectOne } from "@/lib/work/db";
-import type { TimeEntry, TimeProject, TimeMission, TimeMissionFavorite, TimesheetProfile, TimesheetWeekEvent, TimesheetWeekStatus } from "@/types/timesheet";
+import type { TimeEntry, TimeProject, TimeMission, TimeMissionFavorite, TimeTicket, TimesheetProfile, TimesheetWeekEvent, TimesheetWeekStatus } from "@/types/timesheet";
 
 // Timesheets: lines are erp.time_entry (minutes on a mission), weeks work.timesheet_week and their history
 // work.timesheet_week_event (0008), each in the person's current entity. The rules let a person read their own, their
@@ -12,7 +12,8 @@ import type { TimeEntry, TimeProject, TimeMission, TimeMissionFavorite, Timeshee
 // a line as the screens read it (`t` the line, `x` its entity)
 export const TIME_ENTRY_COLUMNS = `
   t.id, t.user_id, x.code as entity_code, t.engagement_id as project_id, t.work_date, t.minutes as duration_minutes, coalesce(t.description, '') as note,
-  t.mission, t.updated_at, (select jsonb_build_object('name', e.name) from erp.engagement e where e.id = t.engagement_id) as project`;
+  t.mission, t.updated_at, (select jsonb_build_object('name', e.name) from erp.engagement e where e.id = t.engagement_id) as project,
+  t.task_id, (select kx.ticket_prefix || '-' || k.number from erp.task k join erp.entity kx on kx.id = k.entity_id where k.id = t.task_id) as task_key`;
 
 export const WEEK_COLUMNS = `w.user_id, w.week_start, x.code as entity_code, w.status, w.submitted_at, w.reviewed_at, w.reviewed_by, w.review_note`;
 
@@ -32,6 +33,7 @@ export async function getTimesheet(week: string, test = false): Promise<{
   projects: TimeProject[];
   missions: TimeMission[];
   favorites: TimeMissionFavorite[];
+  tickets: TimeTicket[];
   weekStatus: TimesheetWeekStatus | null;
   events: TimesheetWeekEvent[];
 }> {
@@ -73,7 +75,17 @@ export async function getTimesheet(week: string, test = false): Promise<{
         [auth.user.id, bounds.start],
       );
       const projectIds = new Set(projects.map((project) => project.id));
+      // the person's open tickets on these missions: an entry on one counts on the ticket (0012)
+      const tickets = await select<TimeTicket>(
+        tx,
+        `select k.id, kx.ticket_prefix || '-' || k.number as key, k.title, k.engagement_id as project_id
+           from erp.task k join erp.entity kx on kx.id = k.entity_id
+          where k.assignee_id = $1 and k.status not in ('done', 'archived') and k.engagement_id = any($2::uuid[])
+          order by k.updated_at desc limit 100`,
+        [auth.user.id, [...projectIds]],
+      );
       return {
+        tickets,
         entries,
         projects,
         missions: missions.filter((mission) => projectIds.has(mission.project_id)),

@@ -9,7 +9,13 @@ export type TimeEntry = {
   mission: string;
   updated_at: string;
   project: { name: string } | null;
+  /** The ticket the time was spent on (0012), and its key (AUD-142). */
+  task_id?: string | null;
+  task_key?: string | null;
 };
+
+/** One of the person's open tickets on a mission of their timesheet: time logged on it counts on the ticket. */
+export type TimeTicket = { id: string; key: string | null; title: string; project_id: string };
 
 export type TimesheetProfile = {
   id: string;
@@ -54,6 +60,8 @@ export type TimeInput = {
   note: string;
   mission: string;
   updated_at?: string;
+  /** The ticket the time is spent on, of the line's mission (0012). */
+  task_id?: string | null;
 };
 
 export type TimeError = "invalid" | "duration" | "date" | "note" | "mission" | "project" | "unavailable" | "conflict" | "daily_limit";

@@ -32,14 +32,14 @@ export async function saveTimeAction(input: TimeInput, test = false): Promise<Ti
       // an edit carries the version it started from: a line changed meanwhile is a conflict
       const written = input.updated_at
         ? await tx.run(
-            `update erp.time_entry set engagement_id = $2::uuid, work_date = $3::date, minutes = $4, description = $5, mission = $6
+            `update erp.time_entry set engagement_id = $2::uuid, work_date = $3::date, minutes = $4, description = $5, mission = $6, task_id = $10::uuid
               where id = $1::uuid and user_id = $7 and entity_id = ${entityOf.replace("$ENTITY", "$8")} and updated_at = $9::timestamptz`,
-            [input.id, input.project_id, input.work_date, minutes, note, mission, auth.user.id, entityCode, input.updated_at],
+            [input.id, input.project_id, input.work_date, minutes, note, mission, auth.user.id, entityCode, input.updated_at, input.task_id || null],
           )
         : await tx.run(
-            `insert into erp.time_entry (id, engagement_id, user_id, work_date, minutes, description, mission, entity_id)
-             values ($1::uuid, $2::uuid, $7, $3::date, $4, $5, $6, ${entityOf.replace("$ENTITY", "$8")})`,
-            [input.id, input.project_id, input.work_date, minutes, note, mission, auth.user.id, entityCode],
+            `insert into erp.time_entry (id, engagement_id, user_id, work_date, minutes, description, mission, entity_id, task_id)
+             values ($1::uuid, $2::uuid, $7, $3::date, $4, $5, $6, ${entityOf.replace("$ENTITY", "$8")}, $9::uuid)`,
+            [input.id, input.project_id, input.work_date, minutes, note, mission, auth.user.id, entityCode, input.task_id || null],
           );
       return written ? { success: true } : { error: "conflict" };
     });
@@ -47,6 +47,8 @@ export async function saveTimeAction(input: TimeInput, test = false): Promise<Ti
     const message = guardError(error);
     if (message.includes("time_entry_daily_limit")) return { error: "daily_limit" };
     if (message.includes("time_entry_future_date")) return { error: "date" };
+    // a ticket of another mission (0012)
+    if (message.includes("time_entry_task_mismatch")) return { error: "invalid" };
     const code = typeof error === "object" && error && "code" in error ? String((error as { code: unknown }).code) : "";
     if (code === "23505") return { error: "conflict" };
     console.error("[timesheet:save]", code || message);
@@ -67,17 +69,19 @@ export async function copyPreviousWeekAction(targetWeek: string, test = false): 
       const [{ n }] = await select<{ n: number }>(tx, `select count(*)::int as n ${own}`, [auth.user.id, entityCode, target.start, target.end]);
       if (n > 0) return { error: "not_empty" as const };
       const allowed = new Set((await select<{ id: string }>(tx, TIMESHEET_PROJECTS_SQL, [entityCode])).map((project) => project.id));
-      const sourceEntries = await select<{ project_id: string; work_date: string; minutes: number; mission: string; note: string }>(
+      const sourceEntries = await select<{ project_id: string; work_date: string; minutes: number; mission: string; note: string; task_id: string | null }>(
         tx,
-        `select t.engagement_id as project_id, t.work_date, t.minutes, t.mission, coalesce(t.description, '') as note ${own} order by t.work_date, t.id`,
+        `select t.engagement_id as project_id, t.work_date, t.minutes, t.mission, coalesce(t.description, '') as note, t.task_id ${own} order by t.work_date, t.id`,
         [auth.user.id, entityCode, source.start, source.end],
       );
       const rows = sourceEntries.filter((entry) => allowed.has(entry.project_id)).map((entry) => ({ ...entry, work_date: addDays(entry.work_date, 7) }));
       if (!rows.length) return { error: "no_source" as const };
       await tx.query(
-        `insert into erp.time_entry (engagement_id, user_id, work_date, minutes, description, mission, entity_id)
-         select r.project_id, $2, r.work_date, r.minutes, r.note, r.mission, ${entityOf.replace("$ENTITY", "$3")}
-           from jsonb_to_recordset($1::jsonb) as r(project_id uuid, work_date date, minutes integer, mission text, note text)`,
+        `insert into erp.time_entry (engagement_id, user_id, work_date, minutes, description, mission, entity_id, task_id)
+         select r.project_id, $2, r.work_date, r.minutes, r.note, r.mission, ${entityOf.replace("$ENTITY", "$3")},
+                -- the same ticket, if it is still of that mission
+                (select k.id from erp.task k where k.id = r.task_id and k.engagement_id = r.project_id)
+           from jsonb_to_recordset($1::jsonb) as r(project_id uuid, work_date date, minutes integer, mission text, note text, task_id uuid)`,
         [JSON.stringify(rows), auth.user.id, entityCode],
       );
       return { success: true as const, count: rows.length };

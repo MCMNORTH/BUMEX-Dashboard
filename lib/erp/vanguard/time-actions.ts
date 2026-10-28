@@ -3,7 +3,7 @@
 import { requireRouteAccess } from "@/lib/auth/server";
 import { getAdminTimesheetOverview, getTimesheet } from "@/lib/timesheet/service";
 import { weekBounds } from "@/lib/timesheet/validation";
-import type { TimeEntry, TimeMission, TimeMissionFavorite, TimeProject, TimesheetProfile, TimesheetWeekEvent, TimesheetWeekStatus } from "@/types/timesheet";
+import type { TimeEntry, TimeMission, TimeMissionFavorite, TimeProject, TimeTicket, TimesheetProfile, TimesheetWeekEvent, TimesheetWeekStatus } from "@/types/timesheet";
 
 // The "Temps" room (vanguard/one/Time.tsx): BUMEX One's timesheet, mine and, for the administrator and managers, the
 // team's review. Read and saved with BUMEX One's timesheet code (the person's current entity, its projects, its rules).
@@ -21,6 +21,7 @@ export type MyTime = Week & {
   projects: TimeProject[];
   missions: TimeMission[];
   favorites: TimeMissionFavorite[];
+  tickets: TimeTicket[]; // my open tickets on these missions (0012)
   weekStatus: TimesheetWeekStatus | null;
   events: TimesheetWeekEvent[];
   capacityHours: number;
