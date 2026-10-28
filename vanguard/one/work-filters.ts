@@ -1,5 +1,6 @@
 // [bumex-one] The board's and the list's filters and groups, as Jira's toolbar has them (vanguard/one/Tasks.tsx,
-// Board.tsx): a search on the title, key and labels; people; priorities, types, labels; the due date; "my tickets".
+// Board.tsx): a search on the title, key and labels; people; priorities, types, labels; the due date; "my tickets";
+// the stages, by name across the boards (2026-10-28).
 // Pure: the tickets and the day come in.
 
 export type DueFilter = 'all' | 'late' | 'week' | 'none';
@@ -11,19 +12,24 @@ export type WorkFilters = {
   priorities: string[];
   types: string[];
   labels: string[];
+  stages: string[]; // stageFilterKey()s
+  noEstimate: boolean; // open tickets without an estimate
   due: DueFilter;
   mine: boolean;
   groupBy: GroupBy;
 };
 
-export const NO_FILTERS: WorkFilters = { search: '', people: [], priorities: [], types: [], labels: [], due: 'all', mine: false, groupBy: 'none' };
+export const NO_FILTERS: WorkFilters = { search: '', people: [], priorities: [], types: [], labels: [], stages: [], noEstimate: false, due: 'all', mine: false, groupBy: 'none' };
 
 export type FilterTicket = {
   title: string;
   dueDate: string; // '9999-12-31' when none
   status: string;
-  ticket: { assignee_id: string | null; priority: string; type: string; key: string; labels: string[] };
+  ticket: { assignee_id: string | null; priority: string; type: string; key: string; labels: string[]; stage_name?: string | null; status?: string; estimated_hours?: number | null };
 };
+
+/** A stage, whatever board it is on: its name folded, or the status on the built-in boards. */
+export const stageFilterKey = (t: FilterTicket) => (t.ticket.stage_name ? `s:${fold(t.ticket.stage_name).trim()}` : `c:${t.ticket.status ?? t.status}`);
 
 const NO_DUE_DATE = '9999-12-31';
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLocaleLowerCase('fr');
@@ -35,7 +41,7 @@ export function sundayOf(today: string) {
 }
 
 export function activeFilterCount(f: WorkFilters) {
-  return f.priorities.length + f.types.length + f.labels.length + (f.due !== 'all' ? 1 : 0) + (f.mine ? 1 : 0);
+  return f.priorities.length + f.types.length + f.labels.length + (f.stages?.length ?? 0) + (f.noEstimate ? 1 : 0) + (f.due !== 'all' ? 1 : 0) + (f.mine ? 1 : 0);
 }
 
 export const isFiltered = (f: WorkFilters) => Boolean(f.search.trim()) || f.people.length > 0 || activeFilterCount(f) > 0;
@@ -53,6 +59,8 @@ export function applyFilters<T extends FilterTicket>(tickets: T[], f: WorkFilter
     if (f.priorities.length && !f.priorities.includes(t.ticket.priority === 'normal' ? 'medium' : t.ticket.priority)) return false;
     if (f.types.length && !f.types.includes(t.ticket.type)) return false;
     if (f.labels.length && !f.labels.some((l) => t.ticket.labels.includes(l))) return false;
+    if (f.stages?.length && !f.stages.includes(stageFilterKey(t))) return false;
+    if (f.noEstimate && (t.status === 'done' || Number(t.ticket.estimated_hours ?? 0) > 0)) return false;
     const open = t.status !== 'done';
     if (f.due === 'late' && !(open && t.dueDate !== NO_DUE_DATE && t.dueDate < today)) return false;
     if (f.due === 'week' && !(t.dueDate !== NO_DUE_DATE && t.dueDate >= today && t.dueDate <= sunday)) return false;
@@ -84,4 +92,22 @@ export function groupTickets<T extends FilterTicket & { assignee: string; engage
     if (!b.key) return -1;
     return a.label.localeCompare(b.label, 'fr');
   });
+}
+
+/**
+ * The list a figure of the floor's overview opens (vanguard/one/Overview.tsx): "overdue", "week", "unassigned",
+ * "blocked", "unestimated", "done"; the other filters cleared, the grouping kept.
+ */
+export function quickFilters<T extends FilterTicket>(tab: string | null | undefined, base: WorkFilters, tickets: T[]): WorkFilters | null {
+  const clean: WorkFilters = { ...NO_FILTERS, groupBy: base.groupBy };
+  const keysOf = (status: string) => [...new Set(tickets.filter((t) => (t.ticket.status ?? t.status) === status).map(stageFilterKey))];
+  switch (tab) {
+    case 'overdue': return { ...clean, due: 'late' };
+    case 'week': return { ...clean, due: 'week' };
+    case 'unassigned': return { ...clean, people: [''] };
+    case 'unestimated': return { ...clean, noEstimate: true };
+    case 'blocked': return { ...clean, stages: keysOf('blocked') };
+    case 'done': return { ...clean, stages: keysOf('done') };
+    default: return null;
+  }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useStore } from '../store';
+import { inMode, useStore } from '../store';
 import type { Room } from '../i18n';
 import emblemImage from '../assets/emblem.png'; // [bumex-one] Next imports images as objects
 import { useBumexOneSearch } from '../one/search'; // [bumex-one] one search for everything
@@ -47,12 +47,13 @@ export function Header() {
     if (s.length < 2) return [];
     const out: { label: string; sub: string; go: () => void }[] = [];
     const enter = (entityId: string, room: Room, tab?: string) => { goFloor(entityId); openRoom(room, tab ?? null); };
-    for (const c of state.customers) if (c.name.toLowerCase().includes(s) || c.code.toLowerCase().includes(s)) out.push({ label: c.name, sub: `Client · ${state.entities.find((e) => e.id === c.entityId)?.name}`, go: () => enter(c.entityId, 'clients', 'customers') });
-    for (const i of state.salesInvoices) if (i.number?.toLowerCase().includes(s)) out.push({ label: i.number!, sub: `Facture · ${state.customers.find((c) => c.id === i.customerId)?.name}`, go: () => enter(i.entityId, 'clients', 'invoices') });
-    for (const a of state.accounts) if ((a.code.startsWith(s) || a.nameFr.toLowerCase().includes(s)) && a.entityId === (ui.entityId ?? a.entityId)) out.push({ label: `${a.code} ${a.nameFr}`, sub: `Compte · ${state.entities.find((e) => e.id === a.entityId)?.name}`, go: () => enter(a.entityId, 'accounting', 'gl') });
-    for (const e of state.engagements) if (e.name.toLowerCase().includes(s) || e.code.toLowerCase().includes(s)) out.push({ label: e.name, sub: `Mission · ${e.code}${e.status === 'completed' ? ' · terminée' : ''}`, go: () => { setUi({ focusEngagementId: e.id }); enter(e.entityId, 'missions'); } });
-    for (const a of state.archives) { const eng = state.engagements.find((e) => e.id === a.engagementId); if (a.reference.toLowerCase().includes(s) || a.label.toLowerCase().includes(s)) out.push({ label: `${a.reference} · ${eng?.name ?? ''}`, sub: `Archive · ${a.bay}·${a.shelf}·${a.slot}`, go: () => { goFloor(a.entityId); openArchive(a.id, true); } }); }
-    for (const tk of state.tasks) { const key = (tk as { ticket?: { key?: string } }).ticket?.key ?? ''; /* [bumex-one] a ticket's key too (AUD-142) */ if (tk.title.toLowerCase().includes(s) || key.toLowerCase().startsWith(s)) out.push({ label: key ? `${key} · ${tk.title}` : tk.title, sub: `Tâche · ${tk.assignee} · ${tk.dueDate}`, go: () => { setUi({ focusTaskId: tk.id }); enter(tk.entityId, 'tasks', 'all'); } }); }
+    const mode = (entityId: string) => inMode(state, entityId); // [bumex-one] the test floor only in test mode, and alone then (0013)
+    for (const c of state.customers) if (mode(c.entityId) && (c.name.toLowerCase().includes(s) || c.code.toLowerCase().includes(s))) out.push({ label: c.name, sub: `Client · ${state.entities.find((e) => e.id === c.entityId)?.name}`, go: () => enter(c.entityId, 'clients', 'customers') });
+    for (const i of state.salesInvoices) if (mode(i.entityId) && i.number?.toLowerCase().includes(s)) out.push({ label: i.number!, sub: `Facture · ${state.customers.find((c) => c.id === i.customerId)?.name}`, go: () => enter(i.entityId, 'clients', 'invoices') });
+    for (const a of state.accounts) if (mode(a.entityId) && (a.code.startsWith(s) || a.nameFr.toLowerCase().includes(s)) && a.entityId === (ui.entityId ?? a.entityId)) out.push({ label: `${a.code} ${a.nameFr}`, sub: `Compte · ${state.entities.find((e) => e.id === a.entityId)?.name}`, go: () => enter(a.entityId, 'accounting', 'gl') });
+    for (const e of state.engagements) if (mode(e.entityId) && (e.name.toLowerCase().includes(s) || e.code.toLowerCase().includes(s))) out.push({ label: e.name, sub: `Mission · ${e.code}${e.status === 'completed' ? ' · terminée' : ''}`, go: () => { setUi({ focusEngagementId: e.id }); enter(e.entityId, 'missions'); } });
+    for (const a of state.archives) { const eng = state.engagements.find((e) => e.id === a.engagementId); if (mode(a.entityId) && (a.reference.toLowerCase().includes(s) || a.label.toLowerCase().includes(s))) out.push({ label: `${a.reference} · ${eng?.name ?? ''}`, sub: `Archive · ${a.bay}·${a.shelf}·${a.slot}`, go: () => { goFloor(a.entityId); openArchive(a.id, true); } }); }
+    for (const tk of state.tasks) { const key = (tk as { ticket?: { key?: string } }).ticket?.key ?? ''; /* [bumex-one] a ticket's key too (AUD-142) */ if (mode(tk.entityId) && (tk.title.toLowerCase().includes(s) || key.toLowerCase().startsWith(s))) out.push({ label: key ? `${key} · ${tk.title}` : tk.title, sub: `Tâche · ${tk.assignee} · ${tk.dueDate}`, go: () => { setUi({ focusTaskId: tk.id }); enter(tk.entityId, 'tasks', 'all'); } }); }
     return out.slice(0, 12);
   }, [q, state, ui.entityId, goFloor, openRoom, setUi, openArchive]);
   const oneResults = useBumexOneSearch(q); // [bumex-one] BUMEX One's records after Vanguard's

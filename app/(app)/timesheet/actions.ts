@@ -46,12 +46,28 @@ export async function saveTimeAction(input: TimeInput, test = false): Promise<Ti
   } catch (error) {
     const message = guardError(error);
     if (message.includes("time_entry_daily_limit")) return { error: "daily_limit" };
+    if (message.includes("timesheet_week_locked")) return { error: "locked" };
     if (message.includes("time_entry_future_date")) return { error: "date" };
     // a ticket of another mission (0012)
     if (message.includes("time_entry_task_mismatch")) return { error: "invalid" };
     const code = typeof error === "object" && error && "code" in error ? String((error as { code: unknown }).code) : "";
     if (code === "23505") return { error: "conflict" };
     console.error("[timesheet:save]", code || message);
+    return { error: "unavailable" };
+  }
+}
+
+// A line removed (a cleared cell of the week, 0013): the person's own, of a week that is not sent; an edit made
+// elsewhere meanwhile is a conflict.
+export async function deleteTimeAction(id: string, updatedAt: string, test = false): Promise<TimeResult> {
+  const { auth } = await requireTimeEntityContext(test);
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !Number.isFinite(Date.parse(updatedAt))) return { error: "invalid" };
+  try {
+    const removed = await asPerson((tx) => tx.run("delete from erp.time_entry where id = $1::uuid and user_id = $2 and updated_at = $3::timestamptz", [id, auth.user.id, updatedAt]));
+    return removed ? { success: true } : { error: "conflict" };
+  } catch (error) {
+    if (guardError(error).includes("timesheet_week_locked")) return { error: "locked" };
+    console.error("[timesheet:delete]", guardError(error));
     return { error: "unavailable" };
   }
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import type { Engagement } from '@bumex/domain';
 import { missionBoardAction, type MissionBoard as Board } from '@/lib/erp/vanguard/board-actions';
 import { getActiveStages, resolveTicketStageId } from '@/lib/tickets/workflow';
+import { columnOfTicket, mergeStageColumns, stageForColumn } from '@/lib/tickets/stage-columns';
 import { createTicketAction, moveTicketStageAction } from '@/app/(app)/tickets/actions';
 import { remainingHours } from '@/lib/work/load';
 import type { TicketStatus } from '@/types/ticket';
@@ -10,20 +11,22 @@ import { Icon } from '../ui/common';
 import { PRIORITY, TEAM_ROLES, label, reload, type TicketTask } from './Tasks';
 import { useSay } from './say';
 import { groupTickets, type GroupBy } from './work-filters';
-import { Avatar, PriorityIcon, TypeIcon, hoursText, stageTone, type Tone } from './work-ui';
+import { Avatar, PriorityIcon, TypeIcon, hoursText, stageTone, statusTone, type Tone } from './work-ui';
+import { forgetWorkflows, useBoardOf } from './stages';
+import { QuickLogButton } from './QuickLog';
 import type { Say } from './ticket-history';
 
 // The Tasks room's board, as Jira draws it (asked on 2026-10-27): one mission's own columns (its workflow, or the
-// built-in ones), or every mission of the floor by state. Columns carry their count and hours and fold; cards their
+// built-in ones), or every mission of the floor with the stages of their boards merged by name (2026-10-28,
+// lib/tickets/stage-columns.ts): a card dropped there goes to the stage of that name on its own board. Columns carry their count and hours and fold; cards their
 // key, labels, estimate, due date, priority and assignee; "+" adds a ticket in a column. A card dropped in another
 // column moves with BUMEX One's ticket action, which checks the workflow's rules (order, reopening, sign-off by the
 // reporter) and may ask for a reason. Lanes group the cards by assignee, priority or mission.
 
 type Mission = Engagement & { projectId?: string };
-type Column = { id: string; name: string; tone: Tone; completed: boolean; matches: (x: TicketTask) => boolean; target: { stageId: string } | { status: TicketStatus } };
+type Column = { id: string; name: string; tone: Tone; completed: boolean; archived?: boolean; matches: (x: TicketTask) => boolean; target: { stageId: string } | { status: TicketStatus } | { column: string } };
 
 const NO_DUE_DATE = '9999-12-31';
-const CATEGORIES: [TicketStatus, string, string][] = [['todo', 'À faire', 'To do'], ['in_progress', 'En cours', 'In progress'], ['review', 'En revue', 'In review'], ['blocked', 'Bloqué', 'Blocked'], ['done', 'Terminé', 'Done']];
 
 export function MissionBoard({ scope, tickets, groupBy, onOpen }: { scope: string; tickets: TicketTask[]; groupBy: GroupBy; onOpen: (id: string) => void }) {
   const { state, toast } = useStore();
@@ -51,11 +54,16 @@ export function MissionBoard({ scope, tickets, groupBy, onOpen }: { scope: strin
   }, [projectId]);
 
   const workflow = board && board.projectId === projectId ? board.data.workflow : null;
+  // every mission: the boards of the cards in view (the built-in one until a board is read)
+  const projectIds = useMemo(() => (projectId ? [] : [...new Set(tickets.map((x) => x.ticket.project_id))]), [projectId, tickets]);
+  const boardOf = useBoardOf(projectIds);
   const columns: Column[] = useMemo(() => {
     if (!projectId) {
-      return CATEGORIES.map(([status, fr, en]) => ({
-        id: status, name: say(fr, en), tone: status as Tone, completed: status === 'done', target: { status },
-        matches: (x: TicketTask) => (x.ticket.status === 'backlog' ? 'todo' : x.ticket.status) === status,
+      const stageOf = (x: TicketTask) => resolveTicketStageId(boardOf(x.ticket.project_id), { stage_id: x.ticket.stage_id, status: x.ticket.status });
+      const used = new Set(tickets.map((x) => `${x.ticket.project_id}:${stageOf(x)}`));
+      return mergeStageColumns(projectIds.map(boardOf), (p, st) => used.has(`${p}:${st}`)).map((c) => ({
+        id: c.key, name: c.name, tone: c.archived ? 'archived' : statusTone(c.status), completed: c.completed, archived: c.archived, target: { column: c.key },
+        matches: (x: TicketTask) => columnOfTicket(boardOf(x.ticket.project_id), { stage_id: x.ticket.stage_id, status: x.ticket.status }) === c.key,
       }));
     }
     if (!workflow) return [];
@@ -63,13 +71,20 @@ export function MissionBoard({ scope, tickets, groupBy, onOpen }: { scope: strin
       id: s.id, name: s.name, tone: stageTone(s), completed: s.is_completed, target: { stageId: s.id },
       matches: (x: TicketTask) => resolveTicketStageId(workflow, { stage_id: x.ticket.stage_id, status: x.ticket.status }) === s.id,
     }));
-  }, [projectId, workflow, say]);
+  }, [projectId, workflow, tickets, projectIds, boardOf]);
 
   const move = async (task: TicketTask, column: Column, why?: string) => {
     if (column.matches(task)) return;
+    let target = column.target;
+    if ('column' in target) {
+      const stage = stageForColumn(boardOf(task.ticket.project_id), target.column);
+      const mission = (state.engagements as Mission[]).find((e) => e.id === task.engagementId);
+      if (!stage) { toast('error', say(`Le tableau de ${mission?.name ?? 'cette mission'} n'a pas d'étape « ${column.name} ».`, `${mission?.name ?? "This mission"}'s board has no "${column.name}" stage.`)); return; }
+      target = { stageId: stage.id };
+    }
     setBusy(task.id);
     try {
-      const result = await moveTicketStageAction(task.id, column.target, why);
+      const result = await moveTicketStageAction(task.id, target, why);
       if (result.code === 'reason_required') {
         setAsking({ task, column, message: result.error ?? '' });
         return;
@@ -116,7 +131,7 @@ export function MissionBoard({ scope, tickets, groupBy, onOpen }: { scope: strin
         </div>
       )}
       {projectId && board?.data.canManage && (
-        <div className="small" style={{ textAlign: 'right' }}><button className="linkish" onClick={() => useStore.getState().openRoom('missions', `mission:${projectId}:rules`)}>{say('Colonnes et règles du tableau', "Board's columns and rules")}</button></div>
+        <div className="wk-board-tools"><button className="btn sm" onClick={() => { forgetWorkflows(projectId); useStore.getState().openRoom('missions', `mission:${projectId}:rules`); }}><Icon name="settings" size={13} /> {say('Statuts et règles', 'Statuses and rules')}</button></div>
       )}
       <div className="wk-board">
         <div className="wk-cols" role="list">
@@ -124,7 +139,7 @@ export function MissionBoard({ scope, tickets, groupBy, onOpen }: { scope: strin
             const all = tickets.filter(column.matches);
             const isFolded = folded.includes(column.id);
             return (
-              <div key={column.id} role="listitem" className={`wk-col ${isFolded ? 'folded' : ''} ${over === column.id ? 'over' : ''}`} {...drop(column)}>
+              <div key={column.id} role="listitem" className={`wk-col ${isFolded ? 'folded' : ''} ${over === column.id ? 'over' : ''} ${column.archived ? 'archived' : ''} tone-${column.tone}`} {...drop(column)} title={column.archived ? say('Étape archivée : déplacez ces cartes vers une étape active.', 'Archived stage: move these cards to an active stage.') : undefined}>
                 <div className="wk-col-h">
                   <button className="wk-fold" onClick={() => toggle(column.id)} aria-expanded={!isFolded} title={isFolded ? say('Déplier', 'Expand') : say('Replier', 'Collapse')}>
                     <span className="wk-col-name">{column.name}</span>
@@ -191,6 +206,7 @@ function Card({ task, busy, showMission, onOpen, onDrag, say }: { task: TicketTa
         {est > 0 && <span className="wk-est" title={`${say('Estimation', 'Estimate')} ${hoursText(est, say)}${x.ticket.logged_minutes ? ` · ${say('reste', 'left')} ${hoursText(left, say)}` : ''}`}><Icon name="clock" size={12} /> {hoursText(x.ticket.logged_minutes ? left : est, say)}</span>}
         {x.dueDate !== NO_DUE_DATE && <span className={`wk-due ${late ? 'late' : ''}`} title={say('Échéance', 'Due')}>{x.dueDate.slice(8, 10)}/{x.dueDate.slice(5, 7)}</span>}
         <PriorityIcon priority={x.ticket.priority} say={say} />
+        {x.status !== 'done' && <QuickLogButton ticketId={x.id} className="wk-card-log" onSaved={() => void reload()} />}
         <Avatar name={x.ticket.assignee_id ? x.assignee : null} size={22} title={x.ticket.assignee_id ? x.assignee : say('Non assigné', 'Unassigned')} />
       </div>
     </div>

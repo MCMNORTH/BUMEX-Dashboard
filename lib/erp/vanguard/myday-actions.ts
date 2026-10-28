@@ -2,12 +2,12 @@
 
 import { requireRouteAccess } from "@/lib/auth/server";
 import { getOverviewDashboardData, getSignOffTickets, type OverviewDashboardData } from "@/lib/overview/service";
-import { getTicketDueState } from "@/lib/tickets/helpers";
 import { getTickets } from "@/lib/tickets/service";
 import { asPerson, select } from "@/lib/work/db";
 import { loadOf, type Load } from "@/lib/work/load";
 import type { TicketRecord } from "@/types/ticket";
 import { getMySubtasks } from "@/lib/tickets/subtasks";
+import { asItem, pressing, type MyWorkTicket } from "@/lib/erp/vanguard/work-items";
 import { getTimesheet } from "@/lib/timesheet/service";
 import { weekBounds } from "@/lib/timesheet/validation";
 
@@ -44,25 +44,6 @@ export async function myDayAction(): Promise<MyDayData> {
 // waits for their sign-off; their sub-tasks in others' tickets; the mentions and comments they have not read; the
 // tickets they reported that others carry; and, for whoever leads missions, the tickets there that are unassigned,
 // unestimated or late.
-export type MyWorkTicket = {
-  id: string;
-  key: string | null;
-  title: string;
-  type: string;
-  projectId: string;
-  projectName: string | null;
-  status: string;
-  stageName: string | null;
-  priority: string;
-  dueDate: string | null;
-  dueState: ReturnType<typeof getTicketDueState>; // overdue, soon (7 days), planned, none
-  estimatedHours: number | null;
-  loggedMinutes: number;
-  labels: string[];
-  assigneeName: string | null;
-  updatedAt: string;
-};
-
 export type MyWorkData = {
   tickets: MyWorkTicket[]; // assigned to me: the open ones, and the last done
   load: Load;
@@ -73,32 +54,6 @@ export type MyWorkData = {
   lead: { ticket: MyWorkTicket; reasons: ("unassigned" | "unestimated" | "late")[] }[];
   week: { loggedMinutes: number; capacityHours: number; status: string | null } | null;
 };
-
-const asItem = (t: TicketRecord): MyWorkTicket => ({
-  id: t.id,
-  key: t.key,
-  title: t.title,
-  type: t.type,
-  projectId: t.project_id,
-  projectName: t.project?.name ?? null,
-  status: t.status,
-  stageName: t.stage_name,
-  priority: t.priority,
-  dueDate: t.due_date?.slice(0, 10) ?? null,
-  dueState: getTicketDueState(t.due_date),
-  estimatedHours: t.estimated_hours,
-  loggedMinutes: t.logged_minutes ?? 0,
-  labels: t.labels ?? [],
-  assigneeName: t.assignee?.full_name ?? null,
-  updatedAt: t.updated_at,
-});
-
-const PRESSURE: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
-// blocked first, then late, then by priority, then the nearest due date
-function pressing(a: MyWorkTicket, b: MyWorkTicket) {
-  const rank = (t: MyWorkTicket) => (t.status === "blocked" ? 0 : t.dueState === "overdue" ? 1 : 2);
-  return rank(a) - rank(b) || (PRESSURE[a.priority] ?? 2) - (PRESSURE[b.priority] ?? 2) || (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999");
-}
 
 export async function myWorkAction(): Promise<MyWorkData> {
   const auth = await requireRouteAccess("my-work");

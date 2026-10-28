@@ -92,6 +92,8 @@ features rebuilt in Vanguard (linted, unlike the delivered files).
 | `ui/Sidebar.tsx`, `styles.css`, `ui/Rooms.tsx`, `i18n.ts`, `store.ts` | the rail groups the person's work (My day, "Mon travail", Tasks, Time, Archives) apart from the modules (Reports with them), is compact (32 px items, 52 px wide) and names its groups when open; "Mon travail" is a room of its own (`vanguard/one/MyWork.tsx`), out of My day's tabs | asked on 2026-10-27 |
 | `ui/Select.tsx` | an option may carry a hint on the right (`data-hint`, coloured by `data-tone`): a person's load in the pickers | the load where people are picked (2026-10-27) |
 | `ui/Header.tsx` | the search finds a ticket by its key too (AUD-142), shown before its title | the tickets' keys (0012) |
+| `ui/Rooms.tsx`, `ui/Sidebar.tsx`, `i18n.ts`, `store.ts` | a room `overview` (`vanguard/one/Overview.tsx`): the floor at a glance; flat mode opens on it and the rail's "Vue d'ensemble" opens it there (the tower in 3D); a person opens on their page (`overview` tab `person:<id>`) | the floor's overview (2026-10-28) |
+| `store.ts`, `App.tsx`, `ui/Rooms.tsx`, `ui/Header.tsx`, `lib/erp/engine/types.ts` | entering or leaving the test floor, from wherever the floor is chosen, switches the session's mode (`Session.testMode`, the cookie `bumex-floor-mode`, 0013): the state is read again under an overlay; the floor's banner says "Mode test" on every room, with a way out; the header search keeps to the mode's floors | the test floor sealed (2026-10-28) |
 
 `styles.css` is theirs; `vanguard.css` is generated from it by `node scripts/vanguard-css.mjs` (every rule scoped to
 the `.vanguard` container, keyframes prefixed, BUMEX One's base reset undone inside it). Re-run it after a new

@@ -18,11 +18,12 @@ on the day of the copy (`scripts/work-copy.mjs`), the way back.
 | `db/erp/migrations/0010_view_3d.sql` | The building in 3D, a person's option (`view_3d`), off by default; given by the role modifiers like the rest of the access |
 | `db/erp/migrations/0011_test_floor.sql` | The test floor, BUMEX Testing (the basement): an entity apart (`is_test`), given by `test_floor`, hidden from whoever lacks it, no e-mails, time apart, its own clients |
 | `db/erp/migrations/0012_tickets.sql` | Tickets as Jira has them: a key per floor (`ticket_prefix` + `number`, AUD-142), labels, links between tickets (`work.task_link`), time entered on a ticket (`time_entry.task_id`, its total and work log), every field change written to its history by the database, attachments by its assignee and reporter |
+| `db/erp/migrations/0013_test_mode.sql` | The test floor sealed: the session has a mode (`erp.open_session(user, test_mode)`, granted only with `test_floor`); in test mode only test records and the test floor's books, otherwise none of them, testers included (`work.hidden`, `work.in_test`); a person removes their own time line of a week not sent |
 | `db/erp/test/work.test.mjs` | Tests of 0008: who reads and writes what, the timesheet's guards, the e-mails, one client with two sides |
 | `scripts/work-copy.mjs` | The one-shot copy of BUMEX One's Firestore data into 0008's tables (dry run first) |
 | `lib/erp/vanguard/` | BUMEX Vanguard on this database: the state read for a person, their changes replayed with the engine and written (see `vanguard/VENDOR.md`); tests in `test/` run on the real schema |
 | `db/erp/test/guarantees.test.mjs` | The ERP team's 35 guarantee tests (now run against every migration, 0004 included) |
-| `db/erp/test/bumex-one.test.mjs` | Tests of 0004–0006, 0009 and 0010 (0011's and 0012's in `work.test.mjs`) |
+| `db/erp/test/bumex-one.test.mjs` | Tests of 0004–0006, 0009 and 0010 (0011's, 0012's and 0013's in `work.test.mjs`) |
 | `lib/erp/engine/` | The ERP team's TypeScript engine, **as delivered** but for marked changes (`withIdSource` and the rooms per entity in `core.ts`, two session fields in `types.ts`); 65 tests in `lib/erp/engine/test` |
 | `lib/erp/*.ts` | Our code: connection, access, pages' data |
 | `scripts/erp-migrate.mjs` | Applies pending migrations |
@@ -58,6 +59,11 @@ compared. Changes we need go into new migrations / files of ours.
   the two); nothing about it is e-mailed; time on its missions is apart from the real week (not locked by a sent week,
   not in the real sheet nor the team review: the Time room shows it on the test floor only); the group's figures
   leave it out (engine `groupFigures`).
+- Since 0013 the test floor is a mode of the whole session, not only a floor: while a person is on it (the app sends
+  the cookie `bumex-floor-mode=test`, `lib/erp/db.ts`), the database opens their session in test mode if they have
+  the floor, and they see its records and books only; anywhere else, nobody sees any of them, testers included (My
+  day, My work, notifications, the search, the team's load). The cookie is only a request: without `test_floor` the
+  session stays normal.
 - The books' row-level security is by entity; what each person's browser receives is then narrowed to the modules of
   each row's entity (`lib/erp/vanguard/visible.ts`), and every change the server replays must open its room on every
   entity it touches (`lib/erp/vanguard/replay.ts`).

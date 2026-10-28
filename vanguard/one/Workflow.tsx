@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { saveBoardWorkflowAction } from '@/app/(app)/projects/workflow-actions';
 import { workflowEditorAction, type WorkflowEditorData } from '@/lib/erp/vanguard/project-actions';
+import { boardWorkflowsAction } from '@/lib/erp/vanguard/board-actions';
+import { WORKFLOW_MODELS, applyModel, modelOfBoard, type WorkflowModel } from '@/lib/tickets/workflow-models';
 import { createStageId, describeTransitionError, draftToWorkflow, evaluateTransition, getStageCategoryLabel, MAX_ACTIVE_STAGES, STAGE_CATEGORIES, STAGE_NAME_MAX_LENGTH, toWorkflowDraft, type WorkflowDraft } from '@/lib/tickets/workflow';
 import type { StageCategory, WorkflowSettings, WorkflowStage } from '@/types/workflow';
 import { useStore } from '../store';
 import { Chip, Icon } from '../ui/common';
 import { reload } from './Tasks';
+import { forgetWorkflows } from './stages';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
 
 // A mission's board, its columns and rules, as BUMEX One's workflow settings had them: stages (renamed, reordered,
 // archived, never deleted), the default stage of new tickets, the completed stages, how cards may move, and custom
-// transitions. Saved by BUMEX One's action, which checks it again and refuses a save over someone else's.
+// transitions. Saved by BUMEX One's action, which checks it again and refuses a save over someone else's. [bumex-one]
+// A board starts from a model (Standard, Développement, Audit) or another mission's board (asked on 2026-10-28,
+// lib/tickets/workflow-models.ts): the draft changes, and nothing is saved until "Enregistrer".
 
 const SETTINGS: { key: keyof WorkflowSettings; fr: [string, string]; en: [string, string] }[] = [
   { key: 'allow_backward', fr: ['Autoriser le retour en arrière', 'Les cartes peuvent revenir à une étape active précédente.'], en: ['Allow backward movement', 'Cards may move to an earlier active stage.'] },
@@ -23,7 +28,8 @@ const SETTINGS: { key: keyof WorkflowSettings; fr: [string, string]; en: [string
 
 export function WorkflowEditor({ projectId }: { projectId: string }) {
   const say = useSay();
-  const { ui } = useStore();
+  const { ui, state } = useStore();
+  const [copyFrom, setCopyFrom] = useState('');
   const [data, setData] = useState<WorkflowEditorData | null>(null);
   const [draft, setDraft] = useState<WorkflowDraft | null>(null);
   const [message, setMessage] = useState<{ kind: 'crit' | 'info'; text: string } | null>(null);
@@ -84,6 +90,7 @@ export function WorkflowEditor({ projectId }: { projectId: string }) {
       setData(next);
       setDraft(toWorkflowDraft(next.workflow));
       setMessage({ kind: 'info', text: say("Tableau enregistré. Aucune carte n'a été déplacée.", 'Board saved. No card was moved.') });
+      forgetWorkflows(projectId);
       await reload();
     } catch {
       setMessage({ kind: 'crit', text: say("Serveur injoignable : le tableau n'a pas changé.", 'Server unreachable: the board did not change.') });
@@ -92,12 +99,42 @@ export function WorkflowEditor({ projectId }: { projectId: string }) {
     }
   };
   const result = test.from && test.to && test.from !== test.to ? evaluateTransition(preview, test.from, test.to) : null;
+  const takeModel = (model: Pick<WorkflowModel, 'stages' | 'settings'>, name: string) => {
+    edit((d) => applyModel(d, model, data.cardCounts));
+    const kept = draft.stages.filter((s) => !s.archived_at && (data.cardCounts[s.id] ?? 0) > 0 && !model.stages.some((m) => m.name.toLowerCase() === s.name.toLowerCase()));
+    setMessage({ kind: 'info', text: say(`« ${name} » appliqué. Vérifiez puis enregistrez le tableau.`, `"${name}" applied. Check it, then save the board.`)
+      + (kept.length ? say(` Gardées car elles ont des cartes : ${kept.map((s) => s.name).join(', ')}.`, ` Kept because they hold cards: ${kept.map((s) => s.name).join(', ')}.`) : '') });
+  };
+  const copy = async () => {
+    const source = (state.engagements as { id: string; name: string; projectId?: string }[]).find((e) => e.projectId === copyFrom);
+    if (!source) return;
+    const boards = await boardWorkflowsAction([copyFrom]).catch(() => null);
+    if (!boards?.[copyFrom]) { setMessage({ kind: 'crit', text: say('Ce tableau est indisponible.', 'That board is unavailable.') }); return; }
+    takeModel(modelOfBoard(boards[copyFrom]), source.name);
+    setCopyFrom('');
+  };
+  const others = (state.engagements as { id: string; name: string; code: string; projectId?: string }[]).filter((e) => e.projectId && e.projectId !== projectId);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {!data.workflow.is_configured && <div className="banner info">{say('Ce tableau utilise encore les étapes intégrées, avec déplacement libre. Enregistrer crée sa propre configuration ; chaque ticket garde son étape.', 'This board still uses the built-in stages, with free movement. Saving creates its own configuration; every ticket keeps its stage.')}</div>}
       {readOnly && <div className="banner warn">{say("Lecture seule : seuls l'administrateur et les managers du projet changent son tableau.", "Read-only: only the administrator and the project's managers change its board.")}</div>}
       {message && <div className={`banner ${message.kind}`}>{message.text}</div>}
+
+      {!readOnly && (
+        <div className="card wf-start">
+          <b>{say('Partir de', 'Start from')}</b>
+          {WORKFLOW_MODELS.map((m) => (
+            <button key={m.id} className="btn sm" onClick={() => takeModel(m, say(m.fr, m.en))} title={say(...m.hint)}>{say(m.fr, m.en)}</button>
+          ))}
+          <span className="small muted">{say('ou copier le tableau de', "or copy the board of")}</span>
+          <Select className="in" style={{ width: 240 }} value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)} recent="missions">
+            <option value="">{say('une autre mission…', 'another mission…')}</option>
+            {others.map((e) => <option key={e.id} value={e.projectId} data-search={e.code}>{e.code} · {e.name}</option>)}
+          </Select>
+          <button className="btn sm" disabled={!copyFrom} onClick={copy}>{say('Copier', 'Copy')}</button>
+        </div>
+      )}
 
       <div className="card flush">
         <table>

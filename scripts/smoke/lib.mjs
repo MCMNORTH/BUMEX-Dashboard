@@ -32,14 +32,15 @@ function answer(text) {
   }
 }
 
-// act("mariem.sow", "createTicketAction", { args: [...] }) or { prev, form } for a form action.
+// act("mariem.sow", "createTicketAction", { args: [...] }) or { prev, form } for a form action; test: on the test floor
+// (the session's test mode, 0013: the cookie the app sets there).
 export function actions(base, buildDir, cookies) {
   const manifest = JSON.parse(readFileSync(join(buildDir, ".next/server/server-reference-manifest.json"), "utf8"));
   const ids = {};
   for (const [actionId, entry] of Object.entries(manifest.node)) ids[entry.exportedName] = actionId;
-  return async function act(who, name, { args, prev, form } = {}) {
+  return async function act(who, name, { args, prev, form, test } = {}) {
     if (!ids[name]) throw new Error(`no server action ${name}`);
-    const headers = { "Next-Action": ids[name], Accept: "text/x-component", Cookie: `${who ? `__session=${cookies[who]}; ` : ""}bumex-locale=fr` };
+    const headers = { "Next-Action": ids[name], Accept: "text/x-component", Cookie: `${who ? `__session=${cookies[who]}; ` : ""}bumex-locale=fr${test ? "; bumex-floor-mode=test" : ""}` };
     let body;
     if (form) {
       body = new FormData();
@@ -123,6 +124,9 @@ export async function browser(port, base) {
         noWebgl = (await send("Page.addScriptToEvaluateOnNewDocument", { source })).result.identifier;
       }
       if (on) noWebgl = null;
+    },
+    async setCookie(name, value) {
+      await send("Network.setCookie", { name, value, domain: "127.0.0.1", path: "/" });
     },
     async signIn(cookie) {
       await send("Network.clearBrowserCookies");

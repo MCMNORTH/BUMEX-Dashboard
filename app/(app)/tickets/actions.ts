@@ -21,6 +21,7 @@ import {
   describeTransitionError,
   evaluateTransition,
   findStage,
+  getActiveStages,
   getCompletionRule,
   getDefaultStage,
   stageStatus,
@@ -204,10 +205,13 @@ export async function createTicketAction(
     }
   }
 
-  // New tickets always start in the board's default stage.
-  const defaultStage = getDefaultStage(await getBoardWorkflow(values.project_id));
-  values.stage_id = defaultStage.id;
-  values.status = stageStatus(defaultStage);
+  // New tickets start in the board's default stage, or in an active stage of it the creator picked (not a completed
+  // one: completing is the reporter's sign-off).
+  const workflow = await getBoardWorkflow(values.project_id);
+  const picked = getActiveStages(workflow).find((stage) => stage.id === values.stage_id && !stage.is_completed);
+  const startStage = picked ?? getDefaultStage(workflow);
+  values.stage_id = startStage.id;
+  values.status = stageStatus(startStage);
 
   // The assignee is emailed unless the creator unticked it; absent means yes.
   const ticketId = await createTicket(values, auth.profile.id, {

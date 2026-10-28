@@ -22,6 +22,21 @@ function Toast() {
   );
 }
 
+// [bumex-one] Entering or leaving the test floor reads the state again in the other mode (store.ts, 0013)
+function ModeSwitch() {
+  const switching = useStore((s) => s.ui.switching);
+  const fr = useStore((s) => s.ui.lang === 'fr');
+  if (!switching) return null;
+  return (
+    <div className="mode-switch" role="status" aria-live="polite">
+      <div>
+        <i />
+        {switching === 'test' ? (fr ? "Passage à l'étage de test…" : 'Going to the test floor…') : fr ? "Retour aux étages réels…" : 'Back to the real floors…'}
+      </div>
+    </div>
+  );
+}
+
 function SceneFallback() {
   return (
     <div className="loading">
@@ -61,6 +76,7 @@ export function App() {
         )}
       </div>
       <DeleteDialog />
+      <ModeSwitch />
       <Toast />
     </div>
   );

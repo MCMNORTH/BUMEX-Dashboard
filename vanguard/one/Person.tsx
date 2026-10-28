@@ -3,19 +3,43 @@ import { editTeamMemberAction } from '@/app/(app)/team/actions';
 import { personViewAction, type PersonView } from '@/lib/erp/vanguard/people-actions';
 import type { AvailabilityStatus } from '@/types/auth';
 import { useStore } from '../store';
-import { Chip, D, Field, Icon } from '../ui/common';
+import { Chip, Field, Icon } from '../ui/common';
 import { when } from './Conversation';
 import { reload } from './Tasks';
 import { useSay } from './say';
-import { LoadBar } from './work-ui';
+import { LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursText } from './work-ui';
+import { StageLozenge } from './stages';
+import { remainingHours } from '@/lib/work/load';
+import type { MyWorkTicket } from '@/lib/erp/vanguard/work-items';
+import type { Say } from './ticket-history';
 import { Select } from '../ui/Select';
 
-// A person's page in the HR room's People tab, as BUMEX One's team member page had it: profile and availability, load,
-// missions, tickets, activity and, for the administrator, managers and the person, their delivery figures. The form is
+// A person's page (the HR room's People tab, and the floor's overview: Overview.tsx), as BUMEX One's team member page had
+// it: profile and availability, load, missions, tickets, activity and, for the administrator, managers and the person,
+// their delivery figures. [bumex-one] Since 2026-10-28: their week (hours by day, its timesheet's state, where the time
+// went: shown to whoever may read it), what they are on now with its stage, and what comes next (their backlog). The form is
 // BUMEX One's (a manager does not change someone else's name, photo or phone; the role is Vanguard's).
 
 // BUMEX One's admins (Vanguard's admin, partners and finance lead) change someone else's name and phone
 const SENSITIVE_EDITORS = ['admin', 'partner', 'raf'];
+
+const WEEK_STATUS: Record<string, [string, string, 'todo' | 'review' | 'done' | 'blocked']> = {
+  draft: ['Brouillon', 'Draft', 'todo'], submitted: ['Envoyée', 'Submitted', 'review'], approved: ['Validée', 'Approved', 'done'], returned: ['À corriger', 'Needs changes', 'blocked'],
+};
+const hm = (m: number) => `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
+
+function WorkRow({ t, say, onOpen }: { t: MyWorkTicket; say: Say; onOpen: () => void }) {
+  return (
+    <div className="mw-ticket">
+      <span className="wk-keycell"><TypeIcon type={t.type} say={say} /> <button className="linkish mono" onClick={onOpen}>{t.key ?? '—'}</button></span>
+      <button className="linkish mw-title" onClick={onOpen}>{t.title}<span className="small muted"> · {t.projectName ?? '—'}</span></button>
+      <StageLozenge name={t.stageName} status={t.status} />
+      <PriorityIcon priority={t.priority} say={say} />
+      <span className="mw-hours" title={say('Restant / estimation', 'Left / estimate')}>{t.estimatedHours ? `${hoursText(remainingHours({ estimated_hours: t.estimatedHours, logged_minutes: t.loggedMinutes }), say)} / ${hoursText(t.estimatedHours, say)}` : <span className="muted">{say('à estimer', 'to estimate')}</span>}</span>
+      <span className={`mw-due ${t.dueState === 'overdue' ? 'late' : ''}`}>{t.dueDate ? t.dueDate.split('-').reverse().join('/') : '—'}</span>
+    </div>
+  );
+}
 
 const AVAILABILITY: Record<AvailabilityStatus, [string, string, 'good' | 'warn' | 'crit' | 'dim']> = {
   available: ['Disponible', 'Available', 'good'],
@@ -66,6 +90,9 @@ export function PersonPanel({ personId, onClose }: { personId: string; onClose: 
     }
   };
   const most = Math.max(1, ...(perf?.contributionByProject.map((c) => c.completed) ?? [1]));
+  const openTicket = (id: string) => openRoom('tasks', `ticket:${id}`);
+  const dayName = (d: string) => new Intl.DateTimeFormat(say('fr-FR', 'en-GB'), { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${d}T00:00:00Z`));
+  const week = view.week;
 
   return (
     <>
@@ -91,6 +118,39 @@ export function PersonPanel({ personId, onClose }: { personId: string; onClose: 
           <div className="actions"><button className="btn sm" onClick={() => setEditing(false)}>{say('Annuler', 'Cancel')}</button><button className="btn sm primary" disabled={busy || form.full_name.trim().length < 3} onClick={save}>{say('Enregistrer', 'Save')}</button></div>
         </div>
       )}
+
+      <div className="pv-top">
+        <section className="card pv-week">
+          <div className="mw-block-h"><h2>{say('Cette semaine', 'This week')}</h2><span className="grow" />{week?.status && <Lozenge tone={WEEK_STATUS[week.status]?.[2] ?? 'todo'}>{say(...(WEEK_STATUS[week.status] ?? [week.status, week.status, 'todo']).slice(0, 2) as [string, string])}</Lozenge>}</div>
+          {week ? (
+            <>
+              <div className="pv-week-total"><b>{hm(week.minutes)}</b> <span className="muted">/ {m.capacity} h</span></div>
+              <div className="pv-days">
+                {week.days.map((d, i) => (
+                  <div key={d} className={d === state.today ? 'today' : ''} title={hm(week.byDay[i])}>
+                    <div className="pv-bar"><i style={{ height: `${week.byDay[i] ? Math.max(12, Math.min(100, Math.round((week.byDay[i] / 480) * 100))) : 4}%` }} /></div>
+                    <span>{dayName(d)}</span>
+                    <b>{week.byDay[i] ? hoursText(week.byDay[i] / 60, say) : '—'}</b>
+                  </div>
+                ))}
+              </div>
+              {week.missions.length > 0 && <div className="pv-where">{week.missions.slice(0, 6).map((w) => <div key={`${w.project}${w.mission}`} className="small"><span>{w.mission}<span className="muted"> · {w.project ?? '—'}</span></span><b>{hm(w.minutes)}</b></div>)}</div>}
+            </>
+          ) : <p className="small muted">{say('Réservé : seuls la personne, les managers de son entité et les administrateurs voient ses heures.', "Restricted: only the person, their entity's managers and the administrators see their hours.")}</p>}
+        </section>
+        <section className="card pv-now">
+          <div className="mw-block-h"><h2>{say('En cours', 'In progress')}</h2><span className={`tk-count ${view.current.some((t) => t.status === 'blocked' || t.dueState === 'overdue') ? 'crit' : ''}`}>{view.current.length}</span></div>
+          <div className="mw-rows">
+            {view.current.map((t) => <WorkRow key={t.id} t={t} say={say} onOpen={() => openTicket(t.id)} />)}
+            {!view.current.length && <div className="small muted mw-empty">{say('Rien en cours.', 'Nothing in progress.')}</div>}
+          </div>
+          <div className="mw-block-h" style={{ marginTop: 12 }}><h2>{say('À venir', 'Up next')}</h2><span className="tk-count">{view.next.length}</span></div>
+          <div className="mw-rows">
+            {view.next.map((t) => <WorkRow key={t.id} t={t} say={say} onOpen={() => openTicket(t.id)} />)}
+            {!view.next.length && <div className="small muted mw-empty">{say('Aucun ticket en attente.', 'No ticket waiting.')}</div>}
+          </div>
+        </section>
+      </div>
 
       <div className="grid4">
         <div className="kpi"><div className="l">{say('Charge cette semaine', 'Load this week')}</div>{view.load ? <LoadBar load={view.load} say={say} /> : <div className="v">{Math.round(view.figures.utilization)} %</div>}<div className="small muted">{m.capacity} h / {say('semaine', 'week')} · {say('pondérée par priorité', 'weighted by priority')}</div></div>
@@ -119,19 +179,12 @@ export function PersonPanel({ personId, onClose }: { personId: string; onClose: 
         </div>
       )}
 
-      <div className="grid2">
+      <div>
         <div className="card flush"><table>
           <thead><tr><th>{say('Missions', 'Missions')}</th><th>{say('Rôle', 'Role')}</th><th>{say('Statut', 'Status')}</th></tr></thead>
           <tbody>
             {view.projects.map((p) => <tr key={p.id} className="click" onClick={() => openRoom('missions', `mission:${p.id}`)}><td><b>{p.name}</b>{p.clientName ? <div className="small muted">{p.clientName}</div> : null}</td><td className="small">{p.role}</td><td className="small">{p.status}</td></tr>)}
             {!view.projects.length && <tr><td colSpan={3} className="muted" style={{ padding: 14 }}>{say('Aucune mission.', 'No mission.')}</td></tr>}
-          </tbody>
-        </table></div>
-        <div className="card flush"><table>
-          <thead><tr><th>{say('Tickets', 'Tickets')}</th><th>{say('Statut', 'Status')}</th><th>{say('Échéance', 'Due')}</th></tr></thead>
-          <tbody>
-            {view.tickets.map((t) => <tr key={t.id} className="click" onClick={() => openRoom('tasks', `ticket:${t.id}`)}><td><b>{t.title}</b>{t.projectName ? <div className="small muted">{t.projectName}</div> : null}</td><td className="small">{t.status}</td><td><D iso={t.dueDate ?? undefined} /></td></tr>)}
-            {!view.tickets.length && <tr><td colSpan={3} className="muted" style={{ padding: 14 }}>{say('Aucun ticket.', 'No ticket.')}</td></tr>}
           </tbody>
         </table></div>
       </div>

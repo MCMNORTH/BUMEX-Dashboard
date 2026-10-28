@@ -1,25 +1,27 @@
 import { useEffect, useState, type DragEvent, type ReactNode } from 'react';
 import { moveTicketStageAction, toggleSubtaskAction } from '@/app/(app)/tickets/actions';
-import { myWorkAction, type MyWorkData, type MyWorkTicket } from '@/lib/erp/vanguard/myday-actions';
+import { myWorkAction, type MyWorkData } from '@/lib/erp/vanguard/myday-actions';
+import type { MyWorkTicket } from '@/lib/erp/vanguard/work-items';
 import { markNotificationAsReadAction } from '@/lib/notifications/actions';
 import { remainingHours } from '@/lib/work/load';
+import { columnOfTicket, mergeStageColumns, stageForColumn, type StageColumn } from '@/lib/tickets/stage-columns';
 import type { TicketStatus } from '@/types/ticket';
 import { useStore } from '../store';
 import { Icon } from '../ui/common';
-import { Select } from '../ui/Select';
-import { STATUS, label, reload } from './Tasks';
+import { reload } from './Tasks';
 import { useSay } from './say';
 import { ago } from './ticket-history';
-import { Avatar, LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursText, statusTone } from './work-ui';
+import { Avatar, LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursText } from './work-ui';
+import { StageLozenge, StageSelect, useBoardOf, type StageTicket } from './stages';
+import { QuickLogButton } from './QuickLog';
 
 // "Mon travail": everything the person has to do, on every floor (asked on 2026-10-27). Their load this week and their
 // time; their open tickets, most pressing first (as a list or by state); what waits for their sign-off; their
 // sub-tasks; the mentions and comments they have not read; what they reported; and, on the missions they lead, the
-// tickets left unassigned, unestimated or late. A ticket moves by its state, and each board's rules apply (BUMEX One's
-// ticket action).
+// tickets left unassigned, unestimated or late. A ticket moves through its own board's stages (stages.tsx, 2026-10-28),
+// and each board's rules apply (BUMEX One's ticket action); the board view shows the stages of their boards by name.
 
-const COLUMNS: [TicketStatus, string, string][] = [['todo', 'À faire', 'To do'], ['in_progress', 'En cours', 'In progress'], ['review', 'En revue', 'In review'], ['blocked', 'Bloqué', 'Blocked'], ['done', 'Terminé', 'Done']];
-const columnOf = (status: string) => (status === 'backlog' ? 'todo' : status);
+const stageTicket = (t: MyWorkTicket): StageTicket => ({ id: t.id, projectId: t.projectId, stageId: t.stageId, stageName: t.stageName, status: t.status, assigneeId: t.assigneeId, reporterId: t.reporterId, key: t.key, title: t.title });
 const minutes = (m: number) => `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
 
 // the room: the rail's "Mon travail" (ui/Sidebar.tsx)
@@ -52,6 +54,8 @@ export function MyWork() {
   const [dragged, setDragged] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [now] = useState(Date.now);
+  const testMode = useStore((s) => s.state.session.testMode === true);
+  const boardOf = useBoardOf(data ? data.tickets.map((t) => t.projectId) : []);
 
   useEffect(() => {
     let live = true;
@@ -66,13 +70,11 @@ export function MyWork() {
   const open = data.tickets.filter((t) => t.status !== 'done' && t.status !== 'archived');
   const done = data.tickets.filter((t) => t.status === 'done');
   const ticket = (id: string) => openRoom('tasks', `ticket:${id}`);
-  const logTime = (t: MyWorkTicket) => openRoom('time', `log:${encodeURIComponent(JSON.stringify({ projectId: t.projectId, mission: `${t.key ? `${t.key} · ` : ''}${t.title}`.slice(0, 200), taskId: t.id }))}`);
   const refresh = async () => {
     const [fresh] = await Promise.all([myWorkAction(), reload()]);
     setData(fresh);
   };
   const move = async (t: MyWorkTicket, target: { status: TicketStatus } | { stageId: string }, name: string) => {
-    if ('status' in target && columnOf(t.status) === target.status) return;
     setBusy(t.id);
     try {
       const result = await moveTicketStageAction(t.id, target);
@@ -85,7 +87,8 @@ export function MyWork() {
       setBusy(null);
     }
   };
-  const statusName = (s: TicketStatus) => say(...(COLUMNS.find(([k]) => k === s)!.slice(1) as [string, string]));
+  const columnOf = (t: MyWorkTicket) => columnOfTicket(boardOf(t.projectId), { stage_id: t.stageId, status: t.status as TicketStatus });
+  const columns: StageColumn[] = mergeStageColumns([...new Set(data.tickets.map((t) => t.projectId))].map(boardOf), (p, st) => data.tickets.some((t) => t.projectId === p && t.stageId === st));
   const tick = async (id: string, value: boolean) => {
     const result = await toggleSubtaskAction(id, value).catch(() => ({ error: say('Serveur injoignable.', 'Server unreachable.') }));
     if (result.error) toast('error', result.error);
@@ -100,9 +103,17 @@ export function MyWork() {
     }
     setData({ ...data, mentions: data.mentions.filter((x) => x.id !== m.id) });
   };
-  const drop = (status: TicketStatus) => ({
+  const drop = (column: StageColumn) => ({
     onDragOver: (e: DragEvent) => { if (dragged) e.preventDefault(); },
-    onDrop: (e: DragEvent) => { e.preventDefault(); const t = data.tickets.find((x) => x.id === dragged); setDragged(null); if (t) void move(t, { status }, statusName(status)); },
+    onDrop: (e: DragEvent) => {
+      e.preventDefault();
+      const t = data.tickets.find((x) => x.id === dragged);
+      setDragged(null);
+      if (!t || columnOf(t) === column.key) return;
+      const stage = stageForColumn(boardOf(t.projectId), column.key);
+      if (!stage) { toast('error', say(`Le tableau de ${t.projectName ?? 'ce ticket'} n'a pas d'étape « ${column.name} ».`, `${t.projectName ?? "This ticket"}'s board has no "${column.name}" stage.`)); return; }
+      void move(t, { stageId: stage.id }, stage.name);
+    },
   });
   const capacity = Math.max(1, (data.week?.capacityHours ?? data.load.capacityHours) * 60);
 
@@ -114,7 +125,7 @@ export function MyWork() {
           <LoadBar load={data.load} say={say} />
           <div className="small muted">{data.load.weekCount} {say('ticket(s) cette semaine', 'ticket(s) this week')} · {hoursText(data.load.openHours, say)} {say('restantes au total', 'left in all')} · {say('pondérées par priorité', 'weighted by priority')}</div>
         </div>
-        {data.week && (
+        {data.week && !testMode && ( // [bumex-one] the real week; on the test floor its time is apart (0013)
           <div className="card mw-card">
             <div className="small muted">{say('Mon temps cette semaine', 'My time this week')}</div>
             <div className="mw-big">{minutes(data.week.loggedMinutes)} <span className="small muted">/ {data.week.capacityHours} h</span></div>
@@ -137,13 +148,11 @@ export function MyWork() {
               <div key={t.id} className={`mw-ticket ${busy === t.id ? 'busy' : ''}`}>
                 <span className="wk-keycell"><TypeIcon type={t.type} say={say} /> <button className="linkish mono" onClick={() => ticket(t.id)}>{t.key ?? '—'}</button></span>
                 <button className="linkish mw-title" onClick={() => ticket(t.id)}>{t.title}<span className="small muted"> · {t.projectName ?? '—'}</span></button>
-                <Select className={`stsel mini ${statusTone(t.status)}`} value={columnOf(t.status)} disabled={busy === t.id} onChange={(e) => move(t, { status: e.target.value as TicketStatus }, statusName(e.target.value as TicketStatus))} aria-label={say('État', 'Status')}>
-                  {COLUMNS.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}
-                </Select>
+                <StageSelect ticket={stageTicket(t)} disabled={busy === t.id} onMoved={refresh} />
                 <PriorityIcon priority={t.priority} say={say} />
                 <span className="mw-hours" title={say('Restant / estimation', 'Left / estimate')}>{t.estimatedHours ? `${hoursText(remainingHours({ estimated_hours: t.estimatedHours, logged_minutes: t.loggedMinutes }), say)} / ${hoursText(t.estimatedHours, say)}` : <span className="muted">{say('à estimer', 'to estimate')}</span>}</span>
                 <span className={`mw-due ${t.dueState === 'overdue' ? 'late' : ''}`}>{t.dueDate ? t.dueDate.split('-').reverse().join('/') : '—'}</span>
-                <button className="btn sm ghost" onClick={() => logTime(t)} title={say('Enregistrer du temps', 'Log time')} aria-label={say('Enregistrer du temps', 'Log time')}><Icon name="clock" size={13} /></button>
+                <QuickLogButton ticketId={t.id} onSaved={() => void refresh()} />
               </div>
             ))}
             {!open.length && <div className="small muted mw-empty">{say('Rien ne vous est assigné. Profitez-en !', 'Nothing is assigned to you.')}</div>}
@@ -156,11 +165,12 @@ export function MyWork() {
           </div>
         ) : (
           <div className="kanban">
-            {COLUMNS.map(([status, fr, en]) => {
-              const list = status === 'done' ? done : open.filter((t) => columnOf(t.status) === status);
+            {columns.map((column) => {
+              const list = data.tickets.filter((t) => columnOf(t) === column.key);
+              const status = column.status;
               return (
-                <div className="col" key={status} {...drop(status)} style={{ minWidth: 150 }}>
-                  <h3>{say(fr, en)} <span>{list.length}</span></h3>
+                <div className={`col ${column.archived ? 'archived' : ''}`} key={column.key} {...drop(column)} style={{ minWidth: 150 }}>
+                  <h3>{column.name} <span>{list.length}</span></h3>
                   {list.map((t) => (
                     <div key={t.id} className={`wk-card ${busy === t.id ? 'busy' : ''}`} draggable={busy !== t.id} onDragStart={() => setDragged(t.id)} onDragEnd={() => setDragged(null)} onClick={() => ticket(t.id)}>
                       <div className="wk-card-t">{t.title}</div>
@@ -222,7 +232,7 @@ export function MyWork() {
               <div key={t.id} className="mw-ticket">
                 <span className="wk-keycell"><TypeIcon type={t.type} say={say} /> <span className="mono">{t.key}</span></span>
                 <button className="linkish mw-title" onClick={() => ticket(t.id)}>{t.title}</button>
-                <Lozenge tone={statusTone(t.status)}>{t.stageName ?? label(STATUS[t.status], t.status, say)}</Lozenge>
+                <StageLozenge name={t.stageName} status={t.status} />
                 <Avatar name={t.assigneeName} size={22} />
                 <span className={`mw-due ${t.dueState === 'overdue' ? 'late' : ''}`}>{t.dueDate ? t.dueDate.split('-').reverse().join('/') : '—'}</span>
               </div>

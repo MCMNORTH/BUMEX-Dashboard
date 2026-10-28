@@ -13,8 +13,10 @@ import { MissionBoard } from './Board';
 import { TicketPanel } from './Ticket';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
-import { NO_FILTERS, activeFilterCount, applyFilters, groupTickets, isFiltered, type DueFilter, type GroupBy, type WorkFilters } from './work-filters';
-import { Avatar, Lozenge, PriorityIcon, TypeIcon, hoursText, statusTone, type Tone } from './work-ui';
+import { NO_FILTERS, activeFilterCount, applyFilters, groupTickets, isFiltered, quickFilters, stageFilterKey, type DueFilter, type GroupBy, type WorkFilters } from './work-filters';
+import { Avatar, PriorityIcon, TypeIcon, hoursText } from './work-ui';
+import { StageSelect, stageLabel, useBoardOf, type StageTicket } from './stages';
+import { getActiveStages, getDefaultStage } from '@/lib/tickets/workflow';
 import type { Say } from './ticket-history';
 
 // Vanguard's Tasks room on BUMEX One's tickets (lib/erp/vanguard/tickets.ts), laid out as Jira's (asked on
@@ -24,6 +26,11 @@ import type { Say } from './ticket-history';
 // notifications go out. A ticket opens on its page (vanguard/one/Ticket.tsx).
 
 export type TicketTask = Task & { ticket: TaskTicket };
+// what the stage picker reads of it (stages.tsx)
+export const stageTicketOf = (x: TicketTask): StageTicket => ({
+  id: x.id, projectId: x.ticket.project_id, stageId: x.ticket.stage_id, stageName: x.ticket.stage_name, status: x.ticket.status,
+  assigneeId: x.ticket.assignee_id, reporterId: x.ticket.reporter_id, key: x.ticket.key, title: x.title,
+});
 type View = 'board' | 'list';
 
 const NO_DUE_DATE = '9999-12-31';
@@ -63,14 +70,14 @@ export function TasksRoom({ entityId, initialTab }: { entityId: Id; initialTab?:
   const say = useSay();
   // "board:<mission>" opens that mission's board (the mission card's button, vanguard/one/Missions.tsx)
   const boardFor = initialTab?.startsWith('board:') ? initialTab.slice(6) : null;
-  const legacy = ['open', 'mine', 'overdue', 'done', 'all'].includes(initialTab ?? '');
+  const legacy = ['open', 'mine', 'overdue', 'done', 'all', 'week', 'unassigned', 'unestimated', 'blocked'].includes(initialTab ?? '');
   const [view, setView] = useState<View>(legacy || initialTab === 'list' ? 'list' : 'board');
   const [scope, setScope] = useState<string>(boardFor ?? 'all');
   const [filters, setFiltersState] = useState<WorkFilters>(() => {
     const saved = readFilters(entityId);
     if (initialTab === 'mine') return { ...saved, mine: true };
-    if (initialTab === 'overdue') return { ...saved, due: 'late' };
-    return saved;
+    // a figure of the floor's overview: that list (Overview.tsx)
+    return quickFilters(initialTab, saved, state.tasks.filter((x) => x.entityId === entityId) as TicketTask[]) ?? saved;
   });
   const setFilters = (next: WorkFilters) => { setFiltersState(next); writeFilters(entityId, next); };
   // "ticket:<id>" opens that ticket (BUMEX One's /tickets/<id> links, lib/erp/vanguard/retired.ts)
@@ -78,8 +85,10 @@ export function TasksRoom({ entityId, initialTab }: { entityId: Id; initialTab?:
   const [seenTab, setSeenTab] = useState(initialTab);
   if (initialTab !== seenTab) {
     setSeenTab(initialTab);
+    const quick = quickFilters(initialTab, filters, state.tasks.filter((x) => x.entityId === entityId) as TicketTask[]);
     if (ticketOf(initialTab)) setTicketId(ticketOf(initialTab));
     else if (boardFor) { setView('board'); setScope(boardFor); setTicketId(null); }
+    else if (quick) { setView('list'); setScope('all'); setFiltersState(quick); setTicketId(null); }
   }
   // a ticket picked elsewhere (the search, the week, My day) opens on its page
   const [seenFocus, setSeenFocus] = useState(ui.focusTaskId);
@@ -134,7 +143,14 @@ function Toolbar({ entityId, tickets, filters, setFilters, scope, setScope, coun
     return [...map].sort((a, b) => a[1].localeCompare(b[1], 'fr'));
   }, [tickets]);
   const labels = useMemo(() => [...new Set(tickets.flatMap((x) => x.ticket.labels))].sort((a, b) => a.localeCompare(b, 'fr')), [tickets]);
-  const toggle = <K extends 'people' | 'priorities' | 'types' | 'labels'>(key: K, value: string) =>
+  // the stages in view, by name across the boards (the built-in ones by status), in the boards' order of statuses
+  const stages = useMemo(() => {
+    const order = ['backlog', 'todo', 'in_progress', 'review', 'blocked', 'done'];
+    const map = new Map<string, { name: string; rank: number }>();
+    for (const x of tickets) map.set(stageFilterKey(x), { name: stageLabel(x.ticket.stage_name, x.ticket.status, say), rank: order.indexOf(x.ticket.status) });
+    return [...map].sort((a, b) => a[1].rank - b[1].rank || a[1].name.localeCompare(b[1].name, 'fr'));
+  }, [tickets, say]);
+  const toggle = <K extends 'people' | 'priorities' | 'types' | 'labels' | 'stages'>(key: K, value: string) =>
     setFilters({ ...filters, [key]: filters[key].includes(value) ? filters[key].filter((v) => v !== value) : [...filters[key], value] });
   const shownPeople = people.slice(0, 6);
   const filterCount = activeFilterCount(filters);
@@ -163,8 +179,13 @@ function Toolbar({ entityId, tickets, filters, setFilters, scope, setScope, coun
             <div className="wk-pop-back" onClick={() => setOpen(false)} />
             <div className="wk-pop">
               <label className="wk-check"><input type="checkbox" checked={filters.mine} onChange={(e) => setFilters({ ...filters, mine: e.target.checked })} /> {say('Mes tickets', 'My tickets')}</label>
+              <label className="wk-check"><input type="checkbox" checked={filters.noEstimate} onChange={(e) => setFilters({ ...filters, noEstimate: e.target.checked })} /> {say('Sans estimation', 'No estimate')}</label>
               <div className="wk-pop-h">{say('Échéance', 'Due')}</div>
               <div className="seg-mini">{([['all', say('Toutes', 'All')], ['late', say('En retard', 'Late')], ['week', say('Cette semaine', 'This week')], ['none', say('Sans date', 'No date')]] as [DueFilter, string][]).map(([k, l]) => <button key={k} className={filters.due === k ? 'on' : ''} onClick={() => setFilters({ ...filters, due: k })}>{l}</button>)}</div>
+              {stages.length > 0 && <>
+                <div className="wk-pop-h">{say('État', 'Status')}</div>
+                <div className="wk-tags">{stages.map(([k, st]) => <button key={k} className={`tag ${filters.stages.includes(k) ? 'on' : ''}`} onClick={() => toggle('stages', k)}>{st.name}</button>)}</div>
+              </>}
               <div className="wk-pop-h">{say('Priorité', 'Priority')}</div>
               {Object.keys(PRIORITY).reverse().map((p) => <label key={p} className="wk-check"><input type="checkbox" checked={filters.priorities.includes(p)} onChange={() => toggle('priorities', p)} /> <PriorityIcon priority={p} say={say} /> {label(PRIORITY[p], p, say)}</label>)}
               <div className="wk-pop-h">Type</div>
@@ -251,7 +272,7 @@ function GroupRows({ group, grouped, onOpen, say }: { group: { key: string; labe
           <tr key={x.id} className="click" onClick={() => onOpen(x.id)}>
             <td className="nowrap"><span className="wk-keycell"><TypeIcon type={x.ticket.type} say={say} /> <span className="mono">{x.ticket.key}</span></span></td>
             <td className={x.status === 'done' ? 'wk-done' : ''}>{x.title}</td>
-            <td><Lozenge tone={statusTone(x.ticket.status) as Tone}>{label(STATUS[x.ticket.status], x.ticket.status, say)}</Lozenge></td>
+            <td onClick={(e) => e.stopPropagation()}><StageSelect ticket={stageTicketOf(x)} onMoved={reload} /></td>
             <td><span className="wk-inline"><PriorityIcon priority={x.ticket.priority} say={say} /> {label(PRIORITY[x.ticket.priority], x.ticket.priority, say)}</span></td>
             <td><span className="wk-inline"><Avatar name={x.ticket.assignee_id ? x.assignee : null} size={22} /> {x.ticket.assignee_id ? x.assignee : <span className="muted">{say('Non assigné', 'Unassigned')}</span>}</span></td>
             <td className="num">{est ? hoursText(est, say) : <span className="muted">—</span>}{x.ticket.logged_minutes > 0 && <div className="small muted">{hoursText(x.ticket.logged_minutes / 60, say)} {say('passées', 'spent')}</div>}</td>
@@ -278,6 +299,10 @@ function NewTask({ entityId, missionId, onDone }: { entityId: Id; missionId?: st
   const [type, setType] = useState('task');
   const [estimate, setEstimate] = useState('');
   const [description, setDescription] = useState('');
+  const [stage, setStage] = useState(''); // '' = the board's default stage
+  const pickedProject = (missions.find((m) => m.id === mission) as { projectId?: string } | undefined)?.projectId ?? '';
+  const board = useBoardOf(pickedProject ? [pickedProject] : [])(pickedProject);
+  const startStages = getActiveStages(board).filter((s) => !s.is_completed);
   const [busy, setBusy] = useState(false);
   const [loads, setLoads] = useState<Awaited<ReturnType<typeof peopleLoadsAction>>>({});
   useEffect(() => { void missionOptionsAction().then(setOptions); void peopleLoadsAction().then(setLoads).catch(() => {}); }, []);
@@ -287,7 +312,7 @@ function NewTask({ entityId, missionId, onDone }: { entityId: Id; missionId?: st
     if (!title.trim() || !picked?.projectId) return;
     if (estimate && (Number.isNaN(Number(estimate.replace(',', '.'))) || Number(estimate.replace(',', '.')) < 0)) { toast('error', say('Une estimation est un nombre d’heures.', 'An estimate is a number of hours.')); return; }
     const form = new FormData();
-    for (const [k, v] of Object.entries({ title: title.trim(), description, project_id: picked.projectId, assignee_id: assignee, reporter_id: state.session.userId, priority, type, due_date: dueDate, estimated_hours: estimate.replace(',', '.'), create_another: '1' })) form.set(k, v);
+    for (const [k, v] of Object.entries({ title: title.trim(), description, project_id: picked.projectId, assignee_id: assignee, reporter_id: state.session.userId, priority, type, due_date: dueDate, estimated_hours: estimate.replace(',', '.'), stage_id: startStages.some((s) => s.id === stage) ? stage : '', create_another: '1' })) form.set(k, v);
     setBusy(true);
     try {
       const result = await createTicketAction({}, form);
@@ -311,13 +336,14 @@ function NewTask({ entityId, missionId, onDone }: { entityId: Id; missionId?: st
       ) : (
         <div className="grid4">
           <Field label={say('Résumé', 'Summary')} style={{ gridColumn: 'span 2' }}><input className="in" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('tsk_title_ph')} autoFocus onKeyDown={(e) => e.key === 'Enter' && submit(true)} /></Field>
-          <Field label={say('Mission', 'Mission')} style={{ gridColumn: 'span 2' }}><Select recent="missions" className="in" value={mission} onChange={(e) => setMission(e.target.value)}>{missions.map((m) => <option key={m.id} value={m.id}>{m.code} · {m.name}</option>)}</Select></Field>
+          <Field label={say('Mission', 'Mission')} style={{ gridColumn: 'span 2' }}><Select recent="missions" className="in" value={mission} onChange={(e) => { setMission(e.target.value); setStage(''); }}>{missions.map((m) => <option key={m.id} value={m.id}>{m.code} · {m.name}</option>)}</Select></Field>
           <Field label={say('Assigné', 'Assignee')}><Select recent="people" className="in" value={assignee} onChange={(e) => setAssignee(e.target.value)}><option value="">—</option>{(options?.people ?? []).map((p) => <option key={p.id} value={p.id} data-hint={loads[p.id] ? `${hoursText(loads[p.id].weekHours, say)} / ${hoursText(loads[p.id].capacityHours, say)}` : undefined} data-tone={loads[p.id]?.level}>{p.name}</option>)}</Select></Field>
           <Field label={say('Échéance', 'Due')}><input className="in" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></Field>
           <Field label={say('Priorité', 'Priority')}><Select className="in" value={priority} onChange={(e) => setPriority(e.target.value)}>{Object.entries(PRIORITY).map(([k, [fr, en]]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
           <Field label="Type"><Select className="in" value={type} onChange={(e) => setType(e.target.value)}>{TYPES.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
           <Field label={say('Estimation (h)', 'Estimate (h)')}><input className="in num" value={estimate} onChange={(e) => setEstimate(e.target.value)} placeholder={say('ex. 4', 'e.g. 4')} /></Field>
-          <Field label="Description" style={{ gridColumn: 'span 3' }}><input className="in" value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
+          <Field label={say('Étape', 'Stage')}><Select className="in" value={startStages.some((s) => s.id === stage) ? stage : getDefaultStage(board).id} onChange={(e) => setStage(e.target.value)}>{startStages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field>
+          <Field label="Description" style={{ gridColumn: 'span 2' }}><input className="in" value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
         </div>
       )}
       <div className="actions" style={{ marginTop: 10 }}>

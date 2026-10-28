@@ -1,10 +1,11 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { approveTimesheetWeekAction, approveTimesheetWeeksAction, copyPreviousWeekAction, remindTimesheetWeekAction, returnTimesheetWeekAction, saveTimeAction, setMissionFavoriteAction, submitTimesheetWeekAction } from '@/app/(app)/timesheet/actions';
+import { approveTimesheetWeekAction, approveTimesheetWeeksAction, copyPreviousWeekAction, deleteTimeAction, remindTimesheetWeekAction, returnTimesheetWeekAction, saveTimeAction, setMissionFavoriteAction, submitTimesheetWeekAction } from '@/app/(app)/timesheet/actions';
 import { usePermissions } from '@/hooks/use-permissions';
 import { myTimeAction, teamTimeAction, type MyTime, type TeamTime } from '@/lib/erp/vanguard/time-actions';
 import { floorCode } from '@/lib/erp/vanguard/floors';
 import { addDays } from '@/lib/timesheet/validation';
 import { groupWeeklyEntries, missionKey } from '@/lib/timesheet/weekly';
+import { editDuration, parseDuration } from '@/lib/timesheet/duration';
 import type { TimeEntry, TimeError } from '@/types/timesheet';
 import { useStore } from '../store';
 import { Field, Icon, Tabs } from '../ui/common';
@@ -12,24 +13,13 @@ import type { Say } from './Conversation';
 import { useSay } from './say';
 import { Select, Suggest } from '../ui/Select';
 import { Lozenge, type Tone } from './work-ui';
+import { QuickLog, TIME_ERRORS, pickOf, whatOptions, type Pick } from './QuickLog';
 
-// The "Temps" room: BUMEX One's timesheet in Vanguard, laid out as BUMEX One had it (asked on 2026-10-27). My week: its
-// rhythm and progress against my capacity, my missions day by day in a large grid, favourites, copying last week,
-// sending it for review; an entry may be on one of my tickets, and then counts on it (0012). For the administrator and
+// The "Temps" room: BUMEX One's timesheet in Vanguard (asked on 2026-10-27), made simple on 2026-10-28 (MySheet): my
+// week in one strip, a quick entry, a grid typed into; an entry may be on one of my tickets, and then counts on it (0012). For the administrator and
 // managers, the team's weeks to approve, return, chase or export. Saved with BUMEX One's timesheet actions, in the
 // person's current entity, under its rules (no future day, 24 h a day at most, a sent week is locked).
 
-const ERRORS: Record<TimeError, [string, string]> = {
-  invalid: ['Vérifiez les informations saisies.', 'Please check the entry details.'],
-  duration: ['Saisissez une durée de 1 minute à 24 heures (minutes : 0–59).', 'Enter a duration from 1 minute to 24 hours (minutes: 0–59).'],
-  date: ['Choisissez un jour passé ou aujourd’hui.', 'Choose today or a past day.'],
-  note: ['La note ne doit pas dépasser 1 000 caractères.', 'Keep the note under 1,000 characters.'],
-  mission: ['Indiquez la mission ou tâche (200 caractères au plus).', 'Enter a mission or task (up to 200 characters).'],
-  project: ['Ce projet n’est pas ouvert à votre feuille de temps.', 'This project is not open to your timesheet.'],
-  unavailable: ['Enregistrement impossible ; votre saisie est gardée, réessayez.', 'Could not save; your input is kept, try again.'],
-  conflict: ['Cette saisie a changé ailleurs : rechargez avant de réessayer.', 'This entry changed elsewhere: reload before trying again.'],
-  daily_limit: ['Le total d’une journée ne peut pas dépasser 24 heures.', 'A day cannot total more than 24 hours.'],
-};
 const STATUS: Record<string, [string, string, Tone]> = {
   draft: ['Brouillon', 'Draft', 'todo'],
   submitted: ['Envoyée', 'Submitted', 'review'],
@@ -44,18 +34,6 @@ function useDayLabel() {
   return (date: string, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(lang === 'fr' ? 'fr-FR' : 'en-GB', { ...options, timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`));
 }
 
-function Ring({ value, size = 84 }: { value: number; size?: number }) {
-  const r = (size - 10) / 2;
-  const c = 2 * Math.PI * r;
-  return (
-    <svg className="ts-ring" width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-      <circle cx={size / 2} cy={size / 2} r={r} className="track" />
-      <circle cx={size / 2} cy={size / 2} r={r} className="value" strokeDasharray={c} strokeDashoffset={c * (1 - Math.min(1, value / 100))} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
-      <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle">{Math.round(value)} %</text>
-    </svg>
-  );
-}
-
 function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   return (
     <div className="ts-modal-back" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}>
@@ -67,7 +45,7 @@ function Modal({ title, onClose, children, wide }: { title: string; onClose: () 
   );
 }
 
-function WeekBar({ week, days, today, onWeek, say, children }: { week: string; days: string[]; today: string; onWeek: (w: string) => void; say: Say; children?: ReactNode }) {
+function WeekBar({ week, days, today, onWeek, say, children, simple }: { week: string; days: string[]; today: string; onWeek: (w: string) => void; say: Say; children?: ReactNode; simple?: boolean }) {
   const day = useDayLabel();
   const [go, setGo] = useState('');
   return (
@@ -78,11 +56,11 @@ function WeekBar({ week, days, today, onWeek, say, children }: { week: string; d
         <button className="btn sm" onClick={() => onWeek(addDays(week, 7))} aria-label={say('Semaine suivante', 'Next week')}><Icon name="chevronRight" size={14} /></button>
         {!(today >= week && today <= days[6]) && <button className="btn sm ghost" onClick={() => onWeek(today)}>{say('Cette semaine', 'This week')}</button>}
       </div>
-      <div className="ts-weekacts">
+      {!simple && <div className="ts-weekacts">
         {children}
         <label className="ts-goto small">{say('Aller à la semaine du', 'Go to the week of')}<input className="in mono" type="date" value={go} onChange={(e) => setGo(e.target.value)} /></label>
         <button className="btn sm" disabled={!go} onClick={() => { onWeek(go); setGo(''); }}>{say('Afficher', 'Show')}</button>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -105,8 +83,8 @@ export function TimeRoom({ initialTab }: { initialTab?: string | null }) {
   const [tab, setTab] = useState<'mine' | 'team'>(initialTab === 'team' ? 'team' : 'mine');
   // the administrator and managers review their people's weeks (BUMEX One's rule; the server checks it again)
   const { role } = usePermissions();
-  // on the test floor, the person's test lines alone (0011): no week to send, no review
-  const test = useStore((s) => Boolean(s.state.entities.find((e) => e.id === s.ui.entityId)?.isTest));
+  // on the test floor (test mode, 0013), the person's test lines alone: no week to send, no review
+  const test = useStore((s) => s.state.session.testMode === true || Boolean(s.state.entities.find((e) => e.id === s.ui.entityId)?.isTest));
   const canReview = (role === 'admin' || role === 'manager') && !test;
   return (
     <>
@@ -122,7 +100,15 @@ export function TimeRoom({ initialTab }: { initialTab?: string | null }) {
 }
 
 type Selection = { date: string; projectId: string; mission: string; taskId: string | null; entry?: TimeEntry; entries: TimeEntry[] };
+type Row = { key: string; projectId: string; projectName: string | null; mission: string; taskId: string | null; taskKey: string | null; days: Map<string, TimeEntry[]>; minutes: number };
 
+const focusCell = (row: number, col: number) => (document.querySelector(`[data-cell="${row}-${col}"]`) as HTMLElement | null)?.focus();
+
+// [bumex-one] Ma feuille, made simple (asked on 2026-10-28): the week in one strip (its hours against my capacity, its
+// days, its state and the plain "send" line), the quick entry right under it (QuickLog.tsx), then the week's grid,
+// typed into like a spreadsheet: a cell takes "2", "1h30" or "45min", Enter or Tab saves it, an empty cell removes the
+// line, the arrows move; a cell with several lines opens them. "+ Ajouter une ligne" adds a ticket or a mission to
+// the grid. On a phone, the days as a list.
 function MySheet({ log, test }: { log: { projectId: string; mission: string; taskId: string | null } | null; test: boolean }) {
   const say = useSay();
   const { toast } = useStore();
@@ -131,9 +117,12 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
   const [data, setData] = useState<MyTime | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [opened, setOpened] = useState(!log);
-  const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<'copy' | 'submit' | null>(null);
+  const [override, setOverride] = useState<Record<string, number>>({}); // cells being saved, shown at once
+  const [extra, setExtra] = useState<Pick[]>([]); // lines added to the grid, not saved yet
+  const [adding, setAdding] = useState<{ what: string; label: string } | null>(null);
+  const [quick, setQuick] = useState<{ date?: string; ticketId?: string | null; n: number }>({ ticketId: log?.taskId ?? null, n: 0 });
 
   useEffect(() => {
     let live = true;
@@ -145,29 +134,31 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
   }, [week, test]);
 
   if (!data) return <span className="muted">{say('Chargement…', 'Loading…')}</span>;
-  // the entry asked for from a ticket, once the week is read (if the project is open to the person's timesheet)
+  // a line asked for from a mission without a ticket opens the full editor once the week is read
   if (!opened) {
     setOpened(true);
-    if (log && data.projects.some((p) => p.id === log.projectId) && !(data.weekStatus && data.weekStatus.status !== 'returned')) setSelection({ date: data.today, projectId: log.projectId, mission: log.mission, taskId: log.taskId, entries: [] });
+    if (log && !log.taskId && data.projects.some((p) => p.id === log.projectId) && !(data.weekStatus && data.weekStatus.status !== 'returned')) setSelection({ date: data.today, projectId: log.projectId, mission: log.mission, taskId: null, entries: [] });
   }
   const refresh = async () => setData(await myTimeAction(data.week, data.test));
   const { days, today } = data;
-  const visible = filter ? data.entries.filter((e) => e.project_id === filter) : data.entries;
-  const groups = groupWeeklyEntries(visible);
-  const daily = days.map((d) => visible.filter((e) => e.work_date === d).reduce((s, e) => s + e.duration_minutes, 0));
+  const projectName = new Map(data.projects.map((p) => [p.id, p.name]));
+  const rows: Row[] = groupWeeklyEntries(data.entries).map((g) => {
+    const all = [...g.days.values()].flat();
+    return { ...g, taskId: all.find((e) => e.task_id)?.task_id ?? null, taskKey: all.find((e) => e.task_key)?.task_key ?? null };
+  });
+  for (const x of extra) {
+    if (!rows.some((r) => r.key === missionKey(x.projectId, x.mission))) rows.push({ key: missionKey(x.projectId, x.mission), projectId: x.projectId, projectName: projectName.get(x.projectId) ?? null, mission: x.mission, taskId: x.taskId, taskKey: data.tickets.find((t) => t.id === x.taskId)?.key ?? null, days: new Map(), minutes: 0 });
+  }
+  const cellMinutes = (r: Row, d: string) => override[`${r.key}|${d}`] ?? (r.days.get(d) ?? []).reduce((s, e) => s + e.duration_minutes, 0);
+  const daily = days.map((d) => rows.reduce((s, r) => s + cellMinutes(r, d), 0));
   const total = daily.reduce((s, m) => s + m, 0);
   const capacity = Math.max(data.capacityHours, 1) * 60;
   const completion = Math.min(100, Math.round((total / capacity) * 100));
-  const workedDays = daily.filter((m) => m > 0).length;
   const locked = Boolean(data.weekStatus && data.weekStatus.status !== 'returned');
   const allowed = new Set(data.projects.map((p) => p.id));
-  const projectName = new Map(data.projects.map((p) => [p.id, p.name]));
-  for (const e of data.entries) if (!projectName.has(e.project_id)) projectName.set(e.project_id, e.project?.name ?? say('Projet non accessible', 'Unavailable project'));
-  const defaultDate = today >= data.week && today <= days[6] ? today : data.week;
   const status = data.weekStatus?.status ?? 'draft';
-  const keyOf = (g: { days: Map<string, TimeEntry[]> }) => [...g.days.values()].flat().find((e) => e.task_key)?.task_key ?? null;
-  const taskOf = (g: { days: Map<string, TimeEntry[]> }) => [...g.days.values()].flat().find((e) => e.task_id)?.task_id ?? null;
   const canAdd = data.projects.length > 0 && data.week <= today && !locked;
+  const canSend = total > 0 && !data.test && (!data.weekStatus || data.weekStatus.status === 'returned');
 
   const submit = async () => {
     setBusy(true);
@@ -187,40 +178,146 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
     else toast('ok', say(`${result.count} saisie(s) reprise(s)`, `${result.count} entr(ies) copied`));
     await refresh();
   };
+  // a typed cell: a new line, the line changed, or removed (0); shown at once, put back if refused
+  const commitCell = async (row: Row, date: string, value: number) => {
+    const cell = row.days.get(date) ?? [];
+    const key = `${row.key}|${date}`;
+    setOverride((o) => ({ ...o, [key]: value }));
+    const split = { hours: String(Math.floor(value / 60)), minutes: String(value % 60) };
+    try {
+      const one = cell[0];
+      const result = one
+        ? value === 0
+          ? await deleteTimeAction(one.id, one.updated_at, data.test)
+          : await saveTimeAction({ id: one.id, project_id: one.project_id, mission: one.mission, work_date: date, ...split, note: one.note ?? '', task_id: one.task_id ?? null, updated_at: one.updated_at }, data.test)
+        : value > 0
+          ? await saveTimeAction({ id: crypto.randomUUID(), project_id: row.projectId, mission: row.mission, work_date: date, ...split, note: '', task_id: row.taskId }, data.test)
+          : ({ success: true } as const);
+      if ('error' in result) toast('error', say(...TIME_ERRORS[result.error]));
+      await refresh();
+    } catch {
+      toast('error', say(...TIME_ERRORS.unavailable));
+    } finally {
+      setOverride((o) => { const next = { ...o }; delete next[key]; return next; });
+    }
+  };
+  const addLine = () => {
+    if (!adding) return;
+    const pick = pickOf(adding.what, data);
+    const mission = pick ? pick.mission || adding.label.trim().slice(0, 200) : '';
+    if (!pick || !mission) return;
+    setExtra([...extra, { ...pick, mission }]);
+    setAdding(null);
+    window.setTimeout(() => focusCell(rows.length, Math.max(0, days.indexOf(today >= data.week && today <= days[6] ? today : data.week))), 50);
+  };
+  const addingPick = adding ? pickOf(adding.what, data) : null;
 
   return (
-    <div className="ts">
-      <section className="ts-hero">
-        <div className="ts-hero-t">
-          <div className="ts-kicker">{say('Mon rythme · cette semaine', 'My rhythm · this week')}</div>
-          <h1>{say('Feuille de temps', 'Timesheet')}</h1>
-          <p>{say('Répartissez simplement votre temps entre vos missions et vos tickets, et gardez le fil de la semaine.', 'Split your time across your missions and tickets, and keep the week on track.')}</p>
+    <div className="ts ts-simple">
+      <section className="ts-strip">
+        <WeekBar week={data.week} days={days} today={today} onWeek={(w) => { setSelection(null); setExtra([]); setWeek(w); }} say={say} simple />
+        <div className="ts-strip-sum">
+          <div className="ts-strip-total"><b>{duration(total)}</b> <span className="muted">/ {data.capacityHours} h</span></div>
+          <div className="ts-strip-bar" title={`${completion} %`}><i style={{ width: `${completion}%` }} /></div>
+          <div className="ts-strip-days" aria-hidden="true">
+            {daily.map((m, i) => <span key={days[i]} className={`${days[i] === today ? 'today' : ''} ${m ? 'on' : ''}`} title={`${day(days[i], { weekday: 'long' })} · ${m ? duration(m) : '0 h'}`}><i style={{ height: `${m ? Math.max(20, Math.min(100, Math.round((m / 480) * 100))) : 8}%` }} /><b>{day(days[i], { weekday: 'narrow' })}</b></span>)}
+          </div>
         </div>
-        <div className="ts-hero-r">
-          <Ring value={completion} />
-          <div><div className="ts-total">{duration(total)}</div><div className="ts-cap">{say(`sur ${data.capacityHours} h de capacité`, `of ${data.capacityHours} h capacity`)}</div></div>
+        <div className="ts-strip-act">
           {data.weekStatus && <span className={`ts-pill ${status}`}>{say(STATUS[status][0], STATUS[status][1])}</span>}
-          <button className="btn primary" disabled={!canAdd} onClick={() => setSelection({ date: defaultDate, projectId: '', mission: '', taskId: null, entries: [] })}><Icon name="plus" size={14} /> {say('Ajouter une mission', 'Add a mission')}</button>
+          {canSend && <span className="small">{say(`Vous avez saisi ${duration(total)} sur ${data.capacityHours} h`, `You logged ${duration(total)} of ${data.capacityHours} h`)}</span>}
+          {canSend && <button className="btn sm primary" disabled={busy} onClick={() => setConfirm('submit')}>{data.weekStatus?.status === 'returned' ? say('Renvoyer la semaine', 'Resubmit the week') : say('Envoyer la semaine', 'Send the week')}</button>}
+          {!data.entries.length && data.week <= today && !locked && <button className="btn sm" disabled={busy} onClick={() => setConfirm('copy')}>{say('Reprendre la semaine précédente', 'Copy the previous week')}</button>}
         </div>
       </section>
 
-      <WeekBar week={data.week} days={days} today={today} onWeek={(w) => { setSelection(null); setWeek(w); }} say={say}>
-        {total > 0 && !data.test && (!data.weekStatus || data.weekStatus.status === 'returned') && <button className="btn sm primary" disabled={busy} onClick={() => setConfirm('submit')}>{data.weekStatus?.status === 'returned' ? say('Renvoyer la semaine', 'Resubmit the week') : say('Envoyer la semaine', 'Submit the week')}</button>}
-        {!data.entries.length && data.week <= today && !locked && <button className="btn sm" disabled={busy} onClick={() => setConfirm('copy')}>{say('Reprendre la semaine précédente', 'Copy the previous week')}</button>}
-      </WeekBar>
-
       {data.test && <div className="banner info">{say("Temps de l'étage de test : à part de votre feuille réelle. Il ne s'envoie pas et n'est compté nulle part ailleurs.", 'Test floor time: apart from your real timesheet. It is not sent and counts nowhere else.')}</div>}
       {data.weekStatus?.status === 'returned' && <div className="banner warn"><b>{say('Cette feuille vous a été retournée pour correction.', 'This timesheet was returned for changes.')}</b>{data.weekStatus.review_note ? <div>{data.weekStatus.review_note}</div> : null}</div>}
+      {locked && <div className="banner info small">{say('Semaine envoyée : elle est verrouillée jusqu’à sa validation ou son retour.', 'Week sent: it is locked until it is approved or returned.')}</div>}
 
-      <div className="ts-kpis">
-        <div className="ts-kpi"><div><div className="l">{say('Temps déclaré', 'Time logged')}</div><div className="v">{duration(total)}</div></div><span className="ic"><Icon name="clock" size={18} /></span></div>
-        <div className="ts-kpi"><div><div className="l">{say('Missions actives', 'Active missions')}</div><div className="v">{groups.length}</div></div><span className="ic"><Icon name="missions" size={18} /></span></div>
-        <div className="ts-kpi good"><div><div className="l">{say('Jours renseignés', 'Days logged')}</div><div className="v">{workedDays} / 7</div></div><span className="ic"><Icon name="calendar" size={18} /></span></div>
-      </div>
+      {data.week <= today && (
+        <section className="ts-panel ql-panel">
+          <h2>{say('Saisie rapide', 'Quick entry')}</h2>
+          <QuickLog key={quick.n} data={data} ticketId={quick.ticketId} date={quick.date} say={say} onSaved={async (d) => { if (d < data.week || d > days[6]) setWeek(d); else await refresh(); }} />
+        </section>
+      )}
+
+      <section className="ts-panel flush ts-gridpanel">
+        <div className="ts-gridwrap" role="region" aria-label={say('Ma semaine, défilement horizontal', 'My week, scroll horizontally')}>
+          <table className="ts-grid">
+            <thead>
+              <tr>
+                <th className="ts-first">{say('Mission · tâche', 'Mission · task')}</th>
+                {days.map((d, i) => <th key={d} className={`${i >= 5 ? 'we' : ''} ${d === today ? 'today' : ''}`}><span className="dn">{day(d, { weekday: 'short' })}</span><span className="dd">{day(d, { day: 'numeric' })}</span></th>)}
+                <th className="ts-tot">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, ri) => (
+                <tr key={r.key}>
+                  <th scope="row" className="ts-first"><div className="ts-mission"><span className="stripe" style={{ background: STRIPES[ri % STRIPES.length] }} /><div><p>{r.taskKey && <span className="ts-tkey">{r.taskKey}</span>}{(r.taskKey && r.mission.startsWith(`${r.taskKey} · `) ? r.mission.slice(r.taskKey.length + 3) : r.mission) || say('Mission à préciser', 'Unspecified mission')}</p><span className="small muted">{r.projectName ?? say('Projet non accessible', 'Unavailable project')}</span></div></div></th>
+                  {days.map((d, i) => {
+                    const cell = r.days.get(d) ?? [];
+                    return (
+                      <td key={d} className={`${i >= 5 ? 'we' : ''} ${d === today ? 'today' : ''}`}>
+                        <TimeCell row={ri} col={i} minutes={cellMinutes(r, d)} lines={cell.length} saving={`${r.key}|${d}` in override} can={d <= today && allowed.has(r.projectId) && !locked} future={d > today} say={say}
+                          label={`${r.mission || '—'} — ${day(d, { weekday: 'long', day: 'numeric', month: 'long' })}`}
+                          onCommit={(value) => commitCell(r, d, value)}
+                          onMany={() => setSelection({ date: d, projectId: r.projectId, mission: r.mission, taskId: r.taskId, entries: cell, entry: cell[0] })} />
+                      </td>
+                    );
+                  })}
+                  <td className="ts-tot"><b>{duration(days.reduce((s, d) => s + cellMinutes(r, d), 0))}</b></td>
+                </tr>
+              ))}
+              {canAdd && (
+                <tr className="ts-addrow">
+                  <th className="ts-first" colSpan={adding ? 9 : 1}>
+                    {!adding ? <button className="linkish" onClick={() => setAdding({ what: '', label: '' })}><Icon name="plus" size={13} /> {say('Ajouter une ligne', 'Add a line')}</button> : (
+                      <div className="ts-addline">
+                        <Select className="in" value={adding.what} onChange={(e) => setAdding({ ...adding, what: e.target.value })} aria-label={say('Ticket ou mission', 'Ticket or mission')}>
+                          <option value="">{say('Un ticket ou une mission…', 'A ticket or a mission…')}</option>
+                          {whatOptions(data, say)}
+                        </Select>
+                        {addingPick && !addingPick.mission && <input className="in" autoFocus value={adding.label} maxLength={200} onChange={(e) => setAdding({ ...adding, label: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && addLine()} placeholder={say('Ce que vous avez fait', 'What you did')} />}
+                        <button className="btn sm primary" disabled={!addingPick || !(addingPick.mission || adding.label.trim())} onClick={addLine}>{say('Ajouter', 'Add')}</button>
+                        <button className="btn sm ghost" onClick={() => setAdding(null)}>{say('Annuler', 'Cancel')}</button>
+                      </div>
+                    )}
+                  </th>
+                  {!adding && <td colSpan={8} className="small muted ts-addhint">{say('Cliquez une case et tapez 2, 1h30 ou 45min, puis Entrée. Une case vidée retire la saisie.', 'Click a cell and type 2, 1h30 or 45min, then Enter. Clearing a cell removes the entry.')}</td>}
+                </tr>
+              )}
+              {!rows.length && !canAdd && <tr><td colSpan={9} className="small muted" style={{ padding: 16 }}>{locked ? say('Semaine verrouillée.', 'Week locked.') : say('Aucune saisie cette semaine.', 'No entry this week.')}</td></tr>}
+            </tbody>
+            {rows.length > 0 && <tfoot><tr><th className="ts-first">{say('Total par jour', 'Total per day')}</th>{daily.map((m, i) => <td key={days[i]} className={i >= 5 ? 'we' : ''}>{m ? duration(m) : '—'}</td>)}<td className="ts-tot"><b>{duration(total)}</b></td></tr></tfoot>}
+          </table>
+        </div>
+      </section>
+
+      <section className="ts-daylist" aria-label={say('Ma semaine, jour par jour', 'My week, day by day')}>
+        {days.filter((d) => d <= today).map((d) => {
+          const lines = data.entries.filter((e) => e.work_date === d);
+          return (
+            <div key={d} className={`ts-dl-day ${d === today ? 'today' : ''}`}>
+              <div className="ts-dl-h">
+                <b>{day(d, { weekday: 'long', day: 'numeric', month: 'short' })}</b>
+                <span className="muted">{duration(lines.reduce((s, e) => s + e.duration_minutes, 0))}</span>
+                {canAdd && <button className="btn sm" onClick={() => { setQuick({ date: d, ticketId: null, n: quick.n + 1 }); window.scrollTo({ top: 0, behavior: 'smooth' }); document.querySelector<HTMLElement>('.ql-panel')?.scrollIntoView({ behavior: 'smooth' }); }} aria-label={say('Ajouter du temps ce jour', 'Add time that day')}><Icon name="plus" size={13} /></button>}
+              </div>
+              {lines.map((e) => (
+                <button key={e.id} className="ts-dl-e" disabled={locked} onClick={() => setSelection({ date: d, projectId: e.project_id, mission: e.mission, taskId: e.task_id ?? null, entries: [e], entry: e })}>
+                  <span>{e.mission}<span className="small muted"> · {e.project?.name ?? '—'}</span></span><b>{duration(e.duration_minutes)}</b>
+                </button>
+              ))}
+            </div>
+          );
+        })}
+      </section>
 
       {data.events.length > 0 && (
-        <section className="ts-panel">
-          <div className="ts-panel-h"><div><h2>{say('Suivi de ma feuille', 'My timesheet progress')}</h2><p className="small muted">{say('Toutes les étapes de validation cette semaine.', 'Every approval step this week.')}</p></div><span className="ts-count">{data.events.length} {say('étape(s)', 'step(s)')}</span></div>
+        <details className="ts-panel ts-events-fold">
+          <summary><b>{say('Suivi de ma feuille', 'My timesheet progress')}</b> <span className="small muted">· {data.events.length} {say('étape(s)', 'step(s)')}</span></summary>
           <div className="ts-events">
             {data.events.map((e) => (
               <article key={e.id} className={`ts-event ${e.status}`}>
@@ -230,105 +327,74 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
               </article>
             ))}
           </div>
-        </section>
+        </details>
       )}
 
-      <section className="ts-panel">
-        <div className="ts-panel-h"><div><h2>{say('Rythme de la semaine', 'Weekly rhythm')}</h2><p className="small muted">{say('La hauteur indique le temps déclaré chaque jour.', 'Bar height shows the time logged each day.')}</p></div><span className={`ts-count ${completion >= 100 ? 'good' : ''}`}>{completion >= 100 ? say('Semaine complétée', 'Week complete') : say(`${100 - completion} % restant`, `${100 - completion}% remaining`)}</span></div>
-        <div className="ts-rhythm">
-          {daily.map((m, i) => (
-            <div key={days[i]} className={`ts-day ${days[i] === today ? 'today' : ''}`}>
-              <div className="ts-barwrap"><div className={`ts-bar ${m ? 'on' : ''}`} style={{ height: `${m ? Math.max(18, Math.min(100, Math.round((m / 480) * 100))) : 6}%` }} title={m ? duration(m) : '0 h'} /></div>
-              <span>{day(days[i], { weekday: 'short' })}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {data.favorites.length > 0 && (
-        <section className="ts-favs">
-          <div><h2><span aria-hidden="true">★</span> {say('Missions favorites', 'Favourite missions')}</h2><p className="small muted">{say('Ajoutez du temps sans rechercher la mission.', 'Log time without searching for the mission.')}</p></div>
-          {data.favorites.map((f) => (
-            <button key={missionKey(f.project_id, f.mission)} disabled={!canAdd} onClick={() => setSelection({ date: defaultDate, projectId: f.project_id, mission: f.mission, taskId: null, entries: [] })}>
-              <b>{f.mission}</b><span>{projectName.get(f.project_id)}</span>
-            </button>
-          ))}
-        </section>
-      )}
-
-      <section className="ts-panel flush">
-        <div className="ts-panel-h pad"><div><h2>{say('Mes missions de la semaine', 'My missions this week')}</h2><p className="small muted">{say('Cliquez sur une case pour saisir ou modifier une durée.', 'Click a cell to add or edit a duration.')}</p></div>
-          <Select className="in" style={{ width: 240 }} value={filter} onChange={(e) => setFilter(e.target.value)} aria-label={say('Filtrer par projet', 'Filter by project')}>
-            <option value="">{say('Tous les projets', 'All projects')}</option>{[...projectName].map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-          </Select>
-        </div>
-        <div className="ts-gridwrap" tabIndex={0} role="region" aria-label={say('Calendrier de la semaine, défilement horizontal', 'Weekly calendar, scroll horizontally')}>
-          <table className="ts-grid">
-            <thead>
-              <tr>
-                <th className="ts-first">{say('Mission · tâche', 'Mission · task')}</th>
-                {days.map((d, i) => <th key={d} className={`${i >= 5 ? 'we' : ''} ${d === today ? 'today' : ''}`}><span className="dn">{day(d, { weekday: 'short' })}</span><span className="dd">{day(d, { day: 'numeric' })}</span></th>)}
-                <th className="ts-tot">Total</th><th className="ts-days">{say('Jours', 'Days')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((g, gi) => {
-                const key = keyOf(g);
-                return (
-                  <tr key={g.key}>
-                    <th scope="row" className="ts-first"><div className="ts-mission"><span className="stripe" style={{ background: STRIPES[gi % STRIPES.length] }} /><div><p>{key && <span className="ts-tkey">{key}</span>}{(key && g.mission.startsWith(`${key} · `) ? g.mission.slice(key.length + 3) : g.mission) || say('Mission à préciser', 'Unspecified mission')}</p><span className="small muted">{g.projectName ?? say('Projet non accessible', 'Unavailable project')}</span></div></div></th>
-                    {days.map((d, i) => {
-                      const cell = g.days.get(d) ?? [];
-                      const minutes = cell.reduce((s, e) => s + e.duration_minutes, 0);
-                      const can = d <= today && allowed.has(g.projectId) && !locked;
-                      return (
-                        <td key={d} className={`${i >= 5 ? 'we' : ''} ${d === today ? 'today' : ''}`}>
-                          <button className={`ts-cell ${minutes ? 'on' : ''}`} disabled={!can}
-                            aria-label={`${g.mission || '—'} — ${day(d, { weekday: 'long', day: 'numeric', month: 'long' })} — ${minutes ? duration(minutes) : say('Ajouter du temps', 'Add time')}`}
-                            onClick={() => setSelection({ date: d, projectId: g.projectId, mission: g.mission, taskId: taskOf(g), entries: cell, entry: cell.length === 1 ? cell[0] : undefined })}>
-                            {minutes ? <><b>{duration(minutes)}</b>{cell.length > 1 && <span className="small">{cell.length} {say('saisies', 'entries')}</span>}</> : d > today ? '—' : <Icon name="plus" size={15} />}
-                          </button>
-                        </td>
-                      );
-                    })}
-                    <td className="ts-tot"><b>{duration(g.minutes)}</b></td>
-                    <td className="ts-days"><b>{g.days.size}</b></td>
-                  </tr>
-                );
-              })}
-              {!groups.length && (
-                <tr><td colSpan={10}>
-                  <div className="ts-empty">
-                    <h3>{say('Votre semaine est prête', 'Your week is ready')}</h3>
-                    <p className="small muted">{say('Ajoutez votre première mission et indiquez le temps consacré chaque jour.', 'Add your first mission and the time spent each day.')}</p>
-                    {canAdd && <button className="btn sm primary" onClick={() => setSelection({ date: defaultDate, projectId: '', mission: '', taskId: null, entries: [] })}><Icon name="plus" size={13} /> {say('Ajouter une mission', 'Add a mission')}</button>}
-                    {locked && <p className="small muted">{say('Semaine verrouillée', 'Week locked')}</p>}
-                  </div>
-                </td></tr>
-              )}
-            </tbody>
-            {groups.length > 0 && <tfoot><tr><th className="ts-first">{say('Total par jour', 'Total per day')}</th>{daily.map((m, i) => <td key={days[i]} className={i >= 5 ? 'we' : ''}>{m ? duration(m) : '—'}</td>)}<td className="ts-tot"><b>{duration(total)}</b></td><td className="ts-days">{workedDays}</td></tr></tfoot>}
-          </table>
-        </div>
-        <p className="small muted pad">{say('Les totaux portent sur la semaine affichée. Un jour est compté une seule fois par mission, même avec plusieurs saisies.', 'Totals cover the week shown. A day counts once per mission, even with several entries.')}</p>
-      </section>
-
-      {selection && <EntryEditor data={data} selection={selection} onPick={(entry) => setSelection({ ...selection, entry, projectId: entry.project_id, mission: entry.mission, taskId: entry.task_id ?? null })} onClose={() => setSelection(null)} onSaved={async () => { setSelection(null); toast('ok', say('Temps enregistré. Le calendrier et les totaux sont à jour.', 'Time saved. The calendar and totals are up to date.')); await refresh(); }} say={say} />}
+      {selection && <EntryEditor data={data} selection={selection} onPick={(entry) => setSelection({ ...selection, entry, projectId: entry.project_id, mission: entry.mission, taskId: entry.task_id ?? null })} onClose={() => setSelection(null)} onSaved={async () => { setSelection(null); toast('ok', say('Temps enregistré.', 'Time saved.')); await refresh(); }} say={say} />}
       {confirm === 'copy' && (
         <Modal title={say('Reprendre la semaine précédente ?', 'Copy the previous week?')} onClose={() => setConfirm(null)}>
           <p className="small">{say('Les missions, durées et notes de la semaine précédente seront copiées sur les mêmes jours cette semaine. Vous pourrez ensuite tout modifier.', "The previous week's missions, durations and notes are copied to the same days this week. You can change everything afterwards.")}</p>
-          <p className="small muted">{say('Cette action est disponible uniquement parce que cette semaine est encore vide.', 'This is offered only because this week is still empty.')}</p>
           <div className="actions"><button className="btn sm" onClick={() => setConfirm(null)}>{say('Annuler', 'Cancel')}</button><button className="btn sm primary" disabled={busy} onClick={copy}>{busy ? say('Copie…', 'Copying…') : say('Copier la semaine', 'Copy the week')}</button></div>
         </Modal>
       )}
       {confirm === 'submit' && (
         <Modal title={say('Envoyer cette semaine ?', 'Send this week?')} onClose={() => setConfirm(null)}>
-          <p className="small">{say('Après l’envoi, la feuille sera verrouillée et prête à être contrôlée par un responsable.', 'Once sent, the timesheet is locked and ready for a manager to review.')}</p>
-          <div className="ts-sum"><div><b>{duration(total)}</b><span>{say('déclaré', 'logged')}</span></div><div><b>{groups.length}</b><span>{say('missions', 'missions')}</span></div><div><b>{workedDays}</b><span>{say('jours', 'days')}</span></div></div>
-          <div className="actions"><button className="btn sm" onClick={() => setConfirm(null)}>{say('Annuler', 'Cancel')}</button><button className="btn sm primary" disabled={busy} onClick={submit}>{busy ? say('Envoi…', 'Sending…') : say('Confirmer l’envoi', 'Confirm')}</button></div>
+          <p className="small">{say(`Vous avez saisi ${duration(total)} sur ${data.capacityHours} h. Une fois envoyée, la semaine est verrouillée jusqu’à sa validation.`, `You logged ${duration(total)} of ${data.capacityHours} h. Once sent, the week is locked until it is approved.`)}</p>
+          <div className="actions"><button className="btn sm" onClick={() => setConfirm(null)}>{say('Annuler', 'Cancel')}</button><button className="btn sm primary" disabled={busy} onClick={submit}>{busy ? say('Envoi…', 'Sending…') : say('Envoyer', 'Send')}</button></div>
         </Modal>
       )}
     </div>
+  );
+}
+
+// A cell of the week you type into: "2", "1h30", "45min"; Enter or Tab saves, Échap cancels, an empty cell removes the
+// line; the arrows move between cells, and typing on a cell starts editing it. A cell with several lines opens them.
+function TimeCell({ row, col, minutes, lines, saving, can, future, label, onCommit, onMany, say }: {
+  row: number; col: number; minutes: number; lines: number; saving: boolean; can: boolean; future: boolean; label: string;
+  onCommit: (minutes: number) => void | Promise<void>; onMany: () => void; say: Say;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const [bad, setBad] = useState(false);
+  const start = (initial?: string) => {
+    if (!can || saving) return;
+    if (lines > 1) { onMany(); return; }
+    setText(initial ?? editDuration(minutes));
+    setBad(false);
+  };
+  const commit = (then?: [number, number]) => {
+    if (text === null) return true;
+    const typed = text.trim();
+    const value = typed === '' || typed === '0' ? 0 : parseDuration(typed);
+    if (value === null) { setBad(true); return false; }
+    setText(null);
+    if (value !== minutes) void onCommit(value);
+    if (then) window.setTimeout(() => focusCell(row + then[0], col + then[1]), 0);
+    return true;
+  };
+  const arrows: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+  if (text !== null) {
+    return (
+      <input className={`ts-cellin ${bad ? 'bad' : ''}`} autoFocus value={text} aria-label={label} title={bad ? say('Ex. 2, 1h30, 45min', 'E.g. 2, 1h30, 45min') : undefined}
+        onFocus={(e) => e.currentTarget.select()} onChange={(e) => { setText(e.target.value); setBad(false); }} onBlur={() => { if (!commit()) setText(null); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); commit([1, 0]); }
+          else if (e.key === 'Tab') { if (!commit()) e.preventDefault(); }
+          else if (e.key === 'Escape') { e.stopPropagation(); setText(null); window.setTimeout(() => focusCell(row, col), 0); }
+          else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); commit(arrows[e.key]); }
+        }} />
+    );
+  }
+  return (
+    <button className={`ts-cell ${minutes ? 'on' : ''} ${saving ? 'saving' : ''}`} disabled={!can && !minutes} data-cell={`${row}-${col}`}
+      aria-label={`${label} — ${minutes ? duration(minutes) : say('Ajouter du temps', 'Add time')}`}
+      onClick={() => start()}
+      onKeyDown={(e) => {
+        if (arrows[e.key]) { e.preventDefault(); focusCell(row + arrows[e.key][0], col + arrows[e.key][1]); }
+        else if (/^[0-9]$/.test(e.key)) { e.preventDefault(); start(e.key); }
+        else if ((e.key === 'Backspace' || e.key === 'Delete') && minutes && lines === 1 && can) { e.preventDefault(); void onCommit(0); }
+      }}>
+      {minutes ? <><b>{duration(minutes)}</b>{lines > 1 && <span className="small">{lines} {say('saisies', 'entries')}</span>}</> : future ? '—' : <span className="ts-cell-plus">+</span>}
+    </button>
   );
 }
 
@@ -393,7 +459,7 @@ function EntryEditor({ data, selection, onPick, onClose, onSaved, say }: { data:
       )}
       {linked && <div className="banner info small">{say('Ce temps comptera sur le ticket', 'This time counts on the ticket')} <b>{ticketLabel(linked)}</b>.</div>}
       <Field label={say('Détail du travail (facultatif)', 'Work details (optional)')}><textarea className="in" style={{ height: 70, padding: 8 }} maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
-      {error && <div className="banner crit">{say(...ERRORS[error])}</div>}
+      {error && <div className="banner crit">{say(...TIME_ERRORS[error])}</div>}
       <div className="actions">
         {projectId && mission.trim() && !data.test && <button className="btn sm ghost" style={{ marginRight: 'auto' }} onClick={toggleFavorite}>{favorite ? say('★ Retirer des favoris', '★ Remove from favourites') : say('☆ Ajouter aux favoris', '☆ Add to favourites')}</button>}
         <button className="btn sm" onClick={onClose} disabled={saving}>{say('Annuler', 'Cancel')}</button>

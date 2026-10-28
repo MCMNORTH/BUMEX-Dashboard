@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { canOpenRoom } from '@bumex/domain';
 import { useStore } from '../store';
 import type { Room } from '../i18n';
 import { AccountingPanel } from './panels/Accounting';
@@ -15,6 +14,7 @@ import { MyDay } from '../one/MyDay'; // [bumex-one] the home's panel
 import { MyWorkRoom } from '../one/MyWork'; // [bumex-one] everything the person has to do
 import { TimeRoom } from '../one/Time'; // [bumex-one]
 import { Inbox } from '../one/Inbox'; // [bumex-one]
+import { OverviewRoom } from '../one/Overview'; // [bumex-one] the floor's overview
 import { ArchivesPanel } from './panels/Archives';
 import { ReportsPanel } from './panels/Reports';
 import { SettingsPanel } from './panels/Settings';
@@ -39,6 +39,7 @@ export function RoomContent({ room, entityId, tab, compact }: { room: Room; enti
     case 'mywork': return <MyWorkRoom />; // [bumex-one]
     case 'time': return <TimeRoom initialTab={tab} />; // [bumex-one] BUMEX One's timesheet
     case 'inbox': return <Inbox />; // [bumex-one] BUMEX One's notifications
+    case 'overview': return <OverviewRoom entityId={entityId} initialTab={tab} />; // [bumex-one] the floor at a glance
   }
 }
 
@@ -65,16 +66,22 @@ export function Sheet() {
 }
 
 // Flat mode: the same panels as full pages; the rail carries the floors and the modules.
-// [bumex-one] the test floor (the basement, 0011) says so on every room: what is done there stays there
+// [bumex-one] the test floor (the basement, 0011) says so on every room: what is done there stays there. In test mode
+// (0013) every room shows only test data, the cross-floor ones too (My day, My work…): the banner says so, with the way out.
 function TestFloorBanner({ entityId }: { entityId: string }) {
-  const test = useStore((s) => Boolean(s.state.entities.find((e) => e.id === entityId)?.isTest));
+  const test = useStore((s) => s.state.session.testMode === true || Boolean(s.state.entities.find((e) => e.id === entityId)?.isTest));
+  const home = useStore((s) => s.state.entities.find((e) => !e.isTest && e.code === 'AUD')?.id ?? s.state.entities.find((e) => !e.isTest && !e.isHolding)?.id);
   const fr = useStore((s) => s.ui.lang === 'fr');
+  const setUi = useStore((s) => s.setUi);
   if (!test) return null;
   return (
-    <div className="banner warn" role="note" style={{ margin: '0 0 10px' }}>
-      <b>{fr ? 'Étage de test (sous-sol)' : 'Test floor (basement)'}</b>
-      {fr ? " · tout ce qui se fait ici reste ici : invisible aux autres étages, sans e-mails, hors des chiffres du groupe et des feuilles de temps réelles."
-        : ' · everything done here stays here: unseen from the other floors, no e-mails, outside the group figures and real timesheets.'}
+    <div className="banner warn test-banner" role="note" style={{ margin: '0 0 10px' }}>
+      <span>
+        <b>{fr ? 'Mode test · étage de test (sous-sol)' : 'Test mode · test floor (basement)'}</b>
+        {fr ? " · vous ne voyez que les données de test, et rien de ce qui se fait ici n'apparaît ailleurs : ni e-mails, ni chiffres du groupe, ni feuilles de temps réelles."
+          : ' · you see test data only, and nothing done here shows anywhere else: no e-mails, no group figures, no real timesheets.'}
+      </span>
+      {home && <button className="btn sm" onClick={() => setUi({ entityId: home, room: null, tab: null })}>{fr ? 'Quitter le mode test' : 'Leave test mode'}</button>}
     </div>
   );
 }
@@ -82,9 +89,8 @@ function TestFloorBanner({ entityId }: { entityId: string }) {
 export function FlatLayout() {
   const { state, ui } = useStore();
   const entityId = ui.entityId ?? state.entities.find((e) => e.code === 'AUD')!.id;
-  const entity = state.entities.find((e) => e.id === entityId)!;
-  // [bumex-one] the first room the person may open (the missions are open to everyone)
-  const room: Room = ui.room ?? (entity.isHolding ? (canOpenRoom(state, entityId, 'penthouse') ? 'penthouse' : 'tasks') : canOpenRoom(state, entityId, 'accounting') ? 'accounting' : 'missions');
+  // [bumex-one] the floor's overview first (asked on 2026-10-28; open to everyone, each part within the person's rights)
+  const room: Room = ui.room ?? 'overview';
   return (
     <div className="page">
       {/* [bumex-one] no entity list here: the floor is chosen from the rail (ui/Sidebar.tsx) */}

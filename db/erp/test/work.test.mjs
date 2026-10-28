@@ -35,6 +35,7 @@ async function within(open, fn) {
   }
 }
 const as = (uid, fn) => within(() => db.query('select erp.open_session($1)', [uid]), fn);
+const asTest = (uid, fn) => within(() => db.query('select erp.open_session($1, true)', [uid]), fn); // test mode (0013)
 const asSystem = (fn) => within(() => db.query("select erp.open_system_session('test')"), fn);
 
 async function expectError(fn, pattern) {
@@ -378,7 +379,7 @@ await test('test floor (0011): hidden from whoever lacks it, whatever their role
       await db.query(`insert into work.notification (user_id, type, title, body, subject_type, subject_id) values ($1, 'assignment', 'T', 'B', 'ticket', $2)`, [user, ids.TT]);
     }
   });
-  const sees = (uid) => as(uid, async () => ({
+  const sees = (uid, open = asTest) => open(uid, async () => ({
     mission: (await all(`select 1 from erp.engagement where id = $1`, [ids.PT])).length,
     ticket: (await all(`select 1 from erp.task where id = $1`, [ids.TT])).length,
     client: (await all(`select 1 from work.client where id = $1`, [ids.KT])).length,
@@ -387,14 +388,14 @@ await test('test floor (0011): hidden from whoever lacks it, whatever their role
   }));
   same(await sees('adm'), { mission: 0, ticket: 0, client: 0, notes: 0, floor: false }, 'an administrator without the floor');
   same(await sees('sh'), { mission: 0, ticket: 0, client: 0, notes: 0, floor: false }, 'a shareholder');
-  same(await sees('tst'), { mission: 1, ticket: 1, client: 1, notes: 1, floor: true }, 'the tester');
+  same(await sees('tst'), { mission: 1, ticket: 1, client: 1, notes: 1, floor: true }, 'the tester, in test mode');
   await asSystem(() => db.query(`update erp.user_access set test_floor = true where user_id = 'adm'`));
-  same(await sees('adm'), { mission: 1, ticket: 1, client: 1, notes: 2, floor: true }, 'the administrator given the floor');
+  same(await sees('adm'), { mission: 1, ticket: 1, client: 1, notes: 2, floor: true }, 'the administrator given the floor, in test mode');
   same((await all('select user_id from work.notification_email')).length, 0, 'no e-mail about a test record');
   // time: the tester's real week sent, a test line still goes in; a real one does not
-  await as('tst', () => db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'tst', '2026-10-19', 60)`, [ids.PT]));
+  await asTest('tst', () => db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'tst', '2026-10-19', 60)`, [ids.PT]));
   await as('tst', () => db.query(`insert into work.timesheet_week (user_id, week_start, entity_id) values ('tst', '2026-10-19', $1)`, [ids.bumex_audit]));
-  await as('tst', () => db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'tst', '2026-10-20', 30)`, [ids.PT]));
+  await asTest('tst', () => db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'tst', '2026-10-20', 30)`, [ids.PT]));
   await expectError(() => as('tst', () => db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'tst', '2026-10-20', 30)`, [ids.P3])), /timesheet_week_locked/);
   await asSystem(() => db.query(`update erp.user_access set test_floor = false where user_id = 'adm'`));
   same(await as('adm', async () => (await all(`select 1 from erp.time_entry where user_id = 'tst'`)).length), 0, 'test time hidden from the administrator');
@@ -414,6 +415,58 @@ await test('test floor (0011): hidden from whoever lacks it, whatever their role
   await expectError(() => asSystem(() => db.query(`update erp.user_access set entity_modules = '{"bumex_testing": ["accounting"]}' where user_id = 'emp'`)), /wrong modules/);
   await asSystem(() => db.query(`update erp.user_access set entity_modules = '{"bumex_testing": ["accounting"]}' where user_id = 'tst'`));
   return 'hidden from admin/shareholder, seen by testers; 0 e-mails; test time past a sent week; clients, missions, contracts apart; access checked';
+});
+
+await test('test mode (0013): test data only in test mode, and then only test data; no test mode without the floor', async () => {
+  await office();
+  await asSystem(async () => {
+    await db.query(`insert into work.person (id, email, full_name, entity_code) values ('tst', 'tst@bumex.mr', 'Testeur', 'bumex_audit')`);
+    await db.query(`insert into erp.user_access (user_id, erp_role, entity_codes, test_floor) values ('tst', 'admin', null, true)`);
+    ids.KT = (await one(`insert into work.client (name, status, is_test) values ('Client Test', 'active', true) returning id`)).id;
+    ids.PT = (await one(`insert into erp.engagement (entity_id, owner_id, client_id, name, project_kind, status, deadline) values ($1, 'tst', $2, 'Mission Test', 'client_mission', 'active', '2026-12-31') returning id`,
+      [ids.bumex_testing, ids.KT])).id;
+    ids.TT = (await one(`insert into erp.task (engagement_id, title, assignee_id, reporter_id, priority) values ($1, 'Ticket Test', 'tst', 'tst', 'medium') returning id`, [ids.PT])).id;
+    await db.query(`insert into erp.task (engagement_id, title, assignee_id, reporter_id, priority) values ($1, 'Ticket Réel', 'tst', 'mgr', 'medium')`, [ids.P1]);
+    for (const [kind, subject] of [['ticket', ids.TT], ['ticket', ids.T1]]) {
+      await db.query(`insert into work.notification (user_id, type, title, body, subject_type, subject_id) values ('tst', 'assignment', 'T', 'B', $1, $2)`, [kind, subject]);
+    }
+    await db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'tst', '2026-10-21', 60), ($2, 'tst', '2026-10-21', 90)`, [ids.PT, ids.P1]);
+  });
+  const view = (open, uid) => open(uid, async () => ({
+    mode: (await one('select work.in_test() m')).m,
+    tickets: (await all(`select title from erp.task where assignee_id = $1 order by title`, [uid])).map((r) => r.title),
+    missions: (await all(`select name from erp.engagement where id = any($1::uuid[]) order by name`, [[ids.PT, ids.P1]])).map((r) => r.name),
+    clients: (await all(`select name from work.client where id = any($1::uuid[]) order by name`, [[ids.KT, ids.K1]])).map((r) => r.name),
+    notes: (await all(`select subject_id from work.notification where user_id = $1`, [uid])).length,
+    minutes: (await all(`select minutes from erp.time_entry where user_id = $1 order by minutes`, [uid])).map((r) => r.minutes),
+    testFloor: (await one(`select erp.can_see_entity($1) s`, [ids.bumex_testing])).s,
+    audit: (await one(`select erp.can_see_entity($1) s`, [ids.bumex_audit])).s,
+  }));
+  same(await view(as, 'tst'), { mode: false, tickets: ['Ticket Réel'], missions: ['Mission Un'], clients: ['Client Un'], notes: 1, minutes: [90], testFloor: false, audit: true },
+    'a tester in normal mode: no test record');
+  same(await view(asTest, 'tst'), { mode: true, tickets: ['Ticket Test'], missions: ['Mission Test'], clients: ['Client Test'], notes: 1, minutes: [60], testFloor: true, audit: false },
+    'the tester in test mode: only test records');
+  same((await asTest('emp', async () => ({ mode: (await one('select work.in_test() m')).m, tickets: (await all(`select 1 from erp.task`)).length > 0 }))), { mode: false, tickets: true },
+    'no test mode without the floor');
+  // writes follow: no real ticket in test mode, no test ticket in normal mode
+  await expectError(() => asTest('tst', () => db.query(`insert into erp.task (engagement_id, title, assignee_id, reporter_id) values ($1, 'X', 'tst', 'tst')`, [ids.P1])), /row-level security|not allowed|violates/);
+  await expectError(() => as('tst', () => db.query(`insert into erp.task (engagement_id, title, assignee_id, reporter_id) values ($1, 'X', 'tst', 'tst')`, [ids.PT])), /row-level security|not allowed|violates/);
+  await asTest('tst', () => db.query(`insert into erp.task (engagement_id, title, assignee_id, reporter_id) values ($1, 'Ticket Test 2', 'tst', 'tst')`, [ids.PT]));
+  same((await asSystem(async () => (await all(`select 1 from erp.task`)).length)) > 4, true, 'the system sees every ticket');
+  return 'normal mode hides test records from a tester-admin; test mode shows only them; no mode without the floor; writes follow';
+});
+
+await test('time (0013): a person removes their own line of an open week, not of a sent one nor anyone else\'s', async () => {
+  await office();
+  const line = (uid, date) => as(uid, async () => (await one(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, $2, $3, 60) returning id`, [ids.P1, uid, date])).id);
+  const open = await line('emp', '2026-10-21');
+  const sent = await line('emp', '2026-10-14');
+  await as('emp', () => db.query(`insert into work.timesheet_week (user_id, week_start, entity_id) values ('emp', '2026-10-12', $1)`, [ids.bumex_audit]));
+  same(await as('mgr', async () => (await db.query('delete from erp.time_entry where id = $1', [open])).affectedRows), 0, "a manager removes no one else's line");
+  await expectError(() => as('emp', () => db.query('delete from erp.time_entry where id = $1', [sent])), /timesheet_week_locked/);
+  same(await as('emp', async () => (await db.query('delete from erp.time_entry where id = $1', [open])).affectedRows), 1, 'their own line of an open week');
+  same((await asSystem(async () => (await all('select id from erp.time_entry where user_id = $1', ['emp'])).map((r) => r.id))), [sent], 'the sent one stays');
+  return 'own open line removed; sent week locked; others untouched';
 });
 
 await test('tickets (0012): keys per floor, renumbered on another floor; every field change in the history', async () => {

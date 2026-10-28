@@ -133,6 +133,7 @@ export async function loadVanguardState(
     ),
     managesAccess: access.managesAccess,
     view3d: access.view3d,
+    testMode: (await rows<{ test: boolean }>(tx, "select work.in_test() as test"))[0]?.test === true,
   };
 
   const fxRates = await rows<FxRate>(tx, `select rate_date::text as date, from_currency as "from", to_currency as "to", rate::float8 as rate, source from erp.fx_rate order by rate_date`);

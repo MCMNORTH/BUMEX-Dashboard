@@ -13,7 +13,9 @@ import { useSay } from './say';
 import { Markdown } from './markdown';
 import { LINK_WORDS, ago } from './ticket-history';
 import { TicketActivity } from './TicketActivity';
-import { Avatar, Lozenge, PriorityIcon, TypeIcon, hoursText, levelLabel, stageTone, statusTone } from './work-ui';
+import { Avatar, Lozenge, PriorityIcon, TypeIcon, hoursText, levelLabel, stageTone } from './work-ui';
+import { StageLozenge } from './stages';
+import { QuickLogButton } from './QuickLog';
 
 // A ticket in the Tasks room, laid out as Jira's (asked on 2026-10-27): its key and place in the breadcrumb; on the
 // left its description, attachments, sub-tasks, linked tickets and activity (comments, history, work log); on the
@@ -102,7 +104,7 @@ export function TicketPanel({ id, onClose }: { id: string; onClose: () => void }
         <aside className="tk-side">
           <StatusControl view={view} busy={busy} run={run} say={say} />
           <NextAction view={view} say={say} />
-          <Details view={view} busy={busy} say={say} setField={setField} />
+          <Details view={view} busy={busy} say={say} setField={setField} onLogged={() => { void load(); void reload(); }} />
           <div className="tk-stamps small muted">
             <div title={ticket.created_at}>{say('Création', 'Created')} {ago(ticket.created_at, now, say)}</div>
             <div title={ticket.updated_at}>{say('Mis à jour', 'Updated')} {ago(ticket.updated_at, now, say)}</div>
@@ -357,7 +359,7 @@ function Links({ view, busy, run, say, open, onOpened }: { view: TicketView; bus
               <TypeIcon type={l.ticket.type} say={say} />
               <button className="linkish mono" onClick={() => openRoom('tasks', `ticket:${l.ticket.id}`)}>{l.ticket.key ?? '—'}</button>
               <button className="linkish grow tk-link-t" onClick={() => openRoom('tasks', `ticket:${l.ticket.id}`)}>{l.ticket.title}</button>
-              <Lozenge tone={statusTone(l.ticket.status)}>{say(...(({ backlog: ['Backlog', 'Backlog'], todo: ['À faire', 'To do'], in_progress: ['En cours', 'In progress'], review: ['En revue', 'In review'], blocked: ['Bloqué', 'Blocked'], done: ['Terminé', 'Done'], archived: ['Archivé', 'Archived'] } as Record<string, [string, string]>)[l.ticket.status] ?? [l.ticket.status, l.ticket.status]))}</Lozenge>
+              <StageLozenge name={l.ticket.stageName} status={l.ticket.status} />
               <Avatar name={l.ticket.assigneeName} size={22} />
               <PriorityIcon priority={l.ticket.priority} say={say} />
               {l.canRemove && <button className="btn sm ghost" disabled={busy} onClick={() => run(() => removeTicketLinkAction(l.id), say('Lien retiré', 'Link removed'))} aria-label={say('Retirer le lien', 'Remove the link')}><Icon name="close" size={13} /></button>}
@@ -466,7 +468,7 @@ function NextAction({ view, say }: { view: TicketView; say: Say }) {
   return <div className={`banner ${kind} small`}>{text}</div>;
 }
 
-function Details({ view, busy, say, setField }: { view: TicketView; busy: boolean; say: Say; setField: (field: TicketField, value: string | string[] | null, done?: string) => Promise<boolean> }) {
+function Details({ view, busy, say, setField, onLogged }: { view: TicketView; busy: boolean; say: Say; setField: (field: TicketField, value: string | string[] | null, done?: string) => Promise<boolean>; onLogged: () => void }) {
   const { state, openRoom } = useStore();
   const { ticket, canUpdate, canManage, me } = view;
   const [estimate, setEstimate] = useState<string | null>(null);
@@ -493,7 +495,6 @@ function Details({ view, busy, say, setField }: { view: TicketView; busy: boolea
     if (!next || ticket.labels.some((l) => l.toLowerCase() === next.toLowerCase())) { setLabel(''); return; }
     if (await setField('labels', [...ticket.labels, next])) setLabel('');
   };
-  const logTime = `log:${encodeURIComponent(JSON.stringify({ projectId: ticket.project_id, mission: `${ticket.key ? `${ticket.key} · ` : ''}${ticket.title}`.slice(0, 200), taskId: ticket.id }))}`;
   return (
     <div className="tk-details">
       <div className="tk-details-h">{say('Détails', 'Details')}</div>
@@ -540,7 +541,7 @@ function Details({ view, busy, say, setField }: { view: TicketView; busy: boolea
         <dd>
           <div className="tk-time">
             <span>{hoursText(spent, say)}{estimated > 0 && <span className="muted"> · {say('reste', 'left')} {hoursText(left, say)}</span>}</span>
-            {view.role !== 'shareholder' && <button className="linkish small" onClick={() => openRoom('time', logTime)}>{say('Enregistrer du temps', 'Log time')}</button>}
+            {view.role !== 'shareholder' && <QuickLogButton ticketId={ticket.id} label={say('Enregistrer du temps', 'Log time')} className="linkish small" onSaved={onLogged} />}
           </div>
           {estimated > 0 && <div className="bar" style={{ marginTop: 4 }}><i style={{ width: `${Math.min(100, usage)}%`, background: usage > 100 ? 'var(--crit)' : usage >= 80 ? 'var(--warn)' : 'var(--accent)' }} /></div>}
         </dd>

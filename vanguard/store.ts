@@ -52,6 +52,7 @@ interface UI {
   cameraBusy: boolean; // a camera flight is in progress
   flyout: 'floors' | null; // the sidebar's floor picker
   deletion: { table: string; rowId: Id; label: string; entityId?: Id } | null; // the confirmation dialog
+  switching: 'test' | 'normal' | null; // [bumex-one] entering or leaving the test floor: the state is read again (0013)
 }
 
 interface Store {
@@ -131,9 +132,33 @@ const initialLang: Lang = typeof document !== 'undefined' && document.documentEl
 const webgl = typeof document !== 'undefined' ? webglAvailable() : false; // the browser's; hydrate() adds the person's option
 const prefs = loadPrefs();
 
-// The floor shown first: BUMEX Audit when the person sees it, else the first floor they see.
+// The floor shown first: BUMEX Audit when the person sees it, else the first floor they see. [bumex-one] In test mode
+// (0013) the test floor; otherwise never the test floor.
 function defaultEntity(state: State) {
-  return state.entities.find((e) => e.code === 'AUD' && canSee(state, e.id)) ?? state.entities.find((e) => canSee(state, e.id)) ?? state.entities[0];
+  if (state.session.testMode) {
+    const test = state.entities.find((e) => e.isTest);
+    if (test) return test;
+  }
+  const real = state.entities.filter((e) => !e.isTest);
+  return real.find((e) => e.code === 'AUD' && canSee(state, e.id)) ?? real.find((e) => canSee(state, e.id)) ?? real[0] ?? state.entities[0];
+}
+
+// [bumex-one] The test floor is a mode of the whole session (0013): the server reads only test data while the person is
+// on it, and none otherwise. The browser asks for it with a cookie (lib/erp/db.ts FLOOR_MODE_COOKIE); the database
+// grants it only to whoever has the floor.
+const FLOOR_MODE_COOKIE = 'bumex-floor-mode';
+function askTestMode(on: boolean) {
+  document.cookie = on ? `${FLOOR_MODE_COOKIE}=test; path=/; SameSite=Lax` : `${FLOOR_MODE_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+}
+function testModeAsked() {
+  return typeof document !== 'undefined' && document.cookie.split('; ').includes(`${FLOOR_MODE_COOKIE}=test`);
+}
+export function isTestEntity(state: State, entityId: Id | null | undefined) {
+  return Boolean(entityId && state.entities.find((e) => e.id === entityId)?.isTest);
+}
+// The entities a screen spanning every floor may show: the test floor in test mode, the real floors otherwise.
+export function inMode(state: State, entityId: Id | null | undefined) {
+  return isTestEntity(state, entityId) === (state.session.testMode === true);
 }
 
 // [bumex-one] Changes reach the server one after the other. Its answer replaces the screen's state once no other
@@ -162,7 +187,7 @@ async function reload() {
   return Boolean(result?.state);
 }
 
-export const MODULE_ONLY: Room[] = ['tasks', 'archives', 'reports', 'settings', 'penthouse', 'myday', 'mywork', 'time', 'inbox']; // [bumex-one] myday, time, inbox
+export const MODULE_ONLY: Room[] = ['tasks', 'archives', 'reports', 'settings', 'penthouse', 'myday', 'mywork', 'time', 'inbox', 'overview']; // [bumex-one] myday, time, inbox, overview
 
 export const useStore = create<Store>((set, get) => ({
   state: EMPTY,
@@ -197,6 +222,7 @@ export const useStore = create<Store>((set, get) => ({
     cameraBusy: false,
     flyout: null,
     deletion: null,
+    switching: null,
   },
   t: makeT(initialLang),
   apply: (fn, okMessage) => {
@@ -218,15 +244,20 @@ export const useStore = create<Store>((set, get) => ({
   // the first state opens on it when they have it, and its loss goes back to the flat pages.
   hydrate: (data) => {
     if (data.loadedAt <= get().loadedAt) return;
+    // [bumex-one] while the mode switches, an answer read in the other mode is dropped
+    const asked = get().ui.switching;
+    if (asked && (asked === 'test') !== (data.state.session.testMode === true)) return;
     setChainBreaks(data.chainBreaks);
     const state = data.state;
     const { ui, loadedAt } = get();
-    const keep = ui.entityId && state.entities.some((e) => e.id === ui.entityId) && canSee(state, ui.entityId);
+    // [bumex-one] the floor stays only in its mode (0013); a test mode asked for and not granted is forgotten
+    const keep = ui.entityId && state.entities.some((e) => e.id === ui.entityId) && canSee(state, ui.entityId) && inMode(state, ui.entityId);
+    if (!state.session.testMode && testModeAsked()) askTestMode(false);
     const entity = keep ? state.entities.find((e) => e.id === ui.entityId) : defaultEntity(state);
     const fiscalYearLabel = loadedAt ? ui.fiscalYearLabel : state.fiscalYears.find((f) => f.entityId === entity?.id && state.today >= f.start && state.today <= f.end)?.label ?? ui.fiscalYearLabel;
     const scene3d = state.session.view3d === true;
     const view: View = !(scene3d && webgl) ? 'flat' : loadedAt ? ui.view : 'tower';
-    set({ state, loadedAt: data.loadedAt, version: data.version, ui: { ...ui, entityId: entity?.id ?? null, fiscalYearLabel, scene3d, webgl: scene3d && webgl, view } });
+    set({ state, loadedAt: data.loadedAt, version: data.version, ui: { ...ui, entityId: entity?.id ?? null, fiscalYearLabel, scene3d, webgl: scene3d && webgl, view, switching: null } });
     if (!loadedAt && scene3d && !webgl) get().toast('info', get().t('no_webgl'));
   },
   refreshIfChanged: () => {
@@ -277,3 +308,24 @@ export function useT() {
 
 // Which 3D room a module lives in (the camera focuses there when the module opens from the sidebar).
 export const MODULE_ROOM: Partial<Record<Room, Room>> = { archives: 'clients', tasks: 'missions', reports: 'accounting' };
+
+// [bumex-one] Entering or leaving the test floor, from wherever the floor is chosen (the rail, the tower, the search…),
+// switches the session's mode (0013): the state is read again in the new mode, under an overlay (App.tsx), so no
+// screen ever shows the other mode's data. If the server does not grant it, the person stays where they were.
+if (typeof window !== 'undefined') {
+  useStore.subscribe((s, prev) => {
+    const entityId = s.ui.entityId;
+    if (!s.loadedAt || !entityId || entityId === prev.ui.entityId || s.ui.switching) return;
+    const test = isTestEntity(s.state, entityId);
+    if (test === (s.state.session.testMode === true)) return;
+    askTestMode(test);
+    s.setUi({ switching: test ? 'test' : 'normal' });
+    void reload().then(() => {
+      const now = useStore.getState();
+      if (!now.ui.switching) return;
+      askTestMode(!test);
+      now.setUi({ switching: null, entityId: prev.ui.entityId });
+      now.toast('error', now.ui.lang === 'fr' ? "Impossible de changer d'étage : serveur injoignable." : 'Could not change floor: server unreachable.');
+    });
+  });
+}

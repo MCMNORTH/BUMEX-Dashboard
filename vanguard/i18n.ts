@@ -70,5 +70,5 @@ export function makeT(lang: Lang) {
 
 export const ROOM_KEYS = ['bank', 'accounting', 'clients', 'suppliers', 'missions', 'assets', 'hr', 'tax'] as const;
 // Rooms are the 3D spaces; the last four are modules without a room of their own (opened from the sidebar or the bar).
-export type Room = (typeof ROOM_KEYS)[number] | 'penthouse' | 'tasks' | 'archives' | 'reports' | 'settings' | 'myday' | 'mywork' | 'time' | 'inbox'; // [bumex-one] myday: vanguard/one/MyDay.tsx, time: vanguard/one/Time.tsx, inbox: vanguard/one/Inbox.tsx
+export type Room = (typeof ROOM_KEYS)[number] | 'penthouse' | 'tasks' | 'archives' | 'reports' | 'settings' | 'myday' | 'mywork' | 'time' | 'inbox' | 'overview'; // [bumex-one] overview: vanguard/one/Overview.tsx, myday: vanguard/one/MyDay.tsx, time: vanguard/one/Time.tsx, inbox: vanguard/one/Inbox.tsx
 export const MODULE_ROOMS = ['tasks', 'archives', 'reports', 'settings'] as const;

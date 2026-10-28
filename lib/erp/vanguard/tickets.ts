@@ -16,7 +16,8 @@ export type VanguardTicket = {
   assignee_id: string | null;
   reporter_id: string | null;
   status: TicketStatus;
-  stage_id: string | null; // the column of its board (work.board); resolved in the browser (vanguard/one/Board.tsx)
+  stage_id: string | null; // the column of its board (work.board); resolved in the browser (vanguard/one/stages.tsx)
+  stage_name: string | null; // that stage's name on a board that saved its workflow; null on the built-in boards (named by status)
   priority: TicketPriority;
   type: TicketType;
   due_date: string | null;
@@ -30,7 +31,7 @@ export type VanguardTicket = {
 };
 
 // What Vanguard's screens read of a ticket beyond the engine's task (vanguard/one/Tasks.tsx).
-export type TaskTicket = Pick<VanguardTicket, "project_id" | "assignee_id" | "reporter_id" | "status" | "stage_id" | "priority" | "type" | "key" | "labels" | "estimated_hours" | "logged_minutes">;
+export type TaskTicket = Pick<VanguardTicket, "project_id" | "assignee_id" | "reporter_id" | "status" | "stage_id" | "stage_name" | "priority" | "type" | "key" | "labels" | "estimated_hours" | "logged_minutes">;
 
 // A task with no due date sorts after every dated one and is never late.
 export const NO_DUE_DATE = "9999-12-31";
@@ -41,6 +42,8 @@ export async function listTickets(tx: ErpTransaction): Promise<VanguardTicket[]>
     `select coalesce(jsonb_agg(jsonb_build_object(
               'id', t.id, 'title', t.title, 'description', t.notes, 'project_id', t.engagement_id, 'assignee_id', t.assignee_id,
               'reporter_id', t.reporter_id, 'status', t.status, 'stage_id', t.stage_id,
+              'stage_name', (select s->>'name' from work.board b, jsonb_array_elements(b.stages) s
+                              where b.engagement_id = t.engagement_id and s->>'id' = coalesce(t.stage_id, t.status) limit 1),
               'priority', case when t.priority = 'normal' then 'medium' else t.priority end, 'type', t.type,
               'due_date', t.due_date, 'created_at', t.created_at, 'updated_at', t.updated_at, 'completed_at', t.completed_at,
               'key', (select x.ticket_prefix || '-' || t.number from erp.entity x where x.id = t.entity_id), 'labels', t.labels,
@@ -78,7 +81,7 @@ export function ticketTasks(
       completedAt: done ? (t.completed_at ?? t.updated_at).slice(0, 10) : undefined,
       notes: t.description || undefined,
       ticket: {
-        project_id: t.project_id, assignee_id: t.assignee_id, reporter_id: t.reporter_id, status: t.status, stage_id: t.stage_id ?? null, priority: t.priority, type: t.type,
+        project_id: t.project_id, assignee_id: t.assignee_id, reporter_id: t.reporter_id, status: t.status, stage_id: t.stage_id ?? null, stage_name: t.stage_name ?? null, priority: t.priority, type: t.type,
         key: t.key, labels: t.labels ?? [], estimated_hours: t.estimated_hours, logged_minutes: t.logged_minutes ?? 0,
       },
     }];

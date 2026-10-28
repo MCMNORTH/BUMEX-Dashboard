@@ -54,11 +54,12 @@ const accessOf = (uid: string): ErpAccess => {
 };
 const who = (uid: string) => ({ id: uid, name: people.find((p) => p.id === uid)!.name });
 
-async function as<T>(uid: string, work: () => Promise<T>): Promise<T> {
+// test: the session in test mode (0013), as the app opens it on the test floor
+async function as<T>(uid: string, work: () => Promise<T>, test = false): Promise<T> {
   await db.exec("begin");
   try {
     await db.exec("set local role erp_app");
-    await db.query("select erp.open_session($1)", [uid]);
+    await db.query(test ? "select erp.open_session($1, true)" : "select erp.open_session($1)", [uid]);
     const out = await work();
     await db.exec("commit");
     return out;
@@ -595,8 +596,14 @@ describe("the modules", () => {
       expect(floor.code).toBe("TEST");
       const after = withIdSource(() => crypto.randomUUID(), () => testFloorBooks(before, floor.id));
       await asSystem(() => saveVanguardChange(tx, before, after));
-      const { state } = await as("adm", () => loadVanguardState(tx, who("adm"), tester, people));
+      // its books only in test mode (0013), and then only its books
+      const real = (await as("adm", () => loadVanguardState(tx, who("adm"), tester, people))).state;
+      expect(real.session.testMode).toBe(false);
+      expect(real.accounts.some((a) => a.entityId === floor.id)).toBe(false);
+      const { state } = await as("adm", () => loadVanguardState(tx, who("adm"), tester, people), true);
+      expect(state.session.testMode).toBe(true);
       expect(state.accounts.some((a) => a.entityId === floor.id)).toBe(true);
+      expect(state.accounts.every((a) => a.entityId === floor.id)).toBe(true);
       expect(state.salesInvoices.filter((i) => i.entityId === floor.id).map((i) => i.status).sort()).toEqual(["draft", "posted", "posted"]);
       // its clients are the floor's own
       expect((await db.query<{ n: number }>("select count(*)::int as n from work.client where is_test")).rows[0].n).toBe(3);

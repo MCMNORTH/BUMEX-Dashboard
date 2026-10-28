@@ -64,5 +64,5 @@ export type TimeInput = {
   task_id?: string | null;
 };
 
-export type TimeError = "invalid" | "duration" | "date" | "note" | "mission" | "project" | "unavailable" | "conflict" | "daily_limit";
+export type TimeError = "invalid" | "duration" | "date" | "note" | "mission" | "project" | "unavailable" | "conflict" | "daily_limit" | "locked";
 export type TimeResult = { success: true } | { error: TimeError };

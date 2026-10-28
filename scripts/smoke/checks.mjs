@@ -69,6 +69,28 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
   const ahmedRow = peopleRows?.find?.((p) => p.id === uid.ahmed);
   check("People and the pickers show each person's load in hours against their capacity", typeof ahmedRow?.load?.weekHours === "number" && ahmedRow?.load?.capacityHours > 0 && typeof loads?.[uid.ahmed]?.percent === "number", { row: ahmedRow?.load, pick: loads?.[uid.ahmed] });
 
+  // ---- statuses: each board's own stages, everywhere (2026-10-28) -------------------------------------------------------
+  const boardNow = (await act("mariem.sow", "boardWorkflowsAction", { args: [[A]] }))?.[A];
+  const done = boardNow?.stages?.find((st) => st.id === "done");
+  const draft = boardNow && {
+    stages: [...boardNow.stages.filter((st) => st.id !== "done").map((st) => (st.id === "review" ? { ...st, name: "Code review" } : st)),
+      { id: "stg_tomerge", name: "To merge", position: 9, is_default: false, is_completed: false, category: "review", archived_at: null }, done],
+    transitions: {}, allow_backward: true, allow_skip_forward: true, allow_reopen: true, require_reason: false, custom_transitions_enabled: false,
+  };
+  r = await act("mariem.sow", "saveBoardWorkflowAction", { args: [A, draft, boardNow?.updated_at ?? null] });
+  check("the mission's manager renames a stage and adds one to its board", Boolean(boardNow) && !r?.error, r);
+  const t1State = (await act("ahmed.ba", "reloadVanguardAction"))?.state?.tasks?.find((x) => x.id === T.t1);
+  const t1Work = (await act("ahmed.ba", "myWorkAction", { args: [] }))?.tickets?.find((t) => t.id === T.t1);
+  check("…a ticket shows its board's stage name in the app's state and in My work", t1State?.ticket?.stage_name === "Code review" && t1Work?.stageName === "Code review" && t1Work?.stageId === "review", { state: t1State?.ticket?.stage_name, work: t1Work?.stageName });
+  r = await act("ahmed.ba", "moveTicketStageAction", { args: [T.t1, { stageId: "stg_tomerge" }] });
+  const merged = await one("select stage_id, status from erp.task where id = $1", [T.t1]);
+  check("…moves to a stage of its own board, reported as its category", !r?.error && merged.stage_id === "stg_tomerge" && merged.status === "review", { r, merged });
+  r = await act("mariem.sow", "createTicketAction", { prev: {}, form: { title: "Lettre d'affirmation", project_id: A, assignee_id: uid.ahmed, reporter_id: uid.mariem, priority: "medium", type: "task", stage_id: "in_progress", create_another: "1" } });
+  const started = r?.created?.id ? await one("select stage_id, status from erp.task where id = $1", [r.created.id]) : null;
+  check("…a new ticket starts in the stage picked", started?.stage_id === "in_progress" && started?.status === "in_progress", { r, started });
+  r = await act("mariem.sow", "createTicketAction", { prev: {}, form: { title: "Pas terminé d'office", project_id: A, assignee_id: uid.ahmed, reporter_id: uid.mariem, priority: "low", type: "task", stage_id: "done", create_another: "1" } });
+  check("…but never in a completed one (the reporter signs off)", (await one("select stage_id from erp.task where id = $1", [r?.created?.id]))?.stage_id === "todo", r);
+
   // ---- conversation -------------------------------------------------------------------------------------------------
   r = await act("ahmed.ba", "createCommentAction", { prev: {}, form: { body: "Relances envoyées @Mariem Sow", entity_type: "ticket", entity_id: T.t1 } });
   check("the assignee comments the ticket", r?.success === true, r);
@@ -94,16 +116,42 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
   check("…never more than 24 hours a day", r?.error === "daily_limit", r);
   r = await act("ahmed.ba", "saveTimeAction", { args: [{ id: lineId, project_id: A, work_date: "2026-10-26", hours: "2", minutes: "0", note: "Revue", mission: "Revue", updated_at: "2020-01-01T00:00:00Z" }] });
   check("…an edit from an old version is a conflict", r?.error === "conflict", r);
+  const slip = randomUUID();
+  await act("ahmed.ba", "saveTimeAction", { args: [{ id: slip, project_id: A, work_date: "2026-10-27", hours: "0", minutes: "30", note: "", mission: "Erreur" }] });
+  const slipped = await one("select to_json(updated_at) #>> '{}' as updated_at from erp.time_entry where id = $1", [slip]);
+  r = await act("khadija.diallo", "deleteTimeAction", { args: [slip, slipped?.updated_at ?? ""] });
+  check("someone else cannot remove a person's line", Boolean(await one("select 1 from erp.time_entry where id = $1", [slip])), r);
+  r = await act("ahmed.ba", "deleteTimeAction", { args: [slip, slipped?.updated_at ?? ""] });
+  check("the person removes their own line (a cleared cell of the week)", r?.success === true && !(await one("select 1 from erp.time_entry where id = $1", [slip])), r);
   r = await act("ahmed.ba", "submitTimesheetWeekAction", { args: ["2026-10-26"] });
   check("the employee sends the week", r?.success === true, r);
   r = await act("ahmed.ba", "saveTimeAction", { args: [{ id: randomUUID(), project_id: A, work_date: "2026-10-26", hours: "1", minutes: "0", note: "", mission: "Revue" }] });
-  check("…then cannot add to it", r?.error === "unavailable", r);
+  check("…then cannot add to it", r?.error === "locked", r);
+  const kept = await one("select to_json(updated_at) #>> '{}' as updated_at from erp.time_entry where id = $1", [lineId]);
+  r = await act("ahmed.ba", "deleteTimeAction", { args: [lineId, kept?.updated_at ?? ""] });
+  check("…nor remove a line of it", r?.error === "locked" && Boolean(await one("select 1 from erp.time_entry where id = $1", [lineId])), r);
   check("…their entity's manager is told", Boolean(await one("select 1 from work.notification where user_id = $1 and title = 'Timesheet submitted'", [uid.mariem])));
   await act("khadija.diallo", "approveTimesheetWeekAction", { args: [uid.ahmed, "2026-10-26"] });
   check("another entity's employee cannot approve it", (await one("select status from work.timesheet_week where user_id = $1 and week_start = '2026-10-26'", [uid.ahmed])).status === "submitted");
   await act("mariem.sow", "approveTimesheetWeekAction", { args: [uid.ahmed, "2026-10-26"] });
   const week = await one("select status, reviewed_by from work.timesheet_week where user_id = $1 and week_start = '2026-10-26'", [uid.ahmed]);
   check("the entity's manager approves it", week.status === "approved" && week.reviewed_by === uid.mariem, week);
+
+  // ---- the floor's overview and a person's page (2026-10-28) -----------------------------------------------------------
+  const ahmedMinutes = (await one("select coalesce(sum(minutes), 0)::int m from erp.time_entry t join erp.entity e on e.id = t.entity_id where user_id = $1 and work_date >= date_trunc('week', now())::date and work_date < date_trunc('week', now())::date + 7 and not e.is_test", [uid.ahmed])).m;
+  const overview = await act("mariem.sow", "floorOverviewAction", { args: [entity.bumex_audit] });
+  const ahmedThere = overview?.people?.find((p) => p.id === uid.ahmed);
+  check("the floor's overview lists its people with their load and, for their manager, their week's hours and timesheet",
+    Boolean(ahmedThere?.home) && typeof ahmedThere?.load?.percent === "number" && ahmedThere?.week?.minutes === ahmedMinutes && ahmedThere?.week?.byDay?.length === 7,
+    { ahmed: ahmedThere && { load: ahmedThere.load?.percent, week: ahmedThere.week }, expected: ahmedMinutes });
+  check("…and the floor's recent activity, with ticket keys", (overview?.activity ?? []).some((a) => /^AUD-\d+$/.test(a.key ?? "")), overview?.activity?.length);
+  const asColleague = await act("khadija.diallo", "floorOverviewAction", { args: [entity.bumex_audit] });
+  check("…a colleague sees the team but not someone else's hours", asColleague?.people?.find((p) => p.id === uid.ahmed)?.week === null && asColleague?.people?.find((p) => p.id === uid.khadija)?.week !== null,
+    asColleague?.people?.map((p) => [p.name, Boolean(p.week)]));
+  const ahmedPage = await act("mariem.sow", "personViewAction", { args: [uid.ahmed] });
+  check("a person's page shows their week, what they are on (with its stage) and what comes next",
+    ahmedPage?.week?.minutes === ahmedMinutes && ahmedPage?.current?.some((t) => t.id === T.t1 && t.stageName === "To merge") && ahmedPage?.next?.some((t) => t.title === "Circularisation clients"),
+    { week: ahmedPage?.week?.minutes, current: ahmedPage?.current?.map((t) => [t.key, t.stageName]), next: ahmedPage?.next?.map((t) => t.key) });
 
   // ---- missions -----------------------------------------------------------------------------------------------------
   r = await act("mariem.sow", "saveMissionAction", {
@@ -231,23 +279,39 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
   const testers = await all("select user_id, entity_codes, test_floor from erp.user_access where test_floor order by user_id");
   check("the role modifier gives the floor to himself and to Ahmed", !r?.error && !r2?.error && testers.length === 2 && testers.some((t) => t.user_id === uid.ahmed && t.entity_codes.join() === "bumex_audit"), { r, r2, testers });
   const seenBy = (await act("ahmed.ba", "reloadVanguardAction"))?.state;
-  check("…Ahmed now sees the basement and its missions", Boolean(seenBy?.entities?.some((e) => e.isTest && e.code === "TEST") && seenBy.engagements.some((e) => e.id === demo)));
-  const testClients = (await act("mohamed.cheikh", "missionOptionsAction", { args: [floor] }))?.clients ?? [];
+  const onFloor = (await act("ahmed.ba", "reloadVanguardAction", { test: true }))?.state;
+  check("…Ahmed now has the basement; its missions only while he is on it (test mode, 0013), and then nothing else",
+    Boolean(seenBy?.entities?.some((e) => e.isTest && e.code === "TEST")) && seenBy.session.testMode === false && !seenBy.engagements.some((e) => e.id === demo)
+      && onFloor?.session?.testMode === true && onFloor.engagements.some((e) => e.id === demo) && onFloor.engagements.every((e) => e.entityId === floor) && onFloor.accounts.every((a) => a.entityId === floor),
+    { normal: seenBy?.engagements?.length, test: onFloor?.engagements?.map((e) => e.name) });
+  check("…someone without the floor gets no test mode, whatever the cookie says", (await act("khadija.diallo", "reloadVanguardAction", { test: true }))?.state?.session?.testMode === false);
+  const testClients = (await act("mohamed.cheikh", "missionOptionsAction", { args: [floor], test: true }))?.clients ?? [];
   const realClients = (await act("mohamed.cheikh", "missionOptionsAction", { args: [entity.bumex_audit] }))?.clients ?? [];
   check("a mission there is offered the floor's clients only", testClients.length === 3 && !realClients.some((c) => testClients.some((t) => t.id === c.id)), { test: testClients.length, real: realClients.length });
-  r = await act("mohamed.cheikh", "createTicketAction", { prev: {}, form: { title: "Ticket de test", project_id: demo, assignee_id: uid.ahmed, reporter_id: uid.mohamed, priority: "medium", type: "task", create_another: "1" } });
+  r = await act("mohamed.cheikh", "createTicketAction", { prev: {}, form: { title: "Ticket de test", project_id: demo, assignee_id: uid.ahmed, reporter_id: uid.mohamed, priority: "medium", type: "task", create_another: "1" }, test: true });
   const testTicket = r?.created?.id;
   const testNotes = testTicket ? await all("select n.id, e.status from work.notification n left join work.notification_email e on e.notification_id = n.id where n.subject_id = $1", [testTicket]) : [];
   check("a ticket there notifies Ahmed in the app, never by e-mail", Boolean(testTicket) && testNotes.length > 0 && testNotes.every((n) => !n.status), { r, testNotes });
   const testLine = randomUUID();
-  r = await act("ahmed.ba", "saveTimeAction", { args: [{ id: testLine, project_id: demo, work_date: "2026-10-26", hours: "1", minutes: "0", note: "", mission: "Essai" }, true] });
+  r = await act("ahmed.ba", "saveTimeAction", { args: [{ id: testLine, project_id: demo, work_date: "2026-10-26", hours: "1", minutes: "0", note: "", mission: "Essai" }, true], test: true });
   const written = await one("select entity_id from erp.time_entry where id = $1", [testLine]);
   check("Ahmed enters test time on a day of his approved week", r?.success === true && written?.entity_id === floor, { r, written });
   const real = await act("ahmed.ba", "myTimeAction", { args: ["2026-10-26"] });
   const team = await act("mariem.sow", "teamTimeAction", { args: ["2026-10-26"] });
   check("…kept apart: not in his real sheet nor his manager's review", Boolean(real) && !real.entries.some((e) => e.id === testLine) && !team?.entries?.some((e) => e.id === testLine));
-  check("…but in his test sheet", (await act("ahmed.ba", "myTimeAction", { args: ["2026-10-26", true] }))?.entries?.some((e) => e.id === testLine) === true);
-  check("…which someone without the floor cannot open", !(await act("khadija.diallo", "myTimeAction", { args: ["2026-10-26", true] }))?.entries);
+  check("…but in his test sheet", (await act("ahmed.ba", "myTimeAction", { args: ["2026-10-26", true], test: true }))?.entries?.some((e) => e.id === testLine) === true);
+  check("…which someone without the floor cannot open", !(await act("khadija.diallo", "myTimeAction", { args: ["2026-10-26", true], test: true }))?.entries);
+  // sealed (0013): nothing of the floor anywhere else, for its testers too; and nothing else on it
+  const plain = JSON.stringify([await act("ahmed.ba", "myWorkAction", { args: [] }), await act("ahmed.ba", "myDayAction", { args: [] }), await act("ahmed.ba", "listNotificationsAction", { args: [200, {}] }), await act("ahmed.ba", "peopleAction", { args: [] })]);
+  check("a tester's My work, My day, notifications and People show nothing of the test floor", Boolean(testTicket) && !plain.includes(testTicket) && !plain.includes(demo) && !plain.includes("Ticket de test"));
+  const testWork = await act("ahmed.ba", "myWorkAction", { args: [], test: true });
+  const testInbox = await act("ahmed.ba", "listNotificationsAction", { args: [200, {}], test: true });
+  check("…and on the test floor, only its tickets and notifications", testWork?.tickets?.some((t) => t.id === testTicket) && testWork.tickets.every((t) => t.projectId !== A) && JSON.stringify(testInbox).includes(testTicket) && !JSON.stringify(testInbox).includes(T.t1),
+    { work: testWork?.tickets?.map((t) => t.title), inbox: testInbox?.length });
+  const testClientName = (await one("select name from work.client where is_test order by name limit 1"))?.name ?? "";
+  const searched = await (await get("ahmed.ba", `/api/search?q=${encodeURIComponent(testClientName)}`)).json().catch(() => null);
+  const testClientIds = (await all("select id from work.client where is_test")).map((c) => c.id);
+  check("…the search finds no test client", Boolean(testClientName) && !JSON.stringify(searched ?? {}).split('"').some((v) => testClientIds.includes(v)), { testClientName, searched: searched && JSON.stringify(searched).slice(0, 200) });
 
   // ---- invitations ----------------------------------------------------------------------------------------------------
   r = await act("fatimetou.admin", "invitePersonAction", { args: [{ email: "x@bumex.mr", fullName: "X", homeEntity: "bumex_it", role: "staff" }] });
@@ -343,7 +407,7 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     check("the building is drawn in 3D (WebGL)", drawn && tab.takeErrors().length === 0);
     await tab.webgl(false);
     const rooms = [
-      "/vanguard", "/vanguard?room=myday", "/vanguard?room=mywork", `/vanguard?room=missions&tab=mission%3A${A}`, "/vanguard?room=missions&tab=week",
+      "/vanguard", "/vanguard?room=overview", `/vanguard?room=overview&tab=person%3A${uid.ahmed}`, "/vanguard?room=myday", "/vanguard?room=mywork", `/vanguard?room=missions&tab=mission%3A${A}`, "/vanguard?room=missions&tab=week",
       "/vanguard?room=missions&tab=calendar", "/vanguard?room=missions&tab=milestones", "/vanguard?room=tasks", `/vanguard?room=tasks&tab=ticket%3A${T.t1}`,
       `/vanguard?room=tasks&tab=board%3A${A}`, "/vanguard?room=time", "/vanguard?room=inbox", "/vanguard?room=clients&tab=customers", "/vanguard?room=clients&tab=contracts",
       `/vanguard?room=clients&tab=client%3A${C.snim}`, `/vanguard?room=clients&tab=contract%3A${id(701)}`, "/vanguard?room=hr&tab=people", `/vanguard?room=hr&tab=person%3A${uid.ahmed}`,
@@ -377,18 +441,66 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     const page = await tab.until("/^AUD-\\d+$/.test(document.querySelector('.tk-key')?.innerText.trim() ?? '') && document.querySelectorAll('.tk-acttabs [role=tab]').length === 4 && document.body.innerText.includes('Pièces jointes') && document.body.innerText.includes('Tickets associés') && Boolean(document.querySelector('.tk-details'))", 25_000);
     const historyShown = await tab.evaluate("[...document.querySelectorAll('.tk-entry-h')].some((h) => h.innerText.includes(\"a mis à jour l'estimation\"))");
     check("the ticket page shows its key, details, attachments, links and activity (with the estimate in its history)", page && historyShown && tab.takeErrors().length === 0, { page, historyShown });
-    // the timesheet as BUMEX One had it
+    // the floor's overview: the first page of flat mode; a person opens on their page
+    await tab.go("/vanguard");
+    const overviewShown = await tab.until("document.querySelectorAll('.ov-figs .ov-fig').length === 7 && [...document.querySelectorAll('.ov-team tbody tr')].some((r) => r.innerText.includes('Ahmed Ba'))", 25_000);
+    await tab.evaluate("[...document.querySelectorAll('.ov-team tbody tr')].find((r) => r.innerText.includes('Ahmed Ba')).click()");
+    const personShown = await tab.until("Boolean(document.querySelector('.pv-week .pv-days')) && document.body.innerText.includes('À venir') && document.body.innerText.includes('Circularisation clients')", 25_000);
+    check("flat mode opens on the floor's overview; a person opens on their page with their week, current and next tickets", overviewShown && personShown && tab.takeErrors().length === 0, { overviewShown, personShown });
+    await tab.go("/vanguard?room=overview");
+    await tab.until("document.querySelectorAll('.ov-figs .ov-fig').length === 7", 15_000);
+    await tab.evaluate("[...document.querySelectorAll('.ov-fig')].find((f) => /Non assignés/.test(f.innerText)).click()");
+    check("…a figure opens the list behind it", await tab.until("Boolean(document.querySelector('.wk-toolbar')) && document.querySelector('.wk-people button.on') !== null && Boolean(document.querySelector('table'))", 15_000) && tab.takeErrors().length === 0);
+    // statuses: the list changes a ticket's stage in place, among its board's stages
+    await tab.go("/vanguard?room=tasks&tab=list");
+    const stageCell = await tab.until("[...document.querySelectorAll('.stage-pick')].some((p) => p.innerText.includes('TO MERGE') || p.innerText.includes('To merge'))", 25_000);
+    check("the list shows each ticket's own stage, to change in place", stageCell && tab.takeErrors().length === 0);
+    // the timesheet, made simple: the week in a strip, the quick entry, a grid typed into
     await tab.go("/vanguard?room=time");
-    const sheet = await tab.until("Boolean(document.querySelector('.ts-hero .ts-ring')) && document.querySelectorAll('.ts-rhythm .ts-day').length === 7 && Boolean(document.querySelector('.ts-grid'))", 25_000);
-    check("the timesheet shows its hero, the week's rhythm and the day-by-day grid", sheet && tab.takeErrors().length === 0);
-    // the board: every mission of the floor by state, cards with their key; the search narrows them
+    const sheet = await tab.until("Boolean(document.querySelector('.ts-strip')) && Boolean(document.querySelector('.ql .ql-dur input')) && Boolean(document.querySelector('.ts-grid'))", 25_000);
+    const setValue = (selector, value) => `(() => { const i = document.querySelector(${JSON.stringify(selector)}); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, ${JSON.stringify(value)}); i.dispatchEvent(new Event('input', { bubbles: true })); })()`;
+    await tab.evaluate(setValue(".ql .ql-dur input", "1h30"));
+    await tab.evaluate("document.querySelector('.ql .ql-what').click()");
+    await tab.until("document.querySelectorAll('.vsel-pop [role=option]').length > 0", 5_000);
+    await tab.evaluate("[...document.querySelectorAll('.vsel-pop [role=option]')].find((o) => /Autre travail/.test(o.innerText) && o.innerText.includes('Audit légal 2025')).click()");
+    await tab.until("Boolean(document.querySelector('.ql .ql-label'))", 5_000);
+    await tab.evaluate(setValue(".ql .ql-label", "Revue smoke"));
+    await tab.evaluate("document.querySelector('.ql .ql-save').click()");
+    const quickSaved = await tab.until("[...document.querySelectorAll('.ts-grid tbody th')].some((h) => h.innerText.includes('Revue smoke'))", 15_000);
+    const quick = await one("select id, minutes, work_date::text d from erp.time_entry where user_id = $1 and mission = 'Revue smoke'", [uid.mariem]);
+    check("the quick entry logs \"1h30\" in one go", quickSaved && quick?.minutes === 90, quick);
+    const cell = `(() => { const rows = [...document.querySelectorAll('.ts-grid tbody tr')]; const r = rows.findIndex((x) => x.innerText.includes('Revue smoke')); const days = [...document.querySelectorAll('.ts-grid thead th')].slice(1, 8); const c = days.findIndex((d) => d.classList.contains('today')); return document.querySelector('[data-cell="' + r + '-' + c + '"]'); })()`;
+    await tab.evaluate(`${cell}.click()`);
+    await tab.until("Boolean(document.querySelector('.ts-cellin'))", 5_000);
+    await tab.evaluate(setValue(".ts-cellin", "2"));
+    await tab.evaluate("document.querySelector('.ts-cellin').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))");
+    let cellLine = null;
+    for (let i = 0; i < 40 && cellLine?.minutes !== 120; i++) { await new Promise((resolve) => setTimeout(resolve, 250)); cellLine = await one("select minutes from erp.time_entry where id = $1", [quick?.id]); }
+    check("…a cell typed into (\"2\", Enter) saves the line", sheet && cellLine?.minutes === 120 && tab.takeErrors().length === 0, cellLine);
+    // the test floor: entering it switches the whole app to its data, leaving it switches back
+    await tab.signIn(cookies["ahmed.ba"]);
+    await tab.go("/vanguard?room=mywork");
+    const realWork = await tab.until("document.body.innerText.includes('Circularisation clients')", 25_000);
+    const leakBefore = await tab.evaluate("document.body.innerText.includes('Ticket de test')");
+    await tab.evaluate("document.querySelector('.rail [aria-haspopup=menu]').click()");
+    await tab.until("[...document.querySelectorAll('button')].some((b) => b.innerText.includes('BUMEX Testing'))", 5_000);
+    await tab.evaluate("[...document.querySelectorAll('button')].find((b) => b.innerText.includes('BUMEX Testing')).click()");
+    const inTest = await tab.until("document.cookie.includes('bumex-floor-mode=test') && Boolean(document.querySelector('.test-banner')) && !document.querySelector('.mode-switch')", 25_000);
+    await tab.go("/vanguard?room=mywork");
+    const testOnly = await tab.until("document.body.innerText.includes('Ticket de test') && Boolean(document.querySelector('.test-banner'))", 25_000) && !(await tab.evaluate("document.body.innerText.includes('Circularisation clients')"));
+    await tab.evaluate("[...document.querySelectorAll('.test-banner button')].find((b) => /Quitter/.test(b.innerText)).click()");
+    const back = await tab.until("!document.cookie.includes('bumex-floor-mode=test') && !document.querySelector('.test-banner') && !document.querySelector('.mode-switch')", 25_000);
+    check("the test floor: nothing of it in My work outside; entering it shows only its data; leaving it switches back",
+      realWork && !leakBefore && inTest && testOnly && back && tab.takeErrors().length === 0, { realWork, leakBefore, inTest, testOnly, back });
+    await tab.signIn(cookies["mariem.sow"]);
+    // the board: every mission of the floor by its boards' stages (merged by name), cards with their key; the search narrows them
     await tab.go("/vanguard?room=tasks&tab=board");
-    const boardShown = await tab.until("document.querySelectorAll('.wk-col').length === 5 && [...document.querySelectorAll('.wk-card')].some((c) => /AUD-\\d+/.test(c.innerText))", 25_000);
+    const boardShown = await tab.until("['à faire', 'code review', 'to merge', 'terminé'].every((n) => [...document.querySelectorAll('.wk-col-name')].some((c) => c.textContent.trim().toLowerCase() === n)) && [...document.querySelectorAll('.wk-card')].some((c) => /AUD-\\d+/.test(c.innerText))", 25_000);
     const before = await tab.evaluate("document.querySelectorAll('.wk-card').length");
     await tab.evaluate(`(() => { const i = document.querySelector('.wk-search input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, 'Circularisation'); i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
     const narrowed = await tab.until("document.querySelectorAll('.wk-card').length === 1 && document.querySelector('.wk-card').innerText.includes('Circularisation')", 5_000);
     await tab.evaluate(`(() => { const i = document.querySelector('.wk-search input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, ''); i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-    check("the board shows the floor's tickets by state with their keys, and its search narrows them", boardShown && before > 1 && narrowed && tab.takeErrors().length === 0, { boardShown, before, narrowed });
+    check("the board shows the floor's tickets by their boards' stages with their keys, and its search narrows them", boardShown && before > 1 && narrowed && tab.takeErrors().length === 0, { boardShown, before, narrowed });
     await tab.signIn(cookies["mohamed.cheikh"]);
     await tab.go("/vanguard?room=settings&tab=access");
     const listed = await tab.until("document.body.innerText.includes('Modificateurs') && document.body.innerText.includes('Salma Fall')");

@@ -101,9 +101,23 @@ async function inTransaction<T>(
   }
 }
 
+// The test floor's mode (0013): the browser asks for it with this cookie while the person is on the test floor; the
+// database grants it only to whoever has the floor. In test mode the session sees only test records, otherwise none.
+export const FLOOR_MODE_COOKIE = "bumex-floor-mode";
+
+async function testModeRequested() {
+  try {
+    const { cookies } = await import("next/headers");
+    return (await cookies()).get(FLOOR_MODE_COOKIE)?.value === "test";
+  } catch {
+    return false; // outside a request (scripts, background work): the normal mode
+  }
+}
+
 // Work done for a signed-in person: their ERP role, entities and row-level security apply.
-export function withErpSession<T>(userId: string, work: (tx: ErpTransaction) => Promise<T>) {
-  return inTransaction((client) => client.query("select erp.open_session($1)", [userId]), work);
+export async function withErpSession<T>(userId: string, work: (tx: ErpTransaction) => Promise<T>) {
+  const test = await testModeRequested();
+  return inTransaction((client) => (test ? client.query("select erp.open_session($1, true)", [userId]) : client.query("select erp.open_session($1)", [userId])), work);
 }
 
 // Work the server does for everyone (access management by the BUMEX One super admin): every entity is visible,

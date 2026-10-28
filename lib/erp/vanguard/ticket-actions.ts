@@ -26,7 +26,7 @@ export type TicketLink = {
   id: string;
   kind: TicketLinkKind;
   direction: "out" | "in";
-  ticket: { id: string; key: string | null; title: string; status: string; priority: string; type: string; assigneeName: string | null };
+  ticket: { id: string; key: string | null; title: string; status: string; stageName: string | null; priority: string; type: string; assigneeName: string | null };
   canRemove: boolean;
 };
 
@@ -70,7 +70,10 @@ export type TicketView = {
 const LINKS_SQL = `
   select l.id, l.kind, case when l.from_task = $1 then 'out' else 'in' end as direction,
          jsonb_build_object('id', o.id, 'key', (select x.ticket_prefix || '-' || o.number from erp.entity x where x.id = o.entity_id),
-                            'title', o.title, 'status', o.status, 'priority', case when o.priority = 'normal' then 'medium' else o.priority end,
+                            'title', o.title, 'status', o.status,
+                            'stageName', (select s->>'name' from work.board b, jsonb_array_elements(b.stages) s
+                                           where b.engagement_id = o.engagement_id and s->>'id' = coalesce(o.stage_id, o.status) limit 1),
+                            'priority', case when o.priority = 'normal' then 'medium' else o.priority end,
                             'type', o.type, 'assigneeName', (select p.full_name from work.person p where p.id = o.assignee_id)) as ticket,
          work.can_edit_task(l.from_task) or work.can_edit_task(l.to_task) as "canRemove"
     from work.task_link l

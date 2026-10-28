@@ -83,7 +83,7 @@ export function MissionPanel({ projectId, initialTab, onClose }: { projectId: st
     { id: 'team' as Tab, label: `${say('Équipe', 'Team')} · ${view.members.length}` },
     { id: 'notes' as Tab, label: `${say('Notes', 'Notes')} · ${view.notes.filter((n) => !n.archived_at).length}` },
     { id: 'comments' as Tab, label: `${say('Commentaires', 'Comments')} · ${view.comments.length}` },
-    { id: 'rules' as Tab, label: say('Colonnes et règles', 'Columns and rules') },
+    { id: 'rules' as Tab, label: say('Statuts et règles', 'Statuses and rules') },
     { id: 'history' as Tab, label: say('Historique', 'History') },
   ];
 

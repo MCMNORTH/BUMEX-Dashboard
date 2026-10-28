@@ -19,7 +19,7 @@ export function Sidebar() {
   const ts = useMemo(() => taskStats(state, entityId), [state, entityId]);
   const toArchive = archiveQueue(state, entityId).length;
   const allowed = (r: string) => canOpenRoom(state, entityId, r);
-  const atOverview = ui.view === 'tower' && !ui.room;
+  const atOverview = (ui.view === 'tower' && !ui.room) || (ui.view === 'flat' && (ui.room === 'overview' || !ui.room)); // [bumex-one] flat: the floor's overview
   const modules: Item[] = entity.isHolding
     ? [{ id: 'penthouse', icon: 'penthouse', label: t('room_penthouse'), room: 'penthouse', off: !allowed('penthouse') }]
     : [
@@ -66,7 +66,7 @@ export function Sidebar() {
   return (
     <nav className={`rail ${ui.sidebarOpen ? 'open' : ''}`} aria-label="Navigation">
       <div className="grp">
-        <button className={`sb-item ${atOverview ? 'on' : ''}`} onClick={() => { if (ui.view === 'flat' && ui.webgl) setUi({ view: 'tower', room: null, focusRoom: null, rackFocus: false }); else goTower(); }} aria-label={t('nav_overview')}>
+        <button className={`sb-item ${atOverview ? 'on' : ''}`} onClick={() => { if (ui.view === 'flat') openRoom('overview'); else goTower(); }} aria-label={t('nav_overview')}>
           <Icon name="overview" />
           <span className="lbl">{t('nav_overview')}</span>
           <span className="tip">{t('nav_overview')}<kbd>Échap</kbd></span>
@@ -90,7 +90,7 @@ export function Sidebar() {
                 disabled={!f.visible}
                 onClick={() => {
                   setUi({ flyout: null });
-                  if (ui.view === 'flat') { setUi({ entityId: f.entity.id }); openRoom(f.entity.isHolding ? 'penthouse' : ['tasks', 'reports', 'settings', 'archives'].includes(ui.room ?? '') ? ui.room : 'accounting'); return; }
+                  if (ui.view === 'flat') { setUi({ entityId: f.entity.id }); openRoom(f.entity.isHolding ? 'penthouse' : ['tasks', 'reports', 'settings', 'archives', 'overview', 'missions'].includes(ui.room ?? '') ? ui.room : 'overview'); return; } // [bumex-one] the floor's overview first
                   goFloor(f.entity.id);
                   if (f.entity.isHolding) openRoom('penthouse');
                 }}

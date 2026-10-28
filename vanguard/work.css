@@ -386,3 +386,136 @@
 .vanguard .ts-grid tbody th.ts-first, .vanguard .ts-grid tfoot th.ts-first { text-transform: none; letter-spacing: normal; font-size: 13px; color: var(--ink); white-space: normal; overflow: hidden; vertical-align: middle; }
 .vanguard .ts-grid tfoot th.ts-first { font-size: 12.5px; color: var(--graphite); }
 .vanguard .ts-mission > div { min-width: 0; }
+
+/* ---- the test floor's mode (0013): the switch overlay and the banner ---- */
+.vanguard .mode-switch { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; background: rgba(246, 247, 249, .82); backdrop-filter: blur(2px); }
+.vanguard .mode-switch > div { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: var(--r-sm); background: var(--paper); box-shadow: 0 10px 30px rgba(16, 31, 56, .18); font-size: 13.5px; font-weight: 600; color: var(--navy-deep); }
+.vanguard .mode-switch i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--blue-pale); border-top-color: var(--navy); animation: vg-spin .8s linear infinite; }
+@keyframes vg-spin { to { transform: rotate(360deg); } }
+.vanguard .test-banner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vanguard .test-banner > span { flex: 1; min-width: 220px; }
+
+/* ---- a ticket's stage, picked on its own board (stages.tsx) ---- */
+.vanguard .stage-pick { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.vanguard .stage-pick .vsel.stsel.mini { width: auto; min-width: 110px; max-width: 170px; }
+.vanguard .stage-reason { display: inline-flex; align-items: center; gap: 4px; }
+.vanguard .stage-reason .in { height: 26px; width: 200px; font-size: 12px; }
+.vanguard .wk-board-tools { display: flex; justify-content: flex-end; }
+.vanguard .wk-col.archived { border-style: dashed; background: var(--paper); }
+.vanguard .wk-col-h .wk-col-name::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: 1px; background: var(--t-todo); }
+.vanguard .wk-col.tone-in_progress .wk-col-name::before { background: var(--t-prog); } .vanguard .wk-col.tone-review .wk-col-name::before { background: var(--t-rev); }
+.vanguard .wk-col.tone-blocked .wk-col-name::before { background: var(--t-block); } .vanguard .wk-col.tone-done .wk-col-name::before { background: var(--t-done); }
+.vanguard .wk-col.tone-archived .wk-col-name::before { background: transparent; border: 1px dashed var(--muted); }
+.vanguard .wf-start { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ---- Ma feuille, made simple (Time.tsx MySheet, QuickLog.tsx) ---- */
+.vanguard .ts-strip { display: flex; align-items: center; gap: 14px 22px; flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+.vanguard .ts-strip .ts-weekbar { margin: 0; padding: 0; border: none; background: none; flex: none; }
+.vanguard .ts-strip .ts-weeknav h2 { font-size: 15px; }
+.vanguard .ts-strip-sum { display: flex; align-items: center; gap: 12px; flex: 1 1 280px; min-width: 0; }
+.vanguard .ts-strip-total { font-size: 18px; white-space: nowrap; }
+.vanguard .ts-strip-total b { color: var(--navy-deep); }
+.vanguard .ts-strip-bar { flex: 1 1 80px; height: 6px; border-radius: 3px; background: var(--ground); overflow: hidden; min-width: 60px; }
+.vanguard .ts-strip-bar i { display: block; height: 100%; background: var(--navy); border-radius: 3px; }
+.vanguard .ts-strip-days { display: flex; gap: 4px; align-items: flex-end; height: 34px; }
+.vanguard .ts-strip-days span { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; width: 14px; height: 100%; gap: 2px; }
+.vanguard .ts-strip-days i { display: block; width: 8px; border-radius: 2px; background: var(--line); }
+.vanguard .ts-strip-days span.on i { background: var(--blue-soft, #6b8dc1); }
+.vanguard .ts-strip-days b { font-size: 9.5px; font-weight: 600; color: var(--muted); line-height: 1; }
+.vanguard .ts-strip-days span.today b { color: var(--navy); }
+.vanguard .ts-strip-act { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-left: auto; }
+.vanguard .ql-panel { padding: 12px 14px; }
+.vanguard .ql-panel h2 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.vanguard .ql { display: flex; flex-direction: column; gap: 8px; }
+.vanguard .ql-sentence { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+.vanguard .ql-w { color: var(--graphite); white-space: nowrap; }
+.vanguard .ql-dur { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+.vanguard .ql-dur .in { width: 84px; font-weight: 600; text-align: center; }
+.vanguard .ql .in.bad, .vanguard .ts-cellin.bad { border-color: var(--crit); box-shadow: 0 0 0 2px var(--crit-bg); }
+.vanguard .ql-read { white-space: nowrap; }
+.vanguard .ql-what { flex: 1 1 260px; min-width: 200px; max-width: 440px; }
+.vanguard .ql-label { flex: 1 1 200px; }
+.vanguard .ql-when { display: inline-flex; align-items: center; gap: 4px; }
+.vanguard .ql-date { width: 140px; }
+.vanguard .ql-more { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.vanguard .ql-chips { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.vanguard .ql .chip, .vanguard .ql-when .chip { border: 1px solid var(--border); background: var(--paper); color: var(--graphite); cursor: pointer; height: 26px; padding: 0 10px; border-radius: 13px; font: inherit; font-size: 12px; }
+.vanguard .ql .chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+.vanguard .ql-note { flex: 1 1 260px; }
+.vanguard .ql.compact .ql-sentence { gap: 6px; }
+.vanguard .ql-modal { width: min(720px, 100%); }
+.vanguard .ts-cellin { width: 100%; min-height: 58px; border: 2px solid var(--navy); border-radius: 10px; text-align: center; font: inherit; font-weight: 600; font-size: 14px; background: var(--paper); color: var(--navy-deep); }
+.vanguard .ts-cell.saving { opacity: .6; }
+.vanguard .ts-cell:focus-visible { outline: 2px solid var(--navy); outline-offset: -2px; }
+.vanguard .ts-cell-plus { font-size: 16px; opacity: .35; }
+.vanguard .ts-cell:hover .ts-cell-plus { opacity: 1; }
+.vanguard .ts-addrow th, .vanguard .ts-addrow td { padding: 10px 12px; }
+.vanguard .ts-addline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.vanguard .ts-addline .vsel, .vanguard .ts-addline select { min-width: 260px; }
+.vanguard .ts-addhint { text-align: left; }
+.vanguard .ts-daylist { display: none; }
+.vanguard .ts-events-fold summary { cursor: pointer; padding: 12px 14px; }
+.vanguard .ts-events-fold .ts-events { padding: 0 14px 14px; }
+@media (max-width: 640px) {
+  .vanguard .ts-gridpanel { display: none; }
+  .vanguard .ts-daylist { display: flex; flex-direction: column; gap: 8px; }
+  .vanguard .ts-dl-day { border: 1px solid var(--line); border-radius: 10px; background: var(--paper); overflow: hidden; }
+  .vanguard .ts-dl-day.today { border-color: var(--navy); }
+  .vanguard .ts-dl-h { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--ground); }
+  .vanguard .ts-dl-h b { flex: 1; text-transform: capitalize; }
+  .vanguard .ts-dl-e { display: flex; justify-content: space-between; gap: 8px; width: 100%; padding: 9px 10px; border: none; border-top: 1px solid var(--line); background: none; font: inherit; text-align: left; cursor: pointer; }
+  .vanguard .ql-what { max-width: none; min-width: 0; flex-basis: 100%; }
+  .vanguard .ql-save { flex: 1 1 100%; }
+  .vanguard .ts-strip-act { margin-left: 0; }
+  .vanguard .ts-strip-sum { flex-wrap: wrap; }
+}
+.vanguard .wk-card-log { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: none; border-radius: 4px; background: none; color: var(--muted); cursor: pointer; opacity: 0; transition: opacity .12s; }
+.vanguard .wk-card:hover .wk-card-log, .vanguard .wk-card:focus-within .wk-card-log { opacity: 1; }
+.vanguard .wk-card-log:hover { background: var(--ground); color: var(--navy); }
+@media (hover: none) { .vanguard .wk-card-log { opacity: 1; } }
+
+/* ---- the floor's overview (Overview.tsx) and a person's page (Person.tsx) ---- */
+.vanguard .ov { display: flex; flex-direction: column; gap: 16px; }
+.vanguard .ov-figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.vanguard .ov-fig { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--paper); cursor: pointer; font: inherit; text-align: left; transition: border-color .12s, box-shadow .12s; }
+.vanguard .ov-fig:hover:not(:disabled) { border-color: var(--navy); box-shadow: 0 4px 14px -10px rgba(19,29,51,.6); }
+.vanguard .ov-fig:disabled { cursor: default; }
+.vanguard .ov-fig-v { font-size: 24px; font-weight: 600; color: var(--navy-deep); line-height: 1.15; }
+.vanguard .ov-fig-l { font-size: 12px; color: var(--muted); }
+.vanguard .ov-fig.crit .ov-fig-v { color: var(--t-block); } .vanguard .ov-fig.crit { border-left: 3px solid var(--t-block); }
+.vanguard .ov-fig.warn .ov-fig-v { color: #9a6410; } .vanguard .ov-fig.warn { border-left: 3px solid #e2a03f; }
+.vanguard .ov-fig.good .ov-fig-v { color: var(--t-done); }
+.vanguard .ov-block { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.vanguard .ov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; align-items: start; }
+.vanguard .ov-teamwrap { overflow-x: auto; }
+.vanguard .ov-team { width: 100%; min-width: 760px; border-collapse: collapse; }
+.vanguard .ov-team th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.vanguard .ov-team td { padding: 8px; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: middle; }
+.vanguard .ov-team tr.click:hover td { background: var(--ground); }
+.vanguard .ov-team tr.click:focus-visible { outline: 2px solid var(--navy); outline-offset: -2px; }
+.vanguard .ov-team .num { text-align: right; }
+.vanguard .ov-load { min-width: 150px; }
+.vanguard .ov-load .loadlvl { display: block; margin-top: 3px; }
+.vanguard .ov-hours { display: flex; flex-direction: column; gap: 3px; min-width: 110px; }
+.vanguard .ov-hours-bar { display: block; height: 5px; border-radius: 3px; background: var(--ground); overflow: hidden; }
+.vanguard .ov-hours-bar i { display: block; height: 100%; background: var(--navy); }
+.vanguard .ov-money { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.vanguard .ov-act { display: flex; gap: 8px; align-items: flex-start; padding: 7px 4px; border-bottom: 1px solid var(--line); }
+.vanguard .ov-act:last-child { border-bottom: none; }
+.vanguard .mw-ticket.click, .vanguard .ov-act.click { cursor: pointer; }
+.vanguard .mw-ticket.click:hover, .vanguard .ov-act.click:hover { background: var(--ground); }
+.vanguard .pv-top { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(0, 2fr); gap: 16px; align-items: start; }
+.vanguard .pv-top > .card { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.vanguard .pv-week-total { font-size: 22px; }
+.vanguard .pv-week-total b { color: var(--navy-deep); }
+.vanguard .pv-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.vanguard .pv-days > div { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; }
+.vanguard .pv-days span { color: var(--muted); text-transform: capitalize; }
+.vanguard .pv-days .today span { color: var(--navy); font-weight: 600; }
+.vanguard .pv-days b { font-size: 11px; font-weight: 600; white-space: nowrap; }
+.vanguard .pv-bar { display: flex; align-items: flex-end; width: 100%; max-width: 26px; height: 64px; border-radius: 4px; background: var(--ground); overflow: hidden; }
+.vanguard .pv-bar i { display: block; width: 100%; background: var(--navy); border-radius: 4px 4px 0 0; }
+.vanguard .pv-where { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--line); padding-top: 8px; }
+.vanguard .pv-where > div { display: flex; justify-content: space-between; gap: 8px; }
+@media (max-width: 900px) { .vanguard .pv-top { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .vanguard .ov-grid { grid-template-columns: minmax(0, 1fr); } .vanguard .ov-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
