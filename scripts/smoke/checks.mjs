@@ -55,6 +55,15 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
   check("the manager links two tickets; the other side reads it as \"blocked by\"", !r?.error && blocked?.kind === "blocks" && blocked?.direction === "in" && /^AUD-\d+$/.test(blocked?.ticket?.key ?? ""), { r, blocked });
   check("…and both tickets' history says so", (await one("select count(*)::int n from work.activity where metadata->>'kind' = 'link' and subject_id in ($1, $2)", [T.t1, created])).n === 2);
 
+  // ---- My work: everything the person has to do ----------------------------------------------------------------------
+  const ahmedWork = await act("ahmed.ba", "myWorkAction", { args: [] });
+  const t1 = ahmedWork?.tickets?.find((t) => t.id === T.t1);
+  check("My work lists the assignee's tickets with their keys, and their load in weighted hours", Boolean(t1?.key) && t1?.estimatedHours === 6 && typeof ahmedWork?.load?.weekHours === "number" && ahmedWork?.load?.capacityHours > 0, { t1: t1 && { key: t1.key, est: t1.estimatedHours }, load: ahmedWork?.load });
+  const mariemWork = await act("mariem.sow", "myWorkAction", { args: [] });
+  check("…the reporter's sign-offs, and on the missions they lead what is unassigned, unestimated or late",
+    (mariemWork?.signOff ?? []).some((t) => t.id === T.t1) && (mariemWork?.lead ?? []).some((x) => x.reasons.includes("unestimated")),
+    { signOff: mariemWork?.signOff?.map((t) => t.key), lead: mariemWork?.lead?.map((x) => [x.ticket.key, x.reasons]) });
+
   // ---- conversation -------------------------------------------------------------------------------------------------
   r = await act("ahmed.ba", "createCommentAction", { prev: {}, form: { body: "Relances envoyées @Mariem Sow", entity_type: "ticket", entity_id: T.t1 } });
   check("the assignee comments the ticket", r?.success === true, r);

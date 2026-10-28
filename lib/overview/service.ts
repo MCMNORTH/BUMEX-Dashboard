@@ -165,7 +165,7 @@ function compareMyTickets(today: string) {
 }
 
 /** Open tickets the viewer reported that sit in their board's sign-off stage, oldest update first. */
-async function getSignOffTickets(reported: TicketRecord[]): Promise<OverviewSignOffTicket[]> {
+export async function getSignOffTickets(reported: TicketRecord[]): Promise<OverviewSignOffTicket[]> {
   if (!reported.length) {
     return [];
   }

@@ -242,3 +242,33 @@
   .vanguard .wk-spacer { display: none; }
   .vanguard .wk-col { flex-basis: 78vw; }
 }
+
+/* ---- My work (MyWork.tsx) ---- */
+.vanguard .mw { display: flex; flex-direction: column; gap: 16px; }
+.vanguard .mw-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.vanguard .mw-card { display: flex; flex-direction: column; gap: 8px; }
+.vanguard .mw-big { font-size: 20px; font-weight: 600; }
+.vanguard .mw-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.vanguard .mw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; align-items: start; }
+.vanguard .mw-block { display: flex; flex-direction: column; gap: 8px; background: var(--paper); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+.vanguard .mw-block-h { display: flex; align-items: center; gap: 8px; }
+.vanguard .mw-block-h h2 { margin: 0; font-size: 15px; }
+.vanguard .tk-count.crit { background: var(--t-block-bg); color: var(--t-block); } .vanguard .tk-count.warn { background: var(--warn-bg); color: #7a4f0e; }
+.vanguard .mw-rows { display: flex; flex-direction: column; }
+.vanguard .mw-ticket, .vanguard .mw-mention { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-bottom: 1px solid var(--line); font-size: 13px; min-width: 0; }
+.vanguard .mw-ticket:last-child, .vanguard .mw-mention:last-child { border-bottom: none; }
+.vanguard .mw-ticket.busy { opacity: .55; }
+.vanguard .mw-title { flex: 1; min-width: 0; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vanguard .mw-hours { width: 110px; text-align: right; font-size: 12px; white-space: nowrap; color: var(--graphite); }
+.vanguard .mw-due { width: 82px; text-align: right; font-size: 12px; white-space: nowrap; }
+.vanguard .mw-empty { padding: 8px 4px; }
+.vanguard .mw-done { margin-top: 6px; }
+.vanguard .mw-done summary { cursor: pointer; padding: 4px; }
+.vanguard .vsel.stsel.mini { height: 24px; padding: 0 7px; font-size: 11px; width: 120px; }
+.vanguard .tag.late { border-color: var(--t-block-bg); background: var(--t-block-bg); color: var(--t-block); }
+@media (max-width: 640px) {
+  .vanguard .mw-grid { grid-template-columns: minmax(0, 1fr); }
+  .vanguard .mw-ticket { flex-wrap: wrap; }
+  .vanguard .mw-title { flex-basis: 100%; order: -1; white-space: normal; }
+  .vanguard .mw-hours, .vanguard .mw-due { width: auto; }
+}
