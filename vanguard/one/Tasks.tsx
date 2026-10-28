@@ -13,7 +13,7 @@ import { MissionBoard } from './Board';
 import { TicketPanel } from './Ticket';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
-import { NO_FILTERS, activeFilterCount, applyFilters, groupTickets, isFiltered, quickFilters, stageFilterKey, type DueFilter, type GroupBy, type WorkFilters } from './work-filters';
+import { NO_FILTERS, activeFilterCount, applyFilters, groupTickets, isFiltered, quickFilters, readView, stageFilterKey, writeView, type DueFilter, type GroupBy, type WorkFilters } from './work-filters';
 import { Avatar, PriorityIcon, TypeIcon, hoursText } from './work-ui';
 import { StageSelect, stageLabel, useBoardOf, type StageTicket } from './stages';
 import { getActiveStages, getDefaultStage } from '@/lib/tickets/workflow';
@@ -71,7 +71,7 @@ export function TasksRoom({ entityId, initialTab }: { entityId: Id; initialTab?:
   // "board:<mission>" opens that mission's board (the mission card's button, vanguard/one/Missions.tsx)
   const boardFor = initialTab?.startsWith('board:') ? initialTab.slice(6) : null;
   const legacy = ['open', 'mine', 'overdue', 'done', 'all', 'week', 'unassigned', 'unestimated', 'blocked'].includes(initialTab ?? '');
-  const [view, setView] = useState<View>(legacy || initialTab === 'list' ? 'list' : 'board');
+  const [view, setView] = useState<View>(() => (legacy || initialTab === 'list' ? 'list' : boardFor ? 'board' : readView('tasks', 'board')));
   const [scope, setScope] = useState<string>(boardFor ?? 'all');
   const [filters, setFiltersState] = useState<WorkFilters>(() => {
     const saved = readFilters(entityId);
@@ -108,7 +108,7 @@ export function TasksRoom({ entityId, initialTab }: { entityId: Id; initialTab?:
     <>
       <div className="sheet-head">
         <h1>{t('tsk_title')}</h1>
-        <Tabs tabs={[{ id: 'board' as View, label: say('Tableau', 'Board') }, { id: 'list' as View, label: say('Liste', 'List') }]} value={view} onChange={(v) => { setView(v); close(); }} />
+        <Tabs tabs={[{ id: 'board' as View, label: say('Tableau', 'Board') }, { id: 'list' as View, label: say('Liste', 'List') }]} value={view} onChange={(v) => { setView(v); writeView('tasks', v); close(); }} />
         <div className="hright">{canCreate && <button className="btn sm primary" onClick={() => { setTicketId(null); setCreating(true); }}><Icon name="plus" size={13} /> {say('Créer', 'Create')}</button>}</div>
       </div>
       <div className="sheet-body">

@@ -310,6 +310,18 @@ export const moduleTables: TableSpec[] = [
       { field: "archiveId", read: "(select r.id from erp.archive_record r where r.engagement_id = t.id and r.status <> 'destroyed' limit 1)", write: false },
       // beyond the engine's record: the mission's own id for the Missions room's screens (vanguard/one)
       { field: "projectId", read: "t.id::text", write: false },
+      // and what its list shows (vanguard/one/MissionList.tsx, 2026-10-28): lead, priority, kind, progress, team
+      text("ownerId", { write: false }),
+      { field: "ownerName", read: "(select coalesce(nullif(p.full_name, ''), p.email) from work.person p where p.id = t.owner_id)", write: false },
+      text("priority", { write: false }),
+      text("projectKind", { write: false }),
+      { field: "progress", read: "work.mission_progress(t.id)", write: false },
+      {
+        field: "team",
+        read: `coalesce((select jsonb_agg(coalesce(nullif(p.full_name, ''), p.email) order by p.full_name)
+                 from erp.engagement_staff s join work.person p on p.id = s.user_id where s.engagement_id = t.id), '[]'::jsonb)`,
+        write: false,
+      },
     ],
     order: "t.code",
   },

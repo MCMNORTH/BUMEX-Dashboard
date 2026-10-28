@@ -32,7 +32,7 @@ export type FilterTicket = {
 export const stageFilterKey = (t: FilterTicket) => (t.ticket.stage_name ? `s:${fold(t.ticket.stage_name).trim()}` : `c:${t.ticket.status ?? t.status}`);
 
 const NO_DUE_DATE = '9999-12-31';
-const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLocaleLowerCase('fr');
+export const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLocaleLowerCase('fr');
 
 export function sundayOf(today: string) {
   const d = new Date(`${today}T00:00:00Z`);
@@ -110,4 +110,19 @@ export function quickFilters<T extends FilterTicket>(tab: string | null | undefi
     case 'done': return { ...clean, stages: keysOf('done') };
     default: return null;
   }
+}
+
+// board or list, as the person last chose it (asked on 2026-10-28), remembered in this browser per place ('tasks', 'mywork')
+export type WorkView = 'board' | 'list';
+const viewKey = (place: string) => `bumex-vanguard-view:${place}`;
+export function readView(place: string, fallback: WorkView): WorkView {
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(viewKey(place)) : null;
+    return raw === 'board' || raw === 'list' ? raw : fallback;
+  } catch {
+    return fallback;
+  }
+}
+export function writeView(place: string, view: WorkView) {
+  try { window.localStorage.setItem(viewKey(place), view); } catch { /* storage off: it stays for the visit */ }
 }

@@ -14,6 +14,7 @@ import { ago } from './ticket-history';
 import { Avatar, LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursText } from './work-ui';
 import { StageLozenge, StageSelect, useBoardOf, type StageTicket } from './stages';
 import { QuickLogButton } from './QuickLog';
+import { readView, writeView, type WorkView } from './work-filters';
 
 // "Mon travail": everything the person has to do, on every floor (asked on 2026-10-27). Their load this week and their
 // time; their open tickets, most pressing first (as a list or by state); what waits for their sign-off; their
@@ -50,7 +51,7 @@ export function MyWork() {
   const say = useSay();
   const loadedAt = useStore((s) => s.loadedAt);
   const [data, setData] = useState<MyWorkData | null>(null);
-  const [view, setView] = useState<'list' | 'board'>('list');
+  const [view, setView] = useState<WorkView>(() => readView('mywork', 'list'));
   const [dragged, setDragged] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [now] = useState(Date.now);
@@ -141,7 +142,7 @@ export function MyWork() {
       </div>
 
       <Block title={say('À faire', 'To do')} count={open.length} tone={open.some((t) => t.dueState === 'overdue' || t.status === 'blocked') ? 'crit' : undefined}
-        extra={<div className="seg-mini"><button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>{say('Liste', 'List')}</button><button className={view === 'board' ? 'on' : ''} onClick={() => setView('board')}>{say('Tableau', 'Board')}</button></div>}>
+        extra={<div className="seg-mini"><button className={view === 'list' ? 'on' : ''} onClick={() => { setView('list'); writeView('mywork', 'list'); }}>{say('Liste', 'List')}</button><button className={view === 'board' ? 'on' : ''} onClick={() => { setView('board'); writeView('mywork', 'board'); }}>{say('Tableau', 'Board')}</button></div>}>
         {view === 'list' ? (
           <div className="mw-rows">
             {open.map((t) => (

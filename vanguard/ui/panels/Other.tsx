@@ -1,19 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { groupFigures, archiveEngagement, planningCalendar, fmt, r2, type Id } from '@bumex/domain';
 import { useStore } from '../../store';
-import { Chip, D, STATUS_KIND, STATUS_FR, Lamp, Tabs, Icon } from '../common';
+import { Chip, D, STATUS_KIND, STATUS_FR, Lamp, Tabs } from '../common';
 import { worstSignal } from '../../three/Building';
 import { PlanningView, AvailabilityView } from './Planning';
-import { MissionCard, MissionForm, canEditMissions } from '../../one/Missions'; // [bumex-one] missions are BUMEX One's projects
+import { MissionList } from '../../one/MissionList'; // [bumex-one] missions are BUMEX One's projects: cards or a list
 import { useSay } from '../../one/say'; // [bumex-one]
 import { WeekView } from '../../one/Week'; // [bumex-one] BUMEX One's weekly planning
 import { MissionPanel } from '../../one/Mission'; // [bumex-one] a mission's page (BUMEX One's project page)
 import { CalendarView } from '../../one/Calendar'; // [bumex-one] BUMEX One's Calendar
 import { MilestonesView } from '../../one/Milestones'; // [bumex-one] BUMEX One's Roadmap
 
-const STAGES = ['Planification', 'Terrain', 'Revue associé', 'Rapport', 'Facturation'];
-
-type MissionsTab = 'board' | 'week' | 'calendar' | 'milestones' | 'planning' | 'availability'; // [bumex-one] week, calendar, milestones
+type MissionsTab = 'board' | 'week' | 'calendar' | 'milestones' | 'billing' | 'planning' | 'availability'; // [bumex-one] week, calendar, milestones, billing
 
 export function MissionsPanel({ entityId, initialTab }: { entityId: Id; initialTab?: string | null }) {
   const { state, t } = useStore();
@@ -26,6 +24,7 @@ export function MissionsPanel({ entityId, initialTab }: { entityId: Id; initialT
     { id: 'week' as MissionsTab, label: say('Semaine', 'Week') }, // [bumex-one] the tickets' week (vanguard/one/Week.tsx)
     { id: 'calendar' as MissionsTab, label: say('Calendrier', 'Calendar') }, // [bumex-one] vanguard/one/Calendar.tsx
     { id: 'milestones' as MissionsTab, label: say('Jalons', 'Milestones') }, // [bumex-one] vanguard/one/Milestones.tsx
+    { id: 'billing' as MissionsTab, label: say('Facturation', 'Billing') }, // [bumex-one] the work to invoice and the finished files, off the list (2026-10-28)
     { id: 'planning' as MissionsTab, label: <>Planning {cal.overloaded ? <Chip kind="crit">{cal.overloaded} surcharge</Chip> : cal.free ? <Chip kind="good">{cal.free} dispo.</Chip> : null}</> },
     { id: 'availability' as MissionsTab, label: 'Disponibilités' },
   ];
@@ -35,7 +34,8 @@ export function MissionsPanel({ entityId, initialTab }: { entityId: Id; initialT
       <div className="sheet-body">
         {/* [bumex-one] "mission:<project>[:rules]" opens that mission's page */}
         {tab.startsWith('mission:') && <MissionPanel key={tab} projectId={tab.split(':')[1]} initialTab={tab.endsWith(':rules') ? 'rules' : undefined} onClose={() => { setTab('board'); useStore.getState().setUi({ tab: null }); }} />}
-        {tab === 'board' && <Board entityId={entityId} />}
+        {tab === 'board' && <MissionList entityId={entityId} />}
+        {tab === 'billing' && <Billing entityId={entityId} />}
         {tab === 'week' && <WeekView entityId={entityId} />}
         {tab === 'calendar' && <CalendarView entityId={entityId} />}
         {tab === 'milestones' && <MilestonesView entityId={entityId} />}
@@ -46,75 +46,56 @@ export function MissionsPanel({ entityId, initialTab }: { entityId: Id; initialT
   );
 }
 
-function Board({ entityId }: { entityId: Id }) {
-  const { state, t, ui, setUi, apply, openArchive } = useStore();
+// [bumex-one] The board of desks by stage gave way to the mission list (vanguard/one/MissionList.tsx, 2026-10-28); what
+// stays here is the ERP's billing side: the work in progress to invoice and the finished files, with their archive.
+function Billing({ entityId }: { entityId: Id }) {
+  const { state, t, apply, openArchive } = useStore();
+  const say = useSay();
   const rows = state.engagements.filter((e) => e.entityId === entityId);
   const wip = rows.filter((e) => e.status === 'active').map((e) => ({ e, value: e.feeType === 'fixed' ? r2((e.fixedFee ?? 0) * Math.min(1, e.budgetHours ? e.actualHours / e.budgetHours : 0)) : r2(e.actualHours * 20000) }));
-  const totalWip = r2(wip.reduce((a, w) => a + w.value - w.e.invoicedToDate, 0));
+  const toInvoice = wip.filter((w) => w.value - w.e.invoicedToDate > 0);
+  const totalWip = r2(toInvoice.reduce((a, w) => a + w.value - w.e.invoicedToDate, 0));
   const completed = rows.filter((e) => e.status === 'completed').sort((a, b) => ((a.completedAt ?? a.deadline) < (b.completedAt ?? b.deadline) ? 1 : -1));
-  const focus = ui.focusEngagementId;
-  const focusRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { focusRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, [focus]);
-  const tasksOf = (id: Id) => state.tasks.filter((x) => x.engagementId === id && x.status !== 'done').length;
-  // [bumex-one] creating and editing missions (vanguard/one/Missions.tsx)
-  const [editing, setEditing] = useState<string | 'new' | null>(null);
-  const say = useSay();
-  const focused = focus ? rows.find((e) => e.id === focus) : undefined;
+  const unarchived = completed.filter((e) => !e.archiveId).length;
+  const openMission = (e: { projectId?: string }) => { if (e.projectId) useStore.getState().openRoom('missions', `mission:${e.projectId}`); };
   return (
     <>
-        {canEditMissions(state.session.role) && !editing && (
-          <div className="actions" style={{ justifyContent: 'flex-start' }}><button className="btn primary" onClick={() => setEditing('new')}><Icon name="plus" size={14} /> {say('Nouvelle mission', 'New mission')}</button></div>
-        )}
-        {editing && <MissionForm entityId={entityId} projectId={editing === 'new' ? null : editing} onClose={(saved) => { setEditing(null); const m = saved && useStore.getState().state.engagements.find((e) => (e as { projectId?: string }).projectId === saved); if (m) setUi({ focusEngagementId: m.id }); }} />}
-        {focused && !editing && <MissionCard mission={focused} onEdit={() => setEditing((focused as { projectId?: string }).projectId ?? null)} onClose={() => setUi({ focusEngagementId: null })} />}
-        <div className="kanban">
-          {STAGES.map((name, i) => (
-            <div className="col" key={name}>
-              <h3>{name} <span>{rows.filter((e) => e.stage === i + 1 && e.status !== 'completed').length}</span></h3>
-              {rows.filter((e) => e.stage === i + 1 && e.status !== 'completed').map((e) => {
-                const ratio = e.budgetHours ? e.actualHours / e.budgetHours : 0;
-                const late = e.deadline < state.today;
-                const open = tasksOf(e.id);
-                return (
-                  <div className={`desk ${late ? 'late' : ''} ${focus === e.id ? 'focus' : ''}`} key={e.id} ref={focus === e.id ? focusRef : undefined} onClick={() => setUi({ focusEngagementId: e.id })}>
-                    <b>{e.name}</b>
-                    <span className="muted">{state.customers.find((c) => c.id === e.customerId)?.name} · {e.kind} · <span className="mono">{e.code}</span></span>
-                    <div className="bar"><i style={{ width: `${Math.min(100, ratio * 100)}%`, background: ratio > 1 ? 'var(--crit)' : late ? 'var(--warn)' : 'var(--accent)' }} /></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>{e.actualHours} h / {e.budgetHours} h</span><span style={{ color: late ? 'var(--warn)' : undefined, fontWeight: late ? 600 : 400 }}>Éch. <D iso={e.deadline} />{late ? ' dépassée' : ''}</span></div>
-                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>{e.staff.map((s) => <Chip key={s} kind="dim">{s}</Chip>)}{ratio > 1 && <Chip kind="crit">budget dépassé</Chip>}{open > 0 && <Chip kind="warn">{open} tâche{open > 1 ? 's' : ''}</Chip>}</div>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-        <div className="card flush">
-          <table>
-            <thead><tr><th>Travaux en cours à facturer</th><th>Honoraires</th><th className="num">Heures</th><th className="num">Valeur acquise</th><th className="num">Déjà facturé</th><th className="num">WIP</th></tr></thead>
-            <tbody>{wip.filter((w) => w.value - w.e.invoicedToDate > 0).map((w) => <tr key={w.e.id} className={w.e.id === focus ? 'sel' : ''}><td>{w.e.name}</td><td>{w.e.feeType === 'fixed' ? `Forfait ${fmt(w.e.fixedFee ?? 0, 0)}` : 'Temps passé'}</td><td className="num">{w.e.actualHours}</td><td className="num">{fmt(w.value, 0)}</td><td className="num">{fmt(w.e.invoicedToDate, 0)}</td><td className="num">{fmt(r2(w.value - w.e.invoicedToDate), 0)}</td></tr>)}</tbody>
-            <tfoot><tr><td colSpan={5}>Total WIP</td><td className="num">{fmt(totalWip, 0)}</td></tr></tfoot>
-          </table>
-        </div>
-        <div className="card flush">
-          <table>
-            <thead><tr><th>Dossiers terminés · {completed.length}</th><th>Client</th><th>Terminé le</th><th className="num">Honoraires</th><th>Archive</th><th></th></tr></thead>
-            <tbody>
-              {completed.map((e) => {
-                const arc = e.archiveId ? state.archives.find((a) => a.id === e.archiveId) : null;
-                return (
-                  <tr key={e.id} className={e.id === focus ? 'sel' : ''} ref={e.id === focus ? (focusRef as never) : undefined}>
-                    <td><b>{e.name}</b><div className="small muted mono">{e.code}</div></td>
-                    <td>{state.customers.find((c) => c.id === e.customerId)?.name}</td>
-                    <td><D iso={e.completedAt ?? e.deadline} /></td>
-                    <td className="num">{fmt(e.fixedFee ?? 0, 0)}</td>
-                    <td>{arc ? <Chip kind={arc.status === 'retrieved' ? 'warn' : arc.status === 'pending_destruction' ? 'crit' : 'good'}>{arc.reference} · {arc.bay}·{arc.shelf}·{arc.slot}</Chip> : <Chip kind="warn">{t('arc_queue')}</Chip>}</td>
-                    <td>{arc ? <button className="btn sm" onClick={() => openArchive(arc.id, true)}>{t('rack_view')}</button> : <button className="btn sm primary" onClick={() => apply((s) => { const [s1, rec] = archiveEngagement(s, { engagementId: e.id }); window.setTimeout(() => openArchive(rec.id, true), 0); return s1; }, t('arc_archive_now'))}>{t('arc_archive_now')}</button>}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      <div className="ov-figs">
+        <div className="ov-fig"><span className="ov-fig-v">{fmt(totalWip, 0)}</span><span className="ov-fig-l">{say('Travaux en cours à facturer', 'Work in progress to invoice')}</span></div>
+        <div className="ov-fig"><span className="ov-fig-v">{toInvoice.length}</span><span className="ov-fig-l">{say('Missions avec du travail à facturer', 'Missions with work to invoice')}</span></div>
+        <div className={`ov-fig ${unarchived ? 'warn' : 'good'}`}><span className="ov-fig-v">{unarchived}</span><span className="ov-fig-l">{say('Dossiers terminés à archiver', 'Finished files to archive')}</span></div>
+      </div>
+      <div className="card flush">
+        <table>
+          <thead><tr><th>{say('Travaux en cours à facturer', 'Work in progress to invoice')}</th><th>{say('Honoraires', 'Fee')}</th><th className="num">{say('Heures', 'Hours')}</th><th className="num">{say('Valeur acquise', 'Earned value')}</th><th className="num">{say('Déjà facturé', 'Invoiced')}</th><th className="num">WIP</th></tr></thead>
+          <tbody>
+            {toInvoice.map((w) => <tr key={w.e.id} className="click" onClick={() => openMission(w.e as { projectId?: string })}><td><b>{w.e.name}</b><div className="small muted mono">{w.e.code}</div></td><td>{w.e.feeType === 'fixed' ? `${say('Forfait', 'Fixed')} ${fmt(w.e.fixedFee ?? 0, 0)}` : say('Temps passé', 'Time spent')}</td><td className="num">{w.e.actualHours}</td><td className="num">{fmt(w.value, 0)}</td><td className="num">{fmt(w.e.invoicedToDate, 0)}</td><td className="num">{fmt(r2(w.value - w.e.invoicedToDate), 0)}</td></tr>)}
+            {!toInvoice.length && <tr><td colSpan={6} className="muted" style={{ padding: 14 }}>{say('Rien à facturer pour le moment.', 'Nothing to invoice for now.')}</td></tr>}
+          </tbody>
+          {toInvoice.length > 0 && <tfoot><tr><td colSpan={5}>{say('Total WIP', 'Total WIP')}</td><td className="num">{fmt(totalWip, 0)}</td></tr></tfoot>}
+        </table>
+      </div>
+      <div className="card flush">
+        <table>
+          <thead><tr><th>{say('Dossiers terminés', 'Finished files')} · {completed.length}</th><th>Client</th><th>{say('Terminé le', 'Finished on')}</th><th className="num">{say('Honoraires', 'Fee')}</th><th>Archive</th><th></th></tr></thead>
+          <tbody>
+            {completed.map((e) => {
+              const arc = e.archiveId ? state.archives.find((a) => a.id === e.archiveId) : null;
+              return (
+                <tr key={e.id}>
+                  <td><button className="linkish" onClick={() => openMission(e as { projectId?: string })}><b>{e.name}</b></button><div className="small muted mono">{e.code}</div></td>
+                  <td>{state.customers.find((c) => c.id === e.customerId)?.name}</td>
+                  <td><D iso={e.completedAt ?? e.deadline} /></td>
+                  <td className="num">{fmt(e.fixedFee ?? 0, 0)}</td>
+                  <td>{arc ? <Chip kind={arc.status === 'retrieved' ? 'warn' : arc.status === 'pending_destruction' ? 'crit' : 'good'}>{arc.reference} · {arc.bay}·{arc.shelf}·{arc.slot}</Chip> : <Chip kind="warn">{t('arc_queue')}</Chip>}</td>
+                  <td>{arc ? <button className="btn sm" onClick={() => openArchive(arc.id, true)}>{t('rack_view')}</button> : <button className="btn sm primary" onClick={() => apply((s) => { const [s1, rec] = archiveEngagement(s, { engagementId: e.id }); window.setTimeout(() => openArchive(rec.id, true), 0); return s1; }, t('arc_archive_now'))}>{t('arc_archive_now')}</button>}</td>
+                </tr>
+              );
+            })}
+            {!completed.length && <tr><td colSpan={6} className="muted" style={{ padding: 14 }}>{say('Aucun dossier terminé.', 'No finished file.')}</td></tr>}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }

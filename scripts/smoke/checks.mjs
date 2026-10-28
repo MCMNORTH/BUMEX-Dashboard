@@ -408,7 +408,7 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     await tab.webgl(false);
     const rooms = [
       "/vanguard", "/vanguard?room=overview", `/vanguard?room=overview&tab=person%3A${uid.ahmed}`, "/vanguard?room=myday", "/vanguard?room=mywork", `/vanguard?room=missions&tab=mission%3A${A}`, "/vanguard?room=missions&tab=week",
-      "/vanguard?room=missions&tab=calendar", "/vanguard?room=missions&tab=milestones", "/vanguard?room=tasks", `/vanguard?room=tasks&tab=ticket%3A${T.t1}`,
+      "/vanguard?room=missions&tab=calendar", "/vanguard?room=missions&tab=milestones", "/vanguard?room=missions&tab=billing", "/vanguard?room=tasks", `/vanguard?room=tasks&tab=ticket%3A${T.t1}`,
       `/vanguard?room=tasks&tab=board%3A${A}`, "/vanguard?room=time", "/vanguard?room=inbox", "/vanguard?room=clients&tab=customers", "/vanguard?room=clients&tab=contracts",
       `/vanguard?room=clients&tab=client%3A${C.snim}`, `/vanguard?room=clients&tab=contract%3A${id(701)}`, "/vanguard?room=hr&tab=people", `/vanguard?room=hr&tab=person%3A${uid.ahmed}`,
       "/vanguard?room=archives&tab=documents", "/vanguard?room=reports&tab=archive", "/vanguard?room=reports&tab=activity", "/vanguard?room=settings&tab=account",
@@ -451,6 +451,28 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     await tab.until("document.querySelectorAll('.ov-figs .ov-fig').length === 7", 15_000);
     await tab.evaluate("[...document.querySelectorAll('.ov-fig')].find((f) => /Non assignés/.test(f.innerText)).click()");
     check("…a figure opens the list behind it", await tab.until("Boolean(document.querySelector('.wk-toolbar')) && document.querySelector('.wk-people button.on') !== null && Boolean(document.querySelector('table'))", 15_000) && tab.takeErrors().length === 0);
+    // the Missions room, redrawn: cards by status, a mission's page, the list remembered, the calendar's day, full names
+    await tab.go("/vanguard?room=missions");
+    const cards = await tab.until("[...document.querySelectorAll('.ms-card .ms-card-name')].some((n) => n.innerText === 'Audit légal 2025') && Boolean(document.querySelector('.ms-group-h'))", 25_000);
+    check("the Missions room shows the floor's missions as cards grouped by status, without the old desks", cards && !(await tab.evaluate("Boolean(document.querySelector('.desk'))")) && tab.takeErrors().length === 0);
+    await tab.evaluate("[...document.querySelectorAll('.ms-card')].find((c) => c.innerText.includes('Audit légal 2025')).click()");
+    const missionPage = await tab.until("document.querySelector('.mp-title')?.innerText === 'Audit légal 2025' && document.querySelectorAll('.mp-ticket').length > 0 && Boolean(document.querySelector('.tk-details'))", 25_000);
+    check("…a card opens the mission's page: its tickets, its milestones, its details beside", missionPage && await tab.until("Boolean(document.querySelector('.mp-steps .mp-step'))", 15_000) && tab.takeErrors().length === 0);
+    await tab.go("/vanguard?room=missions");
+    await tab.until("document.querySelectorAll('.ms-card').length > 0", 15_000);
+    await tab.evaluate("[...document.querySelectorAll('.ms-toolbar-r .seg-mini button')].find((b) => /Liste|List/.test(b.innerText)).click()");
+    await tab.go("/vanguard?room=missions");
+    check("…the list view, once chosen, is remembered", await tab.until("Boolean(document.querySelector('.ms-table')) && !document.querySelector('.ms-card')", 15_000));
+    await tab.evaluate("[...document.querySelectorAll('.ms-toolbar-r .seg-mini button')].find((b) => /Cartes|Cards/.test(b.innerText)).click()");
+    await tab.go("/vanguard?room=missions&tab=calendar");
+    const calendar = await tab.until("document.querySelectorAll('.cal-grid .cal-day').length % 7 === 0 && document.querySelectorAll('.cal-grid .cal-day').length >= 28 && Boolean(document.querySelector('.cal-side-day'))", 25_000);
+    const dayBefore = await tab.evaluate("document.querySelector('.cal-side-day').innerText");
+    await tab.evaluate("document.querySelectorAll('.cal-grid .cal-day:not(.sel)')[3].click()");
+    check("the calendar draws the month and lists a picked day beside it", calendar && await tab.until(`document.querySelector('.cal-side-day').innerText !== ${JSON.stringify(dayBefore)}`, 10_000) && tab.takeErrors().length === 0);
+    await tab.go("/vanguard?room=missions&tab=milestones");
+    const lanes = await tab.until("document.querySelectorAll('.rm-row .rm-name').length > 0", 25_000);
+    const cut = await tab.evaluate("[...document.querySelectorAll('.rm-name, .rm-group-h .linkish b')].filter((n) => n.scrollWidth > n.clientWidth + 1 || getComputedStyle(n).textOverflow === 'ellipsis').map((n) => n.innerText)");
+    check("the milestones show every mission's full name", lanes && cut.length === 0 && tab.takeErrors().length === 0, cut);
     // statuses: the list changes a ticket's stage in place, among its board's stages
     await tab.go("/vanguard?room=tasks&tab=list");
     const stageCell = await tab.until("[...document.querySelectorAll('.stage-pick')].some((p) => p.innerText.includes('TO MERGE') || p.innerText.includes('To merge'))", 25_000);
