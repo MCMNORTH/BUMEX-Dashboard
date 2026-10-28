@@ -15,6 +15,7 @@ import { LINK_WORDS, ago } from './ticket-history';
 import { TicketActivity } from './TicketActivity';
 import { Avatar, Lozenge, PriorityIcon, TypeIcon, hoursText, levelLabel, stageTone } from './work-ui';
 import { SHORT_REASONS, StageLozenge } from './stages';
+import { RichText } from './RichText';
 import { QuickLogButton } from './QuickLog';
 
 // A ticket in the Tasks room, laid out as Jira's (asked on 2026-10-27): its key and place in the breadcrumb; on the
@@ -213,11 +214,11 @@ function Description({ view, busy, say, onSave }: { view: TicketView; busy: bool
             : <span className="small muted">{say('Aucune description.', 'No description.')}</span>
       ) : (
         <div className="tk-desc-edit">
-          <textarea className="in" autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} rows={Math.min(24, Math.max(6, draft.split('\n').length + 2))}
-            placeholder={say('## Contexte\nCe qu’il faut faire…\n\n- un point\n- [ ] une étape', '## Context\nWhat to do…\n\n- a point\n- [ ] a step')}
-            onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setDraft(null); } if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void onSave(draft).then((ok) => ok && setDraft(null)); }} />
+          <div onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setDraft(null); } }}>
+            <RichText value={draft} autoFocus minHeight={160} onChange={setDraft} onSubmit={() => void onSave(draft).then((ok) => ok && setDraft(null))} />
+          </div>
           <div className="tk-desc-bar">
-            <span className="small muted">{say('**gras**, *italique*, `code`, # titre, - liste, - [ ] case, [lien](https://…)', '**bold**, *italic*, `code`, # heading, - list, - [ ] box, [link](https://…)')}</span>
+            <span className="small muted">{say('Ctrl/⌘ Entrée pour enregistrer · Échap pour annuler', 'Ctrl/⌘ Enter to save · Esc to cancel')}</span>
             <button className="btn sm" onClick={() => setDraft(null)}>{say('Annuler', 'Cancel')}</button>
             <button className="btn sm primary" disabled={busy} onClick={async () => { if (await onSave(draft)) setDraft(null); }}>{say('Enregistrer', 'Save')}</button>
           </div>

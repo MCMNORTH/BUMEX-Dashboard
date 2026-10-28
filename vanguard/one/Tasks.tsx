@@ -11,6 +11,7 @@ import { useStore } from '../store';
 import { Field, Icon, Tabs } from '../ui/common';
 import { MissionBoard } from './Board';
 import { WorkflowEditor } from './Workflow';
+import { RichText } from './RichText';
 import { TicketPanel } from './Ticket';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
@@ -299,7 +300,8 @@ function NewTask({ entityId, missionId, onDone }: { entityId: Id; missionId?: st
   const [options, setOptions] = useState<MissionOptions | null>(null);
   const missions = state.engagements.filter((e) => e.entityId === entityId && e.status !== 'completed' && (e as { projectId?: string }).projectId);
   const [mission, setMission] = useState(missionId && missions.some((m) => m.id === missionId) ? missionId : missions[0]?.id ?? '');
-  const blank = () => ({ title: '', assignee: state.session.userId, dueDate: addDays(state.today, 7), priority: 'medium', type: 'task', estimate: '', description: '', stage: '' }); // stage '': the board's default
+  // stage '': the board's default; the reporter is who signs the ticket off (moves it to the completed stage): me unless chosen
+  const blank = () => ({ title: '', assignee: state.session.userId, reporter: state.session.userId, dueDate: addDays(state.today, 7), priority: 'medium', type: 'task', estimate: '', description: '', stage: '' });
   const [v, setV] = useState(blank);
   const set = (patch: Partial<ReturnType<typeof blank>>) => setV((x) => ({ ...x, ...patch }));
   const [made, setMade] = useState<{ id: string; title: string }[]>([]);
@@ -317,7 +319,7 @@ function NewTask({ entityId, missionId, onDone }: { entityId: Id; missionId?: st
     const estimate = v.estimate.replace(',', '.').trim();
     if (estimate && (Number.isNaN(Number(estimate)) || Number(estimate) < 0)) { toast('error', say('Une estimation est un nombre d’heures.', 'An estimate is a number of hours.')); return; }
     const form = new FormData();
-    for (const [k, val] of Object.entries({ title: v.title.trim(), description: v.description, project_id: picked.projectId, assignee_id: v.assignee, reporter_id: state.session.userId, priority: v.priority, type: v.type, due_date: v.dueDate, estimated_hours: estimate, stage_id: startStages.some((st) => st.id === v.stage) ? v.stage : '', create_another: '1' })) form.set(k, val);
+    for (const [k, val] of Object.entries({ title: v.title.trim(), description: v.description, project_id: picked.projectId, assignee_id: v.assignee, reporter_id: v.reporter || state.session.userId, priority: v.priority, type: v.type, due_date: v.dueDate, estimated_hours: estimate, stage_id: startStages.some((st) => st.id === v.stage) ? v.stage : '', create_another: '1' })) form.set(k, val);
     setBusy(true);
     try {
       const result = await createTicketAction({}, form);
@@ -350,6 +352,7 @@ function NewTask({ entityId, missionId, onDone }: { entityId: Id; missionId?: st
           <Field label={say('Mission', 'Mission')} style={{ gridColumn: 'span 2' }}><Select recent="missions" className="in" value={mission} onChange={(e) => { setMission(e.target.value); set({ stage: '' }); }}>{missions.map((m) => <option key={m.id} value={m.id}>{m.code} · {m.name}</option>)}</Select></Field>
           <Field label={say('Résumé', 'Summary')} style={{ gridColumn: 'span 2' }}><input ref={titleRef} className="in" value={v.title} onChange={(e) => set({ title: e.target.value })} placeholder={t('tsk_title_ph')} autoFocus onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void submit(false); } }} /></Field>
           <Field label={say('Assigné', 'Assignee')}><Select recent="people" className="in" value={v.assignee} onChange={(e) => set({ assignee: e.target.value })}><option value="">—</option>{(options?.people ?? []).map((p) => <option key={p.id} value={p.id} data-hint={loads[p.id] ? `${hoursText(loads[p.id].weekHours, say)} / ${hoursText(loads[p.id].capacityHours, say)}` : undefined} data-tone={loads[p.id]?.level}>{p.name}</option>)}</Select></Field>
+          <Field label={say('Rapporteur · valide le ticket', 'Reporter · signs it off')}><Select recent="people" className="in" value={v.reporter} onChange={(e) => set({ reporter: e.target.value })} title={say('Seul le rapporteur passe le ticket à l’étape terminée.', 'Only the reporter moves the ticket to the completed stage.')}>{(options?.people ?? []).map((p) => <option key={p.id} value={p.id}>{p.id === state.session.userId ? `${p.name} (${say('moi', 'me')})` : p.name}</option>)}</Select></Field>
           <Field label={say('Échéance', 'Due')}><input className="in" type="date" value={v.dueDate} onChange={(e) => set({ dueDate: e.target.value })} /></Field>
           <Field label={say('Priorité', 'Priority')}><Select className="in" value={v.priority} onChange={(e) => set({ priority: e.target.value })}>{Object.entries(PRIORITY).map(([k, [fr, en]]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
           <Field label="Type"><Select className="in" value={v.type} onChange={(e) => set({ type: e.target.value })}>{TYPES.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
@@ -362,7 +365,7 @@ function NewTask({ entityId, missionId, onDone }: { entityId: Id; missionId?: st
             </div>
           </Field>
           <Field label={say('Étape', 'Stage')}><Select className="in" value={startStages.some((st) => st.id === v.stage) ? v.stage : getDefaultStage(board).id} onChange={(e) => set({ stage: e.target.value })}>{startStages.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}</Select></Field>
-          <Field label="Description"><input className="in" value={v.description} onChange={(e) => set({ description: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void submit(false); } }} /></Field>
+          <Field label={say('Description · Ctrl/⌘ Entrée pour créer', 'Description · Ctrl/⌘ Enter to create')} style={{ gridColumn: '1 / -1' }}><RichText value={v.description} onChange={(description) => set({ description })} onSubmit={() => void submit(false)} /></Field>
         </div>
       )}
       {made.length > 0 && (

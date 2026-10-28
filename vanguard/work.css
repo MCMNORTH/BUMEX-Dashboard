@@ -778,3 +778,67 @@
 .vanguard .wk-chip.on { background: var(--navy); border-color: var(--navy); color: #fff; font-weight: 600; }
 .vanguard .wk-est-in { width: 76px; height: 28px; }
 .vanguard .wk-made { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; padding: 8px 10px; border-radius: 6px; background: var(--ground); }
+/* a description typed as in a word processor (RichText.tsx, 2026-10-28) */
+.vanguard .rt { border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--paper); transition: border-color .12s, box-shadow .12s; }
+.vanguard .rt:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(107,141,193,.25); }
+.vanguard .rt-bar { display: flex; align-items: center; gap: 2px; padding: 4px 6px; border-bottom: 1px solid var(--line); background: #fbfbfc; border-radius: var(--r-sm) var(--r-sm) 0 0; }
+.vanguard .rt-tool { min-width: 28px; height: 26px; padding: 0 6px; border: none; border-radius: 4px; background: none; font: inherit; font-size: 13px; color: var(--graphite); cursor: pointer; }
+.vanguard .rt-tool:hover { background: var(--ground); color: var(--navy); }
+.vanguard .rt-tool.b { font-weight: 800; } .vanguard .rt-tool.i { font-style: italic; font-family: Georgia, serif; } .vanguard .rt-tool.h { font-weight: 700; }
+.vanguard .rt-sep { width: 1px; height: 16px; background: var(--line); margin: 0 4px; }
+.vanguard .rt-area { position: relative; padding: 10px 12px; outline: none; cursor: text; max-height: 420px; overflow-y: auto; }
+.vanguard .rt-area > div { min-height: 1.6em; }
+.vanguard .rt-area h3 { font-size: 16px; margin: 6px 0 4px; }
+.vanguard .rt-area.empty::before { content: attr(data-placeholder); position: absolute; left: 12px; top: 10px; color: var(--muted); pointer-events: none; }
+.vanguard .rt-area a { color: var(--navy); text-decoration: underline; }
+/* the tickets one just worked on, one click to log time (Time.tsx RecentPanel, 2026-10-28) */
+.vanguard .ts-recent { display: flex; flex-direction: column; gap: 0; padding: 12px 14px; }
+.vanguard .ts-recent-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.vanguard .ts-recent-h h2 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.vanguard .ts-recent-row { display: grid; grid-template-columns: minmax(0, 1fr) 70px auto; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); transition: opacity .15s; }
+.vanguard .ts-recent-row.busy { opacity: .55; }
+.vanguard .ts-recent-what { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.vanguard .ts-recent-what b { font-weight: 600; overflow-wrap: anywhere; }
+.vanguard .ts-recent-logged { text-align: right; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.vanguard .ts-recent-logged.on { color: var(--t-done); font-weight: 700; }
+.vanguard .ts-recent-chips { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.vanguard .ts-recent-in { width: 70px; height: 28px; }
+.vanguard .ts-recent-undo { grid-column: 1 / -1; justify-self: end; color: var(--t-done); }
+@media (max-width: 760px) { .vanguard .ts-recent-row { grid-template-columns: minmax(0, 1fr) auto; } .vanguard .ts-recent-chips { grid-column: 1 / -1; justify-content: flex-start; } }
+
+/* ---- boards, white and smooth (asked on 2026-10-28: "not grey, smoother"): the Tasks board (Board.tsx), My work's
+   boards (MyWork.tsx) and the week (Week.tsx). White columns with their status's colour on top, cards that lift, a
+   column that lights up under a dragged card, a card that settles where it lands. ---- */
+.vanguard .wk-board, .vanguard .kanban { scroll-behavior: smooth; scrollbar-width: thin; }
+.vanguard .wk-cols, .vanguard .kanban { gap: 12px; }
+.vanguard .wk-col, .vanguard .kanban .col {
+  background: var(--paper); border: 1px solid #e4e7ec; border-top: 3px solid #b6bdc8; border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(19,29,51,.04); transition: background .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.vanguard .wk-col.tone-todo, .vanguard .kanban .col.tone-todo, .vanguard .wk-col.tone-plain { border-top-color: #b6bdc8; }
+.vanguard .wk-col.tone-in_progress, .vanguard .kanban .col.tone-in_progress { border-top-color: #3d7be0; }
+.vanguard .wk-col.tone-review, .vanguard .kanban .col.tone-review { border-top-color: #7a64d6; }
+.vanguard .wk-col.tone-blocked, .vanguard .kanban .col.tone-blocked { border-top-color: #c9372c; }
+.vanguard .wk-col.tone-done, .vanguard .kanban .col.tone-done { border-top-color: #2e9e63; }
+.vanguard .wk-col.tone-archived, .vanguard .kanban .col.tone-archived { border-top-style: dashed; border-top-color: var(--muted); }
+.vanguard .wk-col .wk-col-name::before { display: none; }
+.vanguard .wk-col.over, .vanguard .kanban .col.over { background: #f5f9ff; border-color: #a9bddc; box-shadow: inset 0 0 0 1px #a9bddc, 0 10px 24px -16px rgba(43,63,102,.5); }
+.vanguard .wk-col-h { padding: 10px 12px 8px; background: inherit; border-radius: 10px 10px 0 0; z-index: 1; }
+.vanguard .wk-col-b { gap: 8px; padding: 2px 8px 10px; }
+.vanguard .kanban .col { padding: 10px 8px; gap: 8px; }
+.vanguard .kanban h3 { padding: 0 4px 2px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--graphite); }
+.vanguard .kanban h3 span { color: var(--muted); font-weight: 500; }
+.vanguard .wk-card {
+  border: 1px solid #e3e6eb; border-radius: 8px; box-shadow: 0 1px 2px rgba(19,29,51,.06);
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, opacity .16s ease;
+  animation: wk-settle .22s ease-out;
+}
+.vanguard .wk-card:hover { background: var(--paper); transform: translateY(-1px); border-color: #cfd6e2; box-shadow: 0 8px 18px -10px rgba(19,29,51,.32); }
+.vanguard .wk-card.dragging { opacity: .4; transform: scale(.98); box-shadow: none; }
+.vanguard .wk-card.busy { opacity: .55; }
+.vanguard .wk-add:hover { background: var(--ground); }
+@keyframes wk-settle { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .vanguard .wk-card, .vanguard .wk-col, .vanguard .kanban .col { animation: none; transition: none; } }
+.vanguard .kanban .desk { padding: 9px 10px; border: 1px solid #e3e6eb; border-radius: 8px; box-shadow: 0 1px 2px rgba(19,29,51,.06); cursor: grab; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; animation: wk-settle .22s ease-out; }
+.vanguard .kanban .desk:hover { transform: translateY(-1px); border-color: #cfd6e2; box-shadow: 0 8px 18px -10px rgba(19,29,51,.32); }
+.vanguard .kanban .desk.late { border-color: #e8c27a; box-shadow: 0 0 0 2px var(--warn-bg); }

@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { approveTimesheetWeekAction, approveTimesheetWeeksAction, copyPreviousWeekAction, deleteTimeAction, remindTimesheetWeekAction, returnTimesheetWeekAction, saveTimeAction, setMissionFavoriteAction, submitTimesheetWeekAction } from '@/app/(app)/timesheet/actions';
 import { usePermissions } from '@/hooks/use-permissions';
-import { myTimeAction, teamTimeAction, type MyTime, type TeamTime } from '@/lib/erp/vanguard/time-actions';
+import { myTimeAction, teamTimeAction, type MyTime, type RecentTicket, type TeamTime } from '@/lib/erp/vanguard/time-actions';
 import { floorCode } from '@/lib/erp/vanguard/floors';
 import { addDays } from '@/lib/timesheet/validation';
 import { groupWeeklyEntries, missionKey } from '@/lib/timesheet/weekly';
@@ -13,7 +13,8 @@ import type { Say } from './Conversation';
 import { useSay } from './say';
 import { Select, Suggest } from '../ui/Select';
 import { Lozenge, type Tone } from './work-ui';
-import { QuickLog, TIME_ERRORS, pickOf, whatOptions, type Pick } from './QuickLog';
+import { QuickLog, TIME_ERRORS, pickOf, ticketMission, whatOptions, type Pick } from './QuickLog';
+import { ago } from './ticket-history';
 
 // The "Temps" room: BUMEX One's timesheet in Vanguard (asked on 2026-10-27), made simple on 2026-10-28 (MySheet): my
 // week in one strip, a quick entry, a grid typed into; an entry may be on one of my tickets, and then counts on it (0012). For the administrator and
@@ -149,6 +150,15 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
   for (const x of extra) {
     if (!rows.some((r) => r.key === missionKey(x.projectId, x.mission))) rows.push({ key: missionKey(x.projectId, x.mission), projectId: x.projectId, projectName: projectName.get(x.projectId) ?? null, mission: x.mission, taskId: x.taskId, taskKey: data.tickets.find((t) => t.id === x.taskId)?.key ?? null, days: new Map(), minutes: 0 });
   }
+  // the tickets moved this week are lines of it, even before any time; the lines of recently moved tickets first, the
+  // last moved on top (the others keep their order)
+  for (const t of data.recent) {
+    const moved = t.movedAt?.slice(0, 10);
+    if (!moved || moved < data.week || moved > days[6] || rows.some((r) => r.taskId === t.id)) continue;
+    rows.push({ key: missionKey(t.project_id, ticketMission(t)), projectId: t.project_id, projectName: t.projectName, mission: ticketMission(t), taskId: t.id, taskKey: t.key, days: new Map(), minutes: 0 });
+  }
+  const recentRank = new Map(data.recent.map((t, i) => [t.id, i]));
+  rows.sort((a, b) => (recentRank.get(a.taskId ?? '') ?? 999) - (recentRank.get(b.taskId ?? '') ?? 999));
   const cellMinutes = (r: Row, d: string) => override[`${r.key}|${d}`] ?? (r.days.get(d) ?? []).reduce((s, e) => s + e.duration_minutes, 0);
   const daily = days.map((d) => rows.reduce((s, r) => s + cellMinutes(r, d), 0));
   const total = daily.reduce((s, m) => s + m, 0);
@@ -235,9 +245,11 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
       {data.weekStatus?.status === 'returned' && <div className="banner warn"><b>{say('Cette feuille vous a été retournée pour correction.', 'This timesheet was returned for changes.')}</b>{data.weekStatus.review_note ? <div>{data.weekStatus.review_note}</div> : null}</div>}
       {locked && <div className="banner info small">{say('Semaine envoyée : elle est verrouillée jusqu’à sa validation ou son retour.', 'Week sent: it is locked until it is approved or returned.')}</div>}
 
+      {data.week <= today && data.recent.length > 0 && <RecentPanel data={data} locked={locked} onLogged={refresh} say={say} />}
+
       {data.week <= today && (
         <section className="ts-panel ql-panel">
-          <h2>{say('Saisie rapide', 'Quick entry')}</h2>
+          <h2>{data.recent.length ? say('Autre saisie', 'Something else') : say('Saisie rapide', 'Quick entry')}</h2>
           <QuickLog key={quick.n} data={data} ticketId={quick.ticketId} date={quick.date} say={say} onSaved={async (d) => { if (d < data.week || d > days[6]) setWeek(d); else await refresh(); }} />
         </section>
       )}
@@ -344,6 +356,89 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
         </Modal>
       )}
     </div>
+  );
+}
+
+// The tickets one just worked on, the last moved first (asked on 2026-10-28): one click logs time on one for the day
+// picked, added to what that day already holds; the last click can be undone. Another duration is typed ("1h30").
+const RECENT_CHIPS = [15, 30, 60, 120, 240];
+
+function RecentPanel({ data, locked, onLogged, say }: { data: MyTime; locked: boolean; onLogged: () => Promise<void>; say: Say }) {
+  const { toast } = useStore();
+  const day = useDayLabel();
+  const open = data.days.filter((d) => d <= data.today);
+  const [date, setDate] = useState(() => (open.includes(data.today) ? data.today : open[open.length - 1] ?? data.today));
+  const [busy, setBusy] = useState<string | null>(null);
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  const [undo, setUndo] = useState<{ id: string; date: string; before: number; label: string } | null>(null);
+  const [now] = useState(Date.now);
+  const lineOf = (t: RecentTicket, d: string) => data.entries.find((e) => e.task_id === t.id && e.work_date === d);
+  const write = async (t: RecentTicket, d: string, total: number) => {
+    const one = lineOf(t, d);
+    const split = { hours: String(Math.floor(total / 60)), minutes: String(total % 60) };
+    if (one && total === 0) return deleteTimeAction(one.id, one.updated_at, data.test);
+    if (one) return saveTimeAction({ id: one.id, project_id: one.project_id, mission: one.mission, work_date: d, ...split, note: one.note ?? '', task_id: t.id, updated_at: one.updated_at }, data.test);
+    return saveTimeAction({ id: crypto.randomUUID(), project_id: t.project_id, mission: ticketMission(t), work_date: d, ...split, note: '', task_id: t.id }, data.test);
+  };
+  const log = async (t: RecentTicket, minutes: number) => {
+    const before = lineOf(t, date)?.duration_minutes ?? 0;
+    setBusy(t.id);
+    try {
+      const result = await write(t, date, before + minutes);
+      if ('error' in result) { toast('error', say(...TIME_ERRORS[result.error])); return; }
+      setUndo({ id: t.id, date, before, label: `+${duration(minutes)}` });
+      setTyped((x) => ({ ...x, [t.id]: '' }));
+      await onLogged();
+    } catch {
+      toast('error', say(...TIME_ERRORS.unavailable));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const revert = async () => {
+    if (!undo) return;
+    const t = data.recent.find((x) => x.id === undo.id);
+    if (!t) return;
+    setBusy(t.id);
+    try {
+      const result = await write(t, undo.date, undo.before);
+      if ('error' in result) toast('error', say(...TIME_ERRORS[result.error]));
+      setUndo(null);
+      await onLogged();
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <section className="ts-panel ts-recent">
+      <div className="ts-recent-h">
+        <h2>{say('Mes tickets récents', 'My recent tickets')}</h2>
+        <span className="small muted">{say('Un clic enregistre le temps pour', 'One click logs time for')}</span>
+        <div className="seg-mini" role="group" aria-label={say('Jour', 'Day')}>
+          {open.map((d) => <button key={d} className={d === date ? 'on' : ''} onClick={() => setDate(d)}>{d === data.today ? say("aujourd'hui", 'today') : day(d, { weekday: 'short', day: 'numeric' })}</button>)}
+        </div>
+      </div>
+      {locked ? <span className="small muted">{say('Semaine envoyée : elle est verrouillée.', 'Week sent: it is locked.')}</span> : data.recent.map((t) => {
+        const logged = lineOf(t, date)?.duration_minutes ?? 0;
+        return (
+          <div key={t.id} className={`ts-recent-row ${busy === t.id ? 'busy' : ''}`}>
+            <div className="ts-recent-what">
+              <span className="ts-tkey">{t.key}</span>
+              <b>{t.title}</b>
+              <span className="small muted">{t.projectName ?? ''}{t.stage ? ` · ${t.stage}` : ''} · {t.movedAt ? say(`déplacé ${ago(t.movedAt, now, say)}`, `moved ${ago(t.movedAt, now, say)}`) : say('en cours', 'in progress')}</span>
+            </div>
+            <span className={`ts-recent-logged ${logged ? 'on' : ''}`}>{logged ? duration(logged) : '—'}</span>
+            <div className="ts-recent-chips">
+              {RECENT_CHIPS.map((m) => <button key={m} className="wk-chip" disabled={busy !== null} onClick={() => log(t, m)}>+{m < 60 ? `${m} min` : `${m / 60} h`}</button>)}
+              <input className="in ts-recent-in" value={typed[t.id] ?? ''} placeholder={say('autre', 'other')} aria-label={say(`Durée sur ${t.key}`, `Time on ${t.key}`)} disabled={busy !== null}
+                onChange={(e) => setTyped((x) => ({ ...x, [t.id]: e.target.value }))}
+                onKeyDown={(e) => { if (e.key !== 'Enter') return; const m = parseDuration(typed[t.id] ?? ''); if (m) void log(t, m); else toast('error', say('Une durée : 2, 1h30, 45min…', 'A duration: 2, 1h30, 45min…')); }} />
+            </div>
+            {undo?.id === t.id && <button className="linkish small ts-recent-undo" disabled={busy !== null} onClick={revert}>{undo.label} · {say('annuler', 'undo')}</button>}
+          </div>
+        );
+      })}
+    </section>
   );
 }
 

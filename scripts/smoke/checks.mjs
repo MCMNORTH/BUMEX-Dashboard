@@ -96,6 +96,8 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
   r = await act("ahmed.ba", "moveTicketStageAction", { args: [T.t1, { stageId: "stg_tomerge" }] });
   const merged = await one("select stage_id, status from erp.task where id = $1", [T.t1]);
   check("…moves to a stage of its floor's board, reported as its category", !r?.error && merged.stage_id === "stg_tomerge" && merged.status === "review", { r, merged });
+  const recentTime = await act("ahmed.ba", "myTimeAction", { args: [null] });
+  check("the timesheet lists the tickets the person moved, the last moved first", recentTime?.recent?.[0]?.id === T.t1 && recentTime.recent.some((t) => t.id === T.t2), recentTime?.recent?.map((t) => t.key));
   r = await act("mariem.sow", "createTicketAction", { prev: {}, form: { title: "Lettre d'affirmation", project_id: A, assignee_id: uid.ahmed, reporter_id: uid.mariem, priority: "medium", type: "task", stage_id: "in_progress", create_another: "1" } });
   const started = r?.created?.id ? await one("select stage_id, status from erp.task where id = $1", [r.created.id]) : null;
   check("…a new ticket starts in the stage picked", started?.stage_id === "in_progress" && started?.status === "in_progress", { r, started });
@@ -563,12 +565,32 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     const missionBefore = await tab.evaluate("document.querySelector('.wk-new .field .vsel')?.innerText");
     await tab.evaluate("[...document.querySelectorAll('.wk-new .wk-chip')].find((b) => b.innerText.trim() === '4 h').click()");
     await tab.evaluate(`(() => { const i = document.querySelector('.wk-new input[placeholder]:not(.wk-est-in)'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, 'Ticket rapide'); i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    const reporterField = await tab.evaluate("[...document.querySelectorAll('.wk-new .field label')].some((l) => /Rapporteur|Reporter/.test(l.innerText))");
+    await tab.evaluate("(() => { const a = document.querySelector('.wk-new .rt-area'); a.focus(); document.execCommand('insertText', false, 'Contexte'); a.dispatchEvent(new Event('input', { bubbles: true })); })()");
+    await tab.evaluate("[...document.querySelectorAll('.wk-new .rt-tool')].find((b) => b.innerText === '•').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))");
     await tab.evaluate("document.querySelector('.wk-new input[placeholder]:not(.wk-est-in)').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))");
     const ready = await tab.until("Boolean(document.querySelector('.wk-made')) && document.querySelector('.wk-new input[placeholder]:not(.wk-est-in)').value === '' && !document.querySelector('.wk-new .wk-chip.on')", 15_000);
-    const fast = await one("select estimated_hours::float8 h, engagement_id from erp.task where title = 'Ticket rapide'");
+    const fast = await one("select estimated_hours::float8 h, engagement_id, notes, reporter_id, id from erp.task where title = 'Ticket rapide'");
     const missionAfter = await tab.evaluate("document.querySelector('.wk-new .field .vsel')?.innerText");
     check("a ticket is created with Enter and a 4 h chip; the next one is ready on the same mission, the rest cleared",
       ready && fast?.h === 4 && missionBefore === missionAfter && tab.takeErrors().length === 0, { ready, fast, missionBefore, missionAfter });
+    check("…the form has its reporter (me by default), and the description typed as in a word processor is kept as a list",
+      reporterField && fast?.reporter_id === uid.mariem && fast?.notes === "- Contexte", { reporterField, notes: fast?.notes, reporter: fast?.reporter_id });
+    // logging time on what one just moved: one click, and undone
+    r = await act("mariem.sow", "moveTicketStageAction", { args: [fast?.id, { stageId: "in_progress" }] });
+    await tab.go("/vanguard?room=time");
+    const recentRow = `[...document.querySelectorAll('.ts-recent-row')].find((x) => x.innerText.includes('Ticket rapide'))`;
+    const shownRecent = await tab.until(`Boolean(${recentRow})`, 20_000);
+    const firstRow = await tab.evaluate("document.querySelector('.ts-recent-row b')?.innerText");
+    await tab.evaluate(`[...${recentRow}.querySelectorAll('.wk-chip')].find((b) => b.innerText === '+1 h').click()`);
+    const minutesOn = async () => (await one("select coalesce(sum(minutes), 0)::int m from erp.time_entry where user_id = $1 and task_id = $2 and work_date = current_date", [uid.mariem, fast?.id])).m;
+    const pollMinutes = async (want) => { const end = Date.now() + 10_000; while (Date.now() < end) { if ((await minutesOn()) === want) return true; await new Promise((res) => setTimeout(res, 300)); } return false; };
+    const logged = await pollMinutes(60);
+    await tab.until(`Boolean(${recentRow}?.querySelector('.ts-recent-undo'))`, 10_000);
+    await tab.evaluate(`${recentRow}.querySelector('.ts-recent-undo').click()`);
+    const undone = await pollMinutes(0);
+    check("the timesheet shows the tickets just moved, the last first; one click logs an hour on one, and it can be undone",
+      !r?.error && shownRecent && firstRow === "Ticket rapide" && logged && undone && tab.takeErrors().length === 0, { moved: r, shownRecent, firstRow, logged, undone });
     await tab.go("/vanguard?room=tasks&tab=rules");
     const rules = await tab.until("Boolean(document.querySelector('.wf-floor')) && [...document.querySelectorAll('.sheet-body table input')].some((i) => i.value === 'Code review' && !i.disabled)", 25_000);
     check("the floor's board is changed in the Tasks room's \"Statuts et règles\" tab", rules && tab.takeErrors().length === 0);

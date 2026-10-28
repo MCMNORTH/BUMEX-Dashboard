@@ -144,7 +144,7 @@ export function MissionBoard({ entityId, scope, tickets, groupBy, onOpen, onRule
                         <div key={lane.key} className="wk-lane">
                           {groupBy !== 'none' && <div className="wk-lane-h">{lane.label} <span>{cards.length}</span></div>}
                           {(column.completed ? cards.slice(0, 30) : cards).map((x) => (
-                            <Card key={x.id} task={x} busy={busy === x.id} showMission={!projectId} onOpen={onOpen} onDrag={setDragged} say={say} />
+                            <Card key={x.id} task={x} busy={busy === x.id} dragging={dragged === x.id} showMission={!projectId} onOpen={onOpen} onDrag={setDragged} say={say} />
                           ))}
                           {column.completed && cards.length > 30 && <div className="small muted">+{cards.length - 30} {say('autres', 'more')}</div>}
                         </div>
@@ -163,7 +163,7 @@ export function MissionBoard({ entityId, scope, tickets, groupBy, onOpen, onRule
   );
 }
 
-function Card({ task, busy, showMission, onOpen, onDrag, say }: { task: TicketTask; busy: boolean; showMission: boolean; onOpen: (id: string) => void; onDrag: (id: string | null) => void; say: Say }) {
+function Card({ task, busy, dragging, showMission, onOpen, onDrag, say }: { task: TicketTask; busy: boolean; dragging: boolean; showMission: boolean; onOpen: (id: string) => void; onDrag: (id: string | null) => void; say: Say }) {
   const { state } = useStore();
   const x = task;
   const late = x.status !== 'done' && x.dueDate !== NO_DUE_DATE && x.dueDate < state.today;
@@ -172,7 +172,7 @@ function Card({ task, busy, showMission, onOpen, onDrag, say }: { task: TicketTa
   const mission = showMission ? state.engagements.find((e) => e.id === x.engagementId) : null;
   return (
     <div
-      className={`wk-card ${busy ? 'busy' : ''} ${x.status === 'done' ? 'done' : ''}`}
+      className={`wk-card ${busy ? 'busy' : ''} ${dragging ? 'dragging' : ''} ${x.status === 'done' ? 'done' : ''}`}
       draggable={!busy}
       onDragStart={(e) => { onDrag(x.id); e.dataTransfer.effectAllowed = 'move'; }}
       onDragEnd={() => onDrag(null)}

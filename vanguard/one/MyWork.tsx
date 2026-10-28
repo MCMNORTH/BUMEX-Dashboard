@@ -11,7 +11,7 @@ import { Icon } from '../ui/common';
 import { reload } from './Tasks';
 import { useSay } from './say';
 import { ago } from './ticket-history';
-import { Avatar, LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursText } from './work-ui';
+import { Avatar, LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursText, statusTone } from './work-ui';
 import { StageLozenge, StageSelect, useBoardOf, type StageTicket } from './stages';
 import { QuickLogButton } from './QuickLog';
 import { readView, writeView, type WorkView } from './work-filters';
@@ -55,6 +55,7 @@ export function MyWork() {
   const [data, setData] = useState<MyWorkData | null>(null);
   const [view, setView] = useState<WorkView>(() => readView('mywork', 'list'));
   const [dragged, setDragged] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [asking, setAsking] = useState<{ t: MyWorkTicket; target: { status: TicketStatus } | { stageId: string }; name: string; message: string } | null>(null);
   const [reason, setReason] = useState('');
@@ -124,6 +125,7 @@ export function MyWork() {
       e.preventDefault();
       const t = data.tickets.find((x) => x.id === dragged);
       setDragged(null);
+      setOver(null);
       if (!t || columnOf(t) === column.key) return;
       const stage = stageForColumn(boardOf(t.projectId), column.key);
       if (!stage) { toast('error', say(`Le tableau de ${t.projectName ?? 'ce ticket'} n'a pas d'étape « ${column.name} ».`, `${t.projectName ?? "This ticket"}'s board has no "${column.name}" stage.`)); return; }
@@ -201,10 +203,11 @@ export function MyWork() {
                       const list = tickets.filter((t) => columnOf(t) === column.key);
                       const status = column.status;
                       return (
-                        <div className={`col ${column.archived ? 'archived' : ''}`} key={column.key} {...drop(column)} style={{ minWidth: 150 }}>
+                        <div className={`col tone-${column.archived ? 'archived' : statusTone(column.status)} ${over === `${floor}|${column.key}` ? 'over' : ''}`} key={column.key} {...drop(column)}
+                          onDragEnter={() => dragged && setOver(`${floor}|${column.key}`)} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(null); }} style={{ minWidth: 170 }}>
                           <h3>{column.name} <span>{list.length}</span></h3>
                           {list.map((t) => (
-                            <div key={t.id} className={`wk-card ${busy === t.id ? 'busy' : ''}`} draggable={busy !== t.id} onDragStart={() => setDragged(t.id)} onDragEnd={() => setDragged(null)} onClick={() => ticket(t.id)}>
+                            <div key={t.id} className={`wk-card ${busy === t.id ? 'busy' : ''} ${dragged === t.id ? 'dragging' : ''}`} draggable={busy !== t.id} onDragStart={() => setDragged(t.id)} onDragEnd={() => { setDragged(null); setOver(null); }} onClick={() => ticket(t.id)}>
                               <div className="wk-card-t">{t.title}</div>
                               <div className="wk-card-f"><span className="wk-keycell"><TypeIcon type={t.type} say={say} /> {t.key}</span><span className="grow" />{t.dueDate && <span className={`wk-due ${t.dueState === 'overdue' && status !== 'done' ? 'late' : ''}`}>{t.dueDate.slice(8, 10)}/{t.dueDate.slice(5, 7)}</span>}<PriorityIcon priority={t.priority} say={say} /></div>
                             </div>
