@@ -65,9 +65,13 @@ export const kindLabel = (kind: string | null | undefined, say: Say) => {
   return found ? say(found[1], found[2]) : kind ?? '';
 };
 
+/** A mission without a deadline (lib/erp/vanguard/tables.ts): never late. */
+export const NO_DEADLINE = '9999-12-31';
+export const hasDeadline = (deadline: string | null | undefined): deadline is string => Boolean(deadline) && !deadline!.startsWith(NO_DEADLINE);
+
 /** Days until the deadline: "dans 12 j", "aujourd'hui", "3 j de retard". */
 export function dueIn(deadline: string | null | undefined, today: string, say: Say): { text: string; late: boolean; soon: boolean } | null {
-  if (!deadline) return null;
+  if (!hasDeadline(deadline)) return null;
   const days = Math.round((Date.parse(`${deadline.slice(0, 10)}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
   if (days < 0) return { text: say(`${-days} j de retard`, `${-days} d late`), late: true, soon: false };
   if (days === 0) return { text: say("aujourd'hui", 'today'), late: false, soon: true };
@@ -144,7 +148,7 @@ export function MissionForm({ entityId, projectId, onClose }: { entityId: Id; pr
           <Field label={say('Responsable', 'Lead')}><Select recent="people" className="in" value={v.owner_id} onChange={(e) => set({ owner_id: e.target.value })}>{options.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
           <Field label={say('Statut', 'Status')}><Select className="in" value={v.status} onChange={(e) => set({ status: e.target.value as MissionInput['status'] })}>{STATUSES.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
           <Field label={say('Priorité', 'Priority')}><Select className="in" value={v.priority} onChange={(e) => set({ priority: e.target.value as MissionInput['priority'] })}>{PRIORITIES.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
-          <Field label={say('Avancement manuel (%)', 'Manual progress (%)')}><input className="in num" value={v.manual_progress} onChange={(e) => set({ manual_progress: e.target.value })} placeholder={say("d'après les tickets", 'from the tickets')} /></Field>
+          <Field label={say('Avancement (%) sans tickets', 'Progress (%) without tickets')}><input className="in num" value={v.manual_progress} onChange={(e) => set({ manual_progress: e.target.value })} placeholder={say("sinon, d'après les tickets", 'else, from the tickets')} title={say("Compte seulement tant que la mission n'a aucun ticket : ensuite, l'avancement est la part de tickets terminés.", 'Counts only while the mission has no ticket: then the progress is the share of tickets done.')} /></Field>
         </div>
         <h3 className="ms-form-h">{say('Dates et budget', 'Dates and budget')}</h3>
         <div className="ms-form-grid">

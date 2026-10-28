@@ -4,6 +4,7 @@ import { floorOverviewAction, type FloorOverview, type OverviewPerson } from '@/
 import { useStore } from '../store';
 import type { Room } from '../i18n';
 import { Icon, Money } from '../ui/common';
+import { hasDeadline } from './Missions';
 import { PersonPanel } from './Person';
 import type { TicketTask } from './Tasks';
 import { useSay } from './say';
@@ -102,7 +103,8 @@ function FloorOverviewBody({ entityId, onPerson }: { entityId: Id; onPerson: (id
       const mine = tickets.filter((x) => x.engagementId === m.id);
       const left = mine.filter((x) => x.status !== 'done');
       const overdue = left.filter((x) => x.dueDate !== NO_DUE_DATE && x.dueDate < today).length;
-      return { m, total: mine.length, left: left.length, overdue, past: m.deadline < today, soon: m.deadline >= today && m.deadline <= in14 };
+      // a mission without a deadline (9999-12-31) is never past it nor close to it
+      return { m, total: mine.length, left: left.length, overdue, past: hasDeadline(m.deadline) && m.deadline < today, soon: hasDeadline(m.deadline) && m.deadline >= today && m.deadline <= in14 };
     })
     .filter((w) => w.past || w.overdue > 0 || (w.soon && w.left > 0))
     .sort((a, b) => Number(b.past) - Number(a.past) || b.overdue - a.overdue || a.m.deadline.localeCompare(b.m.deadline));
@@ -204,7 +206,7 @@ function FloorOverviewBody({ entityId, onPerson }: { entityId: Id; onPerson: (id
                 {w.past && <span className="tag late">{say('échéance dépassée', 'past deadline')}</span>}
                 {w.overdue > 0 && <span className="tag late">{w.overdue} {say('en retard', 'late')}</span>}
                 <span className="small muted">{w.total ? `${w.total - w.left}/${w.total}` : '—'}</span>
-                <span className={`mw-due ${w.past ? 'late' : ''}`}>{w.m.deadline.split('-').reverse().join('/')}</span>
+                <span className={`mw-due ${w.past ? 'late' : ''}`}>{hasDeadline(w.m.deadline) ? w.m.deadline.split('-').reverse().join('/') : say('sans échéance', 'no deadline')}</span>
               </div>
             ))}
             {!watch.length && <div className="small muted mw-empty">{say('Toutes les missions sont dans les temps.', 'Every mission is on track.')}</div>}

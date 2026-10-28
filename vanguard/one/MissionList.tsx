@@ -3,7 +3,7 @@ import type { Id } from '@bumex/domain';
 import { useStore } from '../store';
 import { Icon } from '../ui/common';
 import { Select } from '../ui/Select';
-import { MissionForm, canEditMissions, dueIn, kindLabel, missionPriority, missionStatus, type Mission } from './Missions';
+import { MissionForm, canEditMissions, dueIn, hasDeadline, kindLabel, missionPriority, missionStatus, type Mission } from './Missions';
 import { useSay } from './say';
 import type { TicketTask } from './Tasks';
 import { fold, readView, writeView, type WorkView } from './work-filters';
@@ -18,7 +18,7 @@ type Scope = 'open' | 'completed' | 'all';
 type Sort = 'deadline' | 'name' | 'progress';
 const ORDER = ['active', 'planned', 'on_hold', 'completed'];
 const NO_DUE_DATE = '9999-12-31';
-const dmy = (iso: string) => iso.slice(0, 10).split('-').reverse().join('/');
+const dmy = (iso: string) => (hasDeadline(iso) ? iso.slice(0, 10).split('-').reverse().join('/') : '—');
 
 type Row = { m: Mission; client: string; open: number; late: number; total: number; done: number; due: ReturnType<typeof dueIn>; past: boolean; over: boolean };
 
@@ -53,7 +53,7 @@ export function MissionList({ entityId }: { entityId: Id }) {
         total: mine.length,
         done: mine.length - open.length,
         due: finished ? null : dueIn(m.deadline, today, say),
-        past: !finished && m.deadline < today,
+        past: !finished && hasDeadline(m.deadline) && m.deadline < today,
         over: m.budgetHours > 0 && m.actualHours > m.budgetHours,
       };
     });
@@ -224,7 +224,7 @@ function MissionCard({ row, onOpen }: { row: Row; onOpen: () => void }) {
       <div className="ms-card-client">{row.client || say('Sans client (interne)', 'No client (internal)')}{m.projectKind ? ` · ${kindLabel(m.projectKind, say)}` : ''}</div>
       <Progress value={m.progress ?? 0} />
       <div className="ms-card-facts">
-        <span title={say('Échéance', 'Deadline')}><Icon name="calendar" size={14} /> <span className="mono">{dmy(m.deadline)}</span>{row.due && <b className={row.due.late ? 'ms-late' : row.due.soon ? 'ms-soon' : 'muted'}> · {row.due.text}</b>}</span>
+        <span title={say('Échéance', 'Deadline')}><Icon name="calendar" size={14} /> {hasDeadline(m.deadline) ? <span className="mono">{dmy(m.deadline)}</span> : <span className="muted">{say('Sans échéance', 'No deadline')}</span>}{row.due && <b className={row.due.late ? 'ms-late' : row.due.soon ? 'ms-soon' : 'muted'}> · {row.due.text}</b>}</span>
         <span title={say('Tickets', 'Tickets')}><Icon name="tasks" size={14} /> {row.total ? `${row.done}/${row.total}` : '0'}{row.late > 0 && <b className="ms-late"> · {row.late} {say('en retard', 'late')}</b>}</span>
         <span title={say('Heures saisies / budget', 'Hours logged / budget')} className={row.over ? 'ms-late' : ''}><Icon name="clock" size={14} /> {hoursText(m.actualHours, say)}{m.budgetHours ? ` / ${Math.round(m.budgetHours)} h` : ''}</span>
       </div>

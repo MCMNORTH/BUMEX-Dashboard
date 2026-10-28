@@ -56,6 +56,8 @@ export function MyWork() {
   const [view, setView] = useState<WorkView>(() => readView('mywork', 'list'));
   const [dragged, setDragged] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [asking, setAsking] = useState<{ t: MyWorkTicket; target: { status: TicketStatus } | { stageId: string }; name: string; message: string } | null>(null);
+  const [reason, setReason] = useState('');
   const [now] = useState(Date.now);
   const testMode = useStore((s) => s.state.session.testMode === true);
   const boardOf = useBoardOf(data ? data.tickets.map((t) => t.projectId) : []);
@@ -77,10 +79,14 @@ export function MyWork() {
     const [fresh] = await Promise.all([myWorkAction(), reload()]);
     setData(fresh);
   };
-  const move = async (t: MyWorkTicket, target: { status: TicketStatus } | { stageId: string }, name: string) => {
+  const move = async (t: MyWorkTicket, target: { status: TicketStatus } | { stageId: string }, name: string, why?: string) => {
     setBusy(t.id);
     try {
-      const result = await moveTicketStageAction(t.id, target);
+      const result = await moveTicketStageAction(t.id, target, why);
+      // a move back or a reopening on a board that asks why: the reason, then the move again
+      if (result.code === 'reason_required') { setAsking({ t, target, name, message: result.error ?? '' }); return; }
+      setAsking(null);
+      setReason('');
       if (result.error) toast('error', result.error);
       else toast('ok', `${t.key ?? t.title} → ${name}`);
       await refresh();
@@ -174,6 +180,17 @@ export function MyWork() {
           </div>
         ) : (
           <div className="mw-boards">
+            {asking && (
+              <div className="tk-reason">
+                <span className="small">{asking.message || say('Ce déplacement demande un motif.', 'This move needs a reason.')} · <b>{asking.t.key ?? asking.t.title}</b></span>
+                <input className="in" autoFocus value={reason} onChange={(e) => setReason(e.target.value)} placeholder={say('Motif', 'Reason')}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && reason.trim()) void move(asking.t, asking.target, asking.name, reason.trim()); if (e.key === 'Escape') { setAsking(null); setReason(''); } }} />
+                <div className="actions">
+                  <button className="btn sm" onClick={() => { setAsking(null); setReason(''); }}>{say('Annuler', 'Cancel')}</button>
+                  <button className="btn sm primary" disabled={!reason.trim() || busy === asking.t.id} onClick={() => move(asking.t, asking.target, asking.name, reason.trim())}>{say('Déplacer vers', 'Move to')} {asking.name}</button>
+                </div>
+              </div>
+            )}
             {floorsInView.map((floor) => {
               const tickets = data.tickets.filter((t) => floorOf(t) === floor);
               return (

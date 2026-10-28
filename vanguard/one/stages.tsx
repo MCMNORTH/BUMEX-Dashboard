@@ -66,7 +66,7 @@ export function StageLozenge({ name, status }: { name?: string | null; status: s
 }
 
 // why a stage cannot be picked, in a few words (the full sentence comes from the server if tried anyway)
-const SHORT: Partial<Record<TransitionErrorCode, [string, string]>> = {
+export const SHORT_REASONS: Partial<Record<TransitionErrorCode, [string, string]>> = {
   skip: ["étape par étape", 'one step at a time'],
   backward: ['pas de retour', 'no going back'],
   reopen: ['pas de réouverture', 'no reopening'],
@@ -95,7 +95,9 @@ export function StageSelect({ ticket, onMoved, disabled, className }: { ticket: 
   const rules = getCompletionRule({ reporter_id: ticket.reporterId, assignee_id: ticket.assigneeId }, me);
   const stages = getActiveStages(workflow).map((s) => {
     const check = s.id === from ? null : evaluateTransition(workflow, from, s.id, 'motif', rules);
-    return { stage: s, why: check && !check.ok ? SHORT[check.error.code] ?? ['non permis', 'not allowed'] : null };
+    // allowed, but only with a reason: said beside it, asked when picked
+    const plain = check?.ok ? evaluateTransition(workflow, from, s.id, null, rules) : null;
+    return { stage: s, why: check && !check.ok ? SHORT_REASONS[check.error.code] ?? ['non permis', 'not allowed'] : null, reason: Boolean(plain && !plain.ok && plain.error.code === 'reason_required') };
   });
   const current = workflow.stages.find((s) => s.id === from);
   const tone = statusTone(current ? (current.is_completed ? 'done' : current.category) : ticket.status);
@@ -122,8 +124,8 @@ export function StageSelect({ ticket, onMoved, disabled, className }: { ticket: 
   return (
     <span className="stage-pick">
       <Select className={`stsel mini ${tone} ${className ?? ''}`} value={from} disabled={disabled || busy} onChange={(e) => void move(e.target.value)} aria-label={say('Étape', 'Stage')}>
-        {stages.map(({ stage, why }) => (
-          <option key={stage.id} value={stage.id} disabled={Boolean(why)} data-hint={why ? say(...why) : undefined}>{stage.name}</option>
+        {stages.map(({ stage, why, reason: needsReason }) => (
+          <option key={stage.id} value={stage.id} disabled={Boolean(why)} data-hint={why ? say(...why) : needsReason ? say('motif demandé', 'reason asked') : undefined}>{stage.name}</option>
         ))}
         {!stages.some((s) => s.stage.id === from) && current && <option value={from} disabled>{current.name}</option>}
       </Select>

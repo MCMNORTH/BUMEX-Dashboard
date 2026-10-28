@@ -757,3 +757,24 @@
 .vanguard .mw-floor-h { margin: 0; font-size: 13px; font-weight: 600; color: var(--graphite); display: flex; align-items: center; gap: 6px; }
 .vanguard .mw-other { margin-left: 6px; border-color: #c9d8f0; background: var(--blue-pale); color: var(--navy-deep); }
 .vanguard .mw-title .tag { margin-left: 6px; vertical-align: 1px; }
+/* the board editor's moves (Workflow.tsx, 2026-10-28) */
+.vanguard .wf-setting { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.vanguard .wf-setting input { margin-top: 3px; }
+.vanguard .wf-setting.off { opacity: .55; cursor: default; }
+.vanguard .wf-matrix-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vanguard .wf-matrix th, .vanguard .wf-matrix td { text-align: center; white-space: nowrap; }
+.vanguard .wf-matrix td:first-child, .vanguard .wf-matrix th:first-child { text-align: left; }
+.vanguard .wf-matrix td.back { background: #fbf6ea; } .vanguard .wf-matrix td.reopen { background: #f3eefc; }
+.vanguard .wf-matrix td.wf-self { color: var(--muted); background: var(--ground); }
+.vanguard .wf-cell { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; padding: 4px; }
+.vanguard .wf-key { font-size: 11px; color: var(--muted); }
+.vanguard .wf-key.back { color: #9a6410; } .vanguard .wf-key.reopen { color: #6b4fc4; }
+/* creating tickets fast (Tasks.tsx NewTask, 2026-10-28) */
+.vanguard .wk-new-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.vanguard .wk-new-h h2 { margin: 0; }
+.vanguard .wk-est-pick { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.vanguard .wk-chip { height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--paper); font: inherit; font-size: 12.5px; color: var(--graphite); cursor: pointer; }
+.vanguard .wk-chip:hover { border-color: var(--navy); }
+.vanguard .wk-chip.on { background: var(--navy); border-color: var(--navy); color: #fff; font-weight: 600; }
+.vanguard .wk-est-in { width: 76px; height: 28px; }
+.vanguard .wk-made { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; padding: 8px 10px; border-radius: 6px; background: var(--ground); }

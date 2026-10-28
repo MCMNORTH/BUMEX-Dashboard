@@ -555,9 +555,43 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     await tab.evaluate(`(() => { const i = document.querySelector('.wk-search input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, ''); i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
     check("the board shows the floor's tickets on the floor's stages with their keys, and its search narrows them", boardShown && before > 1 && narrowed && tab.takeErrors().length === 0, { boardShown, before, narrowed });
     // the floor's board, its statuses and rules: a tab of the Tasks room, for the floor's manager to change
+    // creating tickets fast: Enter creates, then the next one is ready on the same mission, the rest back to default
+    await tab.go("/vanguard?room=tasks&tab=list");
+    await tab.until("Boolean(document.querySelector('.sheet-head .hright .btn.primary'))", 15_000);
+    await tab.evaluate("document.querySelector('.sheet-head .hright .btn.primary').click()");
+    await tab.until("Boolean(document.querySelector('.wk-new .wk-chip'))", 10_000);
+    const missionBefore = await tab.evaluate("document.querySelector('.wk-new .field .vsel')?.innerText");
+    await tab.evaluate("[...document.querySelectorAll('.wk-new .wk-chip')].find((b) => b.innerText.trim() === '4 h').click()");
+    await tab.evaluate(`(() => { const i = document.querySelector('.wk-new input[placeholder]:not(.wk-est-in)'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, 'Ticket rapide'); i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    await tab.evaluate("document.querySelector('.wk-new input[placeholder]:not(.wk-est-in)').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))");
+    const ready = await tab.until("Boolean(document.querySelector('.wk-made')) && document.querySelector('.wk-new input[placeholder]:not(.wk-est-in)').value === '' && !document.querySelector('.wk-new .wk-chip.on')", 15_000);
+    const fast = await one("select estimated_hours::float8 h, engagement_id from erp.task where title = 'Ticket rapide'");
+    const missionAfter = await tab.evaluate("document.querySelector('.wk-new .field .vsel')?.innerText");
+    check("a ticket is created with Enter and a 4 h chip; the next one is ready on the same mission, the rest cleared",
+      ready && fast?.h === 4 && missionBefore === missionAfter && tab.takeErrors().length === 0, { ready, fast, missionBefore, missionAfter });
     await tab.go("/vanguard?room=tasks&tab=rules");
     const rules = await tab.until("Boolean(document.querySelector('.wf-floor')) && [...document.querySelectorAll('.sheet-body table input')].some((i) => i.value === 'Code review' && !i.disabled)", 25_000);
     check("the floor's board is changed in the Tasks room's \"Statuts et règles\" tab", rules && tab.takeErrors().length === 0);
+    // its moves: a setting ticked stays ticked (the editor used to reload itself and drop it); custom transitions start
+    // from the settings; the board saves them, and a move back then asks its reason
+    const setting = (n) => `[...document.querySelectorAll('.wf-setting input')][${n}]`; // backward, skip, reopen, reason, custom
+    const saveBoard = "[...document.querySelectorAll('.actions .btn.primary')].find((b) => /Enregistrer le tableau|Save the board/.test(b.innerText))?.click()";
+    const boardRow = () => one("select require_reason, custom_transitions_enabled, (select count(*)::int from jsonb_object_keys(transitions)) n from work.floor_board where entity_id = $1", [entity.bumex_audit]);
+    const until = async (test, ms = 10_000) => { const end = Date.now() + ms; while (Date.now() < end) { if (test(await boardRow())) return true; await new Promise((r) => setTimeout(r, 300)); } return false; };
+    await tab.evaluate(`${setting(3)}.click()`);
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    const reasonKept = await tab.evaluate(`${setting(3)}.checked`);
+    await tab.evaluate(`${setting(4)}.click()`);
+    const prefilled = await tab.until("document.querySelectorAll('.wf-matrix input:checked').length > 0 && document.querySelectorAll('.wf-setting.off').length === 3", 5_000);
+    await tab.evaluate(saveBoard);
+    const savedMoves = await until((b) => b.require_reason && b.custom_transitions_enabled && b.n > 0);
+    r = await act("ahmed.ba", "moveTicketStageAction", { args: [T.t2, { stageId: "todo" }] });
+    check("the board's moves: a ticked setting stays, custom transitions start from the settings, the board saves them, a move back asks why",
+      reasonKept && prefilled && savedMoves && r?.code === "reason_required" && tab.takeErrors().length === 0, { reasonKept, prefilled, savedMoves, move: r?.code });
+    await tab.evaluate(`${setting(4)}.click()`);
+    await tab.evaluate(`${setting(3)}.click()`);
+    await tab.evaluate(saveBoard);
+    await until((b) => !b.require_reason && !b.custom_transitions_enabled);
     // the app opens on the person's default entity, and the logo leads back to it
     await tab.signIn(cookies["mohamed.cheikh"]);
     await tab.go("/vanguard");

@@ -21,11 +21,12 @@ on the day of the copy (`scripts/work-copy.mjs`), the way back.
 | `db/erp/migrations/0013_test_mode.sql` | The test floor sealed: the session has a mode (`erp.open_session(user, test_mode)`, granted only with `test_floor`); in test mode only test records and the test floor's books, otherwise none of them, testers included (`work.hidden`, `work.in_test`); a person removes their own time line of a week not sent |
 | `db/erp/migrations/0014_floor_boards.sql` | One board per floor (`work.floor_board`), which every mission of the floor follows: BUMEX Audit starts from the audit model, BUMEX IT from the development one, the others from the standard one; read by the floor and whoever works on its missions, changed by the administrators and the floor's managers; every ticket moved to its floor's stage of the same name and status (else the first of its status), no status changing; `work.board` kept, no longer read |
 | `db/erp/migrations/0015_default_entity_team.sql` | A person's default entity (`work.person.default_entity_code`, their home one until they choose): the app opens on it; a mission's team member, from any entity, reads the mission and its tickets and logs time on it (`work.is_mission_member` in `work.can_read_project` and `work.can_read_task_row`) |
+| `db/erp/migrations/0016_mission_progress.sql` | A mission's progress is its share of tickets done (archived apart); the manual progress counts only for a mission without tickets; a completed mission is at 100 % |
 | `db/erp/test/work.test.mjs` | Tests of 0008: who reads and writes what, the timesheet's guards, the e-mails, one client with two sides |
 | `scripts/work-copy.mjs` | The one-shot copy of BUMEX One's Firestore data into 0008's tables (dry run first) |
 | `lib/erp/vanguard/` | BUMEX Vanguard on this database: the state read for a person, their changes replayed with the engine and written (see `vanguard/VENDOR.md`); tests in `test/` run on the real schema |
 | `db/erp/test/guarantees.test.mjs` | The ERP team's 35 guarantee tests (now run against every migration, 0004 included) |
-| `db/erp/test/bumex-one.test.mjs` | Tests of 0004–0006, 0009 and 0010 (0011's to 0015's in `work.test.mjs`) |
+| `db/erp/test/bumex-one.test.mjs` | Tests of 0004–0006, 0009 and 0010 (0011's to 0016's in `work.test.mjs`) |
 | `lib/erp/engine/` | The ERP team's TypeScript engine, **as delivered** but for marked changes (`withIdSource` and the rooms per entity in `core.ts`, two session fields in `types.ts`); 65 tests in `lib/erp/engine/test` |
 | `lib/erp/*.ts` | Our code: connection, access, pages' data |
 | `scripts/erp-migrate.mjs` | Applies pending migrations |

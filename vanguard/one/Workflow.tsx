@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { saveFloorBoardAction } from '@/app/(app)/projects/workflow-actions';
 import { floorBoardEditorAction, floorBoardSourceAction, type FloorBoardEditor } from '@/lib/erp/vanguard/board-actions';
 import { WORKFLOW_MODELS, applyModel, modelOfBoard, type WorkflowModel } from '@/lib/tickets/workflow-models';
-import { createStageId, describeTransitionError, draftToWorkflow, evaluateTransition, getStageCategoryLabel, MAX_ACTIVE_STAGES, STAGE_CATEGORIES, STAGE_NAME_MAX_LENGTH, toWorkflowDraft, type WorkflowDraft } from '@/lib/tickets/workflow';
+import { createStageId, describeTransitionError, draftToWorkflow, evaluateTransition, getStageCategoryLabel, MAX_ACTIVE_STAGES, STAGE_CATEGORIES, STAGE_NAME_MAX_LENGTH, strandedStages, toWorkflowDraft, transitionsFromSettings, type WorkflowDraft } from '@/lib/tickets/workflow';
 import type { StageCategory, WorkflowSettings, WorkflowStage } from '@/types/workflow';
 import { useStore } from '../store';
 import { Chip, Icon } from '../ui/common';
@@ -78,11 +78,19 @@ export function WorkflowEditor({ entityId }: { entityId: string }) {
     return { ...d, transitions: { ...d.transitions, [from]: list.includes(to) ? list.filter((t) => t !== to) : [...list, to] } };
   });
   // every move the settings allow, as a starting point for custom rules
-  const fill = () => edit((d) => {
-    const board = draftToWorkflow({ ...d, custom_transitions_enabled: false, require_reason: false, stages: d.stages.map((s, position) => ({ ...s, position })) }, entityId);
-    const stages = d.stages.filter((s) => !s.archived_at);
-    return { ...d, transitions: Object.fromEntries(stages.map((from) => [from.id, stages.filter((to) => to.id !== from.id && evaluateTransition(board, from.id, to.id).ok).map((to) => to.id)])) };
-  });
+  // the moves the settings allow, as the custom list's starting point (positions from the draft's order)
+  const fromSettings = (d: WorkflowDraft) => transitionsFromSettings(draftToWorkflow({ ...d, stages: d.stages.map((s, position) => ({ ...s, position })) }, entityId));
+  const fill = () => edit((d) => ({ ...d, transitions: fromSettings(d) }));
+  const setSetting = (key: keyof WorkflowSettings, on: boolean) => {
+    // custom transitions turned on with nothing ticked would freeze every card: the list starts from the settings
+    const empty = !active.some((s) => (draft.transitions[s.id] ?? []).length > 0);
+    if (key === 'custom_transitions_enabled' && on && empty) {
+      edit((d) => ({ ...d, custom_transitions_enabled: true, transitions: fromSettings(d) }));
+      setMessage({ kind: 'info', text: say('La liste part des réglages ci-dessus : décochez ce qui ne doit pas être permis, puis enregistrez.', 'The list starts from the settings above: untick what must not be allowed, then save.') });
+      return;
+    }
+    edit((d) => ({ ...d, [key]: on }));
+  };
   const save = async () => {
     setSaving(true);
     setMessage(null);
@@ -100,7 +108,12 @@ export function WorkflowEditor({ entityId }: { entityId: string }) {
       setSaving(false);
     }
   };
-  const result = test.from && test.to && test.from !== test.to ? evaluateTransition(preview, test.from, test.to) : null;
+  // a move tried as someone who may complete the card, with a reason given: then whether it asks for one
+  const testable = active.some((s) => s.id === test.from) && active.some((s) => s.id === test.to) && test.from !== test.to;
+  const result = testable ? evaluateTransition(preview, test.from, test.to, 'motif') : null;
+  const stranded = strandedStages(preview);
+  const replaced = draft.custom_transitions_enabled;
+  const reasonUseless = draft.require_reason && !replaced && !draft.allow_backward && !draft.allow_reopen;
   const takeModel = (model: Pick<WorkflowModel, 'stages' | 'settings'>, name: string) => {
     edit((d) => applyModel(d, model, data.cardCounts));
     const kept = draft.stages.filter((s) => !s.archived_at && (data.cardCounts[s.id] ?? 0) > 0 && !model.stages.some((m) => m.name.toLowerCase() === s.name.toLowerCase()));
@@ -184,28 +197,49 @@ export function WorkflowEditor({ entityId }: { entityId: string }) {
 
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <h2 style={{ margin: 0 }}>{say('Déplacements', 'Moves')}</h2>
-        {SETTINGS.map(({ key, fr, en }) => (
-          <label key={key} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <input type="checkbox" checked={draft[key]} disabled={readOnly} onChange={(e) => edit((d) => ({ ...d, [key]: e.target.checked }))} style={{ marginTop: 3 }} />
-            <span><b>{say(fr[0], en[0])}</b><br /><span className="small muted">{say(fr[1], en[1])}</span></span>
-          </label>
-        ))}
-        {draft.custom_transitions_enabled && (
+        {SETTINGS.map(({ key, fr, en }) => {
+          // with custom transitions, the list alone says which moves exist
+          const off = replaced && (key === 'allow_backward' || key === 'allow_skip_forward' || key === 'allow_reopen');
+          return (
+            <label key={key} className={`wf-setting ${off ? 'off' : ''}`}>
+              <input type="checkbox" checked={draft[key]} disabled={readOnly || off} onChange={(e) => setSetting(key, e.target.checked)} />
+              <span><b>{say(fr[0], en[0])}</b><br /><span className="small muted">{off ? say('Remplacé par la liste des transitions personnalisées ci-dessous.', 'Replaced by the custom transition list below.') : say(fr[1], en[1])}</span></span>
+            </label>
+          );
+        })}
+        {reasonUseless && <div className="banner info">{say("Aucun retour en arrière ni aucune réouverture n'est permis : aucun motif ne sera demandé.", 'No move back nor reopening is allowed: no reason will be asked.')}</div>}
+        {replaced && (
           <>
-            <div className="actions" style={{ justifyContent: 'flex-start' }}><button className="btn sm" disabled={readOnly} onClick={fill}>{say('Partir des réglages ci-dessus', 'Start from the settings above')}</button></div>
+            <div className="wf-matrix-tools">
+              <button className="btn sm" disabled={readOnly} onClick={fill}>{say('Repartir des réglages', 'Start again from the settings')}</button>
+              <span className="small muted">{say('Ligne : depuis cette étape · colonne : vers. ', 'Row: from this stage · column: to. ')}<span className="wf-key back">↩</span> {say('retour', 'back')} · <span className="wf-key reopen">⟲</span> {say('réouverture', 'reopening')}{draft.require_reason ? say(' (un motif sera demandé)', ' (a reason will be asked)') : ''}</span>
+            </div>
             <div style={{ overflowX: 'auto' }}>
-              <table>
+              <table className="wf-matrix">
                 <thead><tr><th>{say('De ↓ · vers →', 'From ↓ · to →')}</th>{active.map((s) => <th key={s.id}>{s.name || '—'}</th>)}</tr></thead>
                 <tbody>
-                  {active.map((from) => (
+                  {active.map((from, fi) => (
                     <tr key={from.id}>
                       <td><b>{from.name || '—'}</b></td>
-                      {active.map((to) => <td key={to.id}>{from.id === to.id ? '·' : <input type="checkbox" checked={(draft.transitions[from.id] ?? []).includes(to.id)} disabled={readOnly} onChange={() => toggle(from.id, to.id)} aria-label={`${from.name} → ${to.name}`} />}</td>)}
+                      {active.map((to, ti) => {
+                        if (from.id === to.id) return <td key={to.id} className="wf-self">·</td>;
+                        const kind = from.is_completed && !to.is_completed ? 'reopen' : ti < fi ? 'back' : '';
+                        return (
+                          <td key={to.id} className={kind}>
+                            <label className="wf-cell">
+                              <input type="checkbox" checked={(draft.transitions[from.id] ?? []).includes(to.id)} disabled={readOnly} onChange={() => toggle(from.id, to.id)} aria-label={`${from.name} → ${to.name}`} />
+                              {kind && <span className={`wf-key ${kind}`}>{kind === 'reopen' ? '⟲' : '↩'}</span>}
+                            </label>
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {stranded.noWayOut.length > 0 && <div className="banner warn">{say(`Aucune carte ne pourra quitter : ${stranded.noWayOut.map((s) => s.name).join(', ')}.`, `No card will be able to leave: ${stranded.noWayOut.map((s) => s.name).join(', ')}.`)}</div>}
+            {stranded.noWayIn.length > 0 && <div className="banner warn">{say(`Aucune carte ne pourra atteindre : ${stranded.noWayIn.map((s) => s.name).join(', ')}.`, `No card will be able to reach: ${stranded.noWayIn.map((s) => s.name).join(', ')}.`)}</div>}
           </>
         )}
       </div>
@@ -215,8 +249,9 @@ export function WorkflowEditor({ entityId }: { entityId: string }) {
         <Select className="in" style={{ width: 180 }} value={test.from} onChange={(e) => setTest({ ...test, from: e.target.value })}><option value="">{say('de…', 'from…')}</option>{active.map((s) => <option key={s.id} value={s.id}>{s.name || '—'}</option>)}</Select>
         <Select className="in" style={{ width: 180 }} value={test.to} onChange={(e) => setTest({ ...test, to: e.target.value })}><option value="">{say('vers…', 'to…')}</option>{active.map((s) => <option key={s.id} value={s.id}>{s.name || '—'}</option>)}</Select>
         {result && (result.ok
-          ? <Chip kind="good">{say('Permis', 'Allowed')}{result.backward || result.reopen ? (draft.require_reason ? say(' · avec un motif', ' · with a reason') : '') : ''}</Chip>
+          ? <Chip kind="good">{say('Permis', 'Allowed')}{(result.backward || result.reopen) && draft.require_reason ? say(' · un motif sera demandé', ' · a reason will be asked') : ''}</Chip>
           : <Chip kind="crit">{describeTransitionError(result.error, locale)}</Chip>)}
+        {result && active.find((s) => s.id === test.to)?.is_completed && <span className="small muted">{say('Le passage à une étape terminée reste réservé au rapporteur du ticket.', "Moving to a completed stage stays the ticket's reporter's.")}</span>}
       </div>
 
       {!readOnly && <div className="actions"><button className="btn sm" disabled={!dirty || saving} onClick={() => setDraft(toWorkflowDraft(data.workflow))}>{say('Annuler les changements', 'Discard the changes')}</button><button className="btn primary" disabled={!dirty || saving} onClick={save}>{saving ? say('Enregistrement…', 'Saving…') : say('Enregistrer le tableau', 'Save the board')}</button></div>}

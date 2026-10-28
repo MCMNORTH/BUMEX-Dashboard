@@ -49,7 +49,8 @@ export function entryRef(state: { journals: { id: string; code: string }[] }, e?
 }
 
 export function D({ iso }: { iso?: string }) {
-  return <span className="mono">{iso ? fmtDate(iso) : '—'}</span>;
+  // [bumex-one] 9999-12-31: no date (a mission without a deadline, a ticket without a due date)
+  return <span className="mono">{iso && !iso.startsWith('9999-12-31') ? fmtDate(iso) : '—'}</span>;
 }
 
 export const STATUS_KIND: Record<string, 'good' | 'warn' | 'crit' | 'dim'> = { posted: 'good', paid: 'good', draft: 'dim', reversed: 'warn', pending_approval: 'warn', approved: 'good', rejected: 'crit', validated: 'good', cancelled: 'dim' };

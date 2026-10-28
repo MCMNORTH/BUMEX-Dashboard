@@ -153,7 +153,7 @@ function EditAssignment({ a, onClose }: { a: Assignment; onClose: () => void }) 
         <button className="btn danger" onClick={() => { if (apply((s) => removeAssignment(s, a.id), 'Affectation retirée')) onClose(); }}>Retirer</button>
         <button className="btn primary" onClick={() => { if (apply((s) => updateAssignment(s, a.id, { start, end, load: (Number(load) || 100) / 100, role: role || undefined }), 'Affectation modifiée')) onClose(); }}>Enregistrer</button>
       </div>
-      {eng && <div className="small muted" style={{ marginTop: 8 }}>Budget {eng.budgetHours} h · réalisé {eng.actualHours} h · échéance {eng.deadline}</div>}
+      {eng && <div className="small muted" style={{ marginTop: 8 }}>Budget {eng.budgetHours} h · réalisé {eng.actualHours} h · échéance {eng.deadline.startsWith('9999') ? '—' : eng.deadline}</div>}
     </div>
   );
 }

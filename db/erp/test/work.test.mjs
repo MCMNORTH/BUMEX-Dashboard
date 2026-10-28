@@ -576,6 +576,18 @@ await test('0014: every ticket on its floor\'s stage of the same name and status
 });
 
 // ---------------------------------------------------------------------------
+await test('0016: a mission with tickets is at its share done, whatever its manual progress; without tickets, the manual one', async () => {
+  await office();
+  await asSystem(async () => {
+    await db.query('update erp.engagement set manual_progress = 100 where id = any($1::uuid[])', [[ids.P1, ids.P3]]);
+    await db.query("update erp.task set status = 'done', completed_at = now() where id = $1", [ids.T1]);
+  });
+  const progress = (p) => as('adm', async () => (await one('select work.mission_progress($1) p', [p])).p);
+  same([await progress(ids.P1), await progress(ids.P3)], [50, 100], 'P1 (1 of 2 done, manual 100 ignored), P3 (no ticket: manual)');
+  return 'P1 50 % (not its manual 100), P3 100 % (manual, no ticket)';
+});
+
+// ---------------------------------------------------------------------------
 let failed = 0;
 for (const r of results) {
   if (!r.ok) failed += 1;

@@ -290,7 +290,9 @@ export const moduleTables: TableSpec[] = [
         write: false,
       },
       { field: "status", kind: "erp.engagement_status", write: false },
-      date("startDate", { write: false }), { field: "deadline", read: "coalesce(t.deadline, t.start_date, current_date)::text", write: false },
+      date("startDate", { write: false }), // a mission without a deadline is never late: the far date the tickets use too (2026-10-28: missions showed "past
+      // deadline" from their start date)
+      { field: "deadline", read: "coalesce(t.deadline, '9999-12-31'::date)::text", write: false },
       text("feeType", { write: false }), num("fixedFee", { write: false }),
       { field: "currency", read: "coalesce(t.currency, (select e.functional_currency from erp.entity e where e.id = t.entity_id))::text", write: false },
       { field: "budgetHours", read: "coalesce(t.budget_hours, 0)::float8", write: false },

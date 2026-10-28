@@ -204,8 +204,9 @@ function fail(error: TransitionError): TransitionCheck {
 
 /**
  * Whether a card may move from one stage to another. Who may complete it is checked
- * before the board-level settings, then the custom transition list (when enabled), then
- * the reason requirement: a move has to satisfy every one of them.
+ * first; then either the custom transition list, when enabled (it then says alone which
+ * moves exist: backward, skipping and reopening are what it lists, 2026-10-28), or the
+ * board-level settings; then the reason requirement, for a move back or a reopening.
  */
 export function evaluateTransition(
   workflow: BoardWorkflow,
@@ -243,26 +244,28 @@ export function evaluateTransition(
   const backward = to.position < from.position;
   const reopen = from.is_completed && !to.is_completed;
 
-  if (reopen && !workflow.allow_reopen) {
-    return fail({ code: "reopen", from: from.name, to: to.name });
-  }
-
-  if (backward && !workflow.allow_backward) {
-    return fail({ code: "backward", from: from.name, to: to.name });
-  }
-
-  if (!backward && !workflow.allow_skip_forward) {
-    const skipped = getActiveStages(workflow).filter(
-      (stage) => stage.position > from.position && stage.position < to.position,
-    );
-
-    if (skipped.length) {
-      return fail({ code: "skip", from: from.name, to: to.name, via: skipped[0].name });
+  if (workflow.custom_transitions_enabled) {
+    if (!(workflow.transitions[from.id] ?? []).includes(to.id)) {
+      return fail({ code: "not_listed", from: from.name, to: to.name });
     }
-  }
+  } else {
+    if (reopen && !workflow.allow_reopen) {
+      return fail({ code: "reopen", from: from.name, to: to.name });
+    }
 
-  if (workflow.custom_transitions_enabled && !(workflow.transitions[from.id] ?? []).includes(to.id)) {
-    return fail({ code: "not_listed", from: from.name, to: to.name });
+    if (backward && !workflow.allow_backward) {
+      return fail({ code: "backward", from: from.name, to: to.name });
+    }
+
+    if (!backward && !workflow.allow_skip_forward) {
+      const skipped = getActiveStages(workflow).filter(
+        (stage) => stage.position > from.position && stage.position < to.position,
+      );
+
+      if (skipped.length) {
+        return fail({ code: "skip", from: from.name, to: to.name, via: skipped[0].name });
+      }
+    }
   }
 
   if (workflow.require_reason && (backward || reopen) && !reason?.trim()) {
@@ -270,6 +273,31 @@ export function evaluateTransition(
   }
 
   return { ok: true, noop: false, backward, reopen };
+}
+
+/** The moves the board's settings allow, as a custom transition list: where the editor's list starts from. */
+export function transitionsFromSettings(workflow: BoardWorkflow): Record<string, string[]> {
+  const board = { ...workflow, custom_transitions_enabled: false, require_reason: false };
+  const active = getActiveStages(board);
+  return Object.fromEntries(
+    active.map((from) => [from.id, active.filter((to) => to.id !== from.id && evaluateTransition(board, from.id, to.id).ok).map((to) => to.id)]),
+  );
+}
+
+/**
+ * With a custom transition list: the active stages no card can leave (a completed one excepted: work ends there) and
+ * those no card can reach (the default one excepted: new tickets start there).
+ */
+export function strandedStages(workflow: BoardWorkflow) {
+  if (!workflow.custom_transitions_enabled) return { noWayOut: [], noWayIn: [] };
+  const active = getActiveStages(workflow);
+  const ids = new Set(active.map((stage) => stage.id));
+  const out = (id: string) => (workflow.transitions[id] ?? []).some((to) => ids.has(to) && to !== id);
+  const into = (id: string) => active.some((from) => from.id !== id && (workflow.transitions[from.id] ?? []).includes(id));
+  return {
+    noWayOut: active.filter((stage) => !stage.is_completed && !out(stage.id)),
+    noWayIn: active.filter((stage) => !stage.is_default && !into(stage.id)),
+  };
 }
 
 export type CategoryTarget =
@@ -466,6 +494,13 @@ export function validateWorkflowDraft(
 
   if (defaults.length !== 1) {
     return fr ? "Choisissez exactement une étape active par défaut pour les nouveaux tickets." : "Choose exactly one active default stage for new tickets.";
+  }
+
+  // a custom list with no move at all would freeze every card
+  if (draft.custom_transitions_enabled && !active.some((stage) => (draft.transitions[stage.id] ?? []).some((to) => active.some((other) => other.id === to)))) {
+    return fr
+      ? "Les transitions personnalisées sont activées mais aucun déplacement n’est coché : aucune carte ne pourrait bouger."
+      : "Custom transitions are on but no move is ticked: no card could move.";
   }
 
   for (const stage of draft.stages) {

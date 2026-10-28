@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addTicketLinkAction, removeTicketLinkAction, searchTicketsAction, ticketViewAction, type TicketLink, type TicketLinkKind, type TicketView } from '@/lib/erp/vanguard/ticket-actions';
-import { ARCHIVED_STAGE_VALUE, findStage, getActiveStages, getCompletedStage, getSignOffStage } from '@/lib/tickets/workflow';
+import { ARCHIVED_STAGE_VALUE, evaluateTransition, findStage, getActiveStages, getCompletedStage, getCompletionRule, getSignOffStage } from '@/lib/tickets/workflow';
 import { moveTicketStageAction, removeTicketAction, updateTicketFieldAction, type TicketField, createSubtaskAction, toggleSubtaskAction, renameSubtaskAction, setSubtaskOwnerAction, setSubtaskDueDateAction, reorderSubtasksAction, deleteSubtaskAction } from '@/app/(app)/tickets/actions';
 import { changeDocumentAction, saveDocumentAction } from '@/app/(app)/documents/actions';
 import { remainingHours } from '@/lib/work/load';
@@ -14,7 +14,7 @@ import { Markdown } from './markdown';
 import { LINK_WORDS, ago } from './ticket-history';
 import { TicketActivity } from './TicketActivity';
 import { Avatar, Lozenge, PriorityIcon, TypeIcon, hoursText, levelLabel, stageTone } from './work-ui';
-import { StageLozenge } from './stages';
+import { SHORT_REASONS, StageLozenge } from './stages';
 import { QuickLogButton } from './QuickLog';
 
 // A ticket in the Tasks room, laid out as Jira's (asked on 2026-10-27): its key and place in the breadcrumb; on the
@@ -410,12 +410,21 @@ function StatusControl({ view, busy, run, say }: { view: TicketView; busy: boole
     if (ok && !answer.error) { setAsking(null); setReason(''); useStore.getState().toast('ok', `${ticket.key ?? ticket.title} → ${name}`); }
   };
   const canMove = view.canUpdate || view.isReporter;
+  const me = useStore.getState().state.session.userId;
+  const rules = getCompletionRule({ reporter_id: ticket.reporter_id, assignee_id: ticket.assignee_id }, me);
   return (
     <div className="tk-status">
       <div className="tk-status-row">
         {canMove ? (
           <Select className={`stsel ${tone}`} value={current} disabled={busy} onChange={(e) => move(e.target.value)} aria-label={say('État', 'Status')}>
-            {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            {stages.map((s) => {
+              // the board's rules for this ticket and this person: refused moves greyed with why, the ones asking a reason said
+              if (s.id === current) return <option key={s.id} value={s.id}>{s.name}</option>;
+              const check = evaluateTransition(workflow, ticket.stage_id ?? ticket.status, s.id, 'motif', rules);
+              const plain = check.ok ? evaluateTransition(workflow, ticket.stage_id ?? ticket.status, s.id, null, rules) : null;
+              const hint = !check.ok ? say(...(SHORT_REASONS[check.error.code] ?? ['non permis', 'not allowed'])) : plain && !plain.ok && plain.error.code === 'reason_required' ? say('motif demandé', 'reason asked') : undefined;
+              return <option key={s.id} value={s.id} disabled={!check.ok && current !== ARCHIVED_STAGE_VALUE} data-hint={hint}>{s.name}</option>;
+            })}
             {view.canManage && <option value={ARCHIVED_STAGE_VALUE}>{say('Archivé', 'Archived')}</option>}
           </Select>
         ) : <Lozenge tone={tone}>{stage?.name ?? ticket.status}</Lozenge>}

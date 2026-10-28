@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, type Id, type Task } from '@bumex/domain';
 import { reloadVanguardAction } from '@/lib/erp/vanguard/actions';
 import { missionOptionsAction, type MissionOptions } from '@/lib/erp/vanguard/mission-actions';
@@ -288,70 +288,93 @@ function GroupRows({ group, grouped, onOpen, say }: { group: { key: string; labe
 }
 
 // ---- a new ticket ----
+// Creating tickets, fast (asked on 2026-10-28): Enter or "Créer" creates the ticket and starts the next one on the same
+// mission, every other field back to its default and the cursor in the summary; the tickets just created are listed to
+// open. The estimate has quick choices (1 to 40 h) besides the free field.
+const ESTIMATES = [1, 2, 4, 8, 16, 24, 40];
+
 function NewTask({ entityId, missionId, onDone }: { entityId: Id; missionId?: string; onDone: (createdId?: string) => void }) {
   const { state, t, toast } = useStore();
   const say = useSay();
   const [options, setOptions] = useState<MissionOptions | null>(null);
   const missions = state.engagements.filter((e) => e.entityId === entityId && e.status !== 'completed' && (e as { projectId?: string }).projectId);
-  const [title, setTitle] = useState('');
   const [mission, setMission] = useState(missionId && missions.some((m) => m.id === missionId) ? missionId : missions[0]?.id ?? '');
-  const [assignee, setAssignee] = useState(state.session.userId);
-  const [dueDate, setDueDate] = useState(addDays(state.today, 7));
-  const [priority, setPriority] = useState('medium');
-  const [type, setType] = useState('task');
-  const [estimate, setEstimate] = useState('');
-  const [description, setDescription] = useState('');
-  const [stage, setStage] = useState(''); // '' = the board's default stage
+  const blank = () => ({ title: '', assignee: state.session.userId, dueDate: addDays(state.today, 7), priority: 'medium', type: 'task', estimate: '', description: '', stage: '' }); // stage '': the board's default
+  const [v, setV] = useState(blank);
+  const set = (patch: Partial<ReturnType<typeof blank>>) => setV((x) => ({ ...x, ...patch }));
+  const [made, setMade] = useState<{ id: string; title: string }[]>([]);
+  const titleRef = useRef<HTMLInputElement>(null);
   const pickedProject = (missions.find((m) => m.id === mission) as { projectId?: string } | undefined)?.projectId ?? '';
   const board = useBoardOf(pickedProject ? [pickedProject] : [])(pickedProject);
-  const startStages = getActiveStages(board).filter((s) => !s.is_completed);
+  const startStages = getActiveStages(board).filter((st) => !st.is_completed);
   const [busy, setBusy] = useState(false);
   const [loads, setLoads] = useState<Awaited<ReturnType<typeof peopleLoadsAction>>>({});
   useEffect(() => { void missionOptionsAction().then(setOptions); void peopleLoadsAction().then(setLoads).catch(() => {}); }, []);
 
   const submit = async (open: boolean) => {
     const picked = missions.find((m) => m.id === mission) as { projectId?: string } | undefined;
-    if (!title.trim() || !picked?.projectId) return;
-    if (estimate && (Number.isNaN(Number(estimate.replace(',', '.'))) || Number(estimate.replace(',', '.')) < 0)) { toast('error', say('Une estimation est un nombre d’heures.', 'An estimate is a number of hours.')); return; }
+    if (!v.title.trim() || !picked?.projectId || busy) return;
+    const estimate = v.estimate.replace(',', '.').trim();
+    if (estimate && (Number.isNaN(Number(estimate)) || Number(estimate) < 0)) { toast('error', say('Une estimation est un nombre d’heures.', 'An estimate is a number of hours.')); return; }
     const form = new FormData();
-    for (const [k, v] of Object.entries({ title: title.trim(), description, project_id: picked.projectId, assignee_id: assignee, reporter_id: state.session.userId, priority, type, due_date: dueDate, estimated_hours: estimate.replace(',', '.'), stage_id: startStages.some((s) => s.id === stage) ? stage : '', create_another: '1' })) form.set(k, v);
+    for (const [k, val] of Object.entries({ title: v.title.trim(), description: v.description, project_id: picked.projectId, assignee_id: v.assignee, reporter_id: state.session.userId, priority: v.priority, type: v.type, due_date: v.dueDate, estimated_hours: estimate, stage_id: startStages.some((st) => st.id === v.stage) ? v.stage : '', create_another: '1' })) form.set(k, val);
     setBusy(true);
     try {
       const result = await createTicketAction({}, form);
       if (result.error) { toast('error', result.error); return; }
       toast('ok', t('tsk_create'));
       await reload();
-      if (open) onDone(result.created?.id);
-      else { setTitle(''); setDescription(''); setEstimate(''); }
+      if (open) { onDone(result.created?.id); return; }
+      // the next one: same mission, everything else as new
+      if (result.created) setMade((m) => [result.created!, ...m].slice(0, 8));
+      setV(blank());
+      titleRef.current?.focus();
     } catch {
       toast('error', say("Serveur injoignable : la tâche n'est pas créée.", 'Server unreachable: the task was not created.'));
     } finally {
       setBusy(false);
     }
   };
+  const keyOf = (id: string) => (state.tasks.find((x) => x.id === id) as TicketTask | undefined)?.ticket.key;
 
   return (
     <div className="card wk-new">
-      <h2>{say('Créer un ticket', 'Create a ticket')}</h2>
+      <div className="wk-new-h">
+        <h2>{say('Créer des tickets', 'Create tickets')}</h2>
+        <span className="small muted">{say('Entrée crée le ticket et prépare le suivant sur la même mission.', 'Enter creates the ticket and readies the next one on the same mission.')}</span>
+      </div>
       {!missions.length ? (
         <div className="banner info">{say("Un ticket se rattache à une mission : créez d'abord une mission dans la salle Missions.", 'A ticket belongs to a mission: create a mission in the Missions room first.')}</div>
       ) : (
         <div className="grid4">
-          <Field label={say('Résumé', 'Summary')} style={{ gridColumn: 'span 2' }}><input className="in" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('tsk_title_ph')} autoFocus onKeyDown={(e) => e.key === 'Enter' && submit(true)} /></Field>
-          <Field label={say('Mission', 'Mission')} style={{ gridColumn: 'span 2' }}><Select recent="missions" className="in" value={mission} onChange={(e) => { setMission(e.target.value); setStage(''); }}>{missions.map((m) => <option key={m.id} value={m.id}>{m.code} · {m.name}</option>)}</Select></Field>
-          <Field label={say('Assigné', 'Assignee')}><Select recent="people" className="in" value={assignee} onChange={(e) => setAssignee(e.target.value)}><option value="">—</option>{(options?.people ?? []).map((p) => <option key={p.id} value={p.id} data-hint={loads[p.id] ? `${hoursText(loads[p.id].weekHours, say)} / ${hoursText(loads[p.id].capacityHours, say)}` : undefined} data-tone={loads[p.id]?.level}>{p.name}</option>)}</Select></Field>
-          <Field label={say('Échéance', 'Due')}><input className="in" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></Field>
-          <Field label={say('Priorité', 'Priority')}><Select className="in" value={priority} onChange={(e) => setPriority(e.target.value)}>{Object.entries(PRIORITY).map(([k, [fr, en]]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
-          <Field label="Type"><Select className="in" value={type} onChange={(e) => setType(e.target.value)}>{TYPES.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
-          <Field label={say('Estimation (h)', 'Estimate (h)')}><input className="in num" value={estimate} onChange={(e) => setEstimate(e.target.value)} placeholder={say('ex. 4', 'e.g. 4')} /></Field>
-          <Field label={say('Étape', 'Stage')}><Select className="in" value={startStages.some((s) => s.id === stage) ? stage : getDefaultStage(board).id} onChange={(e) => setStage(e.target.value)}>{startStages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field>
-          <Field label="Description" style={{ gridColumn: 'span 2' }}><input className="in" value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
+          <Field label={say('Mission', 'Mission')} style={{ gridColumn: 'span 2' }}><Select recent="missions" className="in" value={mission} onChange={(e) => { setMission(e.target.value); set({ stage: '' }); }}>{missions.map((m) => <option key={m.id} value={m.id}>{m.code} · {m.name}</option>)}</Select></Field>
+          <Field label={say('Résumé', 'Summary')} style={{ gridColumn: 'span 2' }}><input ref={titleRef} className="in" value={v.title} onChange={(e) => set({ title: e.target.value })} placeholder={t('tsk_title_ph')} autoFocus onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void submit(false); } }} /></Field>
+          <Field label={say('Assigné', 'Assignee')}><Select recent="people" className="in" value={v.assignee} onChange={(e) => set({ assignee: e.target.value })}><option value="">—</option>{(options?.people ?? []).map((p) => <option key={p.id} value={p.id} data-hint={loads[p.id] ? `${hoursText(loads[p.id].weekHours, say)} / ${hoursText(loads[p.id].capacityHours, say)}` : undefined} data-tone={loads[p.id]?.level}>{p.name}</option>)}</Select></Field>
+          <Field label={say('Échéance', 'Due')}><input className="in" type="date" value={v.dueDate} onChange={(e) => set({ dueDate: e.target.value })} /></Field>
+          <Field label={say('Priorité', 'Priority')}><Select className="in" value={v.priority} onChange={(e) => set({ priority: e.target.value })}>{Object.entries(PRIORITY).map(([k, [fr, en]]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
+          <Field label="Type"><Select className="in" value={v.type} onChange={(e) => set({ type: e.target.value })}>{TYPES.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
+          <Field label={say('Estimation', 'Estimate')} style={{ gridColumn: 'span 2' }}>
+            <div className="wk-est-pick">
+              {ESTIMATES.map((h) => (
+                <button key={h} type="button" className={`wk-chip ${v.estimate === String(h) ? 'on' : ''}`} aria-pressed={v.estimate === String(h)} onClick={() => set({ estimate: v.estimate === String(h) ? '' : String(h) })}>{h} h</button>
+              ))}
+              <input className="in num wk-est-in" value={v.estimate} onChange={(e) => set({ estimate: e.target.value })} placeholder={say('autre', 'other')} aria-label={say('Estimation en heures', 'Estimate in hours')} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void submit(false); } }} />
+            </div>
+          </Field>
+          <Field label={say('Étape', 'Stage')}><Select className="in" value={startStages.some((st) => st.id === v.stage) ? v.stage : getDefaultStage(board).id} onChange={(e) => set({ stage: e.target.value })}>{startStages.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}</Select></Field>
+          <Field label="Description"><input className="in" value={v.description} onChange={(e) => set({ description: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void submit(false); } }} /></Field>
+        </div>
+      )}
+      {made.length > 0 && (
+        <div className="wk-made small">
+          <span className="muted">{say('Créés', 'Created')} :</span>
+          {made.map((c) => <button key={c.id} className="linkish" onClick={() => onDone(c.id)}><span className="mono">{keyOf(c.id) ?? ''}</span> {c.title}</button>)}
         </div>
       )}
       <div className="actions" style={{ marginTop: 10 }}>
         <button className="btn sm" onClick={() => onDone()}>{t('close')}</button>
-        {missions.length > 0 && <button className="btn sm" disabled={busy || !title.trim()} onClick={() => submit(false)}>{say('Créer et continuer', 'Create another')}</button>}
-        {missions.length > 0 && <button className="btn sm primary" disabled={busy || !title.trim()} onClick={() => submit(true)}>{busy ? say('Création…', 'Creating…') : say('Créer', 'Create')}</button>}
+        {missions.length > 0 && <button className="btn sm" disabled={busy || !v.title.trim()} onClick={() => submit(true)}>{say('Créer et ouvrir', 'Create and open')}</button>}
+        {missions.length > 0 && <button className="btn sm primary" disabled={busy || !v.title.trim()} onClick={() => submit(false)}>{busy ? say('Création…', 'Creating…') : say('Créer', 'Create')}</button>}
       </div>
     </div>
   );
