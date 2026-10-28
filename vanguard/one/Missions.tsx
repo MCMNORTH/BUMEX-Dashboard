@@ -118,6 +118,8 @@ export function MissionCard({ mission, onEdit, onClose }: { mission: Mission; on
   const say = useSay();
   const customer = state.customers.find((c) => c.id === mission.customerId);
   const invoices = state.salesInvoices.filter((i) => i.engagementId === mission.id && i.status !== 'draft');
+  // the hours its tickets are estimated at (0012), against the time logged and the budget
+  const estimated = Math.round(state.tasks.filter((x) => x.engagementId === mission.id).reduce((sum, x) => sum + Number((x as { ticket?: { estimated_hours?: number | null } }).ticket?.estimated_hours ?? 0), 0) * 10) / 10;
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -134,7 +136,7 @@ export function MissionCard({ mission, onEdit, onClose }: { mission: Mission; on
       <div className="grid4 small">
         <div><div className="muted">{say('Étape', 'Stage')}</div>{say(...(STAGES[mission.stage - 1] ?? STAGES[0]))}</div>
         <div><div className="muted">{say('Échéance', 'Deadline')}</div><D iso={mission.deadline} /></div>
-        <div><div className="muted">{say('Heures', 'Hours')}</div>{mission.actualHours} h{mission.budgetHours ? ` / ${mission.budgetHours} h` : ''}</div>
+        <div><div className="muted">{say('Heures', 'Hours')}</div>{say('Estimé', 'Estimated')} {estimated} h · {say('saisi', 'logged')} {mission.actualHours} h{mission.budgetHours ? ` · budget ${mission.budgetHours} h` : ''}</div>
         <div><div className="muted">{say('Honoraires · facturé', 'Fee · invoiced')}</div>{fmt(mission.fixedFee ?? 0, 0)} · {fmt(mission.invoicedToDate, 0)} {mission.currency}</div>
       </div>
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>

@@ -64,6 +64,11 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     (mariemWork?.signOff ?? []).some((t) => t.id === T.t1) && (mariemWork?.lead ?? []).some((x) => x.reasons.includes("unestimated")),
     { signOff: mariemWork?.signOff?.map((t) => t.key), lead: mariemWork?.lead?.map((x) => [x.ticket.key, x.reasons]) });
 
+  const peopleRows = await act("mariem.sow", "peopleAction", { args: [] });
+  const loads = await act("mariem.sow", "peopleLoadsAction", { args: [] });
+  const ahmedRow = peopleRows?.find?.((p) => p.id === uid.ahmed);
+  check("People and the pickers show each person's load in hours against their capacity", typeof ahmedRow?.load?.weekHours === "number" && ahmedRow?.load?.capacityHours > 0 && typeof loads?.[uid.ahmed]?.percent === "number", { row: ahmedRow?.load, pick: loads?.[uid.ahmed] });
+
   // ---- conversation -------------------------------------------------------------------------------------------------
   r = await act("ahmed.ba", "createCommentAction", { prev: {}, form: { body: "Relances envoyées @Mariem Sow", entity_type: "ticket", entity_id: T.t1 } });
   check("the assignee comments the ticket", r?.success === true, r);

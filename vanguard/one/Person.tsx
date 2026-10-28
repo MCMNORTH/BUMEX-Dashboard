@@ -7,6 +7,7 @@ import { Chip, D, Field, Icon } from '../ui/common';
 import { when } from './Conversation';
 import { reload } from './Tasks';
 import { useSay } from './say';
+import { LoadBar } from './work-ui';
 import { Select } from '../ui/Select';
 
 // A person's page in the HR room's People tab, as BUMEX One's team member page had it: profile and availability, load,
@@ -92,7 +93,7 @@ export function PersonPanel({ personId, onClose }: { personId: string; onClose: 
       )}
 
       <div className="grid4">
-        <div className="kpi"><div className="l">{say('Occupation', 'Utilisation')}</div><div className="v">{Math.round(view.figures.utilization)} %</div><div className="small muted">{m.capacity} h / {say('semaine', 'week')}</div></div>
+        <div className="kpi"><div className="l">{say('Charge cette semaine', 'Load this week')}</div>{view.load ? <LoadBar load={view.load} say={say} /> : <div className="v">{Math.round(view.figures.utilization)} %</div>}<div className="small muted">{m.capacity} h / {say('semaine', 'week')} · {say('pondérée par priorité', 'weighted by priority')}</div></div>
         <div className="kpi"><div className="l">{say('Tickets terminés', 'Tickets done')}</div><div className="v">{view.figures.completed}</div></div>
         <div className="kpi"><div className="l">{say('En retard', 'Overdue')}</div><div className="v" style={{ color: view.figures.overdue ? 'var(--crit)' : undefined }}>{view.figures.overdue}</div></div>
         <div className="kpi"><div className="l">{say('Mis à jour récemment', 'Recently updated')}</div><div className="v">{view.figures.recentlyUpdated}</div></div>

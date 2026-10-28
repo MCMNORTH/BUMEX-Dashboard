@@ -1,6 +1,6 @@
 # Plan: tickets like Jira, "My work" that shows everything, the timesheet as BUMEX One had it
 
-Status: **plan, awaiting confirmation** (2026-10-27). Nothing below is built yet.
+Status: **built** (2026-10-27/28), steps 0–9, one commit each on `firebase-migration`. Not deployed: migration 0012 first.
 Working tree before starting: the header/profile-menu change (8 files, not committed) is still pending; commit it
 first, on its own, when the user approves.
 

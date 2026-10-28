@@ -6,6 +6,8 @@ import { useStore } from '../store';
 import { Chip, D } from '../ui/common';
 import { reload } from './Tasks';
 import { useSay } from './say';
+import { loadOf } from '@/lib/work/load';
+import { hoursText } from './work-ui';
 import { Select } from '../ui/Select';
 
 // The Missions room's "Semaine" tab: BUMEX One's weekly planning on the floor's tickets (lib/erp/vanguard/tickets.ts),
@@ -46,12 +48,13 @@ export function WeekView({ entityId }: { entityId: Id }) {
   const locale = ui.lang === 'fr' ? 'fr-FR' : 'en-GB';
   const dayLabel = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 
-  // each person's load: their open tasks, those of this week and those late (on the whole floor, whatever the filter)
+  // each person's load on the floor (lib/work/load.ts): the hours left this week, weighted by priority; their counts
   const load = people.map(([id, name]) => {
     const theirs = tasks.filter((x) => x.ticket.assignee_id === id && x.status !== 'done');
-    return { id, name, open: theirs.length, week: theirs.filter((x) => x.dueDate >= days[0] && x.dueDate <= days[6]).length, late: theirs.filter((x) => x.dueDate < state.today).length };
-  }).sort((a, b) => b.open - a.open);
-  const most = Math.max(1, ...load.map((p) => p.open));
+    const hours = loadOf(theirs.map((x) => ({ ...x.ticket, due_date: x.dueDate === NO_DUE_DATE ? null : x.dueDate })), { capacityHours: 0, today: state.today });
+    return { id, name, open: theirs.length, week: theirs.filter((x) => x.dueDate >= days[0] && x.dueDate <= days[6]).length, late: theirs.filter((x) => x.dueDate < state.today).length, hours: hours.weekHours };
+  }).sort((a, b) => b.hours - a.hours || b.open - a.open);
+  const most = Math.max(1, ...load.map((p) => p.hours));
 
   const show = (x: Task) => {
     setUi({ focusTaskId: x.id });
@@ -151,21 +154,22 @@ export function WeekView({ entityId }: { entityId: Id }) {
                   <td><D iso={x.dueDate} /></td>
                   <td className="num" style={{ color: 'var(--crit)' }}>{daysBetween(x.dueDate, state.today)}</td>
                 </tr>
-              )) : <tr><td colSpan={5} className="muted">{say('Rien en retard.', 'Nothing overdue.')}</td></tr>}
+              )) : <tr><td colSpan={6} className="muted">{say('Rien en retard.', 'Nothing overdue.')}</td></tr>}
             </tbody>
           </table>
         </div>
         <div className="card flush">
           <table>
-            <thead><tr><th>{say('Charge', 'Load')}</th><th className="num">{say('Cette semaine', 'This week')}</th><th className="num">{say('En retard', 'Late')}</th><th className="num">{say('Ouvertes', 'Open')}</th><th style={{ width: '30%' }} /></tr></thead>
+            <thead><tr><th>{say('Charge', 'Load')}</th><th className="num">{say('Heures pondérées', 'Weighted hours')}</th><th className="num">{say('Cette semaine', 'This week')}</th><th className="num">{say('En retard', 'Late')}</th><th className="num">{say('Ouvertes', 'Open')}</th><th style={{ width: '30%' }} /></tr></thead>
             <tbody>
               {load.length ? load.map((p) => (
                 <tr key={p.id} className={who === p.id ? 'sel' : ''} onClick={() => setWho(who === p.id ? 'all' : p.id)} style={{ cursor: 'pointer' }}>
                   <td>{p.name}</td>
+                  <td className="num">{hoursText(p.hours, say)}</td>
                   <td className="num">{p.week}</td>
                   <td className="num" style={{ color: p.late ? 'var(--crit)' : undefined }}>{p.late}</td>
                   <td className="num">{p.open}</td>
-                  <td><div className="bar"><i style={{ width: `${(p.open / most) * 100}%`, background: p.late ? 'var(--warn)' : 'var(--accent)' }} /></div></td>
+                  <td><div className="bar"><i style={{ width: `${(p.hours / most) * 100}%`, background: p.late ? 'var(--warn)' : 'var(--accent)' }} /></div></td>
                 </tr>
               )) : <tr><td colSpan={5} className="muted">{say('Aucune tâche assignée sur cet étage.', 'No assigned task on this floor.')}</td></tr>}
             </tbody>

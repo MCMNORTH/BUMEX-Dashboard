@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { addDays, type Id, type Task } from '@bumex/domain';
 import { reloadVanguardAction } from '@/lib/erp/vanguard/actions';
 import { missionOptionsAction, type MissionOptions } from '@/lib/erp/vanguard/mission-actions';
+import { peopleLoadsAction } from '@/lib/erp/vanguard/people-actions';
 import type { VanguardData } from '@/lib/erp/vanguard/run';
 import type { TaskTicket } from '@/lib/erp/vanguard/tickets';
 import { createTicketAction } from '@/app/(app)/tickets/actions';
@@ -278,7 +279,8 @@ function NewTask({ entityId, missionId, onDone }: { entityId: Id; missionId?: st
   const [estimate, setEstimate] = useState('');
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
-  useEffect(() => { void missionOptionsAction().then(setOptions); }, []);
+  const [loads, setLoads] = useState<Awaited<ReturnType<typeof peopleLoadsAction>>>({});
+  useEffect(() => { void missionOptionsAction().then(setOptions); void peopleLoadsAction().then(setLoads).catch(() => {}); }, []);
 
   const submit = async (open: boolean) => {
     const picked = missions.find((m) => m.id === mission) as { projectId?: string } | undefined;
@@ -310,7 +312,7 @@ function NewTask({ entityId, missionId, onDone }: { entityId: Id; missionId?: st
         <div className="grid4">
           <Field label={say('Résumé', 'Summary')} style={{ gridColumn: 'span 2' }}><input className="in" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('tsk_title_ph')} autoFocus onKeyDown={(e) => e.key === 'Enter' && submit(true)} /></Field>
           <Field label={say('Mission', 'Mission')} style={{ gridColumn: 'span 2' }}><Select recent="missions" className="in" value={mission} onChange={(e) => setMission(e.target.value)}>{missions.map((m) => <option key={m.id} value={m.id}>{m.code} · {m.name}</option>)}</Select></Field>
-          <Field label={say('Assigné', 'Assignee')}><Select recent="people" className="in" value={assignee} onChange={(e) => setAssignee(e.target.value)}><option value="">—</option>{(options?.people ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
+          <Field label={say('Assigné', 'Assignee')}><Select recent="people" className="in" value={assignee} onChange={(e) => setAssignee(e.target.value)}><option value="">—</option>{(options?.people ?? []).map((p) => <option key={p.id} value={p.id} data-hint={loads[p.id] ? `${hoursText(loads[p.id].weekHours, say)} / ${hoursText(loads[p.id].capacityHours, say)}` : undefined} data-tone={loads[p.id]?.level}>{p.name}</option>)}</Select></Field>
           <Field label={say('Échéance', 'Due')}><input className="in" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></Field>
           <Field label={say('Priorité', 'Priority')}><Select className="in" value={priority} onChange={(e) => setPriority(e.target.value)}>{Object.entries(PRIORITY).map(([k, [fr, en]]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>
           <Field label="Type"><Select className="in" value={type} onChange={(e) => setType(e.target.value)}>{TYPES.map(([k, fr, en]) => <option key={k} value={k}>{say(fr, en)}</option>)}</Select></Field>

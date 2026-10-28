@@ -68,6 +68,7 @@ export type OverviewWorkloadPerson = {
   activeItems: number;
   overdueItems: number;
   risk: WorkloadRisk;
+  load?: import("@/lib/work/load").Load;
 };
 
 export type OverviewDashboardData = {
@@ -362,6 +363,7 @@ export async function getOverviewDashboardData(
         activeItems: member.active_work_items,
         overdueItems: member.overdue_items,
         risk: member.workload_risk,
+        load: member.load,
       })),
   };
 }

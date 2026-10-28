@@ -5,6 +5,7 @@ import { useStore } from '../store';
 import { Chip, D } from '../ui/common';
 import { PersonPanel } from './Person';
 import { useSay } from './say';
+import { LoadBar, hoursText } from './work-ui'; // [bumex-one] the load (lib/work/load.ts)
 import { Select } from '../ui/Select';
 
 // The HR room's "Personnes" tab, open to everyone: BUMEX One's team (its Team page moved here), each person with their
@@ -82,7 +83,7 @@ export function People({ entityId, onOpen, personId }: { entityId: Id; onOpen: (
                 <td><Chip kind={availability[2]}>{say(availability[0], availability[1])}</Chip></td>
                 <td className="num">{p.tasks}</td>
                 <td className="num" style={{ color: p.overdue ? 'var(--crit)' : undefined }}>{p.overdue}</td>
-                <td><Chip kind={workload[2]}>{say(workload[0], workload[1])}</Chip></td>
+                <td style={{ minWidth: 150 }} title={say(workload[0], workload[1])}><LoadBar load={p.load} say={say} compact /><div className="small muted">{hoursText(p.load.weekHours, say)} / {hoursText(p.load.capacityHours, say)} · {p.load.percent} %</div></td>
                 <td onClick={(ev) => ev.stopPropagation()}>
                   {/* the sheet opens on the record's own floor (its payroll rules and departments are that entity's) */}
                   {record && record.entityId === entityId && <button className="btn sm" onClick={() => onOpen(record.id)}><span className="mono">{record.code}</span> · {record.contractType} · <D iso={record.hireDate} /></button>}

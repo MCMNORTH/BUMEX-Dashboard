@@ -7,6 +7,7 @@ import type { VanguardData } from '@/lib/erp/vanguard/run';
 import { useStore } from '../store';
 import { Chip, D } from '../ui/common';
 import { useSay } from './say';
+import { LoadBar, hoursText } from './work-ui';
 
 // "My day": the home's panel (the building stays the home), with what BUMEX One's overview showed: my tickets, what
 // waits for my sign-off, the missions at risk, the coming deadlines and the team's workload. "Mon travail" is a room
@@ -149,8 +150,8 @@ export function MyDay({ initialTab }: { initialTab?: string | null }) {
             {data.workload.length > 0 && (
               <div className="card flush">
                 <table>
-                  <thead><tr><th>{say("Charge de l'équipe", "Team's workload")}</th><th className="num">{say('Occupation', 'Utilisation')}</th><th className="num">{say('Tâches actives', 'Active tasks')}</th><th className="num">{say('En retard', 'Overdue')}</th></tr></thead>
-                  <tbody>{data.workload.map((p) => <tr key={p.id}><td>{p.name}</td><td className="num">{Math.round(p.utilization)} %</td><td className="num">{p.activeItems}</td><td className="num" style={{ color: p.overdueItems ? 'var(--crit)' : undefined }}>{p.overdueItems}</td></tr>)}</tbody>
+                  <thead><tr><th>{say("Charge de l'équipe", "Team's workload")}</th><th style={{ width: '32%' }}>{say('Cette semaine', 'This week')}</th><th className="num">{say('Tâches actives', 'Active tasks')}</th><th className="num">{say('En retard', 'Overdue')}</th></tr></thead>
+                  <tbody>{data.workload.map((p) => <tr key={p.id}><td>{p.name}</td><td>{p.load ? <><LoadBar load={p.load} say={say} compact /><div className="small muted">{hoursText(p.load.weekHours, say)} / {hoursText(p.load.capacityHours, say)} · {p.load.percent} %</div></> : `${Math.round(p.utilization)} %`}</td><td className="num">{p.activeItems}</td><td className="num" style={{ color: p.overdueItems ? 'var(--crit)' : undefined }}>{p.overdueItems}</td></tr>)}</tbody>
                 </table>
               </div>
             )}
