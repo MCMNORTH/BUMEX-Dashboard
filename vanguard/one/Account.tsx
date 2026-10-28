@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { updateProfileSettingsAction } from '@/app/(app)/settings/profile/actions';
 import { updateEmailNotificationsAction } from '@/app/(app)/settings/preferences/actions';
 import { updatePasswordAction } from '@/lib/auth/actions';
-import { myAccountAction, type MyAccount } from '@/lib/erp/vanguard/account-actions';
+import { canSee } from '@bumex/domain';
+import { myAccountAction, setDefaultEntityAction, type MyAccount } from '@/lib/erp/vanguard/account-actions';
 import { useStore } from '../store';
 import { Field } from '../ui/common';
 import { reload } from './Tasks';
 import { useSay } from './say';
+import { Select } from '../ui/Select';
 
 // The Settings room's "Mon compte" tab: BUMEX One's profile, preferences and security pages, saved by BUMEX One's
 // actions. Everyone's access is the Permissions tab's (Permissions.tsx).
@@ -93,6 +95,7 @@ export function MyAccountPanel() {
             </div>
           </Field>
           <label className="small" style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" checked={me.emailNotifications} onChange={toggleEmails} /> {say('Recevoir les notifications par e-mail', 'Receive the notifications by e-mail')}</label>
+          <DefaultEntity />
         </div>
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <h2 style={{ margin: 0 }}>{say('Sécurité', 'Security')}</h2>
@@ -102,5 +105,31 @@ export function MyAccountPanel() {
         </div>
       </div>
     </div>
+  );
+}
+
+// the floor the app opens on and the logo leads back to (0015); their home entity until they choose
+function DefaultEntity() {
+  const { state, toast } = useStore();
+  const say = useSay();
+  const [busy, setBusy] = useState(false);
+  const floors = state.entities.filter((e) => !e.isTest && canSee(state, e.id));
+  if (floors.length < 2) return null;
+  const pick = async (id: string) => {
+    setBusy(true);
+    const result = await setDefaultEntityAction(id).catch(() => ({ error: say('Serveur injoignable.', 'Server unreachable.') }));
+    setBusy(false);
+    if (result.error) { toast('error', result.error); return; }
+    toast('ok', say("Entité par défaut enregistrée : l'application s'ouvrira dessus.", 'Default entity saved: the app will open on it.'));
+    await reload();
+  };
+  return (
+    <Field label={say('Entité par défaut', 'Default entity')}>
+      <Select className="in" value={state.session.defaultEntityId ?? ''} disabled={busy} onChange={(e) => void pick(e.target.value)} aria-label={say('Entité par défaut', 'Default entity')}>
+        {!state.session.defaultEntityId && <option value="">—</option>}
+        {floors.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+      </Select>
+      <span className="small muted">{say("L'application s'ouvre sur elle, et le logo y ramène.", 'The app opens on it, and the logo leads back to it.')}</span>
+    </Field>
   );
 }

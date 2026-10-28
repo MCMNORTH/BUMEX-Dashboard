@@ -22,7 +22,7 @@ import {
   stageStatus,
 } from "@/lib/tickets/workflow";
 import { getBoardWorkflow, getConfiguredWorkflows } from "@/lib/tickets/workflow-service";
-import { asPerson, select, selectOne, type Tx } from "@/lib/work/db";
+import { asPerson, asSystem, select, selectOne, type Tx } from "@/lib/work/db";
 import type { AppRole } from "@/types/auth";
 import type { TicketActivity, TicketAssignee, TicketFilters, TicketFiltersData, TicketFormValues, TicketProject, TicketProjectTeam, TicketRecord, TicketReporter, TicketStats, TicketStatus, TicketWorkloadRecord } from "@/types/ticket";
 import type { BoardWorkflow, TransitionErrorCode } from "@/types/workflow";
@@ -649,6 +649,8 @@ export async function syncTicketsToWorkflow(
   rows: ProjectTicketStageRow[],
   previous: BoardWorkflow,
   next: BoardWorkflow,
+  // a floor's board: its editor may not write every ticket of the floor, the server pins them for them
+  asActor?: string,
 ) {
   const updates = rows.flatMap((row) => {
     const status = normalizeTicketStatus(row.status);
@@ -662,7 +664,8 @@ export async function syncTicketsToWorkflow(
   });
 
   if (updates.length) {
-    await asPerson((tx) =>
+    const run = asActor ? <T,>(work: (tx: Tx) => Promise<T>) => asSystem(asActor, work) : asPerson;
+    await run((tx) =>
       tx.query(
         `update erp.task t set stage_id = u.stage_id, ${statusSet("u.status")}
            from jsonb_to_recordset($1::jsonb) as u(id uuid, stage_id text, status text) where t.id = u.id`,

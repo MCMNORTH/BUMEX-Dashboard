@@ -32,9 +32,9 @@ export async function saveTimeAction(input: TimeInput, test = false): Promise<Ti
       // an edit carries the version it started from: a line changed meanwhile is a conflict
       const written = input.updated_at
         ? await tx.run(
-            `update erp.time_entry set engagement_id = $2::uuid, work_date = $3::date, minutes = $4, description = $5, mission = $6, task_id = $10::uuid
-              where id = $1::uuid and user_id = $7 and entity_id = ${entityOf.replace("$ENTITY", "$8")} and updated_at = $9::timestamptz`,
-            [input.id, input.project_id, input.work_date, minutes, note, mission, auth.user.id, entityCode, input.updated_at, input.task_id || null],
+            `update erp.time_entry set engagement_id = $2::uuid, work_date = $3::date, minutes = $4, description = $5, mission = $6, task_id = $9::uuid
+              where id = $1::uuid and user_id = $7 and updated_at = $8::timestamptz`,
+            [input.id, input.project_id, input.work_date, minutes, note, mission, auth.user.id, input.updated_at, input.task_id || null],
           )
         : await tx.run(
             `insert into erp.time_entry (id, engagement_id, user_id, work_date, minutes, description, mission, entity_id, task_id)
@@ -81,14 +81,15 @@ export async function copyPreviousWeekAction(targetWeek: string, test = false): 
   if (!source) return { error: "unavailable" };
   try {
     return await asPerson(async (tx) => {
-      const own = `from erp.time_entry t join erp.entity x on x.id = t.entity_id where t.user_id = $1 and x.code = $2 and t.work_date >= $3::date and t.work_date < $4::date`;
-      const [{ n }] = await select<{ n: number }>(tx, `select count(*)::int as n ${own}`, [auth.user.id, entityCode, target.start, target.end]);
+      // the person's week, on every entity's missions (0015)
+      const own = `from erp.time_entry t where t.user_id = $1 and t.work_date >= $2::date and t.work_date < $3::date`;
+      const [{ n }] = await select<{ n: number }>(tx, `select count(*)::int as n ${own}`, [auth.user.id, target.start, target.end]);
       if (n > 0) return { error: "not_empty" as const };
       const allowed = new Set((await select<{ id: string }>(tx, TIMESHEET_PROJECTS_SQL, [entityCode])).map((project) => project.id));
       const sourceEntries = await select<{ project_id: string; work_date: string; minutes: number; mission: string; note: string; task_id: string | null }>(
         tx,
         `select t.engagement_id as project_id, t.work_date, t.minutes, t.mission, coalesce(t.description, '') as note, t.task_id ${own} order by t.work_date, t.id`,
-        [auth.user.id, entityCode, source.start, source.end],
+        [auth.user.id, source.start, source.end],
       );
       const rows = sourceEntries.filter((entry) => allowed.has(entry.project_id)).map((entry) => ({ ...entry, work_date: addDays(entry.work_date, 7) }));
       if (!rows.length) return { error: "no_source" as const };

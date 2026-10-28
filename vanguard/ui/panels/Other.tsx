@@ -32,8 +32,8 @@ export function MissionsPanel({ entityId, initialTab }: { entityId: Id; initialT
     <>
       <div className="sheet-head"><h1>{t('room_missions')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
       <div className="sheet-body">
-        {/* [bumex-one] "mission:<project>[:rules]" opens that mission's page */}
-        {tab.startsWith('mission:') && <MissionPanel key={tab} projectId={tab.split(':')[1]} initialTab={tab.endsWith(':rules') ? 'rules' : undefined} onClose={() => { setTab('board'); useStore.getState().setUi({ tab: null }); }} />}
+        {/* [bumex-one] "mission:<project>" opens that mission's page */}
+        {tab.startsWith('mission:') && <MissionPanel key={tab} projectId={tab.split(':')[1]} onClose={() => { setTab('board'); useStore.getState().setUi({ tab: null }); }} />}
         {tab === 'board' && <MissionList entityId={entityId} />}
         {tab === 'billing' && <Billing entityId={entityId} />}
         {tab === 'week' && <WeekView entityId={entityId} />}

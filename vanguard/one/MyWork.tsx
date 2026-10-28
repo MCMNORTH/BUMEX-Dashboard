@@ -48,6 +48,8 @@ function Block({ title, count, tone, children, extra }: { title: string; count?:
 
 export function MyWork() {
   const { toast, openRoom } = useStore();
+  const entities = useStore((s) => s.state.entities);
+  const today = useStore((s) => s.state.today);
   const say = useSay();
   const loadedAt = useStore((s) => s.loadedAt);
   const [data, setData] = useState<MyWorkData | null>(null);
@@ -88,8 +90,14 @@ export function MyWork() {
       setBusy(null);
     }
   };
+  // each floor has its board (0014): the tickets of one floor on its board; of several floors (a mission of another
+  // floor whose team they are on, 0015), one board per floor, each with its own stages
+  const floorOf = (t: MyWorkTicket) => boardOf(t.projectId).entity_id ?? '';
+  const floorsInView = [...new Set(data.tickets.map(floorOf))];
   const columnOf = (t: MyWorkTicket) => columnOfTicket(boardOf(t.projectId), { stage_id: t.stageId, status: t.status as TicketStatus });
-  const columns: StageColumn[] = mergeStageColumns([...new Set(data.tickets.map((t) => t.projectId))].map(boardOf), (p, st) => data.tickets.some((t) => t.projectId === p && t.stageId === st));
+  const columnsOf = (list: MyWorkTicket[]): StageColumn[] =>
+    mergeStageColumns([...new Set(list.map((t) => t.projectId))].map(boardOf), (p, st) => list.some((t) => t.projectId === p && t.stageId === st));
+  const floorName = (id: string, list: MyWorkTicket[]) => entities.find((e) => e.id === id)?.name ?? list[0]?.key?.split('-')[0] ?? say('Autre entité', 'Other entity');
   const tick = async (id: string, value: boolean) => {
     const result = await toggleSubtaskAction(id, value).catch(() => ({ error: say('Serveur injoignable.', 'Server unreachable.') }));
     if (result.error) toast('error', result.error);
@@ -165,24 +173,52 @@ export function MyWork() {
             )}
           </div>
         ) : (
-          <div className="kanban">
-            {columns.map((column) => {
-              const list = data.tickets.filter((t) => columnOf(t) === column.key);
-              const status = column.status;
+          <div className="mw-boards">
+            {floorsInView.map((floor) => {
+              const tickets = data.tickets.filter((t) => floorOf(t) === floor);
               return (
-                <div className={`col ${column.archived ? 'archived' : ''}`} key={column.key} {...drop(column)} style={{ minWidth: 150 }}>
-                  <h3>{column.name} <span>{list.length}</span></h3>
-                  {list.map((t) => (
-                    <div key={t.id} className={`wk-card ${busy === t.id ? 'busy' : ''}`} draggable={busy !== t.id} onDragStart={() => setDragged(t.id)} onDragEnd={() => setDragged(null)} onClick={() => ticket(t.id)}>
-                      <div className="wk-card-t">{t.title}</div>
-                      <div className="wk-card-f"><span className="wk-keycell"><TypeIcon type={t.type} say={say} /> {t.key}</span><span className="grow" />{t.dueDate && <span className={`wk-due ${t.dueState === 'overdue' && status !== 'done' ? 'late' : ''}`}>{t.dueDate.slice(8, 10)}/{t.dueDate.slice(5, 7)}</span>}<PriorityIcon priority={t.priority} say={say} /></div>
-                    </div>
-                  ))}
-                </div>
+                <section key={floor || 'loading'} className="mw-floor">
+                  {floorsInView.length > 1 && <h3 className="mw-floor-h">{say('Tableau de', 'Board of')} {floorName(floor, tickets)} <span className="tk-count">{tickets.length}</span></h3>}
+                  <div className="kanban">
+                    {columnsOf(tickets).map((column) => {
+                      const list = tickets.filter((t) => columnOf(t) === column.key);
+                      const status = column.status;
+                      return (
+                        <div className={`col ${column.archived ? 'archived' : ''}`} key={column.key} {...drop(column)} style={{ minWidth: 150 }}>
+                          <h3>{column.name} <span>{list.length}</span></h3>
+                          {list.map((t) => (
+                            <div key={t.id} className={`wk-card ${busy === t.id ? 'busy' : ''}`} draggable={busy !== t.id} onDragStart={() => setDragged(t.id)} onDragEnd={() => setDragged(null)} onClick={() => ticket(t.id)}>
+                              <div className="wk-card-t">{t.title}</div>
+                              <div className="wk-card-f"><span className="wk-keycell"><TypeIcon type={t.type} say={say} /> {t.key}</span><span className="grow" />{t.dueDate && <span className={`wk-due ${t.dueState === 'overdue' && status !== 'done' ? 'late' : ''}`}>{t.dueDate.slice(8, 10)}/{t.dueDate.slice(5, 7)}</span>}<PriorityIcon priority={t.priority} say={say} /></div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
               );
             })}
+            {!data.tickets.length && <div className="small muted mw-empty">{say('Rien ne vous est assigné.', 'Nothing is assigned to you.')}</div>}
           </div>
         )}
+      </Block>
+
+      <Block title={say('Mes missions', 'My missions')} count={data.missions.length}>
+        <div className="mw-rows">
+          {data.missions.map((m) => (
+            <div key={m.id} className="mw-ticket click" onClick={() => openRoom('missions', `mission:${m.id}`)}>
+              <span className="wk-keycell"><span className="mono">{m.code ?? '—'}</span></span>
+              <button className="linkish mw-title">{m.name}
+                {!m.home && <span className="tag mw-other">{m.entity}</span>}
+                {m.lead && <span className="tag dim">{say('responsable', 'lead')}</span>}
+              </button>
+              <span className="small muted" title={say('Tickets ouverts · les miens', 'Open tickets · mine')}>{m.open} {say('ouverts', 'open')}{m.mine ? ` · ${m.mine} ${say('à moi', 'mine')}` : ''}</span>
+              <span className={`mw-due ${m.deadline && m.deadline < today ? 'late' : ''}`}>{m.deadline ? m.deadline.split('-').reverse().join('/') : '—'}</span>
+            </div>
+          ))}
+          {!data.missions.length && <div className="small muted mw-empty">{say("Vous n'êtes dans l'équipe d'aucune mission en cours.", 'You are on no running mission’s team.')}</div>}
+        </div>
       </Block>
 
       <div className="mw-grid">

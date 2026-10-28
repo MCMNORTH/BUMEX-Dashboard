@@ -407,6 +407,8 @@
 .vanguard .wk-col.tone-blocked .wk-col-name::before { background: var(--t-block); } .vanguard .wk-col.tone-done .wk-col-name::before { background: var(--t-done); }
 .vanguard .wk-col.tone-archived .wk-col-name::before { background: transparent; border: 1px dashed var(--muted); }
 .vanguard .wf-start { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vanguard .wf-floor { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-left: 3px solid var(--navy); border-radius: 8px; background: var(--paper); }
+.vanguard .wk-card-stage { margin: 2px 0 4px; }
 
 /* ---- Ma feuille, made simple (Time.tsx MySheet, QuickLog.tsx) ---- */
 .vanguard .ts-strip { display: flex; align-items: center; gap: 14px 22px; flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
@@ -749,3 +751,9 @@
   .vanguard .rm-item-acts { margin-left: auto; }
 }
 @media (max-width: 480px) { .vanguard .ms-form-grid { grid-template-columns: minmax(0, 1fr); } .vanguard .mp-team-add { flex-direction: column; } }
+.vanguard .ms-member-floor { font-size: 11px; color: var(--muted); padding: 0 5px; border-radius: 3px; background: var(--ground); }
+.vanguard .mw-boards { display: flex; flex-direction: column; gap: 14px; }
+.vanguard .mw-floor { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.vanguard .mw-floor-h { margin: 0; font-size: 13px; font-weight: 600; color: var(--graphite); display: flex; align-items: center; gap: 6px; }
+.vanguard .mw-other { margin-left: 6px; border-color: #c9d8f0; background: var(--blue-pale); color: var(--navy-deep); }
+.vanguard .mw-title .tag { margin-left: 6px; vertical-align: 1px; }

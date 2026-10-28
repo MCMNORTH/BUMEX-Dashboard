@@ -42,13 +42,6 @@ export const OLD_PROJECT = id(101); // the audit mission's address in BUMEX One 
 export const C = { snim: id(201), bp: id(202), web: id(203) };
 export const T = { t1: id(301), t2: id(302), t3: id(303), t4: id(304) };
 
-const stages = [
-  { id: "todo", name: "À faire", position: 0, is_default: true, is_completed: false, category: "todo", archived_at: null },
-  { id: "in_progress", name: "En cours", position: 1, is_default: false, is_completed: false, category: "in_progress", archived_at: null },
-  { id: "review", name: "En revue", position: 2, is_default: false, is_completed: false, category: "review", archived_at: null },
-  { id: "done", name: "Terminé", position: 3, is_default: false, is_completed: true, category: "review", archived_at: null },
-];
-
 export async function seed({ databaseUrl, auth }) {
   for (const [login, u, name] of people) {
     await auth.deleteUser(u).catch(() => undefined);
@@ -101,9 +94,7 @@ export async function seed({ databaseUrl, auth }) {
     for (const [m, u] of [[M.audit, uid.ahmed], [M.audit, uid.khadija], [M.it, uid.khadija]]) {
       await q("insert into erp.engagement_staff (engagement_id, user_id, role) values ($1, $2, 'employee')", [m, u]);
     }
-    for (const m of Object.values(M)) {
-      await q("insert into work.board (engagement_id, stages, transitions, updated_by) values ($1, $2, '{}', $3)", [m, JSON.stringify(stages), uid.mariem]);
-    }
+    // their boards are their floors' (0014): BUMEX Audit's is the audit model (todo, in_progress, review, aud_report, done)
     await q(
       `insert into work.milestone (id, engagement_id, title, status, due_date, owner_id) values
          ($1, $3, 'Planification', 'completed', '2026-06-01', $4), ($2, $3, 'Rapport', 'planned', '2026-11-15', $4)`,

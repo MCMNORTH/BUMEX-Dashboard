@@ -59,9 +59,11 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
   const ahmedWork = await act("ahmed.ba", "myWorkAction", { args: [] });
   const t1 = ahmedWork?.tickets?.find((t) => t.id === T.t1);
   check("My work lists the assignee's tickets with their keys, and their load in weighted hours", Boolean(t1?.key) && t1?.estimatedHours === 6 && typeof ahmedWork?.load?.weekHours === "number" && ahmedWork?.load?.capacityHours > 0, { t1: t1 && { key: t1.key, est: t1.estimatedHours }, load: ahmedWork?.load });
+  // the audit floor's board (0014): work waits for its reporter at its last step before "Terminé", "Rapport"
+  r = await act("ahmed.ba", "moveTicketStageAction", { args: [T.t2, { stageId: "aud_report" }] });
   const mariemWork = await act("mariem.sow", "myWorkAction", { args: [] });
   check("…the reporter's sign-offs, and on the missions they lead what is unassigned, unestimated or late",
-    (mariemWork?.signOff ?? []).some((t) => t.id === T.t1) && (mariemWork?.lead ?? []).some((x) => x.reasons.includes("unestimated")),
+    !r?.error && (mariemWork?.signOff ?? []).some((t) => t.id === T.t2) && !(mariemWork?.signOff ?? []).some((t) => t.id === T.t1) && (mariemWork?.lead ?? []).some((x) => x.reasons.includes("unestimated")),
     { signOff: mariemWork?.signOff?.map((t) => t.key), lead: mariemWork?.lead?.map((x) => [x.ticket.key, x.reasons]) });
 
   const peopleRows = await act("mariem.sow", "peopleAction", { args: [] });
@@ -69,22 +71,31 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
   const ahmedRow = peopleRows?.find?.((p) => p.id === uid.ahmed);
   check("People and the pickers show each person's load in hours against their capacity", typeof ahmedRow?.load?.weekHours === "number" && ahmedRow?.load?.capacityHours > 0 && typeof loads?.[uid.ahmed]?.percent === "number", { row: ahmedRow?.load, pick: loads?.[uid.ahmed] });
 
-  // ---- statuses: each board's own stages, everywhere (2026-10-28) -------------------------------------------------------
-  const boardNow = (await act("mariem.sow", "boardWorkflowsAction", { args: [[A]] }))?.[A];
-  const done = boardNow?.stages?.find((st) => st.id === "done");
-  const draft = boardNow && {
-    stages: [...boardNow.stages.filter((st) => st.id !== "done").map((st) => (st.id === "review" ? { ...st, name: "Code review" } : st)),
+  // ---- statuses: one board per floor, which every mission of the floor follows (0014, 2026-10-28) -------------------------
+  const floorNow = (await act("mariem.sow", "floorBoardAction", { args: [entity.bumex_audit] }))?.workflow;
+  const auditStages = floorNow?.stages?.map((st) => st.name).join(" → ");
+  check("each floor starts from its model: BUMEX Audit's board is the audit one", auditStages === "Planification → Terrain → Revue → Rapport → Terminé", auditStages);
+  const done = floorNow?.stages?.find((st) => st.id === "done");
+  const draft = floorNow && {
+    stages: [...floorNow.stages.filter((st) => st.id !== "done").map((st) => (st.id === "review" ? { ...st, name: "Code review" } : st)),
       { id: "stg_tomerge", name: "To merge", position: 9, is_default: false, is_completed: false, category: "review", archived_at: null }, done],
     transitions: {}, allow_backward: true, allow_skip_forward: true, allow_reopen: true, require_reason: false, custom_transitions_enabled: false,
   };
-  r = await act("mariem.sow", "saveBoardWorkflowAction", { args: [A, draft, boardNow?.updated_at ?? null] });
-  check("the mission's manager renames a stage and adds one to its board", Boolean(boardNow) && !r?.error, r);
+  r = await act("ahmed.ba", "saveFloorBoardAction", { args: [entity.bumex_audit, draft, floorNow?.updated_at ?? null] });
+  check("an employee cannot change the floor's board", Boolean(r?.error), r);
+  r = await act("oumar.sy", "saveFloorBoardAction", { args: [entity.bumex_audit, draft, floorNow?.updated_at ?? null] });
+  check("…nor the manager of another floor", Boolean(r?.error), r);
+  r = await act("mariem.sow", "saveFloorBoardAction", { args: [entity.bumex_audit, draft, floorNow?.updated_at ?? null] });
+  check("the floor's manager renames a stage and adds one to the floor's board", Boolean(floorNow) && !r?.error, r);
+  const boards = await act("mariem.sow", "boardWorkflowsAction", { args: [[A, M.done]] });
+  const names = (b) => b?.stages?.filter((st) => !st.archived_at).map((st) => st.name).join(",");
+  check("…every mission of the floor follows it", Boolean(names(boards?.[A])) && names(boards?.[A]) === names(boards?.[M.done]) && names(boards?.[A]).includes("To merge"), { a: names(boards?.[A]), done: names(boards?.[M.done]) });
   const t1State = (await act("ahmed.ba", "reloadVanguardAction"))?.state?.tasks?.find((x) => x.id === T.t1);
   const t1Work = (await act("ahmed.ba", "myWorkAction", { args: [] }))?.tickets?.find((t) => t.id === T.t1);
-  check("…a ticket shows its board's stage name in the app's state and in My work", t1State?.ticket?.stage_name === "Code review" && t1Work?.stageName === "Code review" && t1Work?.stageId === "review", { state: t1State?.ticket?.stage_name, work: t1Work?.stageName });
+  check("…a ticket shows its floor's stage name in the app's state and in My work", t1State?.ticket?.stage_name === "Code review" && t1Work?.stageName === "Code review" && t1Work?.stageId === "review", { state: t1State?.ticket?.stage_name, work: t1Work?.stageName });
   r = await act("ahmed.ba", "moveTicketStageAction", { args: [T.t1, { stageId: "stg_tomerge" }] });
   const merged = await one("select stage_id, status from erp.task where id = $1", [T.t1]);
-  check("…moves to a stage of its own board, reported as its category", !r?.error && merged.stage_id === "stg_tomerge" && merged.status === "review", { r, merged });
+  check("…moves to a stage of its floor's board, reported as its category", !r?.error && merged.stage_id === "stg_tomerge" && merged.status === "review", { r, merged });
   r = await act("mariem.sow", "createTicketAction", { prev: {}, form: { title: "Lettre d'affirmation", project_id: A, assignee_id: uid.ahmed, reporter_id: uid.mariem, priority: "medium", type: "task", stage_id: "in_progress", create_another: "1" } });
   const started = r?.created?.id ? await one("select stage_id, status from erp.task where id = $1", [r.created.id]) : null;
   check("…a new ticket starts in the stage picked", started?.stage_id === "in_progress" && started?.status === "in_progress", { r, started });
@@ -153,11 +164,22 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     ahmedPage?.week?.minutes === ahmedMinutes && ahmedPage?.current?.some((t) => t.id === T.t1 && t.stageName === "To merge") && ahmedPage?.next?.some((t) => t.title === "Circularisation clients"),
     { week: ahmedPage?.week?.minutes, current: ahmedPage?.current?.map((t) => [t.key, t.stageName]), next: ahmedPage?.next?.map((t) => t.key) });
 
+  // ---- a mission's team from another floor (0015): Khadija, of BUMEX IT, is on the audit mission's team ----------------
+  const khWork = await act("khadija.diallo", "myWorkAction", { args: [] });
+  const onAudit = khWork?.missions?.find((m) => m.id === A);
+  check("a team member from another floor finds the mission in My work, as another entity's", Boolean(onAudit) && onAudit.home === false && onAudit.entity === "BUMEX Audit", onAudit);
+  const khView = await act("khadija.diallo", "projectViewAction", { args: [A] });
+  check("…opens it and reads its tickets", khView?.project?.id === A && (khView?.project?.tasks?.length ?? 0) > 0, { id: khView?.project?.id, tasks: khView?.project?.tasks?.length });
+  r = await act("khadija.diallo", "saveTimeAction", { args: [{ id: randomUUID(), project_id: A, work_date: "2026-10-27", hours: "1", minutes: "0", note: "Maquettes", mission: "Audit" }] });
+  const khLine = await one("select count(*)::int n from erp.time_entry where user_id = $1 and engagement_id = $2 and work_date = '2026-10-27'", [uid.khadija, A]);
+  check("…and logs time on it", !r?.error && khLine?.n === 1, { r, khLine });
+  check("someone of that floor who is not on the team does not open it", (await act("oumar.sy", "projectViewAction", { args: [A] })) === null);
+
   // ---- missions -----------------------------------------------------------------------------------------------------
   r = await act("mariem.sow", "saveMissionAction", {
     args: [{ name: "Due diligence", client_id: C.snim, description: "Revue d'acquisition", owner_id: uid.mariem, status: "active", start_date: "2026-11-01", end_date: "2026-12-15", budget_amount: "250000", priority: "high", project_kind: "client_mission", manual_progress: "", entity_id: entity.bumex_audit, member_ids: [uid.ahmed], fee_type: "time", budget_hours: "80" }],
   });
-  const mission = await one("select e.*, (select count(*)::int from work.board b where b.engagement_id = e.id) boards, (select array_agg(work.initials(p.full_name)) from erp.engagement_staff s join work.person p on p.id = s.user_id where s.engagement_id = e.id) staff from erp.engagement e where name = 'Due diligence'");
+  const mission = await one("select e.*, (select count(*)::int from work.floor_board b where b.entity_id = e.entity_id) boards, (select array_agg(work.initials(p.full_name)) from erp.engagement_staff s join work.person p on p.id = s.user_id where s.engagement_id = e.id) staff from erp.engagement e where name = 'Due diligence'");
   check("the manager creates a mission", r?.ok === true && Boolean(mission), { ok: r?.ok, error: r?.error });
   check("…numbered, with its client's customer, its board, its member and terms", mission?.code === "M-003" && Boolean(mission?.customer_id) && mission?.boards === 1 && mission?.staff?.join() === "A.B." && mission?.fee_type === "time", mission && { code: mission.code, customer: mission.customer_id, boards: mission.boards, staff: mission.staff });
   r = await act("ahmed.ba", "saveMissionAction", { args: [{ name: "Pas autorisé", client_id: "", description: "", owner_id: uid.ahmed, status: "active", start_date: "", end_date: "", budget_amount: "", priority: "medium", project_kind: "internal_tool", manual_progress: "", entity_id: entity.bumex_audit, member_ids: [], fee_type: "fixed", budget_hours: "" }] });
@@ -356,6 +378,15 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
   check("“Forgot password?” answers the same whoever asks, and mails a known address once in a while",
     answers.every((a) => a?.sent === true) && toOumar === 1 && mail.messages.length - mailed === 1, { answers, toOumar, all: mail.messages.length - mailed });
 
+  // ---- the default entity (0015) -----------------------------------------------------------------------------------------
+  const homeFirst = (await act("mohamed.cheikh", "reloadVanguardAction"))?.state?.session?.defaultEntityId;
+  check("a person's default entity is their home one until they choose", homeFirst === entity.bumex_holding, homeFirst);
+  r = await act("mohamed.cheikh", "setDefaultEntityAction", { args: [entity.bumex_it] });
+  const chosen = (await act("mohamed.cheikh", "reloadVanguardAction"))?.state?.session?.defaultEntityId;
+  check("…they choose another one in their account", !r?.error && chosen === entity.bumex_it, { r, chosen });
+  r = await act("mariem.sow", "setDefaultEntityAction", { args: [entity.bumex_it] });
+  check("…only among the floors they see", Boolean(r?.error), r);
+
   const tab = await openBrowser();
   try {
     if (link) {
@@ -515,14 +546,27 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     check("the test floor: nothing of it in My work outside; entering it shows only its data; leaving it switches back",
       realWork && !leakBefore && inTest && testOnly && back && tab.takeErrors().length === 0, { realWork, leakBefore, inTest, testOnly, back });
     await tab.signIn(cookies["mariem.sow"]);
-    // the board: every mission of the floor by its boards' stages (merged by name), cards with their key; the search narrows them
+    // the board: every mission of the floor on the floor's board, cards with their key; the search narrows them
     await tab.go("/vanguard?room=tasks&tab=board");
-    const boardShown = await tab.until("['à faire', 'code review', 'to merge', 'terminé'].every((n) => [...document.querySelectorAll('.wk-col-name')].some((c) => c.textContent.trim().toLowerCase() === n)) && [...document.querySelectorAll('.wk-card')].some((c) => /AUD-\\d+/.test(c.innerText))", 25_000);
+    const boardShown = await tab.until("['planification', 'terrain', 'code review', 'rapport', 'to merge', 'terminé'].every((n) => [...document.querySelectorAll('.wk-col-name')].some((c) => c.textContent.trim().toLowerCase() === n)) && [...document.querySelectorAll('.wk-card')].some((c) => /AUD-\\d+/.test(c.innerText))", 25_000);
     const before = await tab.evaluate("document.querySelectorAll('.wk-card').length");
     await tab.evaluate(`(() => { const i = document.querySelector('.wk-search input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, 'Circularisation'); i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
     const narrowed = await tab.until("document.querySelectorAll('.wk-card').length === 1 && document.querySelector('.wk-card').innerText.includes('Circularisation')", 5_000);
     await tab.evaluate(`(() => { const i = document.querySelector('.wk-search input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, ''); i.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-    check("the board shows the floor's tickets by their boards' stages with their keys, and its search narrows them", boardShown && before > 1 && narrowed && tab.takeErrors().length === 0, { boardShown, before, narrowed });
+    check("the board shows the floor's tickets on the floor's stages with their keys, and its search narrows them", boardShown && before > 1 && narrowed && tab.takeErrors().length === 0, { boardShown, before, narrowed });
+    // the floor's board, its statuses and rules: a tab of the Tasks room, for the floor's manager to change
+    await tab.go("/vanguard?room=tasks&tab=rules");
+    const rules = await tab.until("Boolean(document.querySelector('.wf-floor')) && [...document.querySelectorAll('.sheet-body table input')].some((i) => i.value === 'Code review' && !i.disabled)", 25_000);
+    check("the floor's board is changed in the Tasks room's \"Statuts et règles\" tab", rules && tab.takeErrors().length === 0);
+    // the app opens on the person's default entity, and the logo leads back to it
+    await tab.signIn(cookies["mohamed.cheikh"]);
+    await tab.go("/vanguard");
+    const openedHome = await tab.until("/BUMEX IT/.test(document.querySelector('.crumbs')?.innerText ?? '')", 25_000);
+    await tab.go("/vanguard?room=missions");
+    await tab.until("Boolean(document.querySelector('.sheet-head'))", 15_000);
+    await tab.evaluate("document.querySelector('.brand').click()");
+    const backHome = await tab.until("/BUMEX IT/.test(document.querySelector('.crumbs')?.innerText ?? '') && !document.querySelector('.ms')", 15_000);
+    check("the app opens on the person's default entity, and the logo leads back to it", openedHome && backHome && tab.takeErrors().length === 0, { openedHome, backHome });
     await tab.signIn(cookies["mohamed.cheikh"]);
     await tab.go("/vanguard?room=settings&tab=access");
     const listed = await tab.until("document.body.innerText.includes('Modificateurs') && document.body.innerText.includes('Salma Fall')");

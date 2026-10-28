@@ -22,6 +22,7 @@ export interface Session {
   managesAccess?: boolean; // [bumex-one] changes everyone's access (the permissions page)
   view3d?: boolean; // [bumex-one] sees the building in 3D (0010); without it, the flat pages only
   testMode?: boolean; // [bumex-one] the session is on the test floor (0013): only test data, the test floor's books only
+  defaultEntityId?: Id | null; // [bumex-one] the floor the app opens on (0015): the person's choice, else their home
 }
 
 export type UserStatus = 'invited' | 'active' | 'disabled';

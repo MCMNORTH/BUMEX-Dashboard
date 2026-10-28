@@ -53,6 +53,8 @@ export type MyWorkData = {
   reported: MyWorkTicket[]; // reported by me, open, carried by someone else
   lead: { ticket: MyWorkTicket; reasons: ("unassigned" | "unestimated" | "late")[] }[];
   week: { loggedMinutes: number; capacityHours: number; status: string | null } | null;
+  // the missions they lead or are on the team of, on every floor (a member from another floor works on it: 0015)
+  missions: { id: string; name: string; code: string | null; entity: string | null; home: boolean; lead: boolean; deadline: string | null; status: string; open: number; mine: number }[];
 };
 
 export async function myWorkAction(): Promise<MyWorkData> {
@@ -75,7 +77,19 @@ export async function myWorkAction(): Promise<MyWorkData> {
         [me],
       ),
       led: (await select<{ id: string }>(tx, "select id from erp.engagement where owner_id = $1 and status not in ('completed', 'cancelled')", [me])).map((r) => r.id),
-    })).catch(() => ({ mentions: [], led: [] as string[] })),
+      missions: await select<MyWorkData["missions"][number]>(
+        tx,
+        `select g.id::text as id, g.name, g.code, e.name as entity, e.code = (select p.entity_code from work.person p where p.id = $1) as home,
+                g.owner_id = $1 as lead, g.deadline::text as deadline, g.status::text as status,
+                (select count(*)::int from erp.task t where t.engagement_id = g.id and t.status not in ('done', 'archived')) as open,
+                (select count(*)::int from erp.task t where t.engagement_id = g.id and t.assignee_id = $1 and t.status not in ('done', 'archived')) as mine
+           from erp.engagement g join erp.entity e on e.id = g.entity_id
+          where g.status not in ('completed', 'cancelled')
+            and (g.owner_id = $1 or exists (select 1 from erp.engagement_staff s where s.engagement_id = g.id and s.user_id = $1))
+          order by g.deadline nulls last, g.name`,
+        [me],
+      ),
+    })).catch(() => ({ mentions: [], led: [] as string[], missions: [] as MyWorkData["missions"] })),
   ]);
   const open = (t: TicketRecord) => t.status !== "done" && t.status !== "archived";
   const mine = tickets.filter((t) => t.assignee_id === me);
@@ -108,5 +122,6 @@ export async function myWorkAction(): Promise<MyWorkData> {
     week: timesheet
       ? { loggedMinutes: timesheet.entries.reduce((sum, e) => sum + e.duration_minutes, 0), capacityHours: auth.profile.weekly_capacity_hours, status: timesheet.weekStatus?.status ?? null }
       : null,
+    missions: extra.missions,
   };
 }

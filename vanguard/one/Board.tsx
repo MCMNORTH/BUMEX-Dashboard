@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import type { Engagement } from '@bumex/domain';
-import { missionBoardAction, type MissionBoard as Board } from '@/lib/erp/vanguard/board-actions';
-import { getActiveStages, resolveTicketStageId } from '@/lib/tickets/workflow';
-import { columnOfTicket, mergeStageColumns, stageForColumn } from '@/lib/tickets/stage-columns';
+import { floorBoardAction, type FloorBoard } from '@/lib/erp/vanguard/board-actions';
+import { resolveTicketStageId, sortStages } from '@/lib/tickets/workflow';
 import { createTicketAction, moveTicketStageAction } from '@/app/(app)/tickets/actions';
 import { remainingHours } from '@/lib/work/load';
 import type { TicketStatus } from '@/types/ticket';
@@ -11,29 +10,29 @@ import { Icon } from '../ui/common';
 import { PRIORITY, TEAM_ROLES, label, reload, type TicketTask } from './Tasks';
 import { useSay } from './say';
 import { groupTickets, type GroupBy } from './work-filters';
-import { Avatar, PriorityIcon, TypeIcon, hoursText, stageTone, statusTone, type Tone } from './work-ui';
-import { forgetWorkflows, useBoardOf } from './stages';
+import { Avatar, PriorityIcon, TypeIcon, hoursText, stageTone, type Tone } from './work-ui';
 import { QuickLogButton } from './QuickLog';
 import type { Say } from './ticket-history';
 
-// The Tasks room's board, as Jira draws it (asked on 2026-10-27): one mission's own columns (its workflow, or the
-// built-in ones), or every mission of the floor with the stages of their boards merged by name (2026-10-28,
-// lib/tickets/stage-columns.ts): a card dropped there goes to the stage of that name on its own board. Columns carry their count and hours and fold; cards their
-// key, labels, estimate, due date, priority and assignee; "+" adds a ticket in a column. A card dropped in another
-// column moves with BUMEX One's ticket action, which checks the workflow's rules (order, reopening, sign-off by the
-// reporter) and may ask for a reason. Lanes group the cards by assignee, priority or mission.
+// The Tasks room's board, as Jira draws it (asked on 2026-10-27): the floor's board (0014: one per entity, which every
+// mission of the floor follows, asked on 2026-10-28), for one mission or all of them: the same columns either way.
+// Columns carry their count and hours and fold; cards their key, labels, estimate, due date, priority and assignee;
+// "+" adds a ticket in a column. A card dropped in another column moves with BUMEX One's ticket action, which checks
+// the board's rules (order, reopening, sign-off by the reporter) and may ask for a reason. Lanes group the cards by
+// assignee, priority or mission. "Statuts et règles" opens the board's editor (Workflow.tsx).
 
 type Mission = Engagement & { projectId?: string };
-type Column = { id: string; name: string; tone: Tone; completed: boolean; archived?: boolean; matches: (x: TicketTask) => boolean; target: { stageId: string } | { status: TicketStatus } | { column: string } };
+type Column = { id: string; name: string; tone: Tone; completed: boolean; archived?: boolean; matches: (x: TicketTask) => boolean; target: { stageId: string } | { status: TicketStatus } };
 
 const NO_DUE_DATE = '9999-12-31';
 
-export function MissionBoard({ scope, tickets, groupBy, onOpen }: { scope: string; tickets: TicketTask[]; groupBy: GroupBy; onOpen: (id: string) => void }) {
+export function MissionBoard({ entityId, scope, tickets, groupBy, onOpen, onRules }: { entityId: string; scope: string; tickets: TicketTask[]; groupBy: GroupBy; onOpen: (id: string) => void; onRules: () => void }) {
   const { state, toast } = useStore();
   const say = useSay();
   const mission = scope === 'all' ? null : ((state.engagements as Mission[]).find((e) => e.id === scope) ?? null);
   const projectId = mission?.projectId ?? null;
-  const [board, setBoard] = useState<{ projectId: string; data: Board } | null>(null);
+  const loadedAt = useStore((s) => s.loadedAt);
+  const [board, setBoard] = useState<{ entityId: string; data: FloorBoard } | null>(null);
   const [dragged, setDragged] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -42,46 +41,36 @@ export function MissionBoard({ scope, tickets, groupBy, onOpen }: { scope: strin
   const [reason, setReason] = useState('');
 
   useEffect(() => {
-    if (!projectId) return;
     let live = true;
-    missionBoardAction(projectId)
-      .then((data) => live && setBoard({ projectId, data }))
+    floorBoardAction(entityId)
+      .then((data) => {
+        if (!live) return;
+        if (data) setBoard({ entityId, data });
+        else useStore.getState().toast('error', useStore.getState().ui.lang === 'fr' ? "Le tableau de l'étage est indisponible." : "The floor's board is unavailable.");
+      })
       .catch(() => {
         const { toast: show, ui: now } = useStore.getState();
-        if (live) show('error', now.lang === 'fr' ? 'Le tableau de la mission est indisponible.' : "The mission's board is unavailable.");
+        if (live) show('error', now.lang === 'fr' ? "Le tableau de l'étage est indisponible." : "The floor's board is unavailable.");
       });
     return () => { live = false; };
-  }, [projectId]);
+  }, [entityId, loadedAt]);
 
-  const workflow = board && board.projectId === projectId ? board.data.workflow : null;
-  // every mission: the boards of the cards in view (the built-in one until a board is read)
-  const projectIds = useMemo(() => (projectId ? [] : [...new Set(tickets.map((x) => x.ticket.project_id))]), [projectId, tickets]);
-  const boardOf = useBoardOf(projectIds);
+  const workflow = board && board.entityId === entityId ? board.data.workflow : null;
+  // the board's active stages, and an archived one while a card still sits in it (so no card is hidden)
   const columns: Column[] = useMemo(() => {
-    if (!projectId) {
-      const stageOf = (x: TicketTask) => resolveTicketStageId(boardOf(x.ticket.project_id), { stage_id: x.ticket.stage_id, status: x.ticket.status });
-      const used = new Set(tickets.map((x) => `${x.ticket.project_id}:${stageOf(x)}`));
-      return mergeStageColumns(projectIds.map(boardOf), (p, st) => used.has(`${p}:${st}`)).map((c) => ({
-        id: c.key, name: c.name, tone: c.archived ? 'archived' : statusTone(c.status), completed: c.completed, archived: c.archived, target: { column: c.key },
-        matches: (x: TicketTask) => columnOfTicket(boardOf(x.ticket.project_id), { stage_id: x.ticket.stage_id, status: x.ticket.status }) === c.key,
-      }));
-    }
     if (!workflow) return [];
-    return getActiveStages(workflow).map((s) => ({
-      id: s.id, name: s.name, tone: stageTone(s), completed: s.is_completed, target: { stageId: s.id },
-      matches: (x: TicketTask) => resolveTicketStageId(workflow, { stage_id: x.ticket.stage_id, status: x.ticket.status }) === s.id,
+    const stageOf = (x: TicketTask) => resolveTicketStageId(workflow, { stage_id: x.ticket.stage_id, status: x.ticket.status });
+    const used = new Set(tickets.map(stageOf));
+    return sortStages(workflow.stages).filter((s) => !s.archived_at || used.has(s.id)).map((s) => ({
+      id: s.id, name: s.name, tone: s.archived_at ? 'archived' : stageTone(s), completed: s.is_completed, archived: Boolean(s.archived_at), target: { stageId: s.id },
+      matches: (x: TicketTask) => stageOf(x) === s.id,
     }));
-  }, [projectId, workflow, tickets, projectIds, boardOf]);
+  }, [workflow, tickets]);
 
   const move = async (task: TicketTask, column: Column, why?: string) => {
     if (column.matches(task)) return;
-    let target = column.target;
-    if ('column' in target) {
-      const stage = stageForColumn(boardOf(task.ticket.project_id), target.column);
-      const mission = (state.engagements as Mission[]).find((e) => e.id === task.engagementId);
-      if (!stage) { toast('error', say(`Le tableau de ${mission?.name ?? 'cette mission'} n'a pas d'étape « ${column.name} ».`, `${mission?.name ?? "This mission"}'s board has no "${column.name}" stage.`)); return; }
-      target = { stageId: stage.id };
-    }
+    if (column.archived) { toast('error', say(`« ${column.name} » est archivée : aucune carte n'y entre.`, `"${column.name}" is archived: no card goes in.`)); return; }
+    const target = column.target;
     setBusy(task.id);
     try {
       const result = await moveTicketStageAction(task.id, target, why);
@@ -112,7 +101,7 @@ export function MissionBoard({ scope, tickets, groupBy, onOpen }: { scope: strin
     },
   });
 
-  if (projectId && !workflow) return <div className="card"><span className="muted">{say('Chargement du tableau…', 'Loading the board…')}</span></div>;
+  if (!workflow) return <div className="card"><span className="muted">{say('Chargement du tableau…', 'Loading the board…')}</span></div>;
   const lanes = groupTickets(tickets, groupBy, {
     unassigned: say('Non assigné', 'Unassigned'),
     priority: (p) => label(PRIORITY[p], p, say),
@@ -130,8 +119,8 @@ export function MissionBoard({ scope, tickets, groupBy, onOpen }: { scope: strin
           <button className="btn sm primary" disabled={!reason.trim() || busy === asking.task.id} onClick={() => move(asking.task, asking.column, reason.trim())}>{say('Déplacer vers', 'Move to')} {asking.column.name}</button>
         </div>
       )}
-      {projectId && board?.data.canManage && (
-        <div className="wk-board-tools"><button className="btn sm" onClick={() => { forgetWorkflows(projectId); useStore.getState().openRoom('missions', `mission:${projectId}:rules`); }}><Icon name="settings" size={13} /> {say('Statuts et règles', 'Statuses and rules')}</button></div>
+      {board?.data.canManage && (
+        <div className="wk-board-tools"><button className="btn sm" onClick={onRules}><Icon name="settings" size={13} /> {say('Statuts et règles', 'Statuses and rules')}</button></div>
       )}
       <div className="wk-board">
         <div className="wk-cols" role="list">

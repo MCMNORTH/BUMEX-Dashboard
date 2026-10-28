@@ -23,9 +23,15 @@ const EVENT_SQL = `
     from work.timesheet_week_event v join erp.entity x on x.id = v.entity_id`;
 
 // The missions of the entity a person enters time on (BUMEX One's timesheet_projects view).
+// the missions a person logs time on: their entity's they may log on, and (0015) those of other entities they lead,
+// are on the team of or have a ticket of, named with their entity
 export const TIMESHEET_PROJECTS_SQL = `
-  select e.id, e.name from erp.engagement e join erp.entity x on x.id = e.entity_id
-   where x.code = $1 and work.is_timesheet_project(e.id)`;
+  select e.id, case when x.code = $1 then e.name else e.name || ' · ' || x.name end as name
+    from erp.engagement e join erp.entity x on x.id = e.entity_id
+   where work.is_timesheet_project(e.id)
+     and (x.code = $1 or e.owner_id = erp.actor_id()
+          or exists (select 1 from erp.engagement_staff s where s.engagement_id = e.id and s.user_id = erp.actor_id())
+          or exists (select 1 from erp.task k where k.engagement_id = e.id and k.assignee_id = erp.actor_id()))`;
 
 // test: the person's test lines on the test floor (0011), without a week
 export async function getTimesheet(week: string, test = false): Promise<{
@@ -45,18 +51,19 @@ export async function getTimesheet(week: string, test = false): Promise<{
     return await asPerson(async (tx) => {
       const entries = await select<TimeEntry>(
         tx,
+        // the person's whole week, on every entity's missions (0015); the session's mode keeps test lines apart (0013)
         `select ${TIME_ENTRY_COLUMNS} from erp.time_entry t join erp.entity x on x.id = t.entity_id
-          where t.user_id = $1 and x.code = $2 and t.work_date >= $3::date and t.work_date < $4::date
+          where t.user_id = $1 and t.work_date >= $2::date and t.work_date < $3::date
           order by t.work_date desc, t.id`,
-        [auth.user.id, entityCode, bounds.start, bounds.end],
+        [auth.user.id, bounds.start, bounds.end],
       );
       const projects = await select<TimeProject>(tx, `${TIMESHEET_PROJECTS_SQL} order by e.name, e.id`, [entityCode]);
       // the mission labels used on the entity's lines the person may read
       const missions = await select<TimeMission>(
         tx,
-        `select distinct t.engagement_id as project_id, t.mission from erp.time_entry t join erp.entity x on x.id = t.entity_id
-          where x.code = $1 and t.mission <> '' order by 1, 2`,
-        [entityCode],
+        `select distinct t.engagement_id as project_id, t.mission from erp.time_entry t
+          where t.engagement_id = any($1::uuid[]) and t.mission <> '' order by 1, 2`,
+        [projects.map((project) => project.id)],
       );
       const favorites = await select<TimeMissionFavorite>(
         tx,

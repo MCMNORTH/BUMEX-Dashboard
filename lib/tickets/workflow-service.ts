@@ -1,17 +1,18 @@
 import "server-only";
 
 import { getCurrentLocale } from "@/lib/i18n/server";
-import { getLegacyWorkflow, getNewBoardWorkflow, type WorkflowDraft } from "@/lib/tickets/workflow";
-import { asPerson, select } from "@/lib/work/db";
+import { getLegacyWorkflow, type WorkflowDraft } from "@/lib/tickets/workflow";
+import { asPerson, asSystem, select } from "@/lib/work/db";
 import type { BoardWorkflow, WorkflowStage } from "@/types/workflow";
 
-// A mission's board: work.board (0008), one row per mission that saved its workflow.
-const WORKFLOW_COLUMNS =
-  "engagement_id as id, engagement_id as project_id, stages, transitions, allow_backward, allow_skip_forward, allow_reopen, require_reason, custom_transitions_enabled, updated_at";
+// The boards are the floors' (0014, asked on 2026-10-28): work.floor_board, one per entity, which every mission of the
+// floor follows. A mission's board is its floor's, under the mission's id (project_id), so everything that reads a
+// ticket's board by its mission keeps doing so; the floor's editor reads and saves it by the entity's id.
+const FLOOR_COLUMNS =
+  "f.entity_id::text as entity_id, f.stages, f.transitions, f.allow_backward, f.allow_skip_forward, f.allow_reopen, f.require_reason, f.custom_transitions_enabled, f.updated_at";
 
-type WorkflowRow = {
-  id: string;
-  project_id: string;
+type FloorRow = {
+  entity_id: string;
   stages: WorkflowStage[] | null;
   transitions: Record<string, string[]> | null;
   allow_backward: boolean | null;
@@ -22,9 +23,10 @@ type WorkflowRow = {
   updated_at: string | null;
 };
 
-function mapWorkflow(row: WorkflowRow): BoardWorkflow {
+function mapWorkflow(row: FloorRow, projectId: string): BoardWorkflow {
   return {
-    project_id: row.project_id,
+    project_id: projectId,
+    entity_id: row.entity_id,
     stages: (row.stages ?? []).map((stage) => ({
       id: String(stage.id),
       name: String(stage.name),
@@ -45,7 +47,7 @@ function mapWorkflow(row: WorkflowRow): BoardWorkflow {
   };
 }
 
-/** Saved workflows only, keyed by project id. Boards missing here use the built-in stages. */
+/** The missions' boards (their floors'), keyed by mission id. A mission the person cannot read is left out. */
 export async function getConfiguredWorkflows(projectIds: string[]): Promise<Map<string, BoardWorkflow>> {
   const ids = [...new Set(projectIds.filter(Boolean))];
 
@@ -53,8 +55,14 @@ export async function getConfiguredWorkflows(projectIds: string[]): Promise<Map<
     return new Map();
   }
 
-  const rows = await asPerson((tx) => select<WorkflowRow>(tx, `select ${WORKFLOW_COLUMNS} from work.board where engagement_id = any($1::uuid[])`, [ids]));
-  return new Map(rows.map((row) => [row.project_id, mapWorkflow(row)]));
+  const rows = await asPerson((tx) =>
+    select<FloorRow & { project_id: string }>(
+      tx,
+      `select g.id::text as project_id, ${FLOOR_COLUMNS} from erp.engagement g join work.floor_board f on f.entity_id = g.entity_id where g.id = any($1::uuid[])`,
+      [ids],
+    ),
+  );
+  return new Map(rows.map((row) => [row.project_id, mapWorkflow(row, row.project_id)]));
 }
 
 export async function getBoardWorkflow(projectId: string): Promise<BoardWorkflow> {
@@ -62,7 +70,7 @@ export async function getBoardWorkflow(projectId: string): Promise<BoardWorkflow
   return configured.get(projectId) ?? getLegacyWorkflow(projectId, locale);
 }
 
-/** Every listed board's workflow, built-in ones included, for the browser. */
+/** Every listed mission's board, for the browser (a mission the person cannot read: the built-in stages, free moves). */
 export async function getBoardWorkflows(projectIds: string[]): Promise<Record<string, BoardWorkflow>> {
   const [configured, locale] = await Promise.all([getConfiguredWorkflows(projectIds), getCurrentLocale()]);
 
@@ -71,40 +79,45 @@ export async function getBoardWorkflows(projectIds: string[]): Promise<Record<st
   );
 }
 
-/** New projects start with the restrictive To do → In progress → In review → Done board. */
-export async function createDefaultBoardWorkflow(projectId: string, actorUserId: string) {
-  const locale = await getCurrentLocale();
-  const workflow = getNewBoardWorkflow(projectId, locale);
-  await asPerson((tx) =>
-    tx.query(
-      `insert into work.board (engagement_id, stages, transitions, allow_backward, allow_skip_forward, allow_reopen, require_reason,
-                               custom_transitions_enabled, updated_by)
-       values ($1::uuid, $2::jsonb, $3::jsonb, $4, $5, $6, $7, $8, $9)`,
-      [projectId, JSON.stringify(workflow.stages), JSON.stringify(workflow.transitions), workflow.allow_backward, workflow.allow_skip_forward,
-        workflow.allow_reopen, workflow.require_reason, workflow.custom_transitions_enabled, actorUserId],
-    ),
+/** A floor's board, under the floor's id (its editor). Null when the person may not read it. */
+export async function getFloorWorkflow(entityId: string): Promise<BoardWorkflow | null> {
+  const rows = await asPerson((tx) => select<FloorRow>(tx, `select ${FLOOR_COLUMNS} from work.floor_board f where f.entity_id = $1::uuid`, [entityId]));
+  return rows[0] ? mapWorkflow(rows[0], entityId) : null;
+}
+
+/** May the person change this floor's board: the administrators and the floor's managers (0014's rule). */
+export async function canManageFloorBoard(entityId: string): Promise<boolean> {
+  const rows = await asPerson((tx) =>
+    select<{ ok: boolean }>(tx, "select (work.actor_class() = 'admin' or work.is_entity_manager($1::uuid)) and not work.hidden(erp.is_test_entity($1::uuid)) as ok", [entityId]),
+  ).catch(() => []);
+  return Boolean(rows[0]?.ok);
+}
+
+/**
+ * Every ticket of the floor with what stage bookkeeping needs, archived ones included: read by the server for whoever
+ * edits the board, since a stage that still holds cards cannot go, whoever may see them.
+ */
+export async function getFloorTicketStages(entityId: string, actorId: string) {
+  return asSystem(actorId, (tx) =>
+    select<{ id: string; status: string; stage_id?: string | null }>(tx, "select id, status, stage_id from erp.task where entity_id = $1::uuid and engagement_id is not null", [entityId]),
   );
 }
 
-/** Writes a draft that already passed validateWorkflowDraft. */
-export async function saveBoardWorkflow(previous: BoardWorkflow, draft: WorkflowDraft, actorUserId: string) {
+/** Writes a draft that already passed validateWorkflowDraft. The rules refuse whoever does not manage the floor. */
+export async function saveFloorWorkflow(entityId: string, draft: WorkflowDraft, actorUserId: string) {
   const written = await asPerson((tx) =>
     tx.query(
-      `insert into work.board (engagement_id, stages, transitions, allow_backward, allow_skip_forward, allow_reopen, require_reason,
-                               custom_transitions_enabled, updated_by)
-       values ($1::uuid, $2::jsonb, $3::jsonb, $4, $5, $6, $7, $8, $9)
-       on conflict (engagement_id) do update
-         set stages = excluded.stages, transitions = excluded.transitions, allow_backward = excluded.allow_backward,
-             allow_skip_forward = excluded.allow_skip_forward, allow_reopen = excluded.allow_reopen, require_reason = excluded.require_reason,
-             custom_transitions_enabled = excluded.custom_transitions_enabled, updated_by = excluded.updated_by
-       returning engagement_id`,
-      [previous.project_id, JSON.stringify(draft.stages), JSON.stringify(draft.transitions), draft.allow_backward, draft.allow_skip_forward,
+      `update work.floor_board
+          set stages = $2::jsonb, transitions = $3::jsonb, allow_backward = $4, allow_skip_forward = $5, allow_reopen = $6,
+              require_reason = $7, custom_transitions_enabled = $8, updated_by = $9
+        where entity_id = $1::uuid
+       returning entity_id`,
+      [entityId, JSON.stringify(draft.stages), JSON.stringify(draft.transitions), draft.allow_backward, draft.allow_skip_forward,
         draft.allow_reopen, draft.require_reason, draft.custom_transitions_enabled, actorUserId],
     ),
   );
 
-  // The rules refuse the write of someone who does not manage the mission.
   if (!written.length) {
-    throw new Error("You do not have permission to change this board's workflow.");
+    throw new Error("You do not have permission to change this floor's board.");
   }
 }

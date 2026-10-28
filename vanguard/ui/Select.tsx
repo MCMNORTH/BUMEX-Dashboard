@@ -15,7 +15,7 @@ import { highlights, rank } from './select-search';
 
 export type SelectChange = { target: { value: string }; currentTarget: { value: string } };
 
-type Option = { value: string; label: string; disabled: boolean; keywords?: string; hint?: string; tone?: string }; // hint: shown on the right (a person's load); tone: its colour
+type Option = { value: string; label: string; disabled: boolean; keywords?: string; hint?: string; tone?: string; group?: string }; // hint: shown on the right (a person's load); tone: its colour; group: its <optgroup>'s label
 
 const SEARCH_FROM = 6;
 const RECENTS = 5;
@@ -30,13 +30,15 @@ function text(node: ReactNode): string {
 }
 
 // the <option>s of the children, through fragments, arrays and conditions
-function optionsOf(children: ReactNode, out: Option[] = []): Option[] {
+// (an <optgroup>'s label heads its options in the list, 2026-10-28: a mission's team, its floor first)
+function optionsOf(children: ReactNode, out: Option[] = [], group?: string): Option[] {
   Children.forEach(children, (child) => {
-    if (!isValidElement<{ value?: string | number; disabled?: boolean; children?: ReactNode; 'data-search'?: string; 'data-hint'?: string; 'data-tone'?: string }>(child)) return;
-    if (child.type === Fragment || child.type === 'optgroup') optionsOf(child.props.children, out);
+    if (!isValidElement<{ value?: string | number; disabled?: boolean; children?: ReactNode; label?: string; 'data-search'?: string; 'data-hint'?: string; 'data-tone'?: string }>(child)) return;
+    if (child.type === Fragment) optionsOf(child.props.children, out, group);
+    else if (child.type === 'optgroup') optionsOf(child.props.children, out, child.props.label ?? group);
     else if (child.type === 'option') {
       const label = text(child.props.children);
-      out.push({ value: child.props.value === undefined ? label : String(child.props.value), label, disabled: Boolean(child.props.disabled), keywords: child.props['data-search'], hint: child.props['data-hint'], tone: child.props['data-tone'] });
+      out.push({ value: child.props.value === undefined ? label : String(child.props.value), label, disabled: Boolean(child.props.disabled), keywords: [child.props['data-search'], group].filter(Boolean).join(' ') || undefined, hint: child.props['data-hint'], tone: child.props['data-tone'], group });
     }
   });
   return out;
@@ -210,13 +212,14 @@ function useList({ options, value, recent, anchor, onPick, onClose, searchAlways
           {rows.map((row, i) => (
             <Fragment key={`${row.section}:${row.option.value}:${i}`}>
               {i === 0 && recentCount > 0 && <div className="vsel-head">{say('Récents', 'Recent')}</div>}
-              {i === recentCount && recentCount > 0 && <div className="vsel-head">{say('Tous', 'All')}</div>}
+              {i === recentCount && recentCount > 0 && !row.option.group && <div className="vsel-head">{say('Tous', 'All')}</div>}
+              {row.section === 'all' && !query && row.option.group && (i === recentCount || rows[i - 1]?.option.group !== row.option.group) && <div className="vsel-head">{row.option.group}</div>}
               <div id={`${id}-${i}`} data-row={i} role="option" aria-selected={row.option.value === value} aria-disabled={row.option.disabled || undefined}
                 className={`vsel-opt ${i === active ? 'on' : ''} ${row.option.value === value ? 'sel' : ''} ${row.option.disabled ? 'off' : ''}`}
                 onPointerMove={() => i !== active && !row.option.disabled && setActive(i)}
                 onClick={() => !row.option.disabled && onPick(row.option)}>
                 <span className="vsel-l">{row.option.label ? <Marked label={row.option.label} query={query} /> : ' '}</span>
-                {row.option.hint && <span className={`vsel-hint ${row.option.tone ?? ''}`}>{row.option.hint}</span>}
+                {(row.option.hint || (query && row.option.group)) && <span className={`vsel-hint ${row.option.tone ?? ''}`}>{row.option.hint ?? row.option.group}</span>}
                 {row.option.value === value && <svg className="vsel-tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg>}
               </div>
             </Fragment>

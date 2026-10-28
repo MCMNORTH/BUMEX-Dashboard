@@ -12,14 +12,11 @@ import { getMentionCandidates } from "@/lib/notifications/service";
 import { getProjectMemberCandidates } from "@/lib/projects/members";
 import { getProjectById } from "@/lib/projects/service";
 import { canManageBoard } from "@/lib/tickets/board-access";
-import { countCardsByStage, getProjectTicketStages } from "@/lib/tickets/service";
-import { getBoardWorkflow } from "@/lib/tickets/workflow-service";
 import type { PlanningAlert } from "@/types/alert";
 import type { AppRole } from "@/types/auth";
 import { canViewComment, type CommentRecord } from "@/types/comment";
 import type { InternalNoteRecord } from "@/types/note";
 import type { ProjectRecord } from "@/types/project";
-import type { BoardWorkflow } from "@/types/workflow";
 
 // A mission's page in BUMEX Vanguard's Missions room (vanguard/one/Mission.tsx), as BUMEX One's project page had it:
 // its delivery figures and health, alerts, team, tickets, notes, conversation and history, read with BUMEX One's rules
@@ -76,15 +73,4 @@ export async function projectViewAction(projectId: string): Promise<ProjectView 
     canManageTeam,
     canComment: ["admin", "manager", "supervisor", "employee"].includes(auth.role),
   };
-}
-
-// The board's workflow for its editor: the stages, how many cards each holds (a stage with cards cannot simply go),
-// and whether the person may change it (BUMEX One's saveBoardWorkflowAction checks again).
-export type WorkflowEditorData = { workflow: BoardWorkflow; cardCounts: Record<string, number>; canManage: boolean };
-
-export async function workflowEditorAction(projectId: string): Promise<WorkflowEditorData> {
-  const { auth } = await requireErpAccess();
-  const id = String(projectId);
-  const [workflow, canManage, rows] = await Promise.all([getBoardWorkflow(id), canManageBoard(auth.role, auth.profile.id, id), getProjectTicketStages(id)]);
-  return { workflow, cardCounts: countCardsByStage(rows, workflow), canManage };
 }

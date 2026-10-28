@@ -26,9 +26,11 @@ export type WorkflowSettings = {
   custom_transitions_enabled: boolean;
 };
 
-/** A board's workflow. Each project is one board. */
+/** A board's workflow: its floor's (0014), read under a mission's id or, in its editor, the floor's. */
 export type BoardWorkflow = WorkflowSettings & {
   project_id: string;
+  /** The floor (entity) whose board it is. */
+  entity_id?: string | null;
   stages: WorkflowStage[];
   /** Source stage id → destination stage ids. Only read when custom transitions are enabled. */
   transitions: Record<string, string[]>;

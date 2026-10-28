@@ -24,7 +24,8 @@ export type MissionInput = ProjectFormValues & {
 
 export type MissionOptions = {
   clients: { id: string; name: string }[];
-  people: { id: string; name: string }[];
+  // with their entity (its name), and whether it is the mission's: the team picker shows the mission's floor first
+  people: { id: string; name: string; entity: string | null; here: boolean }[];
   me: string;
 };
 
@@ -58,7 +59,13 @@ export async function missionOptionsAction(entityId?: string | null): Promise<Mi
       "select id, name from work.client where $1::uuid is null or is_test = erp.is_test_entity($1::uuid) order by name",
       [entityId ?? null],
     ),
-    people: await select<{ id: string; name: string }>(tx, "select id, coalesce(nullif(trim(full_name), ''), email) as name from work.person order by full_name"),
+    people: await select<{ id: string; name: string; entity: string | null; here: boolean }>(
+      tx,
+      `select p.id, coalesce(nullif(trim(p.full_name), ''), p.email) as name, e.name as entity, coalesce(e.id = $1::uuid, false) as here
+         from work.person p left join erp.entity e on e.code = p.entity_code
+        order by p.full_name`,
+      [entityId ?? null],
+    ),
   }));
   return { clients, people, me: auth.profile.id };
 }

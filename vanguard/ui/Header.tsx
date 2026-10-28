@@ -7,7 +7,7 @@ const emblem = emblemImage.src;
 import { Select } from './Select';
 
 export function Header() {
-  const { ui, state, t, setUi, goTower, goFloor, openRoom, setLang, focusRoom, openArchive } = useStore();
+  const { ui, state, t, setUi, goTower, goHome, goFloor, openRoom, setLang, focusRoom, openArchive } = useStore();
   const [q, setQ] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const entity = state.entities.find((e) => e.id === ui.entityId);
@@ -62,7 +62,7 @@ export function Header() {
   const roomLabel = (r: Room) => (t(`room_${r}`) === `room_${r}` ? t(`nav_${r}`) : t(`room_${r}`));
   return (
     <header className="header">
-      <div className="brand" onClick={goTower} style={{ cursor: 'pointer' }} title={t('nav_overview')}>
+      <div className="brand" onClick={goHome} style={{ cursor: 'pointer' }} title={t('nav_overview')}>
         <img src={emblem} alt="" />
         <span><b>BUMEX</b> <span>VANGUARD</span></span>
       </div>

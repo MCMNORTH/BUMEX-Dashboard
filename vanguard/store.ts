@@ -66,6 +66,7 @@ interface Store {
   refreshIfChanged: () => void; // [bumex-one] reads the database again when someone else changed it
   setUi: (patch: Partial<UI>) => void;
   goTower: () => void;
+  goHome: () => void; // [bumex-one] the logo: the person's default floor (0015)
   goFloor: (entityId: Id) => void;
   openRoom: (room: Room | null, tab?: string | null) => void;
   focusRoom: (room: string | null) => void;
@@ -132,15 +133,23 @@ const initialLang: Lang = typeof document !== 'undefined' && document.documentEl
 const webgl = typeof document !== 'undefined' ? webglAvailable() : false; // the browser's; hydrate() adds the person's option
 const prefs = loadPrefs();
 
-// The floor shown first: BUMEX Audit when the person sees it, else the first floor they see. [bumex-one] In test mode
-// (0013) the test floor; otherwise never the test floor.
+// The floor shown first: [bumex-one] the person's default entity (0015: their choice, else their home) when they see
+// it, else BUMEX Audit when they see it, else the first floor they see. In test mode (0013) the test floor; otherwise
+// never the test floor.
 function defaultEntity(state: State) {
   if (state.session.testMode) {
     const test = state.entities.find((e) => e.isTest);
     if (test) return test;
   }
   const real = state.entities.filter((e) => !e.isTest);
-  return real.find((e) => e.code === 'AUD' && canSee(state, e.id)) ?? real.find((e) => canSee(state, e.id)) ?? real[0] ?? state.entities[0];
+  const mine = state.session.defaultEntityId;
+  return real.find((e) => e.id === mine && canSee(state, e.id)) ?? real.find((e) => e.code === 'AUD' && canSee(state, e.id)) ?? real.find((e) => canSee(state, e.id)) ?? real[0] ?? state.entities[0];
+}
+/** [bumex-one] The person's default floor (0015), outside test mode: where the logo leads. */
+export function homeEntityId(state: State) {
+  const real = state.entities.filter((e) => !e.isTest);
+  const mine = state.session.defaultEntityId;
+  return (real.find((e) => e.id === mine && canSee(state, e.id)) ?? real.find((e) => e.code === 'AUD' && canSee(state, e.id)) ?? real.find((e) => canSee(state, e.id)))?.id ?? null;
 }
 
 // [bumex-one] The test floor is a mode of the whole session (0013): the server reads only test data while the person is
@@ -273,6 +282,11 @@ export const useStore = create<Store>((set, get) => ({
     if ('quality' in patch || 'sidebarOpen' in patch || 'barOpen' in patch) savePrefs(get().ui);
   },
   goTower: () => set((s) => ({ ui: { ...s.ui, view: s.ui.view === 'flat' ? 'flat' : 'tower', room: null, tab: null, focusRoom: null, hoverRoom: null, archiveId: null, rackFocus: false, transition: 'to-tower' } })),
+  goHome: () => {
+    const home = homeEntityId(get().state);
+    if (home && home !== get().ui.entityId) get().goFloor(home);
+    get().goTower();
+  },
   goFloor: (entityId) => set((s) => ({ ui: { ...s.ui, view: s.ui.view === 'flat' ? 'flat' : 'floor', entityId, room: null, tab: null, focusRoom: null, hoverFloor: null, archiveId: null, rackFocus: false, transition: 'to-floor' } })),
   openRoom: (room, tab = null) => set((s) => ({ ui: { ...s.ui, room, tab, focusRoom: room && !MODULE_ONLY.includes(room) ? room : s.ui.focusRoom, hoverRoom: null, rackFocus: room === 'archives' ? s.ui.rackFocus : false, focusTaskId: room === 'tasks' ? s.ui.focusTaskId : null, focusEngagementId: room === 'missions' ? s.ui.focusEngagementId : null } })),
   focusRoom: (room) => set((s) => ({ ui: { ...s.ui, focusRoom: room, rackFocus: false, archiveId: room === 'clients' ? s.ui.archiveId : null } })),

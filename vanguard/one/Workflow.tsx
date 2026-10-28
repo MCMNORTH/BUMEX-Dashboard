@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { saveBoardWorkflowAction } from '@/app/(app)/projects/workflow-actions';
-import { workflowEditorAction, type WorkflowEditorData } from '@/lib/erp/vanguard/project-actions';
-import { boardWorkflowsAction } from '@/lib/erp/vanguard/board-actions';
+import { saveFloorBoardAction } from '@/app/(app)/projects/workflow-actions';
+import { floorBoardEditorAction, floorBoardSourceAction, type FloorBoardEditor } from '@/lib/erp/vanguard/board-actions';
 import { WORKFLOW_MODELS, applyModel, modelOfBoard, type WorkflowModel } from '@/lib/tickets/workflow-models';
 import { createStageId, describeTransitionError, draftToWorkflow, evaluateTransition, getStageCategoryLabel, MAX_ACTIVE_STAGES, STAGE_CATEGORIES, STAGE_NAME_MAX_LENGTH, toWorkflowDraft, type WorkflowDraft } from '@/lib/tickets/workflow';
 import type { StageCategory, WorkflowSettings, WorkflowStage } from '@/types/workflow';
@@ -12,11 +11,13 @@ import { forgetWorkflows } from './stages';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
 
-// A mission's board, its columns and rules, as BUMEX One's workflow settings had them: stages (renamed, reordered,
-// archived, never deleted), the default stage of new tickets, the completed stages, how cards may move, and custom
-// transitions. Saved by BUMEX One's action, which checks it again and refuses a save over someone else's. [bumex-one]
-// A board starts from a model (Standard, Développement, Audit) or another mission's board (asked on 2026-10-28,
-// lib/tickets/workflow-models.ts): the draft changes, and nothing is saved until "Enregistrer".
+// The floor's board (0014: one per entity, every mission of the floor follows it; asked on 2026-10-28), its columns and
+// rules, as BUMEX One's workflow settings had them: stages (renamed, reordered, archived, never deleted), the default
+// stage of new tickets, the completed stages, how cards may move, and custom transitions. The Tasks room's "Statuts et
+// règles" tab. Saved by the administrators and the floor's managers; the server checks it again against every ticket
+// of the floor and refuses a save over someone else's. [bumex-one] A board starts from a model (Standard,
+// Développement, Audit) or another floor's board (lib/tickets/workflow-models.ts): the draft changes, and nothing is
+// saved until "Enregistrer".
 
 const SETTINGS: { key: keyof WorkflowSettings; fr: [string, string]; en: [string, string] }[] = [
   { key: 'allow_backward', fr: ['Autoriser le retour en arrière', 'Les cartes peuvent revenir à une étape active précédente.'], en: ['Allow backward movement', 'Cards may move to an earlier active stage.'] },
@@ -26,11 +27,11 @@ const SETTINGS: { key: keyof WorkflowSettings; fr: [string, string]; en: [string
   { key: 'custom_transitions_enabled', fr: ['Transitions personnalisées', 'Seuls les déplacements cochés ci-dessous sont permis.'], en: ['Custom transitions', 'Only the moves ticked below are allowed.'] },
 ];
 
-export function WorkflowEditor({ projectId }: { projectId: string }) {
+export function WorkflowEditor({ entityId }: { entityId: string }) {
   const say = useSay();
   const { ui, state } = useStore();
   const [copyFrom, setCopyFrom] = useState('');
-  const [data, setData] = useState<WorkflowEditorData | null>(null);
+  const [data, setData] = useState<FloorBoardEditor | null>(null);
   const [draft, setDraft] = useState<WorkflowDraft | null>(null);
   const [message, setMessage] = useState<{ kind: 'crit' | 'info'; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -38,11 +39,13 @@ export function WorkflowEditor({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     let live = true;
-    workflowEditorAction(projectId).then((d) => { if (live) { setData(d); setDraft(toWorkflowDraft(d.workflow)); } }).catch(() => live && setMessage({ kind: 'crit', text: 'Workflow indisponible / unavailable.' }));
+    floorBoardEditorAction(entityId)
+      .then((d) => { if (!live) return; if (!d) { setMessage({ kind: 'crit', text: say('Ce tableau est indisponible.', 'This board is unavailable.') }); return; } setData(d); setDraft(toWorkflowDraft(d.workflow)); })
+      .catch(() => live && setMessage({ kind: 'crit', text: say('Ce tableau est indisponible.', 'This board is unavailable.') }));
     return () => { live = false; };
-  }, [projectId]);
+  }, [entityId, say]);
 
-  const preview = useMemo(() => (draft ? draftToWorkflow({ ...draft, stages: draft.stages.map((s, position) => ({ ...s, position })) }, projectId) : null), [draft, projectId]);
+  const preview = useMemo(() => (draft ? draftToWorkflow({ ...draft, stages: draft.stages.map((s, position) => ({ ...s, position })) }, entityId) : null), [draft, entityId]);
   if (!data || !draft || !preview) return <div className="card"><span className="muted">{message?.text ?? say('Chargement du tableau…', 'Loading the board…')}</span></div>;
 
   const readOnly = !data.canManage;
@@ -76,7 +79,7 @@ export function WorkflowEditor({ projectId }: { projectId: string }) {
   });
   // every move the settings allow, as a starting point for custom rules
   const fill = () => edit((d) => {
-    const board = draftToWorkflow({ ...d, custom_transitions_enabled: false, require_reason: false, stages: d.stages.map((s, position) => ({ ...s, position })) }, projectId);
+    const board = draftToWorkflow({ ...d, custom_transitions_enabled: false, require_reason: false, stages: d.stages.map((s, position) => ({ ...s, position })) }, entityId);
     const stages = d.stages.filter((s) => !s.archived_at);
     return { ...d, transitions: Object.fromEntries(stages.map((from) => [from.id, stages.filter((to) => to.id !== from.id && evaluateTransition(board, from.id, to.id).ok).map((to) => to.id)])) };
   });
@@ -84,13 +87,12 @@ export function WorkflowEditor({ projectId }: { projectId: string }) {
     setSaving(true);
     setMessage(null);
     try {
-      const result = await saveBoardWorkflowAction(projectId, draft, data.workflow.updated_at);
+      const result = await saveFloorBoardAction(entityId, draft, data.workflow.updated_at);
       if (result.error) { setMessage({ kind: 'crit', text: result.error }); return; }
-      const next = await workflowEditorAction(projectId);
-      setData(next);
-      setDraft(toWorkflowDraft(next.workflow));
-      setMessage({ kind: 'info', text: say("Tableau enregistré. Aucune carte n'a été déplacée.", 'Board saved. No card was moved.') });
-      forgetWorkflows(projectId);
+      const next = await floorBoardEditorAction(entityId);
+      if (next) { setData(next); setDraft(toWorkflowDraft(next.workflow)); }
+      setMessage({ kind: 'info', text: say("Tableau enregistré pour toutes les missions de l'étage. Aucune carte n'a été déplacée.", "Board saved for every mission of the floor. No card was moved.") });
+      forgetWorkflows();
       await reload();
     } catch {
       setMessage({ kind: 'crit', text: say("Serveur injoignable : le tableau n'a pas changé.", 'Server unreachable: the board did not change.') });
@@ -106,19 +108,25 @@ export function WorkflowEditor({ projectId }: { projectId: string }) {
       + (kept.length ? say(` Gardées car elles ont des cartes : ${kept.map((s) => s.name).join(', ')}.`, ` Kept because they hold cards: ${kept.map((s) => s.name).join(', ')}.`) : '') });
   };
   const copy = async () => {
-    const source = (state.engagements as { id: string; name: string; projectId?: string }[]).find((e) => e.projectId === copyFrom);
+    const source = data.others.find((o) => o.id === copyFrom);
     if (!source) return;
-    const boards = await boardWorkflowsAction([copyFrom]).catch(() => null);
-    if (!boards?.[copyFrom]) { setMessage({ kind: 'crit', text: say('Ce tableau est indisponible.', 'That board is unavailable.') }); return; }
-    takeModel(modelOfBoard(boards[copyFrom]), source.name);
+    const board = await floorBoardSourceAction(copyFrom).catch(() => null);
+    if (!board) { setMessage({ kind: 'crit', text: say('Ce tableau est indisponible.', 'That board is unavailable.') }); return; }
+    takeModel(modelOfBoard(board), source.name);
     setCopyFrom('');
   };
-  const others = (state.engagements as { id: string; name: string; code: string; projectId?: string }[]).filter((e) => e.projectId && e.projectId !== projectId);
+  const floor = state.entities.find((e) => e.id === entityId);
+  const missions = state.engagements.filter((e) => e.entityId === entityId && e.status !== 'completed').length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {!data.workflow.is_configured && <div className="banner info">{say('Ce tableau utilise encore les étapes intégrées, avec déplacement libre. Enregistrer crée sa propre configuration ; chaque ticket garde son étape.', 'This board still uses the built-in stages, with free movement. Saving creates its own configuration; every ticket keeps its stage.')}</div>}
-      {readOnly && <div className="banner warn">{say("Lecture seule : seuls l'administrateur et les managers du projet changent son tableau.", "Read-only: only the administrator and the project's managers change its board.")}</div>}
+      <div className="wf-floor">
+        <div><b>{say(`Le tableau de ${floor?.name ?? "l'étage"}`, `${floor?.name ?? "The floor"}'s board`)}</b>
+          <div className="small muted">{missions === 1
+            ? say('Sa mission en cours le suit : une étape ajoutée ici y apparaît.', 'Its running mission follows it: a stage added here shows on it.')
+            : say(`Ses ${missions} missions en cours le suivent toutes : une étape ajoutée ici apparaît sur chacune.`, `All its ${missions} running missions follow it: a stage added here shows on each of them.`)}</div></div>
+      </div>
+      {readOnly && <div className="banner warn">{say("Lecture seule : seuls l'administrateur et les managers de l'étage changent son tableau.", "Read-only: only the administrator and the floor's managers change its board.")}</div>}
       {message && <div className={`banner ${message.kind}`}>{message.text}</div>}
 
       {!readOnly && (
@@ -128,9 +136,9 @@ export function WorkflowEditor({ projectId }: { projectId: string }) {
             <button key={m.id} className="btn sm" onClick={() => takeModel(m, say(m.fr, m.en))} title={say(...m.hint)}>{say(m.fr, m.en)}</button>
           ))}
           <span className="small muted">{say('ou copier le tableau de', "or copy the board of")}</span>
-          <Select className="in" style={{ width: 240 }} value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)} recent="missions">
-            <option value="">{say('une autre mission…', 'another mission…')}</option>
-            {others.map((e) => <option key={e.id} value={e.projectId} data-search={e.code}>{e.code} · {e.name}</option>)}
+          <Select className="in" style={{ width: 240 }} value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)}>
+            <option value="">{say('un autre étage…', 'another floor…')}</option>
+            {data.others.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </Select>
           <button className="btn sm" disabled={!copyFrom} onClick={copy}>{say('Copier', 'Copy')}</button>
         </div>
@@ -155,7 +163,7 @@ export function WorkflowEditor({ projectId }: { projectId: string }) {
                     </Select>
                   </td>
                   <td><input type="checkbox" checked={s.is_completed} disabled={readOnly} onChange={(e) => update(s.id, { is_completed: e.target.checked })} aria-label={say('Terminée', 'Completed')} /></td>
-                  <td><input type="radio" name={`default-${projectId}`} checked={s.is_default} disabled={readOnly} onChange={() => edit((d) => ({ ...d, stages: d.stages.map((x) => ({ ...x, is_default: x.id === s.id })) }))} aria-label={say('Par défaut', 'Default')} /></td>
+                  <td><input type="radio" name={`default-${entityId}`} checked={s.is_default} disabled={readOnly} onChange={() => edit((d) => ({ ...d, stages: d.stages.map((x) => ({ ...x, is_default: x.id === s.id })) }))} aria-label={say('Par défaut', 'Default')} /></td>
                   <td className="num">{cards}</td>
                   <td>
                     {saved.has(s.id)

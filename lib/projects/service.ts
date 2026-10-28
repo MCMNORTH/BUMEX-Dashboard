@@ -6,7 +6,6 @@ import {
   createStatusChangeNotification,
   getNotificationRecipientsForProject,
 } from "@/lib/notifications/service";
-import { createDefaultBoardWorkflow } from "@/lib/tickets/workflow-service";
 import {
   calculateProjectHealth,
   getProjectOverdueTasks,
@@ -174,13 +173,7 @@ export async function createProject(values: ProjectFormValues, actorUserId: stri
   );
   if (!created) throw new Error("Project creation did not return an id.");
 
-  // Boards created from now on start with the restrictive default workflow. If this fails the board simply keeps the
-  // built-in, unrestricted one.
-  try {
-    await createDefaultBoardWorkflow(created.id, actorUserId);
-  } catch (workflowError) {
-    console.error("[projects:create] default workflow not saved", workflowError);
-  }
+  // its board is its floor's (work.floor_board, 0014): nothing to create
 
   await logActivity({
     userId: actorUserId,

@@ -10,6 +10,7 @@ import { remainingHours } from '@/lib/work/load';
 import { useStore } from '../store';
 import { Field, Icon, Tabs } from '../ui/common';
 import { MissionBoard } from './Board';
+import { WorkflowEditor } from './Workflow';
 import { TicketPanel } from './Ticket';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
@@ -31,7 +32,7 @@ export const stageTicketOf = (x: TicketTask): StageTicket => ({
   id: x.id, projectId: x.ticket.project_id, stageId: x.ticket.stage_id, stageName: x.ticket.stage_name, status: x.ticket.status,
   assigneeId: x.ticket.assignee_id, reporterId: x.ticket.reporter_id, key: x.ticket.key, title: x.title,
 });
-type View = 'board' | 'list';
+type View = 'board' | 'list' | 'rules'; // rules: the floor's board, its statuses and rules (Workflow.tsx)
 
 const NO_DUE_DATE = '9999-12-31';
 const ticketOf = (tab?: string | null) => (tab?.startsWith('ticket:') ? tab.slice(7) : null);
@@ -71,7 +72,7 @@ export function TasksRoom({ entityId, initialTab }: { entityId: Id; initialTab?:
   // "board:<mission>" opens that mission's board (the mission card's button, vanguard/one/Missions.tsx)
   const boardFor = initialTab?.startsWith('board:') ? initialTab.slice(6) : null;
   const legacy = ['open', 'mine', 'overdue', 'done', 'all', 'week', 'unassigned', 'unestimated', 'blocked'].includes(initialTab ?? '');
-  const [view, setView] = useState<View>(() => (legacy || initialTab === 'list' ? 'list' : boardFor ? 'board' : readView('tasks', 'board')));
+  const [view, setView] = useState<View>(() => (initialTab === 'rules' ? 'rules' : legacy || initialTab === 'list' ? 'list' : boardFor ? 'board' : readView('tasks', 'board')));
   const [scope, setScope] = useState<string>(boardFor ?? 'all');
   const [filters, setFiltersState] = useState<WorkFilters>(() => {
     const saved = readFilters(entityId);
@@ -87,6 +88,7 @@ export function TasksRoom({ entityId, initialTab }: { entityId: Id; initialTab?:
     setSeenTab(initialTab);
     const quick = quickFilters(initialTab, filters, state.tasks.filter((x) => x.entityId === entityId) as TicketTask[]);
     if (ticketOf(initialTab)) setTicketId(ticketOf(initialTab));
+    else if (initialTab === 'rules') { setView('rules'); setTicketId(null); }
     else if (boardFor) { setView('board'); setScope(boardFor); setTicketId(null); }
     else if (quick) { setView('list'); setScope('all'); setFiltersState(quick); setTicketId(null); }
   }
@@ -108,16 +110,16 @@ export function TasksRoom({ entityId, initialTab }: { entityId: Id; initialTab?:
     <>
       <div className="sheet-head">
         <h1>{t('tsk_title')}</h1>
-        <Tabs tabs={[{ id: 'board' as View, label: say('Tableau', 'Board') }, { id: 'list' as View, label: say('Liste', 'List') }]} value={view} onChange={(v) => { setView(v); writeView('tasks', v); close(); }} />
+        <Tabs tabs={[{ id: 'board' as View, label: say('Tableau', 'Board') }, { id: 'list' as View, label: say('Liste', 'List') }, { id: 'rules' as View, label: say('Statuts et règles', 'Statuses and rules') }]} value={view} onChange={(v) => { setView(v); if (v !== 'rules') writeView('tasks', v); close(); }} />
         <div className="hright">{canCreate && <button className="btn sm primary" onClick={() => { setTicketId(null); setCreating(true); }}><Icon name="plus" size={13} /> {say('Créer', 'Create')}</button>}</div>
       </div>
       <div className="sheet-body">
-        {ticketId ? <TicketPanel id={ticketId} onClose={close} /> : (
+        {ticketId ? <TicketPanel id={ticketId} onClose={close} /> : view === 'rules' ? <WorkflowEditor entityId={entityId} /> : (
           <>
             {creating && <NewTask entityId={entityId} missionId={scope === 'all' ? undefined : scope} onDone={(id) => { setCreating(false); if (id) setTicketId(id); }} />}
             <Toolbar entityId={entityId} tickets={inScope} filters={filters} setFilters={setFilters} scope={scope} setScope={setScope} count={shown.length} total={inScope.length} say={say} />
             {view === 'board'
-              ? <MissionBoard scope={scope} tickets={shown} groupBy={filters.groupBy} onOpen={setTicketId} />
+              ? <MissionBoard entityId={entityId} scope={scope} tickets={shown} groupBy={filters.groupBy} onOpen={setTicketId} onRules={() => { setView('rules'); close(); }} />
               : <TicketList tickets={shown} groupBy={filters.groupBy} onOpen={setTicketId} say={say} />}
           </>
         )}

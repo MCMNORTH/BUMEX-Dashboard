@@ -130,7 +130,7 @@ await test('missions: the floor sees its missions; workers and members of anothe
   for (const uid of ['mgr', 'mgr2', 'emp', 'emp2', 'sh', 'out']) seen[uid] = await titles(uid, 'select name t from erp.engagement');
   same(seen.mgr, ['Mission Trois', 'Mission Un'], 'mgr');
   same(seen.emp, ['Mission Deux', 'Mission Trois', 'Mission Un'], 'emp (floor + sub-task on P2)');
-  same(seen.emp2, ['Mission Deux'], 'emp2 (a member who is an employee works on no ticket of P1)');
+  same(seen.emp2, ['Mission Deux', 'Mission Un'], 'emp2 (an employee of IT on the team of P1, 0015)');
   same(seen.sh, ['Mission Deux', 'Mission Trois', 'Mission Un'], 'sh');
   same(seen.out, [], 'out');
   const edited = await as('emp', async () => (await db.query(`update erp.engagement set description = 'x' where id = $1`, [ids.P1])).affectedRows);
@@ -146,7 +146,7 @@ await test('tickets: assignee, sub-task owner, reporter and the mission managers
   for (const uid of ['mgr', 'emp', 'emp2', 'sh', 'out']) seen[uid] = await titles(uid, 'select title t from erp.task');
   same(seen.mgr, ['Ticket Trois', 'Ticket Un'], 'mgr');
   same(seen.emp, ['Ticket Deux', 'Ticket Un'], 'emp');
-  same(seen.emp2, ['Ticket Deux', 'Ticket Trois'], 'emp2');
+  same(seen.emp2, ['Ticket Deux', 'Ticket Trois', 'Ticket Un'], 'emp2 (on the team of P1: its tickets, 0015)');
   same(seen.sh.length, 3, 'sh');
   same(seen.out, [], 'out');
   const reporterMoves = await as('emp2', async () => (await db.query(`update erp.task set stage_id = 'review', status = 'review' where id = $1`, [ids.T3])).affectedRows);
@@ -185,7 +185,8 @@ await test('comments and notes: who writes where; internal comments hidden from 
   await expectError(() => as('emp', () => db.query(`insert into work.comment (subject_type, subject_id, author_id, body) values ('client', $1, 'emp', 'x')`, [ids.K1])), /row-level security/);
   await expectError(() => as('sh', () => db.query(`insert into work.comment (subject_type, subject_id, author_id, body) values ('project', $1, 'sh', 'x')`, [ids.P1])), /row-level security/);
   same(await titles('sh', 'select body t from work.comment'), ['Public'], 'shareholder');
-  same(await titles('emp2', 'select body t from work.comment'), [], 'emp2 does not read P1 nor T1');
+  same(await titles('emp2', 'select body t from work.comment'), ['Bonjour', 'Public'], 'emp2 reads P1 and T1, on the team of P1 (0015)');
+  same(await titles('mgr2', 'select body t from work.comment'), [], 'mgr2 does not read P1 nor T1');
   await expectError(() => as('emp', () => db.query(`insert into work.note (subject_type, subject_id, author_id, title, body, visibility) values ('project', $1, 'emp', 'x', 'x', 'management')`, [ids.P1])), /row-level security/);
   await as('emp', () => db.query(`insert into work.note (subject_type, subject_id, author_id, title, body) values ('project', $1, 'emp', 'Équipe', 'x')`, [ids.P1]));
   await as('mgr', () => db.query(`insert into work.note (subject_type, subject_id, author_id, title, body, visibility) values ('project', $1, 'mgr', 'Direction', 'x', 'management')`, [ids.P1]));
@@ -201,7 +202,9 @@ await test('time: own lines on own floor or worked-on missions; 24 h a day; no f
   await as('emp', () => db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes, mission) values ($1, 'emp', $2, 60, 'Revue')`, [ids.P1, day]));
   const onIt = await as('emp', async () => (await one(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'emp', $2, 30) returning entity_id`, [ids.P2, day])).entity_id);
   if (onIt !== ids.bumex_it) throw new Error('a line takes its mission entity');
-  await expectError(() => as('emp2', () => db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'emp2', $2, 30)`, [ids.P1, day])), /row-level security/);
+  // a member of the team from another floor logs time on it (0015); a manager of another floor who is not, does not
+  await as('emp2', () => db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'emp2', $2, 30)`, [ids.P1, day]));
+  await expectError(() => as('mgr2', () => db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'mgr2', $2, 30)`, [ids.P1, day])), /row-level security/);
   await expectError(() => as('emp', () => db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'mgr', $2, 30)`, [ids.P1, day])), /row-level security/);
   await expectError(() => as('emp', () => db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'emp', $2, 1400)`, [ids.P1, day])), /time_entry_daily_limit/);
   await expectError(() => as('emp', () => db.query(`insert into erp.time_entry (engagement_id, user_id, work_date, minutes) values ($1, 'emp', current_date + 2, 30)`, [ids.P1])), /time_entry_future_date/);
@@ -517,6 +520,59 @@ await test('tickets (0012): links both ways; time on a ticket, its total and wor
   const can = (uid, task) => as(uid, async () => (await one(`select work.can_manage_document('task', $1) c`, [task])).c);
   same([await can('emp', ids.T1), await can('emp2', ids.T1), await can('emp2', ids.T3)], [true, false, true], 'emp on T1; emp2 not on T1, but reporter of T3');
   return 'link logged both ways, no duplicate/self/reader/test mix; 90 min on T1 for readers; attachments by assignee and reporter';
+});
+
+// ---------------------------------------------------------------------------
+await test('0014: one board per floor, from its model; its floor reads it, its managers and the administrators change it', async () => {
+  await office();
+  const names = async (code) => (await one(`select array_agg(s->>'name' order by (s->>'position')::int) n from work.floor_board f, jsonb_array_elements(f.stages) s where f.entity_id = $1`, [ids[code]])).n;
+  same(await names('bumex_audit'), ['Planification', 'Terrain', 'Revue', 'Rapport', 'Terminé'], 'audit');
+  same(await names('bumex_it'), ['To Do', 'Ready to implement', 'Pending', 'In progress', 'Code review', 'Ready for test', 'Test', 'To merge', 'Done'], 'it');
+  same(await names('bumex_holding'), ['À faire', 'En cours', 'En revue', 'Terminé'], 'holding');
+  const reads = async (uid) => as(uid, async () => (await all('select e.code from work.floor_board f join erp.entity e on e.id = f.entity_id order by e.code')).map((r) => r.code));
+  same(await reads('mgr'), ['bumex_audit'], 'a manager reads their floor');
+  same(await reads('emp'), ['bumex_audit', 'bumex_it'], 'an employee reads theirs, and the floor of a mission they work on');
+  same(await reads('out'), [], 'no access, no board');
+  const rename = (uid, code) => as(uid, async () => (await db.query(`update work.floor_board set stages = stages where entity_id = $1`, [ids[code]])).affectedRows);
+  same([await rename('mgr', 'bumex_audit'), await rename('mgr', 'bumex_it'), await rename('emp', 'bumex_audit'), await rename('mgr2', 'bumex_it'), await rename('adm', 'bumex_audit')], [1, 0, 0, 1, 1], 'who changes');
+  const created = await asSystem(async () => {
+    const g = (await one('select group_id from erp.entity limit 1')).group_id;
+    const e = (await one(`insert into erp.entity (group_id, code, name, country, functional_currency, coa_template) values ($1, 'bumex_new', 'BUMEX Nouveau', 'MR', 'MRU', 'PCM') returning id`, [g])).id;
+    return (await one(`select jsonb_array_length(stages) n from work.floor_board where entity_id = $1`, [e])).n;
+  });
+  same(created, 4, 'a new floor gets the standard board');
+  return 'audit/IT/standard models; read by the floor and its workers; changed by its managers and the administrators; new floors get one';
+});
+
+await test('0014: every ticket on its floor\'s stage of the same name and status, else the first of its status; no status changes', async () => {
+  const files = readdirSync(migrations).filter((f) => f.endsWith('.sql')).sort();
+  db = new PGlite();
+  await db.exec(files.filter((f) => f < '0014').map((f) => readFileSync(join(migrations, f), 'utf8')).join('\n'));
+  const entity = Object.fromEntries((await all('select code, id from erp.entity')).map((r) => [r.code, r.id]));
+  const t = {};
+  await asSystem(async () => {
+    await db.query(`insert into work.person (id, email, full_name, entity_code) values ('mgr', 'mgr@bumex.mr', 'Manager', 'bumex_audit')`);
+    const mission = async (code) => (await one(`insert into erp.engagement (entity_id, owner_id, name, project_kind, status, deadline) values ($1, 'mgr', 'M', 'internal_tool', 'active', '2026-12-31') returning id`, [entity[code]])).id;
+    const audit = await mission('bumex_audit');
+    const it = await mission('bumex_it');
+    const st = (id, name, category, done = false) => ({ id, name, category, is_completed: done, is_default: id === 'todo', position: 0, archived_at: null });
+    await db.query(`insert into work.board (engagement_id, stages) values ($1, $2)`, [audit, JSON.stringify([st('todo', 'À faire', 'todo'), st('stg_field', 'terrain', 'in_progress'), st('stg_rev', 'En révision', 'review'), st('stg_wait', 'Attente client', 'blocked'), st('stg_rep', ' RAPPORT', 'review'), st('done', 'Terminé', 'in_progress', true)])]);
+    const ticket = async (mission, status, stage) => (await one(`insert into erp.task (engagement_id, title, status, stage_id, completed_at) values ($1, 'x', $2, $3, case when $2 = 'done' then now() end) returning id`, [mission, status, stage])).id;
+    t.field = await ticket(audit, 'in_progress', 'stg_field');
+    t.rev = await ticket(audit, 'review', 'stg_rev');
+    t.wait = await ticket(audit, 'blocked', 'stg_wait');
+    t.rep = await ticket(audit, 'review', 'stg_rep');
+    t.done = await ticket(audit, 'done', 'done');
+    t.plain = await ticket(audit, 'todo', null);
+    t.it = await ticket(it, 'review', null);
+  });
+  await db.exec(readFileSync(join(migrations, files.find((f) => f.startsWith('0014'))), 'utf8'));
+  const got = {};
+  for (const [k, id] of Object.entries(t)) got[k] = Object.values(await one('select stage_id, status from erp.task where id = $1', [id]));
+  same(got, { field: ['in_progress', 'in_progress'], rev: ['review', 'review'], wait: ['blocked', 'blocked'], rep: ['aud_report', 'review'], done: ['done', 'done'], plain: ['todo', 'todo'], it: ['review', 'review'] }, 'remapped');
+  const audit = (await one(`select array_agg(s->>'name' order by (s->>'position')::int) n from work.floor_board f, jsonb_array_elements(f.stages) s where f.entity_id = $1`, [entity.bumex_audit])).n;
+  same(audit, ['Planification', 'Terrain', 'Revue', 'Rapport', 'Bloqué', 'Terminé'], 'the audit floor gains Bloqué, its blocked ticket keeps its status');
+  return 'terrain → Terrain, " RAPPORT" → Rapport (not Revue) by name; En révision → Revue by status; blocked kept (Bloqué added); done, plain and IT by status';
 });
 
 // ---------------------------------------------------------------------------

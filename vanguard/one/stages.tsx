@@ -10,10 +10,10 @@ import { useSay } from './say';
 import type { Say } from './ticket-history';
 import { Lozenge, statusTone } from './work-ui';
 
-// [bumex-one] Each ticket's status is a stage of its own board (asked on 2026-10-28), as BUMEX One had it: its name in
-// its category's colour wherever a status shows, and a picker of that board's stages wherever it changes. The boards'
-// workflows are read once per screen session (boardWorkflowsAction) and forgotten when a board is saved
-// (Workflow.tsx). Moves go through BUMEX One's ticket action, which checks the board's rules again.
+// [bumex-one] Each ticket's status is a stage of its board (asked on 2026-10-28), its floor's since 0014, as BUMEX One
+// had it: its name in its category's colour wherever a status shows, and a picker of that board's stages wherever it
+// changes. The boards are read by mission once per screen session (boardWorkflowsAction) and all forgotten when a
+// floor's board is saved (Workflow.tsx). Moves go through BUMEX One's ticket action, which checks the board's rules again.
 
 const cache = new Map<string, BoardWorkflow>();
 const asked = new Set<string>();

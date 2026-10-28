@@ -74,6 +74,18 @@ export function dueIn(deadline: string | null | undefined, today: string, say: S
   return { text: say(`dans ${days} j`, `in ${days} d`), late: false, soon: days <= 7 };
 }
 
+/** The team picker's groups: the mission's own entity first, then every other one, then people without one. */
+export function teamGroups(people: MissionOptions['people'], say: Say): [string, MissionOptions['people']][] {
+  const here = people.filter((p) => p.here);
+  const others = new Map<string, MissionOptions['people']>();
+  for (const p of people.filter((x) => !x.here)) {
+    const key = p.entity ?? say('Sans entité', 'No entity');
+    others.set(key, [...(others.get(key) ?? []), p]);
+  }
+  const first: [string, MissionOptions['people']][] = here.length ? [[`${here[0].entity ?? ''} · ${say('entité de la mission', "the mission's entity")}`, here]] : [];
+  return [...first, ...[...others.entries()].sort((a, b) => a[0].localeCompare(b[0]))];
+}
+
 // partners, the finance lead and the administrator create missions; managers too, for missions they lead
 export function canEditMissions(role: string) {
   return ['admin', 'partner', 'raf', 'manager'].includes(role);
@@ -105,6 +117,8 @@ export function MissionForm({ entityId, projectId, onClose }: { entityId: Id; pr
   if (!options || !v) return <Dialog title={title} onClose={() => onClose()} wide><span className="muted">{say('Chargement…', 'Loading…')}</span></Dialog>;
   const internal = v.project_kind === 'internal_product' || v.project_kind === 'internal_tool';
   const nameOf = (id: string) => options.people.find((p) => p.id === id)?.name ?? id;
+  // a member of another entity: their entity beside their name (they work on this mission from there)
+  const outside = (id: string) => { const p = options.people.find((x) => x.id === id); return p && !p.here ? p.entity ?? say('sans entité', 'no entity') : null; };
   const save = async () => {
     setBusy(true);
     try {
@@ -144,13 +158,15 @@ export function MissionForm({ entityId, projectId, onClose }: { entityId: Id; pr
         <h3 className="ms-form-h">{say('Équipe', 'Team')} · {v.member_ids.length}</h3>
         <div className="ms-team">
           {v.member_ids.map((id) => (
-            <span key={id} className="ms-member"><Avatar name={nameOf(id)} size={20} /> {nameOf(id)}
+            <span key={id} className="ms-member"><Avatar name={nameOf(id)} size={20} /> {nameOf(id)}{outside(id) && <span className="ms-member-floor">{outside(id)}</span>}
               <button type="button" onClick={() => set({ member_ids: v.member_ids.filter((m) => m !== id) })} aria-label={say(`Retirer ${nameOf(id)}`, `Remove ${nameOf(id)}`)}>×</button>
             </span>
           ))}
-          <Select recent="people" className="in ms-team-add" value="" onChange={(e) => e.target.value && set({ member_ids: [...v.member_ids, e.target.value] })} aria-label={say('Ajouter quelqu’un', 'Add someone')}>
+          <Select className="in ms-team-add" value="" onChange={(e) => e.target.value && set({ member_ids: [...v.member_ids, e.target.value] })} aria-label={say('Ajouter quelqu’un', 'Add someone')}>
             <option value="">{say('+ Ajouter quelqu’un…', '+ Add someone…')}</option>
-            {options.people.filter((p) => !v.member_ids.includes(p.id)).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {teamGroups(options.people.filter((p) => !v.member_ids.includes(p.id)), say).map(([group, people]) => (
+              <optgroup key={group} label={group}>{people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>
+            ))}
           </Select>
         </div>
       </div>

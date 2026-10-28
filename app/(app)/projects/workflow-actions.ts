@@ -1,10 +1,8 @@
 "use server";
 
-import { logActivity } from "@/lib/activity/service";
 import { requireRouteAccess } from "@/lib/auth/server";
 import { getCurrentLocale } from "@/lib/i18n/server";
-import { canManageBoard } from "@/lib/tickets/board-access";
-import { countCardsByStage, getProjectTicketStages, syncTicketsToWorkflow } from "@/lib/tickets/service";
+import { countCardsByStage, syncTicketsToWorkflow } from "@/lib/tickets/service";
 import {
   draftToWorkflow,
   findStage,
@@ -12,7 +10,7 @@ import {
   validateWorkflowDraft,
   type WorkflowDraft,
 } from "@/lib/tickets/workflow";
-import { getBoardWorkflow, saveBoardWorkflow } from "@/lib/tickets/workflow-service";
+import { canManageFloorBoard, getFloorTicketStages, getFloorWorkflow, saveFloorWorkflow } from "@/lib/tickets/workflow-service";
 import type { BoardWorkflow, WorkflowSettings } from "@/types/workflow";
 
 export type WorkflowActionState = {
@@ -67,32 +65,37 @@ function summarizeChanges(previous: BoardWorkflow, next: WorkflowDraft) {
   return parts.length ? `Workflow: ${parts.join("; ")}.` : "Workflow saved without changes.";
 }
 
-export async function saveBoardWorkflowAction(
-  projectId: string,
+// A floor's board (0014: every mission of the floor follows it). Saved by the administrators and the floor's managers;
+// checked against every ticket of the floor; no card changes stage.
+export async function saveFloorBoardAction(
+  entityId: string,
   draft: WorkflowDraft,
   expectedUpdatedAt: string | null,
 ): Promise<WorkflowActionState> {
   const auth = await requireRouteAccess("projects");
   const locale = await getCurrentLocale();
   const fr = locale === "fr";
-  const id = String(projectId);
+  const id = String(entityId);
 
-  if (!(await canManageBoard(auth.role, auth.profile.id, id))) {
-    return { error: fr ? "Vous ne pouvez pas modifier le workflow de ce tableau." : "You cannot change this board's workflow." };
+  if (!(await canManageFloorBoard(id))) {
+    return { error: fr ? "Seuls l’administrateur et les managers de l’étage changent son tableau." : "Only the administrator and the floor's managers change its board." };
   }
 
   if (!draft || !Array.isArray(draft.stages)) {
     return { error: fr ? "Configuration invalide." : "Invalid workflow configuration." };
   }
 
-  const previous = await getBoardWorkflow(id);
+  const previous = await getFloorWorkflow(id);
+  if (!previous) {
+    return { error: fr ? "Ce tableau est introuvable." : "This board cannot be found." };
+  }
 
   // Two managers editing at once: the second save must not silently undo the first.
   if ((previous.updated_at ?? null) !== (expectedUpdatedAt ?? null)) {
     return {
       error: fr
-        ? "Quelqu’un d’autre a modifié ce workflow entre-temps. Rechargez la page pour voir la dernière version."
-        : "Someone else changed this workflow in the meantime. Reload the page to see the latest version.",
+        ? "Quelqu’un d’autre a modifié ce tableau entre-temps. Rechargez la page pour voir la dernière version."
+        : "Someone else changed this board in the meantime. Reload the page to see the latest version.",
     };
   }
 
@@ -104,7 +107,7 @@ export async function saveBoardWorkflowAction(
     archived_at: stage.archived_at ? findStage(previous, stage.id)?.archived_at ?? now : null,
   }));
 
-  const rows = await getProjectTicketStages(id);
+  const rows = await getFloorTicketStages(id, auth.profile.id);
   const validationError = validateWorkflowDraft(normalized, previous, countCardsByStage(rows, previous), locale);
 
   if (validationError) {
@@ -112,22 +115,15 @@ export async function saveBoardWorkflowAction(
   }
 
   try {
-    await saveBoardWorkflow(previous, normalized, auth.profile.id);
+    await saveFloorWorkflow(id, normalized, auth.profile.id);
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };
   }
 
   // Pins tickets to the stage they were already in; no card changes stage.
-  await syncTicketsToWorkflow(rows, previous, draftToWorkflow(normalized, id));
+  await syncTicketsToWorkflow(rows, previous, draftToWorkflow(normalized, id), auth.profile.id);
+  console.info(`[floor-board] ${id} by ${auth.profile.id}: ${summarizeChanges(previous, normalized)}`);
 
-  await logActivity({
-    userId: auth.profile.id,
-    action: "Updated the board workflow",
-    entityType: "project",
-    entityId: id,
-    metadata: { kind: "update", summary: summarizeChanges(previous, normalized) },
-  });
-
-  const saved = await getBoardWorkflow(id);
-  return { success: true, updatedAt: saved.updated_at };
+  const saved = await getFloorWorkflow(id);
+  return { success: true, updatedAt: saved?.updated_at ?? null };
 }

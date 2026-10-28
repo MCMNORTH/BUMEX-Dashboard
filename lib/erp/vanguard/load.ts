@@ -134,6 +134,8 @@ export async function loadVanguardState(
     managesAccess: access.managesAccess,
     view3d: access.view3d,
     testMode: (await rows<{ test: boolean }>(tx, "select work.in_test() as test"))[0]?.test === true,
+    // the floor the app opens on and the logo comes back to: the one they chose, else their home (0015)
+    defaultEntityId: (await rows<{ id: string | null }>(tx, "select (select e.id::text from erp.entity e where e.code = coalesce(p.default_entity_code, p.entity_code)) as id from work.person p where p.id = $1", [person.id]))[0]?.id ?? null,
   };
 
   const fxRates = await rows<FxRate>(tx, `select rate_date::text as date, from_currency as "from", to_currency as "to", rate::float8 as rate, source from erp.fx_rate order by rate_date`);

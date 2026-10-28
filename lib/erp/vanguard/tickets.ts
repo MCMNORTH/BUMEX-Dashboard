@@ -42,8 +42,8 @@ export async function listTickets(tx: ErpTransaction): Promise<VanguardTicket[]>
     `select coalesce(jsonb_agg(jsonb_build_object(
               'id', t.id, 'title', t.title, 'description', t.notes, 'project_id', t.engagement_id, 'assignee_id', t.assignee_id,
               'reporter_id', t.reporter_id, 'status', t.status, 'stage_id', t.stage_id,
-              'stage_name', (select s->>'name' from work.board b, jsonb_array_elements(b.stages) s
-                              where b.engagement_id = t.engagement_id and s->>'id' = coalesce(t.stage_id, t.status) limit 1),
+              'stage_name', (select s->>'name' from work.floor_board b, jsonb_array_elements(b.stages) s
+                              where b.entity_id = t.entity_id and s->>'id' = coalesce(t.stage_id, t.status) limit 1),
               'priority', case when t.priority = 'normal' then 'medium' else t.priority end, 'type', t.type,
               'due_date', t.due_date, 'created_at', t.created_at, 'updated_at', t.updated_at, 'completed_at', t.completed_at,
               'key', (select x.ticket_prefix || '-' || t.number from erp.entity x where x.id = t.entity_id), 'labels', t.labels,

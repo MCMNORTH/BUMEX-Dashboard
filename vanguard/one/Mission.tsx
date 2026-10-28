@@ -9,20 +9,19 @@ import { useStore } from '../store';
 import { D, Icon, Tabs } from '../ui/common';
 import { Comments, Notes, type Result, type Say, when } from './Conversation';
 import { MILESTONE_STATUS } from './Milestones';
-import { MissionForm, PRIORITIES, dueIn, kindLabel, missionPriority, missionStatus, type Mission } from './Missions';
+import { MissionForm, PRIORITIES, dueIn, teamGroups, kindLabel, missionPriority, missionStatus, type Mission } from './Missions';
 import { StageLozenge } from './stages';
 import { reload, type TicketTask } from './Tasks';
-import { WorkflowEditor } from './Workflow';
 import { useSay } from './say';
 import { Avatar, Lozenge, PriorityIcon, TypeIcon, hoursText, statusTone } from './work-ui';
 import { Select } from '../ui/Select';
 
 // A mission's page in the Missions room (redrawn on 2026-10-28, laid out as a ticket's page): its name and state on top,
 // then its figures, description, tickets and milestones, with its details and alerts on the side; its team, notes,
-// conversation, board's statuses and rules (vanguard/one/Workflow.tsx) and history in tabs. Its form is the Missions
-// room's (vanguard/one/Missions.tsx).
+// conversation and history in tabs. Its board is its floor's (0014): its statuses and rules are the Tasks room's
+// (vanguard/one/Workflow.tsx). Its form is the Missions room's (vanguard/one/Missions.tsx).
 
-type Tab = 'overview' | 'team' | 'notes' | 'comments' | 'rules' | 'history';
+type Tab = 'overview' | 'team' | 'notes' | 'comments' | 'history';
 type TicketScope = 'open' | 'late' | 'done' | 'all';
 
 const HEALTH: Record<string, [string, string, 'good' | 'warn' | 'crit']> = {
@@ -94,7 +93,6 @@ export function MissionPanel({ projectId, initialTab, onClose }: { projectId: st
     { id: 'team' as Tab, label: <>{say('Équipe', 'Team')} <span className="tk-count">{view.members.length}</span></> },
     { id: 'notes' as Tab, label: <>{say('Notes', 'Notes')} <span className="tk-count">{view.notes.filter((n) => !n.archived_at).length}</span></> },
     { id: 'comments' as Tab, label: <>{say('Commentaires', 'Comments')} <span className="tk-count">{view.comments.length}</span></> },
-    { id: 'rules' as Tab, label: say('Statuts et règles', 'Statuses and rules') },
     { id: 'history' as Tab, label: say('Historique', 'History') },
   ];
 
@@ -129,7 +127,6 @@ export function MissionPanel({ projectId, initialTab, onClose }: { projectId: st
       {tab === 'team' && <Team view={view} busy={busy} run={run} say={say} />}
       {tab === 'notes' && <Notes entityType="project" entityId={project.id} notes={view.notes} role={view.role} me={view.me} busy={busy} run={run} say={say} />}
       {tab === 'comments' && <Comments entityType="project" entityId={project.id} comments={view.comments} people={view.people} role={view.role} me={view.me} canComment={view.canComment} busy={busy} run={run} say={say} />}
-      {tab === 'rules' && <WorkflowEditor projectId={project.id} />}
       {tab === 'history' && (
         <div className="mp-history">
           {view.history.map((h) => (
@@ -282,6 +279,11 @@ function Overview({ view, engagement, say, onTab }: { view: ProjectView; engagem
             <dt>{say('Échéance', 'Deadline')}</dt><dd><D iso={project.end_date ?? undefined} />{due && <span className={`small ${due.late ? 'ms-late' : due.soon ? 'ms-soon' : 'muted'}`}>{due.text}</span>}</dd>
             {engagement && <><dt>{say('Facturation', 'Billing')}</dt><dd>{engagement.feeType === 'fixed' ? say('Forfait', 'Fixed fee') : say('Temps passé', 'Time spent')}</dd></>}
             <dt>{say('Honoraires', 'Fee')}</dt><dd>{project.budget_amount ? `${fmt(project.budget_amount, 0)}${engagement ? ` ${engagement.currency}` : ''}` : '—'}{engagement && engagement.invoicedToDate > 0 && <span className="small muted">{say('facturé', 'invoiced')} {fmt(engagement.invoicedToDate, 0)}</span>}</dd>
+            <dt>{say('Tableau', 'Board')}</dt>
+            <dd>
+              <span>{say("Celui de l'étage", "The floor's")}{engagement ? ` · ${state.entities.find((e) => e.id === engagement.entityId)?.name ?? ''}` : ''}</span>
+              <button className="linkish small" onClick={() => openRoom('tasks', 'rules')}>{say('Statuts et règles', 'Statuses and rules')} →</button>
+            </dd>
             <dt>{say('Équipe', 'Team')}</dt>
             <dd>
               <button className="ms-avatars linkish" onClick={() => onTab('team')} title={view.members.map((m) => m.name).join(', ')}>
@@ -310,9 +312,11 @@ function Team({ view, busy, run, say }: { view: ProjectView; busy: boolean; run:
     <div className="mp-team-wrap">
       {view.canManageTeam && (
         <div className="mp-team-add">
-          <Select recent="people" className="in" value={adding} onChange={(e) => setAdding(e.target.value)} aria-label={say('Ajouter quelqu’un', 'Add someone')}>
+          <Select className="in" value={adding} onChange={(e) => setAdding(e.target.value)} aria-label={say('Ajouter quelqu’un', 'Add someone')}>
             <option value="">{say('Ajouter quelqu’un à l’équipe…', 'Add someone to the team…')}</option>
-            {view.candidates.map((p) => <option key={p.id} value={p.id}>{p.name}{p.entity ? ` · ${floorOf(p.entity)}` : ''}</option>)}
+            {teamGroups(view.candidates.map((p) => ({ id: p.id, name: p.name, entity: p.entity ? floorOf(p.entity) : null, here: p.entity === view.project.entity_code })), say).map(([group, people]) => (
+              <optgroup key={group} label={group}>{people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>
+            ))}
           </Select>
           <button className="btn sm primary" disabled={busy || !adding} onClick={async () => { if (await run(() => change(addProjectMemberAction(view.project.id, adding)), say('Ajouté à l’équipe', 'Added to the team'))) setAdding(''); }}><Icon name="plus" size={13} /> {say('Ajouter', 'Add')}</button>
         </div>

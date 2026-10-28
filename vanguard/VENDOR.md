@@ -43,8 +43,9 @@ updates its customers'. The Clients room lists the clients and opens an account 
 
 Missions are the ERP's engagements, every kind of project (`erp.engagement`, migration 0008): created and edited in the
 Missions room (`vanguard/one/Missions.tsx`, `lib/erp/vanguard/mission-actions.ts`, `lib/projects/service.ts`), on the
-floor they are created on; their board is the Tasks room's "Tableau" tab (`work.board`, `vanguard/one/Board.tsx`); their
-page (team, notes, comments, history, the board's rules) is `vanguard/one/Mission.tsx`. The engine reads their progress
+floor they are created on; their board is their floor's (`work.floor_board`, migration 0014): the Tasks room's "Tableau" tab
+(`vanguard/one/Board.tsx`), its statuses and rules the "Statuts et règles" tab (`vanguard/one/Workflow.tsx`); their page
+(figures, tickets, milestones, team, notes, comments, history) is `vanguard/one/Mission.tsx`. The engine reads their progress
 (→ the five stages), hours and members' initials from the database (`work.mission_*`), the same for everyone who sees
 them; a mission's client becomes the ERP customer of its entity once the entity has its chart.
 
