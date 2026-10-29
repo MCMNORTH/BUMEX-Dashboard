@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { LOAD_PRIORITIES, type Load } from '@/lib/work/load';
 import { Icon } from '../ui/common';
@@ -100,5 +100,43 @@ export function Dialog({ title, onClose, wide, children }: { title: string; onCl
       </div>
     </div>,
     document.querySelector('.vanguard') ?? document.body,
+  );
+}
+
+/**
+ * A figure of a page's head (the floor's overview, My work): its value, its label, a bar under them when given. Clickable
+ * when it filters or leads somewhere (aria-pressed when it is a filter that is on), else a plain tile.
+ */
+export function Figure({ label, value, tone, onClick, on, hint, className, children }: {
+  label: ReactNode; value: ReactNode; tone?: 'crit' | 'warn' | 'good'; onClick?: () => void; on?: boolean; hint?: string; className?: string; children?: ReactNode;
+}) {
+  const cls = `ov-fig ${tone ?? ''} ${className ?? ''}`;
+  const body = <><span className="ov-fig-v">{value}</span><span className="ov-fig-l">{label}</span>{children}</>;
+  if (!onClick) return <div className={cls} title={hint}>{body}</div>;
+  return <button type="button" className={cls} onClick={onClick} title={hint} aria-pressed={typeof on === 'boolean' ? on : undefined}>{body}</button>;
+}
+
+/** A block of a page (the floor's overview, My work): a title with its count, what it lists. */
+export function Block({ id, title, count, tone, extra, className, children }: {
+  id?: string; title: string; count?: number; tone?: 'crit' | 'warn'; extra?: ReactNode; className?: string; children: ReactNode;
+}) {
+  return (
+    <section id={id} className={`card ov-block ${className ?? ''}`}>
+      <div className="mw-block-h"><h2 tabIndex={id ? -1 : undefined}>{title}</h2>{count !== undefined && <span className={`tk-count ${tone ?? ''}`}>{count}</span>}<span className="grow" />{extra}</div>
+      {children}
+    </section>
+  );
+}
+
+/** Whether a media query matches (a phone, a screen without hover), following it; false on the server. */
+export function useMedia(query: string): boolean {
+  return useSyncExternalStore(
+    (notify) => {
+      const list = window.matchMedia(query);
+      list.addEventListener('change', notify);
+      return () => list.removeEventListener('change', notify);
+    },
+    () => window.matchMedia(query).matches,
+    () => false,
   );
 }

@@ -190,7 +190,7 @@
 .vanguard .wk-tags .tag { cursor: default; }
 .vanguard .wk-pop .wk-tags .tag { cursor: pointer; }
 .vanguard .wk-tags .tag.on { border-color: var(--navy); background: var(--blue-pale); color: var(--navy-deep); }
-.vanguard .wk-tags .tag.mission { background: #f3eefe; border-color: #d9cdf7; color: #4b3a99; font-weight: 600; }
+.vanguard .wk-tags .tag.mission, .vanguard .wk-mission .tag.mission { background: #f3eefe; border-color: #d9cdf7; color: #4b3a99; font-weight: 600; }
 .vanguard .wk-spacer { flex: 1; }
 .vanguard .vsel.wk-scope { width: 260px; height: 32px; }
 .vanguard .vsel.wk-group { width: 170px; height: 32px; }
@@ -238,18 +238,16 @@
 .vanguard .wk-new h2 { margin-top: 0; }
 @media (max-width: 640px) {
   .vanguard .wk-search { flex-basis: 100%; }
-  .vanguard .vsel.wk-scope, .vanguard .vsel.wk-group { width: 100%; }
+  .vanguard .vsel.wk-scope, .vanguard .vsel.wk-group { flex: 1 1 140px; width: auto; }
   .vanguard .wk-spacer { display: none; }
-  .vanguard .wk-col { flex-basis: 78vw; }
+  /* about 260 px: the next column peeks in, and the board snaps column by column */
+  .vanguard .wk-board { scroll-snap-type: x mandatory; }
+  .vanguard .wk-col { flex: 0 0 min(260px, calc(100vw - 130px)); scroll-snap-align: start; }
+  .vanguard .wk-col.folded { flex: 0 0 44px; }
 }
 
-/* ---- My work (MyWork.tsx) ---- */
+/* ---- My work's rows (MyWork.tsx; also a person's page, Person.tsx, and the overview, Overview.tsx) ---- */
 .vanguard .mw { display: flex; flex-direction: column; gap: 16px; }
-.vanguard .mw-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
-.vanguard .mw-card { display: flex; flex-direction: column; gap: 8px; }
-.vanguard .mw-big { font-size: 20px; font-weight: 600; }
-.vanguard .mw-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.vanguard .mw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; align-items: start; }
 .vanguard .mw-block { display: flex; flex-direction: column; gap: 8px; background: var(--paper); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
 .vanguard .mw-block-h { display: flex; align-items: center; gap: 8px; }
 .vanguard .mw-block-h h2 { margin: 0; font-size: 15px; }
@@ -262,12 +260,9 @@
 .vanguard .mw-hours { width: 110px; text-align: right; font-size: 12px; white-space: nowrap; color: var(--graphite); }
 .vanguard .mw-due { width: 82px; text-align: right; font-size: 12px; white-space: nowrap; }
 .vanguard .mw-empty { padding: 8px 4px; }
-.vanguard .mw-done { margin-top: 6px; }
-.vanguard .mw-done summary { cursor: pointer; padding: 4px; }
 .vanguard .vsel.stsel.mini { height: 24px; padding: 0 7px; font-size: 11px; width: 120px; }
 .vanguard .tag.late { border-color: var(--t-block-bg); background: var(--t-block-bg); color: var(--t-block); }
 @media (max-width: 640px) {
-  .vanguard .mw-grid { grid-template-columns: minmax(0, 1fr); }
   .vanguard .mw-ticket { flex-wrap: wrap; }
   .vanguard .mw-title { flex-basis: 100%; order: -1; white-space: normal; }
   .vanguard .mw-hours, .vanguard .mw-due { width: auto; }
@@ -807,7 +802,7 @@
 @media (max-width: 760px) { .vanguard .ts-recent-row { grid-template-columns: minmax(0, 1fr) auto; } .vanguard .ts-recent-chips { grid-column: 1 / -1; justify-content: flex-start; } }
 
 /* ---- boards, white and smooth (asked on 2026-10-28: "not grey, smoother"): the Tasks board (Board.tsx), My work's
-   boards (MyWork.tsx) and the week (Week.tsx). White columns with their status's colour on top, cards that lift, a
+   boards (MyWork.tsx, on the same board since 2026-10-29) and the week (Week.tsx). White columns with their status's colour on top, cards that lift, a
    column that lights up under a dragged card, a card that settles where it lands. ---- */
 .vanguard .wk-board, .vanguard .kanban { scroll-behavior: smooth; scrollbar-width: thin; }
 .vanguard .wk-cols, .vanguard .kanban { gap: 12px; }
@@ -842,3 +837,88 @@
 .vanguard .kanban .desk { padding: 9px 10px; border: 1px solid #e3e6eb; border-radius: 8px; box-shadow: 0 1px 2px rgba(19,29,51,.06); cursor: grab; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; animation: wk-settle .22s ease-out; }
 .vanguard .kanban .desk:hover { transform: translateY(-1px); border-color: #cfd6e2; box-shadow: 0 8px 18px -10px rgba(19,29,51,.32); }
 .vanguard .kanban .desk.late { border-color: #e8c27a; box-shadow: 0 0 0 2px var(--warn-bg); }
+
+/* ---- the shared board, list and toolbar (Board.tsx, TicketList.tsx, WorkToolbar.tsx) and My work, redrawn on them
+   (MyWork.tsx, 2026-10-29) ---- */
+.vanguard .wk-reason { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px; background: var(--paper); border: 1px solid var(--border); border-left: 3px solid var(--t-rev); border-radius: 8px; }
+.vanguard .wk-reason .in { flex: 1 1 260px; }
+.vanguard .wk-reason .actions { margin: 0; }
+.vanguard .wk-col.nodrop { opacity: .5; cursor: not-allowed; }
+.vanguard .wk-col-why { padding: 0 12px 6px; font-size: 11.5px; color: var(--muted); }
+.vanguard .wk-col.nodrop .wk-col-why { color: var(--t-block); }
+.vanguard .wk-card-stage > * { max-width: 100%; }
+.vanguard .wk-card-stage .stage-reason { flex-wrap: wrap; }
+.vanguard .wk-hint { margin: 0; }
+.vanguard .wk-hint .hint-touch { display: none; }
+@media (hover: none) { .vanguard .wk-hint .hint-drag { display: none; } .vanguard .wk-hint .hint-touch { display: inline; } }
+.vanguard .wk-list tr.click:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.vanguard .wk-list .c-mission { max-width: 280px; }
+.vanguard .wk-mission { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; }
+.vanguard .wk-mission-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; color: var(--graphite); }
+.vanguard .wk-list .c-log { width: 40px; }
+/* a mission known by its name only: cut with "…" (a block, as text-overflow asks) */
+.vanguard .wk-tags .tag.mission { display: inline-block; line-height: 18px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.vanguard .wk-donerow button { font-size: 12.5px; color: var(--graphite); }
+/* a figure that does nothing when clicked does not light up (over .ov-fig:hover:not(:disabled)) */
+.vanguard div.ov-fig { cursor: default; }
+.vanguard div.ov-fig:hover:not(:disabled) { border-color: var(--border); box-shadow: none; }
+.vanguard .ov-fig[aria-pressed=true] { border-color: var(--navy); background: var(--blue-pale); box-shadow: inset 0 0 0 1px var(--navy); }
+.vanguard .ov-fig:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+/* My work's list is wider (mission, clock): its labels go first */
+@media (max-width: 1100px) { .vanguard .mw .wk-list .c-labels { display: none; } }
+
+/* My work, redrawn (2026-10-29): the figures, the toolbar, the boards, the blocks below */
+.vanguard .ov-figs.mw-figs { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.vanguard .mw-figs .mw-fig-wide { grid-column: span 2; }
+.vanguard .mw-figs .ov-fig { gap: 4px; }
+.vanguard .mw-fig-l { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vanguard .mw-fig-l .loadlvl { margin-left: 0; }
+.vanguard .mw-fig-of { font-size: 13px; font-weight: 500; color: var(--muted); }
+.vanguard .mw-figs .loadbar, .vanguard .mw-figs .ov-hours-bar { align-self: stretch; margin-top: 4px; }
+.vanguard .mw-toolbar { scroll-margin-top: 8px; }
+.vanguard .mw-none { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vanguard .mw-failed { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vanguard .mw-boards { gap: 18px; }
+.vanguard .mw-lower { align-items: start; }
+.vanguard .mw-lower .ov-block { scroll-margin-top: 8px; }
+.vanguard .mw-lower h2:focus { outline: none; }
+.vanguard .mw-missions { grid-column: 1 / -1; }
+.vanguard .mw-extra { display: inline-flex; align-items: center; gap: 12px; }
+.vanguard .mw-since { white-space: nowrap; }
+.vanguard .mw-more { align-self: flex-start; padding: 6px 4px 0; }
+.vanguard .mw-clip { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+.vanguard .mw-counts { white-space: nowrap; }
+.vanguard .mw-parent { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vanguard .mw-note summary { cursor: pointer; padding: 2px 0; }
+.vanguard .mw-note p { margin: 6px 0 0; }
+@media (max-width: 640px) {
+  .vanguard .mw-log-l { display: none; }
+  /* the figures: load | time, then the three counts, then sign-off | mentions */
+  .vanguard .ov-figs.mw-figs { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+  .vanguard .mw-figs .ov-fig { grid-column: span 2; padding: 10px; }
+  .vanguard .mw-figs .mw-fig-wide { grid-column: span 3; }
+  .vanguard .mw-figs.solo .mw-fig-wide { grid-column: 1 / -1; }
+  .vanguard .mw-figs .ov-fig-v { font-size: 20px; }
+  .vanguard .mw-extra { gap: 8px; flex-wrap: wrap; }
+  /* My work's list as short blocks: key, mission and due date; the title; stage, priority, estimate, clock (the Tasks
+     list keeps its table, which scrolls: its sorting, labels and assignees) */
+  .vanguard .mw .wk-list { overflow: visible; }
+  .vanguard .mw .wk-list thead { display: none; }
+  .vanguard .mw .wk-list table, .vanguard .mw .wk-list tbody { display: block; width: 100%; }
+  .vanguard .mw .wk-list tr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .vanguard .mw .wk-list td { display: block; padding: 0; border: none; }
+  .vanguard .mw .wk-list .c-key { order: 1; }
+  .vanguard .mw .wk-list .c-mission { order: 2; min-width: 0; max-width: 50%; }
+  .vanguard .mw .wk-list .c-due { order: 3; margin-left: auto; font-size: 12px; }
+  .vanguard .mw .wk-list .c-title { order: 4; flex-basis: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .vanguard .mw .wk-list .c-status { order: 5; }
+  .vanguard .mw .wk-list .c-priority { order: 6; }
+  .vanguard .mw .wk-list .c-estimate { order: 7; margin-left: auto; font-size: 12px; }
+  .vanguard .mw .wk-list .c-log { order: 8; width: auto; }
+  .vanguard .mw .wk-list .c-labels, .vanguard .mw .wk-list .c-spent, .vanguard .mw .wk-list .c-word { display: none; }
+  .vanguard .mw .wk-list tr.wk-grouprow { padding: 6px 12px; background: var(--ground); }
+  .vanguard .mw .wk-list tr.wk-grouprow td { flex-basis: 100%; background: none; }
+}
+.vanguard .mw-lower .mw-block-h { flex-wrap: wrap; row-gap: 4px; }
+.vanguard .mw-lower .mw-block-h h2 { white-space: nowrap; }
+.vanguard .mw-extra button { white-space: nowrap; }

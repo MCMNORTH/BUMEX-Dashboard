@@ -1,320 +1,499 @@
-import { useEffect, useState, type DragEvent, type ReactNode } from 'react';
-import { moveTicketStageAction, toggleSubtaskAction } from '@/app/(app)/tickets/actions';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import type { Id } from '@bumex/domain';
+import { toggleSubtaskAction } from '@/app/(app)/tickets/actions';
 import { myWorkAction, type MyWorkData } from '@/lib/erp/vanguard/myday-actions';
-import type { MyWorkTicket } from '@/lib/erp/vanguard/work-items';
 import { markNotificationAsReadAction } from '@/lib/notifications/actions';
-import { remainingHours } from '@/lib/work/load';
-import { columnOfTicket, mergeStageColumns, stageForColumn, type StageColumn } from '@/lib/tickets/stage-columns';
+import { stageStatus } from '@/lib/tickets/workflow';
 import type { TicketStatus } from '@/types/ticket';
+import type { BoardWorkflow } from '@/types/workflow';
 import { useStore } from '../store';
-import { Icon } from '../ui/common';
-import { reload } from './Tasks';
+import { Icon, Tabs } from '../ui/common';
+import { BoardHint, MoveReason, TicketBoard, boardColumns, stageIdOf, useTicketMove, type MissionTag, type MoveFlow, type MoveTarget } from './Board';
+import { dueIn, hasDeadline } from './Missions';
+import { QuickLogDialog } from './QuickLog';
+import { TicketPanel } from './Ticket';
+import { TicketList, type ListChange } from './TicketList';
+import { PRIORITY, label, reload } from './Tasks';
+import { WorkToolbar, type Scope } from './WorkToolbar';
+import { StageLozenge, moveCheck, stageTicketOf, useBoardOf, useBoardsReady } from './stages';
 import { useSay } from './say';
-import { ago } from './ticket-history';
-import { Avatar, LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursText, statusTone } from './work-ui';
-import { StageLozenge, StageSelect, useBoardOf, type StageTicket } from './stages';
-import { QuickLogButton } from './QuickLog';
-import { readView, writeView, type WorkView } from './work-filters';
+import { ago, type Say } from './ticket-history';
+import { applyFilters, isFiltered, quickCounts, readFilters, readView, workTicketOf, writeFilters, writeView, type GroupBy, type GroupLabels, type MyCard, type WorkFilters, type WorkView } from './work-filters';
+import { Avatar, Block, Figure, LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursText, levelLabel, type Tone } from './work-ui';
 
-// "Mon travail": everything the person has to do, on every floor (asked on 2026-10-27). Their load this week and their
-// time; their open tickets, most pressing first (as a list or by state); what waits for their sign-off; their
-// sub-tasks; the mentions and comments they have not read; what they reported; and, on the missions they lead, the
-// tickets left unassigned, unestimated or late. A ticket moves through its own board's stages (stages.tsx, 2026-10-28),
-// and each board's rules apply (BUMEX One's ticket action); the board view shows the stages of their boards by name.
+// "Mon travail": everything the person has to do, on every floor (asked on 2026-10-27), redrawn on 2026-10-29 ("i like
+// how the board looks in tasks page but i dont like how it looks in my work page") out of the Tasks room's own parts:
+// the same toolbar (WorkToolbar.tsx), list (TicketList.tsx) and board (Board.tsx), one board per floor of their tickets
+// (each floor has its board, 0014). Above them, the figures that matter (load, time, late, due this week, to estimate;
+// the three counts filter), below them what waits on the person (their sign-off, mentions, the missions they lead),
+// then their sub-tasks, what they reported and their missions; each block only when it holds something. A ticket opens
+// here, and back returns where one was. Moves follow each board's rules (BUMEX One's ticket action).
 
-const stageTicket = (t: MyWorkTicket): StageTicket => ({ id: t.id, projectId: t.projectId, stageId: t.stageId, stageName: t.stageName, status: t.status, assigneeId: t.assigneeId, reporterId: t.reporterId, key: t.key, title: t.title });
+const FILTER_KEY = 'bumex-vanguard-mywork';
+const ticketOf = (tab?: string | null) => (tab?.startsWith('ticket:') ? tab.slice(7) : null);
+const viewOf = (tab?: string | null): WorkView | null => (tab === 'board' || tab === 'list' ? tab : null);
+const phoneNow = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches;
 const minutes = (m: number) => `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
+const dmy = (iso: string) => iso.slice(0, 10).split('-').reverse().join('/');
+const MORE = 8; // rows of a block before "see all"
 
-// the room: the rail's "Mon travail" (ui/Sidebar.tsx)
-export function MyWorkRoom() {
+type Data = MyWorkData;
+type SetData = Dispatch<SetStateAction<Data | null | undefined>>;
+type Mission = MissionTag & { other: string | null };
+
+// the room: the rail's "Mon travail" (ui/Sidebar.tsx); tab: "board", "list", "ticket:<id>"
+export function MyWorkRoom({ entityId, initialTab }: { entityId: Id; initialTab?: string | null }) {
   const say = useSay();
-  const name = useStore((s) => s.state.session.actorName);
+  const loadedAt = useStore((s) => s.loadedAt);
+  const [data, setData] = useState<Data | null | undefined>(undefined);
+  const [attempt, setAttempt] = useState(0);
+  // the view chosen last; else the board, but the list on a phone
+  const [view, setView] = useState<WorkView>(() => viewOf(initialTab) ?? readView('mywork', phoneNow() ? 'list' : 'board'));
+  const [ticketId, setTicketId] = useState<string | null>(ticketOf(initialTab));
+  const [seenTab, setSeenTab] = useState(initialTab);
+  if (initialTab !== seenTab) {
+    setSeenTab(initialTab);
+    if (ticketOf(initialTab)) setTicketId(ticketOf(initialTab));
+    else if (viewOf(initialTab)) { setView(viewOf(initialTab)!); setTicketId(null); }
+  }
+  const [logging, setLogging] = useState(false);
+  const body = useRef<HTMLDivElement>(null);
+  const scroll = useRef<number | null>(null);
+
+  // read again whenever the state is (a ticket moved, time logged, the ↻ button)
+  useEffect(() => {
+    let live = true;
+    myWorkAction().then((d) => { if (live) setData(d); }).catch(() => { if (live) setData((x) => x ?? null); });
+    return () => { live = false; };
+  }, [loadedAt, attempt]);
+
+  const refresh = useCallback(async () => {
+    const before = useStore.getState().loadedAt;
+    await reload();
+    // the state did not move (unreachable): My work is read on its own, and kept as it is if that fails too
+    if (useStore.getState().loadedAt === before) {
+      const fresh = await myWorkAction().catch(() => null);
+      if (fresh) setData(fresh);
+    }
+  }, []);
+  const open = useCallback((id: string) => {
+    scroll.current = body.current?.scrollTop ?? null;
+    setTicketId(id);
+  }, []);
+  // a ticket opens at its top (and stays where it is read when it is saved: My work is read again meanwhile); back
+  // finds My work where it was
+  useLayoutEffect(() => {
+    if (ticketId && body.current) body.current.scrollTop = 0;
+  }, [ticketId]);
+  useLayoutEffect(() => {
+    const el = body.current;
+    if (!el || ticketId || scroll.current === null || !data) return;
+    el.scrollTop = scroll.current;
+    scroll.current = null;
+  }, [ticketId, data]);
+
+  const pick = (v: WorkView) => { setView(v); writeView('mywork', v); setTicketId(null); };
   return (
     <>
-      <div className="sheet-head"><h1>{say('Mon travail', 'My work')}</h1><span className="small muted">{name}</span></div>
-      <div className="sheet-body"><MyWork /></div>
+      <div className="sheet-head">
+        <h1>{say('Mon travail', 'My work')}</h1>
+        <Tabs tabs={[{ id: 'board' as WorkView, label: say('Tableau', 'Board') }, { id: 'list' as WorkView, label: say('Liste', 'List') }]} value={view} onChange={pick} />
+        <div className="hright">
+          {data?.week && (
+            <button className="btn sm primary" onClick={() => setLogging(true)} aria-label={say('Saisir du temps', 'Log time')} title={say('Saisir du temps', 'Log time')}>
+              <Icon name="clock" size={13} /> <span className="mw-log-l">{say('Saisir du temps', 'Log time')}</span>
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="sheet-body" ref={body}>
+        {ticketId && <TicketPanel id={ticketId} onClose={() => setTicketId(null)} backLabel={say('Retour à mon travail', 'Back to my work')} />}
+        {/* kept under an open ticket, as it was (search, mission, sort, what was unfolded): back finds it there */}
+        <div hidden={Boolean(ticketId)}>
+          {data === undefined ? <div className="card"><span className="muted">{say('Chargement de votre travail…', 'Loading your work…')}</span></div>
+            : data === null ? (
+              <div className="banner crit mw-failed">
+                <span>{say('Mon travail est indisponible.', 'My work is unavailable.')}</span>
+                <button className="btn sm" onClick={() => { setData(undefined); setAttempt((n) => n + 1); }}>{say('Réessayer', 'Retry')}</button>
+              </div>
+            )
+            : <MyWorkBody data={data} setData={setData} view={view} entityId={entityId} onOpen={open} refresh={refresh} say={say} />}
+        </div>
+      </div>
+      {logging && <QuickLogDialog onClose={() => setLogging(false)} onSaved={() => void refresh()} />}
     </>
   );
 }
 
-function Block({ title, count, tone, children, extra }: { title: string; count?: number; tone?: 'crit' | 'warn'; children: ReactNode; extra?: ReactNode }) {
-  return (
-    <section className="mw-block">
-      <div className="mw-block-h"><h2>{title}</h2>{count !== undefined && <span className={`tk-count ${tone ?? ''}`}>{count}</span>}<span className="grow" />{extra}</div>
-      {children}
-    </section>
-  );
-}
-
-export function MyWork() {
-  const { toast, openRoom } = useStore();
-  const entities = useStore((s) => s.state.entities);
+function MyWorkBody({ data, setData, view, entityId, onOpen, refresh, say }: {
+  data: Data; setData: SetData; view: WorkView; entityId: Id; onOpen: (id: string) => void; refresh: () => Promise<void>; say: Say;
+}) {
   const today = useStore((s) => s.state.today);
-  const say = useSay();
-  const loadedAt = useStore((s) => s.loadedAt);
-  const [data, setData] = useState<MyWorkData | null>(null);
-  const [view, setView] = useState<WorkView>(() => readView('mywork', 'list'));
-  const [dragged, setDragged] = useState<string | null>(null);
-  const [over, setOver] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [asking, setAsking] = useState<{ t: MyWorkTicket; target: { status: TicketStatus } | { stageId: string }; name: string; message: string } | null>(null);
-  const [reason, setReason] = useState('');
-  const [now] = useState(Date.now);
+  const me = useStore((s) => s.state.session.userId);
+  const engagements = useStore((s) => s.state.engagements);
   const testMode = useStore((s) => s.state.session.testMode === true);
-  const boardOf = useBoardOf(data ? data.tickets.map((t) => t.projectId) : []);
+  const [filters, setFiltersState] = useState<WorkFilters>(() => readFilters(FILTER_KEY));
+  // remembered in this browser, the search apart (a forgotten search would hide work)
+  const setFilters = (f: WorkFilters) => { setFiltersState(f); writeFilters(FILTER_KEY, { ...f, search: '' }); };
+  const [scopeId, setScope] = useState('all');
+  const toolbar = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    let live = true;
-    myWorkAction().then((d) => live && setData(d)).catch(() => {
-      const { toast: show, ui } = useStore.getState();
-      if (live) show('error', ui.lang === 'fr' ? 'Mon travail est indisponible.' : 'My work is unavailable.');
+  // a ticket's mission: the person's missions (code, other floor), else the floor's state, else its project's name; one
+  // object per mission from render to render (the cards are memoised)
+  const missions = useMemo(() => {
+    const map = new Map<string, Mission>();
+    const named = [...data.tickets, ...data.signOff, ...data.reported, ...data.lead.map((l) => l.ticket)];
+    for (const t of named) if (t.projectName && !map.has(t.projectId)) map.set(t.projectId, { code: '', name: t.projectName, other: null });
+    for (const e of engagements) map.set(e.id, { code: e.code, name: e.name, other: null });
+    for (const m of data.missions) map.set(m.id, { code: m.code ?? '', name: m.name, other: m.home ? null : m.entity });
+    return map;
+  }, [data.tickets, data.signOff, data.reported, data.lead, data.missions, engagements]);
+  const missionOf = useCallback((projectId: string): Mission | null => missions.get(projectId) ?? null, [missions]);
+  const cards = useMemo(() => data.tickets.map((t) => workTicketOf(t, missionOf(t.projectId))), [data.tickets, missionOf]);
+  const open = useMemo(() => cards.filter((c) => c.status !== 'done'), [cards]);
+  // a mission none of my tickets is on any more (they moved on) shows them all: nothing hides behind a scope gone
+  const scope = cards.some((c) => c.ticket.project_id === scopeId) ? scopeId : 'all';
+  const inScope = scope === 'all' ? cards : cards.filter((c) => c.ticket.project_id === scope);
+  const shown = applyFilters(inScope, filters, me, today);
+  const counts = quickCounts(open, me, today);
+  const boardOf = useBoardOf(cards.map((c) => c.ticket.project_id));
+  const cardMission = useCallback((x: MyCard) => missionOf(x.ticket.project_id), [missionOf]);
+
+  // a moved ticket settles in its new column at once (the server has accepted), then everything is read again
+  const flow = useTicketMove(async (id: string, target: MoveTarget) => {
+    setData((d) => d && {
+      ...d,
+      tickets: d.tickets.map((t) => {
+        if (t.id !== id) return t;
+        if (!('stageId' in target)) return { ...t, status: target.status, stageId: null, stageName: null }; // built-in: its column is its status
+        const stage = boardOf(t.projectId).stages.find((s) => s.id === target.stageId);
+        return stage ? { ...t, stageId: stage.id, stageName: stage.name, status: stageStatus(stage) } : t;
+      }),
     });
-    return () => { live = false; };
-  }, [loadedAt]);
-
-  if (!data) return <span className="muted">{say('Chargement…', 'Loading…')}</span>;
-  const open = data.tickets.filter((t) => t.status !== 'done' && t.status !== 'archived');
-  const done = data.tickets.filter((t) => t.status === 'done');
-  const ticket = (id: string) => openRoom('tasks', `ticket:${id}`);
-  const refresh = async () => {
-    const [fresh] = await Promise.all([myWorkAction(), reload()]);
-    setData(fresh);
-  };
-  const move = async (t: MyWorkTicket, target: { status: TicketStatus } | { stageId: string }, name: string, why?: string) => {
-    setBusy(t.id);
-    try {
-      const result = await moveTicketStageAction(t.id, target, why);
-      // a move back or a reopening on a board that asks why: the reason, then the move again
-      if (result.code === 'reason_required') { setAsking({ t, target, name, message: result.error ?? '' }); return; }
-      setAsking(null);
-      setReason('');
-      if (result.error) toast('error', result.error);
-      else toast('ok', `${t.key ?? t.title} → ${name}`);
-      await refresh();
-    } catch {
-      toast('error', say("Serveur injoignable : le ticket n'a pas bougé.", 'Server unreachable: the ticket did not move.'));
-    } finally {
-      setBusy(null);
-    }
-  };
-  // each floor has its board (0014): the tickets of one floor on its board; of several floors (a mission of another
-  // floor whose team they are on, 0015), one board per floor, each with its own stages
-  const floorOf = (t: MyWorkTicket) => boardOf(t.projectId).entity_id ?? '';
-  const floorsInView = [...new Set(data.tickets.map(floorOf))];
-  const columnOf = (t: MyWorkTicket) => columnOfTicket(boardOf(t.projectId), { stage_id: t.stageId, status: t.status as TicketStatus });
-  const columnsOf = (list: MyWorkTicket[]): StageColumn[] =>
-    mergeStageColumns([...new Set(list.map((t) => t.projectId))].map(boardOf), (p, st) => list.some((t) => t.projectId === p && t.stageId === st));
-  const floorName = (id: string, list: MyWorkTicket[]) => entities.find((e) => e.id === id)?.name ?? list[0]?.key?.split('-')[0] ?? say('Autre entité', 'Other entity');
-  const tick = async (id: string, value: boolean) => {
-    const result = await toggleSubtaskAction(id, value).catch(() => ({ error: say('Serveur injoignable.', 'Server unreachable.') }));
-    if (result.error) toast('error', result.error);
     await refresh();
-  };
-  const readMention = async (m: MyWorkData['mentions'][number], go: boolean) => {
-    await markNotificationAsReadAction(m.id).catch(() => null);
-    if (go && m.subjectId) {
-      if (m.subjectType === 'ticket' || m.subjectType === 'task') ticket(m.subjectId);
-      else if (m.subjectType === 'project') openRoom('missions', `mission:${m.subjectId}`);
-      else openRoom('inbox');
-    }
-    setData({ ...data, mentions: data.mentions.filter((x) => x.id !== m.id) });
-  };
-  const drop = (column: StageColumn) => ({
-    onDragOver: (e: DragEvent) => { if (dragged) e.preventDefault(); },
-    onDrop: (e: DragEvent) => {
-      e.preventDefault();
-      const t = data.tickets.find((x) => x.id === dragged);
-      setDragged(null);
-      setOver(null);
-      if (!t || columnOf(t) === column.key) return;
-      const stage = stageForColumn(boardOf(t.projectId), column.key);
-      if (!stage) { toast('error', say(`Le tableau de ${t.projectName ?? 'ce ticket'} n'a pas d'étape « ${column.name} ».`, `${t.projectName ?? "This ticket"}'s board has no "${column.name}" stage.`)); return; }
-      void move(t, { stageId: stage.id }, stage.name);
-    },
   });
-  const capacity = Math.max(1, (data.week?.capacityHours ?? data.load.capacityHours) * 60);
+  // a stage picked in the list or on a card (touch), or time logged: shown at once, then read again (the picker waits)
+  const changed = useCallback((change?: ListChange) => {
+    if (change) setData((d) => d && { ...d, tickets: d.tickets.map((t) => (t.id === change.id ? { ...t, stageId: change.stage.id, stageName: change.stage.name, status: change.stage.status } : t)) });
+    return refresh();
+  }, [refresh, setData]);
+
+  const groupLabels: GroupLabels = {
+    unassigned: say('Non assigné', 'Unassigned'),
+    priority: (p) => label(PRIORITY[p], p, say),
+    mission: (id) => missionOf(id ?? '')?.name ?? say('Sans mission', 'No mission'),
+  };
+  // the missions of my tickets, by floor when there are several (this floor's first, as its board)
+  const entities = useStore((s) => s.state.entities);
+  const scopes: Scope[] = useMemo(() => {
+    const ids = [...new Set(cards.map((c) => c.ticket.project_id))];
+    const floorOf = (pid: string) => boardOf(pid).entity_id ?? '';
+    const several = new Set(ids.map(floorOf)).size > 1;
+    const away = (pid: string) => Number(floorOf(pid) !== entityId);
+    return ids
+      .map((pid) => {
+        const m = missionOf(pid);
+        return { id: pid, label: m ? `${m.code ? `${m.code} · ` : ''}${m.name}` : pid, group: several ? entities.find((e) => e.id === floorOf(pid))?.name ?? say('Autres', 'Others') : undefined };
+      })
+      .sort((a, b) => away(a.id) - away(b.id) || (a.group ?? '').localeCompare(b.group ?? '') || a.label.localeCompare(b.label, 'fr'));
+  }, [cards, boardOf, missionOf, entities, entityId, say]);
+  const jump = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.querySelector<HTMLElement>(`#${id} h2`)?.focus({ preventScroll: true });
+  };
+  const toMission = (id: string) => {
+    setScope(id);
+    toolbar.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const shownOpen = shown.filter((c) => c.status !== 'done');
+  const shownDone = shown.filter((c) => c.status === 'done');
 
   return (
     <div className="mw">
-      <div className="mw-top">
-        <div className="card mw-card">
-          <div className="small muted">{say('Ma charge cette semaine', 'My load this week')}</div>
-          <LoadBar load={data.load} say={say} />
-          <div className="small muted">{data.load.weekCount} {say('ticket(s) cette semaine', 'ticket(s) this week')} · {hoursText(data.load.openHours, say)} {say('restantes au total', 'left in all')} · {say('pondérées par priorité', 'weighted by priority')}</div>
-        </div>
-        {data.week && !testMode && ( // [bumex-one] the real week; on the test floor its time is apart (0013)
-          <div className="card mw-card">
-            <div className="small muted">{say('Mon temps cette semaine', 'My time this week')}</div>
-            <div className="mw-big">{minutes(data.week.loggedMinutes)} <span className="small muted">/ {data.week.capacityHours} h</span></div>
-            <div className="bar"><i style={{ width: `${Math.min(100, (data.week.loggedMinutes / capacity) * 100)}%` }} /></div>
-            <div className="mw-row">
-              <Lozenge tone={data.week.status === 'approved' ? 'done' : data.week.status === 'returned' ? 'blocked' : data.week.status === 'submitted' ? 'review' : 'todo'}>
-                {data.week.status === 'approved' ? say('Validée', 'Approved') : data.week.status === 'submitted' ? say('Envoyée', 'Submitted') : data.week.status === 'returned' ? say('À corriger', 'Needs changes') : data.week.loggedMinutes ? say('En cours', 'In progress') : say('Rien de saisi', 'Nothing logged')}
-              </Lozenge>
-              <button className="btn sm primary" onClick={() => openRoom('time')}><Icon name="clock" size={13} /> {say('Saisir mon temps', 'Log my time')}</button>
-            </div>
+      <MyFigures data={data} counts={counts} filters={filters} setFilters={setFilters} testMode={testMode} onJump={jump} say={say} />
+
+      {cards.length ? (
+        <>
+          <div ref={toolbar} className="mw-toolbar">
+            <WorkToolbar tickets={inScope} filters={filters} setFilters={setFilters} scope={scope} setScope={setScope} scopeAll={say('Toutes mes missions', 'All my missions')} scopes={scopes}
+              groups={['none', 'priority', 'mission']} people={false} count={shownOpen.length} total={inScope.filter((c) => c.status !== 'done').length} noun={['ouverts', 'open']} say={say} />
           </div>
-        )}
+          <MoveReason flow={flow} say={say} />
+          {view === 'board'
+            ? <FloorBoards all={cards} cards={shown} entityId={entityId} boardOf={boardOf} flow={flow} groupBy={filters.groupBy} groupLabels={groupLabels}
+                filtered={isFiltered(filters) || scope !== 'all'} missionOf={cardMission} onOpen={onOpen} onChanged={changed} say={say} />
+            : <TicketList tickets={shownOpen} done={shownDone} columns={['key', 'title', 'status', 'priority', 'mission', 'estimate', 'due', 'labels', 'log']} groupBy={filters.groupBy}
+                groupLabels={groupLabels} defaultSort={null} onOpen={onOpen} onChanged={changed} missionOf={cardMission} say={say} />}
+        </>
+      ) : (
+        <div className="card mw-none">
+          <b>{say('Rien ne vous est assigné. Profitez-en !', 'Nothing is assigned to you.')}</b>
+          <button className="linkish" onClick={() => useStore.getState().openRoom('tasks')}>{say("Voir les tâches de l'étage", "See the floor's tasks")} →</button>
+        </div>
+      )}
+
+      <div className="ov-grid mw-lower">
+        {data.signOff.length > 0 && <SignOffBlock data={data} setData={setData} missionOf={missionOf} onOpen={onOpen} refresh={refresh} say={say} />}
+        {data.mentions.length > 0 && <MentionsBlock data={data} setData={setData} onOpen={onOpen} say={say} />}
+        {data.lead.length > 0 && <LeadBlock data={data} missionOf={missionOf} onOpen={onOpen} say={say} />}
+        {data.subtasks.length > 0 && <SubtasksBlock data={data} setData={setData} onOpen={onOpen} refresh={refresh} say={say} />}
+        {data.reported.length > 0 && <ReportedBlock data={data} onOpen={onOpen} say={say} />}
+        <MissionsBlock data={data} onScope={toMission} say={say} />
       </div>
 
-      <Block title={say('À faire', 'To do')} count={open.length} tone={open.some((t) => t.dueState === 'overdue' || t.status === 'blocked') ? 'crit' : undefined}
-        extra={<div className="seg-mini"><button className={view === 'list' ? 'on' : ''} onClick={() => { setView('list'); writeView('mywork', 'list'); }}>{say('Liste', 'List')}</button><button className={view === 'board' ? 'on' : ''} onClick={() => { setView('board'); writeView('mywork', 'board'); }}>{say('Tableau', 'Board')}</button></div>}>
-        {view === 'list' ? (
-          <div className="mw-rows">
-            {open.map((t) => (
-              <div key={t.id} className={`mw-ticket ${busy === t.id ? 'busy' : ''}`}>
-                <span className="wk-keycell"><TypeIcon type={t.type} say={say} /> <button className="linkish mono" onClick={() => ticket(t.id)}>{t.key ?? '—'}</button></span>
-                <button className="linkish mw-title" onClick={() => ticket(t.id)}>{t.title}<span className="small muted"> · {t.projectName ?? '—'}</span></button>
-                <StageSelect ticket={stageTicket(t)} disabled={busy === t.id} onMoved={refresh} />
-                <PriorityIcon priority={t.priority} say={say} />
-                <span className="mw-hours" title={say('Restant / estimation', 'Left / estimate')}>{t.estimatedHours ? `${hoursText(remainingHours({ estimated_hours: t.estimatedHours, logged_minutes: t.loggedMinutes }), say)} / ${hoursText(t.estimatedHours, say)}` : <span className="muted">{say('à estimer', 'to estimate')}</span>}</span>
-                <span className={`mw-due ${t.dueState === 'overdue' ? 'late' : ''}`}>{t.dueDate ? t.dueDate.split('-').reverse().join('/') : '—'}</span>
-                <QuickLogButton ticketId={t.id} onSaved={() => void refresh()} />
-              </div>
-            ))}
-            {!open.length && <div className="small muted mw-empty">{say('Rien ne vous est assigné. Profitez-en !', 'Nothing is assigned to you.')}</div>}
-            {done.length > 0 && (
-              <details className="mw-done">
-                <summary className="small muted">{say('Terminés récemment', 'Recently done')} · {done.length}</summary>
-                {done.map((t) => <div key={t.id} className="mw-ticket"><span className="wk-keycell"><TypeIcon type={t.type} say={say} /> <span className="mono wk-done">{t.key}</span></span><button className="linkish mw-title wk-done" onClick={() => ticket(t.id)}>{t.title}</button><span className="small muted">{ago(t.updatedAt, now, say)}</span></div>)}
-              </details>
-            )}
-          </div>
-        ) : (
-          <div className="mw-boards">
-            {asking && (
-              <div className="tk-reason">
-                <span className="small">{asking.message || say('Ce déplacement demande un motif.', 'This move needs a reason.')} · <b>{asking.t.key ?? asking.t.title}</b></span>
-                <input className="in" autoFocus value={reason} onChange={(e) => setReason(e.target.value)} placeholder={say('Motif', 'Reason')}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && reason.trim()) void move(asking.t, asking.target, asking.name, reason.trim()); if (e.key === 'Escape') { setAsking(null); setReason(''); } }} />
-                <div className="actions">
-                  <button className="btn sm" onClick={() => { setAsking(null); setReason(''); }}>{say('Annuler', 'Cancel')}</button>
-                  <button className="btn sm primary" disabled={!reason.trim() || busy === asking.t.id} onClick={() => move(asking.t, asking.target, asking.name, reason.trim())}>{say('Déplacer vers', 'Move to')} {asking.name}</button>
-                </div>
-              </div>
-            )}
-            {floorsInView.map((floor) => {
-              const tickets = data.tickets.filter((t) => floorOf(t) === floor);
-              return (
-                <section key={floor || 'loading'} className="mw-floor">
-                  {floorsInView.length > 1 && <h3 className="mw-floor-h">{say('Tableau de', 'Board of')} {floorName(floor, tickets)} <span className="tk-count">{tickets.length}</span></h3>}
-                  <div className="kanban">
-                    {columnsOf(tickets).map((column) => {
-                      const list = tickets.filter((t) => columnOf(t) === column.key);
-                      const status = column.status;
-                      return (
-                        <div className={`col tone-${column.archived ? 'archived' : statusTone(column.status)} ${over === `${floor}|${column.key}` ? 'over' : ''}`} key={column.key} {...drop(column)}
-                          onDragEnter={() => dragged && setOver(`${floor}|${column.key}`)} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(null); }} style={{ minWidth: 170 }}>
-                          <h3>{column.name} <span>{list.length}</span></h3>
-                          {list.map((t) => (
-                            <div key={t.id} className={`wk-card ${busy === t.id ? 'busy' : ''} ${dragged === t.id ? 'dragging' : ''}`} draggable={busy !== t.id} onDragStart={() => setDragged(t.id)} onDragEnd={() => { setDragged(null); setOver(null); }} onClick={() => ticket(t.id)}>
-                              <div className="wk-card-t">{t.title}</div>
-                              <div className="wk-card-f"><span className="wk-keycell"><TypeIcon type={t.type} say={say} /> {t.key}</span><span className="grow" />{t.dueDate && <span className={`wk-due ${t.dueState === 'overdue' && status !== 'done' ? 'late' : ''}`}>{t.dueDate.slice(8, 10)}/{t.dueDate.slice(5, 7)}</span>}<PriorityIcon priority={t.priority} say={say} /></div>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              );
-            })}
-            {!data.tickets.length && <div className="small muted mw-empty">{say('Rien ne vous est assigné.', 'Nothing is assigned to you.')}</div>}
-          </div>
-        )}
-      </Block>
-
-      <Block title={say('Mes missions', 'My missions')} count={data.missions.length}>
-        <div className="mw-rows">
-          {data.missions.map((m) => (
-            <div key={m.id} className="mw-ticket click" onClick={() => openRoom('missions', `mission:${m.id}`)}>
-              <span className="wk-keycell"><span className="mono">{m.code ?? '—'}</span></span>
-              <button className="linkish mw-title">{m.name}
-                {!m.home && <span className="tag mw-other">{m.entity}</span>}
-                {m.lead && <span className="tag dim">{say('responsable', 'lead')}</span>}
-              </button>
-              <span className="small muted" title={say('Tickets ouverts · les miens', 'Open tickets · mine')}>{m.open} {say('ouverts', 'open')}{m.mine ? ` · ${m.mine} ${say('à moi', 'mine')}` : ''}</span>
-              <span className={`mw-due ${m.deadline && m.deadline < today ? 'late' : ''}`}>{m.deadline ? m.deadline.split('-').reverse().join('/') : '—'}</span>
-            </div>
-          ))}
-          {!data.missions.length && <div className="small muted mw-empty">{say("Vous n'êtes dans l'équipe d'aucune mission en cours.", 'You are on no running mission’s team.')}</div>}
-        </div>
-      </Block>
-
-      <div className="mw-grid">
-        <Block title={say('À valider', 'To sign off')} count={data.signOff.length} tone={data.signOff.length ? 'warn' : undefined}>
-          <div className="mw-rows">
-            {data.signOff.map((t) => (
-              <div key={t.id} className="mw-ticket">
-                <span className="wk-keycell"><TypeIcon type={t.type} say={say} /> <span className="mono">{t.key}</span></span>
-                <button className="linkish mw-title" onClick={() => ticket(t.id)}>{t.title}<span className="small muted"> · {t.assigneeName ?? '—'}</span></button>
-                <button className="btn sm primary" disabled={busy === t.id} onClick={() => move(t, { stageId: t.completedStageId }, t.completedStageName)}>{say('Valider', 'Sign off')}</button>
-              </div>
-            ))}
-            {!data.signOff.length && <div className="small muted mw-empty">{say("Rien n'attend votre validation.", 'Nothing waits for your sign-off.')}</div>}
-          </div>
-        </Block>
-
-        <Block title={say('Mentions et commentaires', 'Mentions and comments')} count={data.mentions.length}>
-          <div className="mw-rows">
-            {data.mentions.map((m) => (
-              <div key={m.id} className="mw-mention">
-                <button className="linkish grow" onClick={() => readMention(m, true)}><b>{m.title}</b><div className="small muted">{m.body}</div></button>
-                <span className="small muted">{ago(m.at, now, say)}</span>
-                <button className="btn sm ghost" onClick={() => readMention(m, false)} title={say('Marquer comme lu', 'Mark as read')} aria-label={say('Marquer comme lu', 'Mark as read')}><Icon name="close" size={12} /></button>
-              </div>
-            ))}
-            {!data.mentions.length && <div className="small muted mw-empty">{say('Aucune mention non lue.', 'No unread mention.')}</div>}
-          </div>
-        </Block>
-
-        {data.subtasks.length > 0 && (
-          <Block title={say('Mes sous-tâches', 'My sub-tasks')} count={data.subtasks.filter((s) => !s.done).length}>
-            <div className="mw-rows">
-              {data.subtasks.map((s) => (
-                <div key={s.id} className="mw-ticket">
-                  <input type="checkbox" checked={s.done} onChange={(e) => tick(s.id, e.target.checked)} aria-label={s.title} />
-                  <span className={`grow ${s.done ? 'wk-done' : ''}`}>{s.title}</span>
-                  <button className="linkish small" onClick={() => s.ticketId && ticket(s.ticketId)}>{s.ticketTitle ?? '—'}</button>
-                  <span className="mw-due small">{s.dueDate ? s.dueDate.split('-').reverse().join('/') : ''}</span>
-                </div>
-              ))}
-            </div>
-          </Block>
-        )}
-
-        <Block title={say('Signalés par moi', 'Reported by me')} count={data.reported.length}>
-          <div className="mw-rows">
-            {data.reported.map((t) => (
-              <div key={t.id} className="mw-ticket">
-                <span className="wk-keycell"><TypeIcon type={t.type} say={say} /> <span className="mono">{t.key}</span></span>
-                <button className="linkish mw-title" onClick={() => ticket(t.id)}>{t.title}</button>
-                <StageLozenge name={t.stageName} status={t.status} />
-                <Avatar name={t.assigneeName} size={22} />
-                <span className={`mw-due ${t.dueState === 'overdue' ? 'late' : ''}`}>{t.dueDate ? t.dueDate.split('-').reverse().join('/') : '—'}</span>
-              </div>
-            ))}
-            {!data.reported.length && <div className="small muted mw-empty">{say('Aucun ticket signalé en cours.', 'No open ticket reported by you.')}</div>}
-          </div>
-        </Block>
-
-        {data.lead.length > 0 && (
-          <Block title={say('Sur mes missions', 'On my missions')} count={data.lead.length} tone="warn">
-            <div className="mw-rows">
-              {data.lead.map(({ ticket: t, reasons }) => (
-                <div key={t.id} className="mw-ticket">
-                  <span className="wk-keycell"><TypeIcon type={t.type} say={say} /> <span className="mono">{t.key}</span></span>
-                  <button className="linkish mw-title" onClick={() => ticket(t.id)}>{t.title}<span className="small muted"> · {t.projectName ?? '—'}</span></button>
-                  {reasons.map((r) => <span key={r} className={`tag ${r === 'late' ? 'late' : ''}`}>{r === 'unassigned' ? say('Non assigné', 'Unassigned') : r === 'unestimated' ? say('À estimer', 'To estimate') : say('En retard', 'Late')}</span>)}
-                  <PriorityIcon priority={t.priority} say={say} />
-                </div>
-              ))}
-            </div>
-          </Block>
-        )}
-      </div>
-      <p className="small muted" style={{ margin: 0 }}>{say('La charge compte les heures restantes des tickets à rendre cette semaine (ou en retard, ou en cours), pondérées par priorité : urgente ×1,5, haute ×1,25, moyenne ×1, basse ×0,75. Un ticket sans estimation compte 0.', "The load counts the hours left on tickets due this week (or late, or in progress), weighted by priority: urgent ×1.5, high ×1.25, medium ×1, low ×0.75. A ticket without an estimate counts 0.")}</p>
+      <details className="mw-note">
+        <summary className="small muted">{say('Comment la charge est-elle calculée ?', 'How is the load computed?')}</summary>
+        <p className="small muted">{say('La charge compte les heures restantes des tickets à rendre cette semaine (ou en retard, ou en cours), pondérées par priorité : urgente ×1,5, haute ×1,25, moyenne ×1, basse ×0,75. Un ticket sans estimation compte 0.', 'The load counts the hours left on tickets due this week (or late, or in progress), weighted by priority: urgent ×1.5, high ×1.25, medium ×1, low ×0.75. A ticket without an estimate counts 0.')}</p>
+      </details>
     </div>
   );
 }
 
+// ---- the figures: load, time, and three counts that filter the tickets below ----
+
+function MyFigures({ data, counts, filters, setFilters, testMode, onJump, say }: {
+  data: Data; counts: ReturnType<typeof quickCounts>; filters: WorkFilters; setFilters: (f: WorkFilters) => void; testMode: boolean; onJump: (id: string) => void; say: Say;
+}) {
+  const { load } = data;
+  const week = testMode ? null : data.week; // [bumex-one] on the test floor its time is apart (0013)
+  const capacity = Math.max(1, (data.week?.capacityHours ?? load.capacityHours) * 60);
+  const status = week?.status;
+  const weekTone: Tone = status === 'approved' ? 'done' : status === 'returned' ? 'blocked' : status === 'submitted' ? 'review' : 'todo';
+  const weekText = status === 'approved' ? say('Validée', 'Approved') : status === 'submitted' ? say('Envoyée', 'Submitted') : status === 'returned' ? say('À corriger', 'Needs changes') : week?.loggedMinutes ? say('En cours', 'In progress') : say('Rien de saisi', 'Nothing logged');
+  const due = (d: 'late' | 'week') => setFilters({ ...filters, due: filters.due === d ? 'all' : d });
+  return (
+    <div className={`ov-figs mw-figs ${week ? '' : 'solo'}`} role="group" aria-label={say('Mes chiffres', 'My figures')}>
+      <Figure className="mw-fig-wide" tone={load.level === 'overloaded' ? 'crit' : load.level === 'high' ? 'warn' : undefined}
+        value={<>{hoursText(load.weekHours, say)} <span className="mw-fig-of">/ {hoursText(load.capacityHours, say)}</span></>}
+        label={<span className="mw-fig-l">{say('Ma charge', 'My load')} <span className={`loadlvl ${load.level}`}>{levelLabel(load.level, say)} · {load.percent} %</span></span>}
+        hint={`${load.weekCount} ${say('ticket(s) cette semaine', 'ticket(s) this week')} · ${hoursText(load.openHours, say)} ${say('restantes au total', 'left in all')}`}>
+        <LoadBar load={load} say={say} compact />
+      </Figure>
+      {week && (
+        <Figure className="mw-fig-wide" tone={status === 'returned' ? 'warn' : undefined} onClick={() => useStore.getState().openRoom('time')} hint={say('Ouvrir ma feuille de temps', 'Open my timesheet')}
+          value={<>{minutes(week.loggedMinutes)} <span className="mw-fig-of">/ {week.capacityHours} h</span></>}
+          label={<span className="mw-fig-l">{say('Mon temps · semaine', 'My time · week')} <Lozenge tone={weekTone}>{weekText}</Lozenge></span>}>
+          <span className="ov-hours-bar"><i style={{ width: `${Math.min(100, (week.loggedMinutes / capacity) * 100)}%` }} /></span>
+        </Figure>
+      )}
+      <Figure value={counts.late} label={say('En retard', 'Late')} tone={counts.late ? 'crit' : 'good'} onClick={() => due('late')} on={filters.due === 'late'} hint={say('Filtrer : en retard', 'Filter: late')} />
+      <Figure value={counts.week} label={say('À rendre cette semaine', 'Due this week')} onClick={() => due('week')} on={filters.due === 'week'} hint={say('Filtrer : cette semaine', 'Filter: this week')} />
+      <Figure value={counts.unestimated} label={say('À estimer', 'To estimate')} tone={counts.unestimated ? 'warn' : undefined} onClick={() => setFilters({ ...filters, noEstimate: !filters.noEstimate })} on={filters.noEstimate} hint={say('Filtrer : sans estimation', 'Filter: no estimate')} />
+      {data.signOff.length > 0 && <Figure value={data.signOff.length} label={say('À valider', 'To sign off')} tone="warn" onClick={() => onJump('mw-signoff')} />}
+      {data.mentions.length > 0 && <Figure value={data.mentions.length} label={say('Mentions non lues', 'Unread mentions')} onClick={() => onJump('mw-mentions')} />}
+    </div>
+  );
+}
+
+// ---- the boards: one per floor of my tickets, each the Tasks board with its floor's stages ----
+
+function FloorBoards({ all, cards, entityId, boardOf, flow, groupBy, groupLabels, filtered, missionOf, onOpen, onChanged, say }: {
+  all: MyCard[]; cards: MyCard[]; entityId: Id; boardOf: (projectId: string) => BoardWorkflow; flow: MoveFlow; groupBy: GroupBy; groupLabels: GroupLabels;
+  filtered: boolean; missionOf: (x: MyCard) => Mission | null; onOpen: (id: string) => void; onChanged: (change?: ListChange) => void | Promise<void>; say: Say;
+}) {
+  const entities = useStore((s) => s.state.entities);
+  const me = useStore((s) => s.state.session.userId);
+  // the floors are their boards' (0014): known once every board is read, so the built-in columns never flash
+  const ready = useBoardsReady(all.map((c) => c.ticket.project_id));
+  const columnOf = useCallback((x: MyCard) => stageIdOf(boardOf(x.ticket.project_id), x), [boardOf]);
+  const dropCheck = useCallback((x: MyCard, c: { id: string }) => moveCheck(boardOf(x.ticket.project_id), stageTicketOf(x), c.id, me), [boardOf, me]);
+  if (!ready) return <div className="card"><span className="muted">{say('Chargement du tableau…', 'Loading the board…')}</span></div>;
+  const floorOf = (pid: string) => { const w = boardOf(pid); return w.is_configured && w.entity_id ? w.entity_id : 'builtin'; };
+  const nameOf = (floor: string) => (floor === 'builtin' ? say('Autres tickets', 'Other tickets') : entities.find((e) => e.id === floor)?.name ?? say('Autre étage', 'Other floor'));
+  const floors = [...new Set(all.map((c) => floorOf(c.ticket.project_id)))]
+    .sort((a, b) => Number(b === entityId) - Number(a === entityId) || Number(a === 'builtin') - Number(b === 'builtin') || nameOf(a).localeCompare(nameOf(b), 'fr'));
+  // filtered, a floor where nothing matches goes (when there are several); none left says so
+  const shown = floors.map((floor) => ({ floor, mine: cards.filter((c) => floorOf(c.ticket.project_id) === floor) }))
+    .filter(({ mine }) => floors.length === 1 || !filtered || mine.length > 0);
+  return (
+    <div className="mw-boards">
+      {!shown.length && <div className="card"><span className="muted">{say('Aucun ticket ne correspond.', 'No ticket matches.')}</span></div>}
+      {shown.map(({ floor, mine }) => {
+        const workflow = boardOf(all.find((c) => floorOf(c.ticket.project_id) === floor)!.ticket.project_id);
+        return (
+          <section key={floor} className="mw-floor" aria-label={floors.length > 1 ? nameOf(floor) : undefined}>
+            {floors.length > 1 && (
+              <h3 className="mw-floor-h">
+                {floor === 'builtin' ? nameOf(floor) : `${say('Tableau de', 'Board of')} ${nameOf(floor)}`} <span className="tk-count">{mine.length}</span>
+                {floor !== entityId && floor !== 'builtin' && <span className="tag mw-other">{say('autre étage', 'other floor')}</span>}
+              </h3>
+            )}
+            <TicketBoard columns={boardColumns(workflow, mine)} tickets={mine} columnOf={columnOf} groupBy={groupBy} groupLabels={groupLabels} busyId={flow.busyId} onOpen={onOpen}
+              onMove={(x, c) => void flow.move({ id: x.id, label: x.ticket.key || x.title }, workflow.is_configured ? { stageId: c.id } : { status: (c.completed ? 'done' : c.id) as TicketStatus }, c.name)}
+              dropCheck={dropCheck} showMission missionOf={missionOf} onChanged={onChanged} foldKey={`mywork:${floor}`} say={say} />
+          </section>
+        );
+      })}
+      <BoardHint say={say} />
+    </div>
+  );
+}
+
+// ---- below the board: what waits on me, then what I follow ----
+
+function TicketLine({ t, sub, busy, onOpen, say, children }: {
+  t: { id: string; key: string | null; type: string; title: string }; sub?: ReactNode; busy?: boolean; onOpen: (id: string) => void; say: Say; children?: ReactNode;
+}) {
+  return (
+    <div className={`mw-ticket ${busy ? 'busy' : ''}`}>
+      <span className="wk-keycell"><TypeIcon type={t.type} say={say} /> <span className="mono">{t.key ?? '—'}</span></span>
+      <button className="linkish mw-title" onClick={() => onOpen(t.id)}>{t.title}{sub ? <span className="small muted"> · {sub}</span> : null}</button>
+      {children}
+    </div>
+  );
+}
+
+function More({ count, open, setOpen, say }: { count: number; open: boolean; setOpen: (v: boolean) => void; say: Say }) {
+  if (count <= MORE) return null;
+  return <button className="linkish small mw-more" onClick={() => setOpen(!open)}>{open ? say('Voir moins', 'See less') : say(`Voir les ${count}`, `See all ${count}`)}</button>;
+}
+
+// the tickets waiting for my sign-off (I reported them): one click passes them to their completed stage
+function SignOffBlock({ data, setData, missionOf, onOpen, refresh, say }: { data: Data; setData: SetData; missionOf: (pid: string) => Mission | null; onOpen: (id: string) => void; refresh: () => Promise<void>; say: Say }) {
+  const [now] = useState(Date.now);
+  const flow = useTicketMove(async (id: string) => {
+    setData((d) => d && { ...d, signOff: d.signOff.filter((s) => s.id !== id) });
+    await refresh();
+  });
+  return (
+    <Block id="mw-signoff" title={say('À valider', 'To sign off')} count={data.signOff.length} tone="warn" extra={<span className="small muted">{say('vous êtes le rapporteur', 'you are the reporter')}</span>}>
+      <MoveReason flow={flow} say={say} />
+      <div className="mw-rows">
+        {data.signOff.map((t) => (
+          <TicketLine key={t.id} t={t} sub={missionOf(t.projectId)?.code || t.projectName} busy={flow.busyId === t.id} onOpen={onOpen} say={say}>
+            <Avatar name={t.assigneeName} size={22} />
+            <span className="small muted mw-since" title={say('Dernier changement', 'Last change')}>{ago(t.updatedAt, now, say)}</span>
+            <button className="btn sm primary" disabled={flow.busyId === t.id} title={say(`Passer à « ${t.completedStageName} »`, `Move to "${t.completedStageName}"`)}
+              onClick={() => void flow.move({ id: t.id, label: t.key ?? t.title }, { stageId: t.completedStageId }, t.completedStageName)}>{say('Valider', 'Sign off')}</button>
+          </TicketLine>
+        ))}
+      </div>
+    </Block>
+  );
+}
+
+// the mentions and comments I have not read: read here (a ticket opens in My work), or all marked read
+function MentionsBlock({ data, setData, onOpen, say }: { data: Data; setData: SetData; onOpen: (id: string) => void; say: Say }) {
+  const [now] = useState(Date.now);
+  const read = async (m: Data['mentions'][number], go: boolean) => {
+    setData((d) => d && { ...d, mentions: d.mentions.filter((x) => x.id !== m.id) });
+    await markNotificationAsReadAction(m.id).catch(() => null);
+    if (!go || !m.subjectId) return;
+    if (m.subjectType === 'ticket' || m.subjectType === 'task') onOpen(m.subjectId);
+    else if (m.subjectType === 'project') useStore.getState().openRoom('missions', `mission:${m.subjectId}`);
+    else useStore.getState().openRoom('inbox');
+  };
+  const readAll = async () => {
+    const ids = data.mentions.map((m) => m.id);
+    setData((d) => d && { ...d, mentions: d.mentions.filter((m) => !ids.includes(m.id)) });
+    await Promise.all(ids.map((id) => markNotificationAsReadAction(id).catch(() => null)));
+  };
+  return (
+    <Block id="mw-mentions" title={say('Mentions et commentaires', 'Mentions and comments')} count={data.mentions.length}
+      extra={<span className="mw-extra"><button className="linkish small" onClick={() => void readAll()}>{say('Tout marquer comme lu', 'Mark all read')}</button><button className="linkish small" onClick={() => useStore.getState().openRoom('inbox')}>{say('Notifications', 'Notifications')} →</button></span>}>
+      <div className="mw-rows">
+        {data.mentions.map((m) => (
+          <div key={m.id} className="mw-mention">
+            <button className="linkish grow" onClick={() => void read(m, true)}><b>{m.title}</b><div className="small muted mw-clip">{m.body}</div></button>
+            <span className="small muted">{ago(m.at, now, say)}</span>
+            <button className="btn sm ghost" onClick={() => void read(m, false)} title={say('Marquer comme lu', 'Mark as read')} aria-label={say('Marquer comme lu', 'Mark as read')}><Icon name="close" size={12} /></button>
+          </div>
+        ))}
+      </div>
+    </Block>
+  );
+}
+
+// on the missions I lead: the tickets left unassigned, unestimated or late
+function LeadBlock({ data, missionOf, onOpen, say }: { data: Data; missionOf: (pid: string) => Mission | null; onOpen: (id: string) => void; say: Say }) {
+  const [all, setAll] = useState(false);
+  return (
+    <Block title={say('Sur mes missions', 'On my missions')} count={data.lead.length} tone="warn" extra={<span className="small muted">{say('à assigner · à estimer · en retard', 'to assign · to estimate · late')}</span>}>
+      <div className="mw-rows">
+        {(all ? data.lead : data.lead.slice(0, MORE)).map(({ ticket: t, reasons }) => (
+          <TicketLine key={t.id} t={t} sub={missionOf(t.projectId)?.code || t.projectName} onOpen={onOpen} say={say}>
+            {reasons.map((r) => <span key={r} className={`tag ${r === 'late' ? 'late' : ''}`}>{r === 'unassigned' ? say('Non assigné', 'Unassigned') : r === 'unestimated' ? say('À estimer', 'To estimate') : say('En retard', 'Late')}</span>)}
+            <PriorityIcon priority={t.priority} say={say} />
+            <Avatar name={t.assigneeName} size={22} />
+          </TicketLine>
+        ))}
+      </div>
+      <More count={data.lead.length} open={all} setOpen={setAll} say={say} />
+    </Block>
+  );
+}
+
+// my sub-tasks in others' tickets: ticked here at once (put back if refused)
+function SubtasksBlock({ data, setData, onOpen, refresh, say }: { data: Data; setData: SetData; onOpen: (id: string) => void; refresh: () => Promise<void>; say: Say }) {
+  const toast = useStore((s) => s.toast);
+  const today = useStore((s) => s.state.today);
+  const sorted = [...data.subtasks].sort((a, b) => Number(a.done) - Number(b.done));
+  const tick = async (id: string, value: boolean) => {
+    const set = (v: boolean) => setData((d) => d && { ...d, subtasks: d.subtasks.map((s) => (s.id === id ? { ...s, done: v } : s)) });
+    set(value);
+    const result = await toggleSubtaskAction(id, value).catch(() => ({ error: say('Serveur injoignable.', 'Server unreachable.') }));
+    if (result.error) { set(!value); toast('error', result.error); return; }
+    void refresh();
+  };
+  return (
+    <Block title={say('Mes sous-tâches', 'My sub-tasks')} count={data.subtasks.filter((s) => !s.done).length}>
+      <div className="mw-rows">
+        {sorted.map((s) => (
+          <div key={s.id} className="mw-ticket">
+            <input type="checkbox" checked={s.done} onChange={(e) => void tick(s.id, e.target.checked)} aria-label={s.title} />
+            <span className={`grow ${s.done ? 'wk-done' : ''}`}>{s.title}</span>
+            {s.ticketId && <button className="linkish small mw-parent" onClick={() => onOpen(s.ticketId!)}>{s.ticketTitle ?? '—'}</button>}
+            <span className={`mw-due small ${!s.done && s.dueDate && s.dueDate < today ? 'late' : ''}`}>{s.dueDate ? dmy(s.dueDate).slice(0, 5) : ''}</span>
+          </div>
+        ))}
+      </div>
+    </Block>
+  );
+}
+
+// what I reported that others carry
+function ReportedBlock({ data, onOpen, say }: { data: Data; onOpen: (id: string) => void; say: Say }) {
+  const [all, setAll] = useState(false);
+  return (
+    <Block title={say('Signalés par moi', 'Reported by me')} count={data.reported.length}>
+      <div className="mw-rows">
+        {(all ? data.reported : data.reported.slice(0, MORE)).map((t) => (
+          <TicketLine key={t.id} t={t} onOpen={onOpen} say={say}>
+            <StageLozenge name={t.stageName} status={t.status} />
+            <Avatar name={t.assigneeName} size={22} />
+            <span className={`mw-due ${t.dueState === 'overdue' ? 'late' : ''}`}>{t.dueDate ? dmy(t.dueDate) : '—'}</span>
+          </TicketLine>
+        ))}
+      </div>
+      <More count={data.reported.length} open={all} setOpen={setAll} say={say} />
+    </Block>
+  );
+}
+
+// the missions I lead or am on, every floor: their page, and "mine" narrows the tickets above to it
+function MissionsBlock({ data, onScope, say }: { data: Data; onScope: (id: string) => void; say: Say }) {
+  const today = useStore((s) => s.state.today);
+  return (
+    <Block title={say('Mes missions', 'My missions')} count={data.missions.length} className="mw-missions">
+      <div className="mw-rows">
+        {data.missions.map((m) => {
+          const due = dueIn(m.deadline, today, say);
+          return (
+            <div key={m.id} className="mw-ticket">
+              <span className="wk-keycell"><span className="mono">{m.code ?? '—'}</span></span>
+              <button className="linkish mw-title" onClick={() => useStore.getState().openRoom('missions', `mission:${m.id}`)}>{m.name}
+                {!m.home && <span className="tag mw-other">{m.entity}</span>}
+                {m.lead && <span className="tag dim">{say('responsable', 'lead')}</span>}
+              </button>
+              <span className="small muted mw-counts">
+                {m.open} {say('ouverts', 'open')}{m.mine > 0 && <> · <button className="linkish" onClick={() => onScope(m.id)} title={say('Voir mes tickets de cette mission', 'See my tickets of this mission')}>{m.mine} {say('à moi', 'mine')}</button></>}
+              </span>
+              <span className={`mw-due ${due?.late ? 'late' : ''}`} title={m.deadline && hasDeadline(m.deadline) ? dmy(m.deadline) : undefined}>{due ? due.text : say('sans échéance', 'no deadline')}</span>
+            </div>
+          );
+        })}
+        {!data.missions.length && <div className="small muted mw-empty">{say("Vous n'êtes dans l'équipe d'aucune mission en cours.", 'You are on no running mission’s team.')}</div>}
+      </div>
+    </Block>
+  );
+}

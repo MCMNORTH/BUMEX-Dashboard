@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { NO_FILTERS, activeFilterCount, applyFilters, groupTickets } from '../work-filters';
+import { NO_FILTERS, activeFilterCount, applyFilters, groupTickets, quickCounts, readFilters, workTicketOf, writeFilters } from '../work-filters';
+import type { MyWorkTicket } from '@/lib/erp/vanguard/work-items';
 
 const today = '2026-10-28'; // a Wednesday; Sunday is 2026-11-01
 const t = (title: string, key: string, assignee: string | null, priority: string, dueDate: string, extra: Partial<{ type: string; labels: string[]; status: string; engagementId: string }> = {}) => ({
@@ -38,5 +39,58 @@ describe('work filters', () => {
     expect(groupTickets(tickets, 'assignee', labels).map((g) => [g.label, g.items.length])).toEqual([['Person emp', 2], ['Person mgr', 1], ['Non assigné', 1]]);
     expect(groupTickets(tickets, 'priority', labels).map((g) => g.key)).toEqual(['urgent', 'high', 'medium', 'low']);
     expect(groupTickets(tickets, 'mission', labels).map((g) => g.label)).toEqual(['m1', 'm2', 'Sans mission']);
+  });
+});
+
+// My work's tickets on the Tasks room's parts (2026-10-29)
+const item = (over: Partial<MyWorkTicket> = {}): MyWorkTicket => ({
+  id: 't1', key: 'AUD-9', title: 'Circularisation des tiers', type: 'task', projectId: 'p1', projectName: 'Audit légal 2025', status: 'in_progress',
+  stageId: 'in_progress', stageName: 'Terrain', assigneeId: 'emp', reporterId: 'mgr', priority: 'high', dueDate: '2026-10-27', dueState: 'overdue',
+  estimatedHours: null, loggedMinutes: 0, labels: [], assigneeName: 'Ahmed Ba', updatedAt: '2026-10-28T08:00:00Z', ...over,
+});
+
+describe("My work's tickets", () => {
+  it('take the shape the board and the list read', () => {
+    const card = workTicketOf(item({ dueDate: null, key: null, status: 'archived' }), { code: 'M-003', name: 'Commissariat aux comptes' });
+    expect(card).toMatchObject({ dueDate: '9999-12-31', status: 'done', assignee: 'Ahmed Ba', engagementId: 'p1', ticket: { key: '', stage_name: 'Terrain', project_id: 'p1' } });
+    expect(card.item.id).toBe('t1');
+  });
+
+  it('are found by their mission, its code or its name', () => {
+    const cards = [workTicketOf(item(), { code: 'M-003', name: 'Commissariat aux comptes' }), workTicketOf(item({ id: 't2', title: 'Autre' }), null)];
+    expect(titles(applyFilters(cards, { ...NO_FILTERS, search: 'm-003' }, 'emp', today))).toEqual(['Circularisation des tiers']);
+    expect(titles(applyFilters(cards, { ...NO_FILTERS, search: 'commissariat' }, 'emp', today))).toEqual(['Circularisation des tiers']);
+    expect(titles(applyFilters(cards, { ...NO_FILTERS, search: 'audit legal' }, 'emp', today))).toEqual(['Autre']);
+  });
+
+  it('are counted by the very filters the figures turn on', () => {
+    const open = [
+      workTicketOf(item({ id: 'a', dueDate: '2026-10-20' })),
+      workTicketOf(item({ id: 'b', dueDate: '2026-10-30', estimatedHours: 4 })),
+      workTicketOf(item({ id: 'c', dueDate: null, estimatedHours: 2 })),
+    ];
+    const counts = quickCounts(open, 'emp', today);
+    expect(counts).toEqual({ late: 1, week: 1, unestimated: 1 });
+    expect(applyFilters(open, { ...NO_FILTERS, due: 'late' }, 'emp', today).length).toBe(counts.late);
+  });
+
+  it('keep their filters only where storage works', () => {
+    expect(readFilters('bumex-vanguard-mywork')).toEqual(NO_FILTERS);
+  });
+
+  it('read back the filters kept, over the defaults (a shape from before keeps the new keys), and the defaults when unreadable', () => {
+    const kept = new Map<string, string>();
+    vi.stubGlobal('window', { localStorage: { getItem: (k: string) => kept.get(k) ?? null, setItem: (k: string, v: string) => void kept.set(k, v) } });
+    try {
+      writeFilters('mine', { ...NO_FILTERS, due: 'late', priorities: ['high'], groupBy: 'mission' });
+      expect(readFilters('mine')).toEqual({ ...NO_FILTERS, due: 'late', priorities: ['high'], groupBy: 'mission' });
+      kept.set('older', JSON.stringify({ due: 'week', people: ['u1'] }));
+      expect(readFilters('older')).toEqual({ ...NO_FILTERS, due: 'week', people: ['u1'] });
+      kept.set('broken', '{"due":');
+      expect(readFilters('broken')).toEqual(NO_FILTERS);
+      expect(readFilters('never')).toEqual(NO_FILTERS);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

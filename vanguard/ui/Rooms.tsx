@@ -36,7 +36,7 @@ export function RoomContent({ room, entityId, tab, compact }: { room: Room; enti
     case 'reports': return <ReportsPanel entityId={entityId} />;
     case 'settings': return <SettingsPanel initialTab={tab} />;
     case 'myday': return <MyDay initialTab={tab} />; // [bumex-one]
-    case 'mywork': return <MyWorkRoom />; // [bumex-one]
+    case 'mywork': return <MyWorkRoom entityId={entityId} initialTab={tab} />; // [bumex-one] its board, its list, a ticket (tab)
     case 'time': return <TimeRoom initialTab={tab} />; // [bumex-one] BUMEX One's timesheet
     case 'inbox': return <Inbox />; // [bumex-one] BUMEX One's notifications
     case 'overview': return <OverviewRoom entityId={entityId} initialTab={tab} />; // [bumex-one] the floor at a glance

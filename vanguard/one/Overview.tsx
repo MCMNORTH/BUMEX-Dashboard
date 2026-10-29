@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { addDays, canOpenRoom, floorSignals, type Id } from '@bumex/domain';
 import { floorOverviewAction, type FloorOverview, type OverviewPerson } from '@/lib/erp/vanguard/overview-actions';
 import { useStore } from '../store';
@@ -11,7 +11,7 @@ import { useSay } from './say';
 import { ago, describeHistory, type Say } from './ticket-history';
 import { StageLozenge } from './stages';
 import { sundayOf } from './work-filters';
-import { Avatar, LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursText, levelLabel, type Tone } from './work-ui';
+import { Avatar, Block, Figure, LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursText, levelLabel, type Tone } from './work-ui';
 
 // [bumex-one] The floor at a glance (asked on 2026-10-28), the first page of flat mode and the rail's "Vue d'ensemble":
 // its tickets' figures, each opening the list behind it; its people with what they carry here, their load, their week's
@@ -45,24 +45,6 @@ export function OverviewRoom({ entityId, initialTab }: { entityId: Id; initialTa
         {person ? <PersonPanel key={person} personId={person} onClose={() => setPerson(null)} /> : <FloorOverviewBody entityId={entityId} onPerson={setPerson} />}
       </div>
     </>
-  );
-}
-
-function Figure({ label, value, tone, onClick, hint }: { label: string; value: ReactNode; tone?: 'crit' | 'warn' | 'good'; onClick?: () => void; hint?: string }) {
-  return (
-    <button className={`ov-fig ${tone ?? ''}`} onClick={onClick} disabled={!onClick} title={hint}>
-      <span className="ov-fig-v">{value}</span>
-      <span className="ov-fig-l">{label}</span>
-    </button>
-  );
-}
-
-function Block({ title, count, tone, children, extra }: { title: string; count?: number; tone?: 'crit' | 'warn'; children: ReactNode; extra?: ReactNode }) {
-  return (
-    <section className="card ov-block">
-      <div className="mw-block-h"><h2>{title}</h2>{count !== undefined && <span className={`tk-count ${tone ?? ''}`}>{count}</span>}<span className="grow" />{extra}</div>
-      {children}
-    </section>
   );
 }
 

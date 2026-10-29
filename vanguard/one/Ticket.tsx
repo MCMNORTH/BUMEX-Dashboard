@@ -25,7 +25,8 @@ import { QuickLogButton } from './QuickLog';
 
 const ESTIMATES = [1, 2, 4, 8, 16];
 
-export function TicketPanel({ id, onClose }: { id: string; onClose: () => void }) {
+// backLabel: where back leads (the Tasks room's list by default; My work, 2026-10-29)
+export function TicketPanel({ id, onClose, backLabel }: { id: string; onClose: () => void; backLabel?: string }) {
   const { toast } = useStore();
   const [now] = useState(Date.now);
   const say = useSay();
@@ -66,7 +67,7 @@ export function TicketPanel({ id, onClose }: { id: string; onClose: () => void }
     return (
       <div className="card">
         <div className="banner warn">{say("Ce ticket n'existe plus ou ne vous est pas accessible.", 'This ticket no longer exists or is not open to you.')}</div>
-        <div className="actions" style={{ marginTop: 10 }}><button className="btn sm" onClick={onClose}>{say('Retour aux tâches', 'Back to the tasks')}</button></div>
+        <div className="actions" style={{ marginTop: 10 }}><button className="btn sm" onClick={onClose}>{backLabel ?? say('Retour aux tâches', 'Back to the tasks')}</button></div>
       </div>
     );
   }
@@ -90,7 +91,7 @@ export function TicketPanel({ id, onClose }: { id: string; onClose: () => void }
 
   return (
     <div className="tk">
-      <TopBar view={view} busy={busy} say={say} onClose={onClose} run={run}
+      <TopBar view={view} busy={busy} say={say} onClose={onClose} run={run} backLabel={backLabel}
         onAdd={(what) => (what === 'file' ? fileRef.current?.click() : setAdding(what))} />
       <input ref={fileRef} type="file" multiple hidden onChange={(e) => attach(e.target.files)} />
       <div className="tk-grid">
@@ -117,7 +118,7 @@ export function TicketPanel({ id, onClose }: { id: string; onClose: () => void }
 }
 
 // ---- the top: back, breadcrumb (floor › mission › key), add and more ----
-function TopBar({ view, busy, say, onClose, run, onAdd }: { view: TicketView; busy: boolean; say: Say; onClose: () => void; run: Run; onAdd: (what: 'subtask' | 'link' | 'file') => void }) {
+function TopBar({ view, busy, say, onClose, run, onAdd, backLabel }: { view: TicketView; busy: boolean; say: Say; onClose: () => void; run: Run; onAdd: (what: 'subtask' | 'link' | 'file') => void; backLabel?: string }) {
   const { state, openRoom } = useStore();
   const { ticket } = view;
   const [menu, setMenu] = useState<'add' | 'more' | null>(null);
@@ -135,7 +136,7 @@ function TopBar({ view, busy, say, onClose, run, onAdd }: { view: TicketView; bu
   const canAdd = view.canUpdate || view.canAttach || view.canLink;
   return (
     <div className="tk-top">
-      <button className="btn sm ghost" onClick={onClose} aria-label={say('Retour aux tâches', 'Back to the tasks')}><Icon name="back" size={14} /></button>
+      <button className="btn sm ghost" onClick={onClose} aria-label={backLabel ?? say('Retour aux tâches', 'Back to the tasks')} title={backLabel ?? say('Retour aux tâches', 'Back to the tasks')}><Icon name="back" size={14} /></button>
       <nav className="tk-crumbs" aria-label={say('Emplacement du ticket', "The ticket's place")}>
         <span>{floor?.name ?? say('Étage', 'Floor')}</span><span aria-hidden="true">/</span>
         <button className="linkish" onClick={() => openRoom('missions', `mission:${ticket.project_id}`)}>{mission?.code ?? ticket.projectName ?? say('Mission', 'Mission')}</button><span aria-hidden="true">/</span>

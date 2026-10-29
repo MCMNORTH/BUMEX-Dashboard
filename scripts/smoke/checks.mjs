@@ -547,6 +547,40 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     const back = await tab.until("!document.cookie.includes('bumex-floor-mode=test') && !document.querySelector('.test-banner') && !document.querySelector('.mode-switch')", 25_000);
     check("the test floor: nothing of it in My work outside; entering it shows only its data; leaving it switches back",
       realWork && !leakBefore && inTest && testOnly && back && tab.takeErrors().length === 0, { realWork, leakBefore, inTest, testOnly, back });
+    // My work, redrawn on the Tasks room's parts (2026-10-29): the Tasks board, the Tasks list, figures that filter, a
+    // ticket opened in place
+    await tab.go("/vanguard?room=mywork&tab=board");
+    const mwBoard = await tab.until("[...document.querySelectorAll('.wk-col-name')].some((c) => c.textContent.trim().toLowerCase() === 'planification') && [...document.querySelectorAll('.wk-card')].some((c) => c.innerText.includes('Circularisation clients') && /AUD-\\d+/.test(c.innerText))", 25_000);
+    const noKanban = await tab.evaluate("!document.querySelector('.mw .kanban') && Boolean(document.querySelector('.mw .wk-card .tag.mission'))");
+    check("My work's board is the Tasks board: the floor's stages, cards with their key and mission", mwBoard && noKanban && tab.takeErrors().length === 0, { mwBoard, noKanban });
+    const lateFig = "[...document.querySelectorAll('.mw-figs button.ov-fig')].find((f) => /En retard|Late/.test(f.innerText))";
+    const totalBefore = await tab.evaluate("document.querySelector('.wk-count')?.innerText");
+    await tab.evaluate(`${lateFig}.click()`);
+    const filteredLate = await tab.until(`${lateFig}.getAttribute('aria-pressed') === 'true' && /\\d+ \\/ \\d+/.test(document.querySelector('.wk-count')?.innerText ?? '')`, 10_000);
+    await tab.evaluate(`${lateFig}.click()`);
+    const cleared = await tab.until(`${lateFig}.getAttribute('aria-pressed') === 'false' && document.querySelector('.wk-count')?.innerText === ${JSON.stringify(totalBefore ?? '')}`, 10_000);
+    check("…its « En retard » figure filters the tickets, and turns off again", filteredLate && cleared && tab.takeErrors().length === 0, { totalBefore, filteredLate, cleared });
+    // Escape closes the filters, and not the room (ui/Header.tsx closes a room on Escape), wherever the focus is
+    const filterButton = "document.querySelector('.mw .wk-toolbar .menu-wrap > button')";
+    await tab.evaluate(`(() => { const b = ${filterButton}; b.focus(); b.click(); })()`);
+    const popOpen = await tab.until("Boolean(document.querySelector('.mw .wk-pop'))", 5_000);
+    await tab.evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))");
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const popClosed = await tab.until(`!document.querySelector('.wk-pop') && Boolean(document.querySelector('.mw .wk-toolbar')) && document.activeElement === ${filterButton}`, 5_000);
+    check("…Escape closes its filters and leaves the room open", popOpen && popClosed && tab.takeErrors().length === 0, { popOpen, popClosed });
+    // a ticket opens in place; back finds My work as it was, its search still there
+    await tab.evaluate(setValue(".mw .wk-search input", "Circularisation"));
+    const searched = await tab.until("document.querySelectorAll('.mw .wk-card').length > 0 && [...document.querySelectorAll('.mw .wk-card')].some((c) => c.innerText.includes('Circularisation clients'))", 5_000);
+    const shownSearched = await tab.evaluate("document.querySelectorAll('.mw .wk-card').length");
+    await tab.evaluate("[...document.querySelectorAll('.wk-card')].find((c) => c.innerText.includes('Circularisation clients')).click()");
+    const inPlace = await tab.until("Boolean(document.querySelector('.tk')) && new URLSearchParams(location.search).get('room') !== 'tasks' && [...document.querySelectorAll('.tk-top button')].some((b) => /Retour à mon travail|Back to my work/.test(b.getAttribute('aria-label') ?? ''))", 15_000);
+    await tab.evaluate("[...document.querySelectorAll('.tk-top button')].find((b) => /Retour à mon travail|Back to my work/.test(b.getAttribute('aria-label') ?? '')).click()");
+    const backHere = await tab.until("Boolean(document.querySelector('.mw .wk-card')) && !document.querySelector('.tk')", 15_000);
+    const kept = await tab.until(`document.querySelector('.mw .wk-search input')?.value === 'Circularisation' && document.querySelectorAll('.mw .wk-card').length === ${shownSearched}`, 5_000);
+    check("…a ticket opens in My work, and back returns to it as it was (its search kept)", searched && inPlace && backHere && kept && tab.takeErrors().length === 0, { searched, inPlace, backHere, kept, shownSearched });
+    await tab.go("/vanguard?room=mywork&tab=list");
+    const mwList = await tab.until("Boolean(document.querySelector('.mw .wk-list .stage-pick')) && document.querySelector('.mw .wk-list').innerText.includes('Circularisation clients')", 25_000);
+    check("…and its list is the Tasks list, each ticket's stage changed in place", mwList && tab.takeErrors().length === 0);
     await tab.signIn(cookies["mariem.sow"]);
     // the board: every mission of the floor on the floor's board, cards with their key; the search narrows them
     await tab.go("/vanguard?room=tasks&tab=board");
