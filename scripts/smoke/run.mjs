@@ -5,6 +5,8 @@
 //   npm run smoke                  build, start, check, stop
 //   npm run smoke -- --no-build    reuse the last build (nothing changed since)
 //   npm run smoke -- --keep        leave everything running afterwards, to look around; then npm run smoke -- --stop
+//   npm run smoke -- --screens     then every screen at a PC's, a tablet's and a phone's size (screens.mjs; --screens-only,
+//                                  --sizes=pc,phone, --label=before, --strict)
 //
 // Needs PostgreSQL 16 or later (initdb and pg_ctl on the PATH), the Firebase CLI and Google Chrome (CHROME=<path> for
 // another). Works in <tmp>/bumex-smoke on a copy of the files git would commit: the repository's .env files are never
@@ -22,6 +24,7 @@ import { getAuth } from "firebase-admin/auth";
 import pg from "pg";
 
 import { runChecks } from "./checks.mjs";
+import { runScreens } from "./screens.mjs";
 import { actions, browser, mailbox, report } from "./lib.mjs";
 import { PASSWORD, people, seed } from "./seed.mjs";
 
@@ -210,7 +213,19 @@ try {
   const db = new pg.Client({ connectionString: `${superUrl}/bumex_erp` });
   await db.connect();
   try {
-    await runChecks({ act: actions(base, build, cookies), db, base, authPort: port.auth, cookies, openBrowser: () => browser(port.chrome, base), mail, cronSecret, check });
+    if (!args.includes("--screens-only")) await runChecks({ act: actions(base, build, cookies), db, base, authPort: port.auth, cookies, openBrowser: () => browser(port.chrome, base), mail, cronSecret, check });
+    if (args.includes("--screens") || args.includes("--screens-only")) {
+      const option = (name) => args.find((a) => a.startsWith(`--${name}=`))?.split("=")[1];
+      step("Screens");
+      await runScreens({
+        openBrowser: () => browser(port.chrome, base),
+        cookies,
+        check,
+        dir: join(work, "screens", option("label") ?? "latest"),
+        sizes: option("sizes")?.split(","),
+        strict: args.includes("--strict"),
+      });
+    }
   } finally {
     await db.end();
     await mail.stop();

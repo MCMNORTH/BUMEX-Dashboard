@@ -1,6 +1,6 @@
 // The smoke test's tools (scripts/smoke/run.mjs): the app's server actions over HTTP, a small Chrome DevTools driver,
 // an SMTP server that keeps the app's e-mails, and the report.
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { join } from "node:path";
 
@@ -139,6 +139,20 @@ export async function browser(port, base) {
       await sleep(400);
     },
     evaluate,
+    // a screen of this size; a phone or a tablet has touch and no hover (screens.mjs)
+    async viewport(width, height, { mobile = false, touch = false } = {}) {
+      await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: mobile ? 2 : 1, mobile });
+      await send("Emulation.setTouchEmulationEnabled", { enabled: touch, maxTouchPoints: touch ? 5 : 0 });
+      await send("Emulation.setEmulatedMedia", {
+        features: touch
+          ? [{ name: "hover", value: "none" }, { name: "pointer", value: "coarse" }, { name: "any-hover", value: "none" }, { name: "any-pointer", value: "coarse" }]
+          : [],
+      });
+    },
+    async screenshot(file) {
+      const { result } = await send("Page.captureScreenshot", { format: "png" });
+      writeFileSync(file, Buffer.from(result.data, "base64"));
+    },
     // waits until the expression is true; false after the timeout
     async until(expression, timeout = 20_000) {
       const end = Date.now() + timeout;
