@@ -1,12 +1,12 @@
-// A person's load (asked on 2026-10-27): the hours left on their open tickets, weighted by priority, against their
-// weekly capacity. One computation for every screen that shows it (My work, My day, People, a person's page, the
-// pickers, the week view). Pure: the tickets and the day come in.
+// A person's load: the hours assigned to them through their tickets, against their weekly capacity (asked on
+// 2026-10-30, replacing the week's weighted hours left of 2026-10-27, which showed 0 % to someone with a full board
+// due next week). One computation for every screen that shows it (My work, My day, People, a person's page, the
+// pickers, the overview). Pure: the tickets and the day come in.
 //
-// - A ticket counts its remaining hours: its estimate less the time logged on it, never below 0. Without an estimate
-//   it counts 0 and is flagged "to estimate".
-// - This week's load counts the open tickets due by Sunday, the late ones, and those in progress without a due date.
-//   A ticket in review waits for its reporter, not its assignee: it counts nowhere; nor does a done or archived one.
-// - The weights: urgent ×1.5, high ×1.25, medium ×1, low ×0.75.
+// - Every open ticket counts its estimate, whatever its due date and its stage (in review too); a done or archived one
+//   does not. Without an estimate it counts 0 and is flagged "to estimate".
+// - The hours are not weighted; byPriority splits them by priority. openHours is what remains once the time logged
+//   on each ticket is taken off.
 
 export type LoadPriority = "low" | "medium" | "high" | "urgent";
 export type LoadLevel = "light" | "balanced" | "high" | "overloaded";
@@ -62,48 +62,38 @@ export function levelOf(percent: number): LoadLevel {
   return "light";
 }
 
-const counts = (status: string) => status !== "review" && status !== "done" && status !== "archived";
+const counts = (status: string) => status !== "done" && status !== "archived";
 
 export function loadOf(tickets: LoadTicket[], options: { capacityHours: number; today: string }): Load {
-  const sunday = weekEnd(options.today);
   const byPriority: Record<LoadPriority, number> = { urgent: 0, high: 0, medium: 0, low: 0 };
-  let weekHours = 0;
-  let rawWeekHours = 0;
+  let assigned = 0;
   let openHours = 0;
   let count = 0;
-  let weekCount = 0;
   let overdue = 0;
   let unestimated = 0;
   for (const ticket of tickets) {
     if (!counts(ticket.status)) continue;
     count += 1;
     const due = ticket.due_date?.slice(0, 10) ?? null;
-    const late = Boolean(due && due < options.today);
-    if (late) overdue += 1;
-    if (!(Number(ticket.estimated_hours ?? 0) > 0)) unestimated += 1;
-    const left = remainingHours(ticket);
-    openHours += left;
-    const thisWeek = late || (due ? due <= sunday : ticket.status === "in_progress" || ticket.status === "blocked");
-    if (!thisWeek) continue;
-    weekCount += 1;
-    const priority = priorityOf(ticket.priority);
-    const weighted = left * PRIORITY_WEIGHT[priority];
-    byPriority[priority] += weighted;
-    weekHours += weighted;
-    rawWeekHours += left;
+    if (due && due < options.today) overdue += 1;
+    const estimate = Number(ticket.estimated_hours ?? 0);
+    if (!(estimate > 0)) { unestimated += 1; continue; }
+    assigned += estimate;
+    byPriority[priorityOf(ticket.priority)] += estimate;
+    openHours += remainingHours(ticket);
   }
   const capacityHours = Math.max(0, Number(options.capacityHours) || 0);
-  const percent = capacityHours > 0 ? Math.round((weekHours / capacityHours) * 100) : weekHours > 0 ? 999 : 0;
+  const percent = capacityHours > 0 ? Math.round((assigned / capacityHours) * 100) : assigned > 0 ? 999 : 0;
   return {
-    weekHours: round(weekHours),
-    rawWeekHours: round(rawWeekHours),
+    weekHours: round(assigned),
+    rawWeekHours: round(assigned),
     openHours: round(openHours),
     capacityHours,
     percent,
     level: levelOf(percent),
     byPriority: { urgent: round(byPriority.urgent), high: round(byPriority.high), medium: round(byPriority.medium), low: round(byPriority.low) },
     count,
-    weekCount,
+    weekCount: count,
     overdue,
     unestimated,
     pressure: overdue >= 2,

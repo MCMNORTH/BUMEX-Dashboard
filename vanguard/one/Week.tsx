@@ -52,7 +52,7 @@ export function WeekView({ entityId }: { entityId: Id }) {
   const locale = ui.lang === 'fr' ? 'fr-FR' : 'en-GB';
   const dayLabel = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 
-  // each person's load on the floor (lib/work/load.ts): the hours left this week, weighted by priority; their counts
+  // each person's load on the floor (lib/work/load.ts): the hours assigned through their open tickets; their counts
   const load = people.map(([id, name]) => {
     const theirs = tasks.filter((x) => x.ticket.assignee_id === id && x.status !== 'done');
     const hours = loadOf(theirs.map((x) => ({ ...x.ticket, due_date: x.dueDate === NO_DUE_DATE ? null : x.dueDate })), { capacityHours: 0, today: state.today });
@@ -166,7 +166,7 @@ export function WeekView({ entityId }: { entityId: Id }) {
         </div>
         <div className="card flush">
           <table>
-            <thead><tr><th>{say('Charge', 'Load')}</th><th className="num">{say('Heures pondérées', 'Weighted hours')}</th><th className="num">{say('Cette semaine', 'This week')}</th><th className="num">{say('En retard', 'Late')}</th><th className="num">{say('Ouvertes', 'Open')}</th><th style={{ width: '30%' }} /></tr></thead>
+            <thead><tr><th>{say('Charge', 'Load')}</th><th className="num">{say('Heures assignées', 'Assigned hours')}</th><th className="num">{say('Cette semaine', 'This week')}</th><th className="num">{say('En retard', 'Late')}</th><th className="num">{say('Ouvertes', 'Open')}</th><th style={{ width: '30%' }} /></tr></thead>
             <tbody>
               {load.length ? load.map((p) => (
                 <tr key={p.id} className={who === p.id ? 'sel' : ''} onClick={() => setWho(who === p.id ? 'all' : p.id)} style={{ cursor: 'pointer' }}>

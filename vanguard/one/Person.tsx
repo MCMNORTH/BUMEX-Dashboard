@@ -153,7 +153,7 @@ export function PersonPanel({ personId, onClose }: { personId: string; onClose: 
       </div>
 
       <div className="grid4">
-        <div className="kpi"><div className="l">{say('Charge cette semaine', 'Load this week')}</div>{view.load ? <LoadBar load={view.load} say={say} /> : <div className="v">{Math.round(view.figures.utilization)} %</div>}<div className="small muted">{m.capacity} h / {say('semaine', 'week')} · {say('pondérée par priorité', 'weighted by priority')}</div></div>
+        <div className="kpi"><div className="l">{say('Charge', 'Load')}</div>{view.load ? <LoadBar load={view.load} say={say} /> : <div className="v">{Math.round(view.figures.utilization)} %</div>}<div className="small muted">{m.capacity} h / {say('semaine', 'week')} · {say('pondérée par priorité', 'weighted by priority')}</div></div>
         <div className="kpi"><div className="l">{say('Tickets terminés', 'Tickets done')}</div><div className="v">{view.figures.completed}</div></div>
         <div className="kpi"><div className="l">{say('En retard', 'Overdue')}</div><div className="v" style={{ color: view.figures.overdue ? 'var(--crit)' : undefined }}>{view.figures.overdue}</div></div>
         <div className="kpi"><div className="l">{say('Mis à jour récemment', 'Recently updated')}</div><div className="v">{view.figures.recentlyUpdated}</div></div>

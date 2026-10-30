@@ -32,7 +32,7 @@ export type PersonRow = {
   tasks: number;
   overdue: number;
   workload: TeamWorkloadLevel;
-  load: Load; // hours left on their tickets, weighted by priority, against their capacity (lib/work/load.ts)
+  load: Load; // hours assigned through their open tickets, against their capacity (lib/work/load.ts)
 };
 
 export async function peopleAction(): Promise<PersonRow[]> {

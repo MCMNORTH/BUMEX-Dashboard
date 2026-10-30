@@ -245,7 +245,7 @@ function MyWorkBody({ data, setData, view, entityId, onOpen, refresh, say }: {
 
       <details className="mw-note">
         <summary className="small muted">{say('Comment la charge est-elle calculée ?', 'How is the load computed?')}</summary>
-        <p className="small muted">{say('La charge compte les heures restantes des tickets à rendre cette semaine (ou en retard, ou en cours), pondérées par priorité : urgente ×1,5, haute ×1,25, moyenne ×1, basse ×0,75. Un ticket sans estimation compte 0.', 'The load counts the hours left on tickets due this week (or late, or in progress), weighted by priority: urgent ×1.5, high ×1.25, medium ×1, low ×0.75. A ticket without an estimate counts 0.')}</p>
+        <p className="small muted">{say('La charge compte les heures estimées de tous vos tickets ouverts (quelle que soit leur échéance, en revue comprise), face à votre capacité de la semaine. Un ticket terminé ne compte plus ; un ticket sans estimation compte 0.', 'The load counts the estimated hours of all your open tickets (whatever their due date, in review included) against your weekly capacity. A done ticket no longer counts; a ticket without an estimate counts 0.')}</p>
       </details>
     </div>
   );
@@ -268,7 +268,7 @@ function MyFigures({ data, counts, filters, setFilters, testMode, onJump, say }:
       <Figure className="mw-fig-wide" tone={load.level === 'overloaded' ? 'crit' : load.level === 'high' ? 'warn' : undefined}
         value={<>{hoursText(load.weekHours, say)} <span className="mw-fig-of">/ {hoursText(load.capacityHours, say)}</span></>}
         label={<span className="mw-fig-l">{say('Ma charge', 'My load')} <span className={`loadlvl ${load.level}`}>{levelLabel(load.level, say)} · {load.percent} %</span></span>}
-        hint={`${load.weekCount} ${say('ticket(s) cette semaine', 'ticket(s) this week')} · ${hoursText(load.openHours, say)} ${say('restantes au total', 'left in all')}`}>
+        hint={`${load.count} ${say('ticket(s) ouvert(s)', 'open ticket(s)')} · ${hoursText(load.openHours, say)} ${say('restantes une fois le temps saisi déduit', 'left once logged time is taken off')}`}>
         <LoadBar load={load} say={say} compact />
       </Figure>
       {week && (

@@ -58,7 +58,7 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
   // ---- My work: everything the person has to do ----------------------------------------------------------------------
   const ahmedWork = await act("ahmed.ba", "myWorkAction", { args: [] });
   const t1 = ahmedWork?.tickets?.find((t) => t.id === T.t1);
-  check("My work lists the assignee's tickets with their keys, and their load in weighted hours", Boolean(t1?.key) && t1?.estimatedHours === 6 && typeof ahmedWork?.load?.weekHours === "number" && ahmedWork?.load?.capacityHours > 0, { t1: t1 && { key: t1.key, est: t1.estimatedHours }, load: ahmedWork?.load });
+  check("My work lists the assignee's tickets with their keys, and their load in assigned hours", Boolean(t1?.key) && t1?.estimatedHours === 6 && typeof ahmedWork?.load?.weekHours === "number" && ahmedWork?.load?.capacityHours > 0, { t1: t1 && { key: t1.key, est: t1.estimatedHours }, load: ahmedWork?.load });
   // the audit floor's board (0014): work waits for its reporter at its last step before "Terminé", "Rapport"
   r = await act("ahmed.ba", "moveTicketStageAction", { args: [T.t2, { stageId: "aud_report" }] });
   const mariemWork = await act("mariem.sow", "myWorkAction", { args: [] });

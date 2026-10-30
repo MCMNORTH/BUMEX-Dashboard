@@ -65,7 +65,7 @@ export const hoursText = (h: number, say: Say) => (h > 0 && h < 1 ? `${Math.roun
 const LEVEL: Record<Load['level'], [string, string]> = { light: ['Légère', 'Light'], balanced: ['Équilibrée', 'Balanced'], high: ['Chargée', 'High'], overloaded: ['Surchargée', 'Overloaded'] };
 export const levelLabel = (level: Load['level'], say: Say) => say(...LEVEL[level]);
 
-/** A person's week: the weighted hours by priority against their capacity. */
+/** A person's load: the hours assigned through their open tickets, by priority, against their capacity. */
 export function LoadBar({ load, say, compact }: { load: Load; say: Say; compact?: boolean }) {
   const scale = Math.max(load.capacityHours, load.weekHours, 1);
   return (
