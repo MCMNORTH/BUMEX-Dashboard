@@ -7,6 +7,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import "@/vanguard/vanguard.css";
 import "@/vanguard/select.css";
 import "@/vanguard/work.css";
+import "@/vanguard/responsive.css"; // last: phones and tablets (docs/plans/mobile-tablet.md)
 import { AccountMenu } from "@/components/layout/account-menu";
 import { NavigationProgress } from "@/components/layout/navigation-progress";
 import { NotificationBell } from "@/components/notifications/notification-bell";

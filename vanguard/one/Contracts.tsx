@@ -191,7 +191,7 @@ export function ContractPanel({ contractId, onClose }: { contractId: string; onC
             {canEdit && c.status !== 'archived' && <button className="btn sm danger" disabled={busy} onClick={async () => { if (window.confirm(say(`Archiver « ${c.title} » ?`, `Archive "${c.title}"?`)) && (await run(() => shelveContractAction(c.id), say('Contrat archivé', 'Contract archived')))) onClose(); }}>{say('Archiver', 'Archive')}</button>}
           </div>
         </div>
-        <div role="tablist" style={{ display: 'flex', gap: 4 }}>
+        <div role="tablist" className="tabs" style={{ display: 'flex', gap: 4 }}>
           {([['details', 'Détails', 'Details'], ['notes', 'Notes', 'Notes'], ['comments', 'Commentaires', 'Comments'], ['history', 'Historique', 'History']] as const).map(([k, fr, en]) => <button key={k} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{say(fr, en)}</button>)}
         </div>
       </div>

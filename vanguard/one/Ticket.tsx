@@ -17,6 +17,7 @@ import { Avatar, Lozenge, PriorityIcon, TypeIcon, hoursText, levelLabel, stageTo
 import { SHORT_REASONS, StageLozenge } from './stages';
 import { RichText } from './RichText';
 import { QuickLogButton } from './QuickLog';
+import { useMedia } from './screen'; // [mobile]
 
 // A ticket in the Tasks room, laid out as Jira's (asked on 2026-10-27): its key and place in the breadcrumb; on the
 // left its description, attachments, sub-tasks, linked tickets and activity (comments, history, work log); on the
@@ -34,6 +35,7 @@ export function TicketPanel({ id, onClose, backLabel }: { id: string; onClose: (
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState<'subtask' | 'link' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const phone = useMedia('(max-width: 900px)'); // [mobile] a phone or an upright tablet: one column, the status first
 
   const load = useCallback(async () => {
     const next = await ticketViewAction(id).catch(() => null);
@@ -62,6 +64,7 @@ export function TicketPanel({ id, onClose, backLabel }: { id: string; onClose: (
     }
   };
 
+  // [mobile] a phone: the status right under the title, the details folded (docs/plans/mobile-tablet.md)
   if (view === undefined) return <div className="card"><span className="muted">{say('Chargement du ticket…', 'Loading the ticket…')}</span></div>;
   if (view === null) {
     return (
@@ -97,6 +100,14 @@ export function TicketPanel({ id, onClose, backLabel }: { id: string; onClose: (
       <div className="tk-grid">
         <div className="tk-main">
           <Title view={view} busy={busy} say={say} onSave={(title) => setField('title', title)} />
+          {phone && <StatusControl view={view} busy={busy} run={run} say={say} />}
+          {phone && <NextAction view={view} say={say} />}
+          {phone && (
+            <details className="tk-more">
+              <summary>{say('Détails', 'Details')}</summary>
+              <Details view={view} busy={busy} say={say} setField={setField} onLogged={() => { void load(); void reload(); }} />
+            </details>
+          )}
           <Description view={view} busy={busy} say={say} onSave={(text) => setField('description', text)} />
           <Attachments view={view} busy={busy} say={say} run={run} onAdd={() => fileRef.current?.click()} />
           <Subtasks view={view} busy={busy} run={run} say={say} open={adding === 'subtask'} onOpened={() => setAdding(null)} />
@@ -104,9 +115,9 @@ export function TicketPanel({ id, onClose, backLabel }: { id: string; onClose: (
           <TicketActivity view={view} busy={busy} run={run} say={say} />
         </div>
         <aside className="tk-side">
-          <StatusControl view={view} busy={busy} run={run} say={say} />
-          <NextAction view={view} say={say} />
-          <Details view={view} busy={busy} say={say} setField={setField} onLogged={() => { void load(); void reload(); }} />
+          {!phone && <StatusControl view={view} busy={busy} run={run} say={say} />}
+          {!phone && <NextAction view={view} say={say} />}
+          {!phone && <Details view={view} busy={busy} say={say} setField={setField} onLogged={() => { void load(); void reload(); }} />}
           <div className="tk-stamps small muted">
             <div title={ticket.created_at}>{say('Création', 'Created')} {ago(ticket.created_at, now, say)}</div>
             <div title={ticket.updated_at}>{say('Mis à jour', 'Updated')} {ago(ticket.updated_at, now, say)}</div>

@@ -7,6 +7,9 @@ import { TowerHud, FloorHud } from './ui/Hud';
 import { RackHud } from './ui/RackHud';
 import { Sheet, FlatLayout } from './ui/Rooms';
 import { DeleteDialog } from './ui/common';
+import { useRoomHistory } from './one/back'; // [mobile] Back goes back one screen
+import { PhoneNav } from './one/PhoneNav'; // [mobile]
+import { useScreen } from './one/screen'; // [mobile]
 import emblemImage from './assets/emblem.png'; // [bumex-one] Next imports images as objects
 const emblem = emblemImage.src;
 
@@ -55,6 +58,8 @@ export function App() {
   const barOpen = useStore((s) => s.ui.barOpen);
   const rackFocus = useStore((s) => s.ui.rackFocus);
   const flat = view === 'flat' || !webgl;
+  useRoomHistory();
+  const { phone } = useScreen();
   const shelfMode = view === 'floor' && rackFocus; // the rack fills the screen; the archive table is one click away
   return (
     <div className="app">
@@ -75,6 +80,7 @@ export function App() {
           </div>
         )}
       </div>
+      {phone && <PhoneNav />}
       <DeleteDialog />
       <ModeSwitch />
       <Toast />

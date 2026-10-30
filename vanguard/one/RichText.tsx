@@ -127,6 +127,19 @@ export function RichText({ value, onChange, onSubmit, placeholder, autoFocus, la
     setEmpty(!value);
   }, [value]);
   useEffect(() => { if (autoFocus) ref.current?.focus(); }, [autoFocus]);
+  // [mobile] on a touch screen a tap on the bar can take the selection away: it is kept here and put back before a
+  // command
+  const kept = useRef<Range | null>(null);
+  const enterSeen = useRef(false);
+  useEffect(() => {
+    const keep = () => {
+      const sel = window.getSelection();
+      const el = ref.current;
+      if (el && sel && sel.rangeCount && el.contains(sel.anchorNode)) kept.current = sel.getRangeAt(0).cloneRange();
+    };
+    document.addEventListener('selectionchange', keep);
+    return () => document.removeEventListener('selectionchange', keep);
+  }, []);
 
   const changed = () => {
     const el = ref.current;
@@ -136,7 +149,14 @@ export function RichText({ value, onChange, onSubmit, placeholder, autoFocus, la
     setEmpty(!text && !el.querySelector('li'));
     onChange(text);
   };
-  const act = (fn: () => void) => { ref.current?.focus(); fn(); changed(); };
+  const act = (fn: () => void) => {
+    const el = ref.current;
+    el?.focus();
+    const sel = window.getSelection();
+    if (el && sel && kept.current && !el.contains(sel.anchorNode)) { sel.removeAllRanges(); sel.addRange(kept.current); }
+    fn();
+    changed();
+  };
   const heading = () => act(() => run('formatBlock', document.queryCommandValue('formatBlock').toLowerCase() === 'h3' ? 'div' : 'h3'));
   const checklist = () => act(() => {
     if (!document.queryCommandState('insertUnorderedList')) run('insertUnorderedList');
@@ -150,11 +170,24 @@ export function RichText({ value, onChange, onSubmit, placeholder, autoFocus, la
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); onSubmit?.(); return; }
     if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'b' || e.key === 'i')) { e.preventDefault(); act(() => run(e.key === 'b' ? 'bold' : 'italic')); return; }
     // a check box line goes on as a check box
-    if (e.key === 'Enter' && !e.shiftKey) {
-      const li = window.getSelection()?.anchorNode?.parentElement?.closest('li');
-      if (li && (li.textContent ?? '').startsWith(BOX.trim()) && (li.textContent ?? '').trim().length > 1) window.setTimeout(() => { run('insertText', BOX); changed(); }, 0);
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { enterSeen.current = true; continueBox(); }
   };
+  const continueBox = () => {
+    const li = window.getSelection()?.anchorNode?.parentElement?.closest('li');
+    if (li && (li.textContent ?? '').startsWith(BOX.trim()) && (li.textContent ?? '').trim().length > 1) window.setTimeout(() => { run('insertText', BOX); changed(); }, 0);
+  };
+  // [mobile] Android's keyboards send no Enter key: the new paragraph itself says so
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onBefore = (e: InputEvent) => {
+      if (e.inputType !== 'insertParagraph') return;
+      if (enterSeen.current) { enterSeen.current = false; return; }
+      continueBox();
+    };
+    el.addEventListener('beforeinput', onBefore);
+    return () => el.removeEventListener('beforeinput', onBefore);
+  });
 
   return (
     <div className="rt">

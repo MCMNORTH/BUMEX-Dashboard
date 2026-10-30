@@ -6,6 +6,7 @@ import {
 import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, downloadXlsx } from '../common';
 import { Select } from '../Select';
+import { WideNote } from '../../one/WideNote'; // [mobile]
 
 type Tab = 'summary' | 'withholding' | 'codes' | 'rules';
 const REGIMES: [CounterpartyRegime, string][] = [['standard', 'Standard'], ['gta', 'GTA · sous-traitant enregistré'], ['exempt', 'Exonéré'], ['non_resident', 'Non-résident · export'], ['public', 'Organisme public']];
@@ -194,6 +195,7 @@ function Rules({ entityId }: { entityId: Id }) {
   const Cell = ({ regime, cat }: { regime: CounterpartyRegime | null; cat: string | null }) => { const r = find(regime, cat); return <td><Select className="in" value={r?.taxCodeId ?? ''} onChange={(e) => set(regime, cat, e.target.value)}><option value="">— (hérite)</option>{vatCodes.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.rate * 100} %</option>)}</Select></td>; };
   return (
     <>
+      <WideNote />{/* [mobile] */}
       <div className="banner info">Résolution d'une ligne de facture client : code forcé sur la ligne › règle régime + catégorie › règle régime seul › défaut de l'entité. Une cellule vide hérite du niveau supérieur.</div>
       <div className="card flush">
         <table>

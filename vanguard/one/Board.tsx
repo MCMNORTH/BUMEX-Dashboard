@@ -10,6 +10,7 @@ import { useStore } from '../store';
 import { Icon } from '../ui/common';
 import { PRIORITY, TEAM_ROLES, label, reload, type TicketTask } from './Tasks';
 import { useSay } from './say';
+import { PHONE } from './screen'; // [mobile]
 import { NO_DUE_DATE, groupTickets, type GroupBy, type GroupLabels, type WorkTicket } from './work-filters';
 import { Avatar, PriorityIcon, TypeIcon, hoursText, stageTone, useMedia, type Tone } from './work-ui';
 import { QuickLogButton } from './QuickLog';
@@ -133,6 +134,18 @@ export function TicketBoard<T extends WorkTicket>({ columns, tickets, columnOf, 
 }) {
   const toast = useStore((s) => s.toast);
   const touch = useMedia('(hover: none)');
+  // [mobile] a phone shows one column at a time: chips above it jump to a stage, the current one lit as it scrolls
+  const phone = useMedia(PHONE);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [current, setCurrent] = useState<string | null>(null);
+  const jump = (id: string) => boardRef.current?.querySelector<HTMLElement>(`[data-col="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+  const onScroll = () => {
+    const board = boardRef.current;
+    if (!board) return;
+    const cols = [...board.querySelectorAll<HTMLElement>('[data-col]')];
+    const at = cols.find((c) => c.offsetLeft + c.offsetWidth / 2 > board.scrollLeft) ?? cols[cols.length - 1];
+    if (at && at.dataset.col !== current) setCurrent(at.dataset.col ?? null);
+  };
   const [dragged, setDragged] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const [folded, setFolded] = useState<string[]>(() => readFolds(foldKey));
@@ -167,7 +180,17 @@ export function TicketBoard<T extends WorkTicket>({ columns, tickets, columnOf, 
   };
   const drag = useCallback((id: string | null) => { setDragged(id); if (!id) setOver(null); }, []);
   return (
-    <div className="wk-board">
+    <>
+    {phone && (
+      <div className="wk-stages strip" role="tablist" aria-label={say('Étapes', 'Stages')}>
+        {columns.map((column) => (
+          <button key={column.id} role="tab" aria-selected={(current ?? columns[0]?.id) === column.id} className={`wk-stage ${(current ?? columns[0]?.id) === column.id ? 'on' : ''}`} onClick={() => { setCurrent(column.id); jump(column.id); }}>
+            {column.name} <b>{tickets.filter((x) => columnOf(x) === column.id).length}</b>
+          </button>
+        ))}
+      </div>
+    )}
+    <div className="wk-board" ref={boardRef} onScroll={phone ? onScroll : undefined}>
       <div className="wk-cols" role="list">
         {columns.map((column) => {
           const all = tickets.filter((x) => columnOf(x) === column.id);
@@ -175,7 +198,7 @@ export function TicketBoard<T extends WorkTicket>({ columns, tickets, columnOf, 
           const check = checks?.get(column.id);
           const why = check ? (check.ok ? (check.reason ? say('motif demandé', 'reason asked') : null) : say(...check.why)) : null;
           return (
-            <div key={column.id} role="listitem"
+            <div key={column.id} role="listitem" data-col={column.id}
               className={`wk-col ${isFolded ? 'folded' : ''} ${over === column.id ? 'over' : ''} ${check && !check.ok ? 'nodrop' : ''} ${column.archived ? 'archived' : ''} tone-${column.tone}`}
               {...drop(column)} title={column.archived ? say('Étape archivée : déplacez ces cartes vers une étape active.', 'Archived stage: move these cards to an active stage.') : undefined}>
               <div className="wk-col-h">
@@ -209,6 +232,7 @@ export function TicketBoard<T extends WorkTicket>({ columns, tickets, columnOf, 
         })}
       </div>
     </div>
+    </>
   );
 }
 

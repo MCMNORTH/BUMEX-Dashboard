@@ -10,6 +10,7 @@ import { Icon } from '../ui/common';
 import { Select } from '../ui/Select';
 import { useSay } from './say';
 import type { Say } from './ticket-history';
+import { isTouch } from './screen'; // [mobile]
 
 // [bumex-one] "Saisie rapide" (asked on 2026-10-28: logging time must be effortless). One sentence, Enter saves:
 // "J'ai travaillé [durée] sur [quoi] [quand]". Quoi is one search: my open tickets first (the line then counts on the
@@ -131,7 +132,7 @@ export function QuickLog({ data, ticketId, date: initialDate, onSaved, compact, 
         <span className="ql-w">{say("J'ai travaillé", 'I worked')}</span>
         <span className="ql-dur">
           <input ref={durationRef} className={`in ${text && !minutes ? 'bad' : ''}`} value={text} onChange={(e) => { setText(e.target.value); setError(null); }} onKeyDown={enter}
-            placeholder="1h30" aria-label={say('Durée', 'Duration')} autoFocus={compact} inputMode="decimal" />
+            placeholder="1h30" aria-label={say('Durée', 'Duration')} autoFocus={compact && !isTouch()} inputMode="text" />{/* [mobile] "1h30" needs a letter; no keyboard over the dialog on a touch screen */}
           {minutes ? <span className="ql-read small muted">{formatDuration(minutes)}</span> : null}
         </span>
         <span className="ql-w">{say('sur', 'on')}</span>
@@ -150,7 +151,7 @@ export function QuickLog({ data, ticketId, date: initialDate, onSaved, compact, 
       <div className="ql-more">
         <span className="ql-chips">{CHIPS.map((m) => <button key={m} className={`chip ${minutes === m ? 'on' : ''}`} onClick={() => { setText(m < 60 ? `${m}min` : String(m / 60)); setError(null); }}>{formatDuration(m)}</button>)}</span>
         {!noting ? <button className="linkish small" onClick={() => setNoting(true)}>+ {say('ajouter une note', 'add a note')}</button>
-          : <input className="in ql-note" autoFocus value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} onKeyDown={enter} placeholder={say('Note (facultatif)', 'Note (optional)')} />}
+          : <input className="in ql-note" autoFocus={!isTouch()} value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} onKeyDown={enter} placeholder={say('Note (facultatif)', 'Note (optional)')} />}
         {pick?.taskId && <span className="small muted"><Icon name="link" size={12} /> {say('compte sur le ticket', 'counts on the ticket')}</span>}
       </div>
       {lockedWeek && <div className="small muted">{say('Cette semaine est envoyée : choisissez un autre jour.', 'This week is sent: pick another day.')}</div>}

@@ -167,6 +167,9 @@
   .vanguard .tk-table th:nth-child(2), .vanguard .tk-table td:nth-child(2) { display: none; }
 }
 
+/* a room's tabs (ui/common.tsx Tabs); on a phone they scroll on one line (responsive.css) */
+.vanguard .tabs { display: flex; flex-wrap: wrap; }
+
 /* ---- the board and the list (Tasks.tsx, Board.tsx) ---- */
 .vanguard .wk-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .vanguard .wk-search { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--paper); flex: 0 1 260px; min-width: 160px; }

@@ -19,6 +19,7 @@ import { ArchivesPanel } from './panels/Archives';
 import { ReportsPanel } from './panels/Reports';
 import { SettingsPanel } from './panels/Settings';
 import { Icon } from './common';
+import { useScreen } from '../one/screen'; // [mobile]
 
 export function RoomContent({ room, entityId, tab, compact }: { room: Room; entityId: string; tab?: string | null; compact?: boolean }) {
   switch (room) {
@@ -90,7 +91,19 @@ export function FlatLayout() {
   const { state, ui } = useStore();
   const entityId = ui.entityId ?? state.entities.find((e) => e.code === 'AUD')!.id;
   // [bumex-one] the floor's overview first (asked on 2026-10-28; open to everyone, each part within the person's rights)
-  const room: Room = ui.room ?? 'overview';
+  const { phone } = useScreen(); // [mobile] a phone opens on the person's day
+  // [mobile] on a phone, a list's detail or form (.cols > .side) sits under the list: a tapped row shows it
+  useEffect(() => {
+    if (!phone) return;
+    const onClick = (event: MouseEvent) => {
+      const row = (event.target as Element | null)?.closest?.('.cols > .grow tr.click');
+      const side = row?.closest('.cols')?.querySelector(':scope > .side');
+      if (side) window.setTimeout(() => side.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    };
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
+  }, [phone]);
+  const room: Room = ui.room ?? (phone ? 'myday' : 'overview');
   return (
     <div className="page">
       {/* [bumex-one] no entity list here: the floor is chosen from the rail (ui/Sidebar.tsx) */}

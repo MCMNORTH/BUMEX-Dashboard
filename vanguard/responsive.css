@@ -1,0 +1,238 @@
+/* BUMEX Vanguard on phones and tablets (docs/plans/mobile-tablet.md). Loaded last (components/vanguard/vanguard-shell.tsx).
+
+   - A PC (wider than 1024 px, with a mouse) must look exactly as before: every rule here sits inside a phone, tablet or
+     touch media query, nothing outside one.
+       phone   @media (max-width: 640px)
+       tablet  @media (min-width: 641px) and (max-width: 1024px)   (both: max-width: 1024px)
+       touch   @media (hover: none) and (pointer: coarse)
+   - Every selector starts with .vanguard. To change a rule of styles.css, use its selector with .vanguard in front:
+     vanguard.css's :not(:where(…)) adds no specificity, and this file loads later, so the same selector wins.
+   - Inline styles are only beaten with !important; each one says why.
+   - React reads the same queries through vanguard/one/screen.ts, for markup that must differ. */
+
+/* ---- phones and tablets: no building (vanguard/store.ts), so no 3D settings ---- */
+@media (max-width: 1024px), (hover: none) and (pointer: coarse) {
+  .vanguard .set-display { display: none; }
+}
+
+/* ---- phones: the shell (plan step 3). The rail goes; a bar at the bottom (one/PhoneNav.tsx); the header shows Back or
+   the emblem, the screen's title, a search that opens over everything, the bell and the account menu ---- */
+@media (max-width: 640px) {
+  .vanguard .rail { display: none; }
+  .vanguard .main { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+
+  /* no blur: it would hold the opened search (position: fixed) inside the header */
+  .vanguard .header { height: calc(52px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 8px 0 6px; gap: 4px; backdrop-filter: none; background: var(--navy-ink); }
+  .vanguard .h-back { order: 0; }
+  .vanguard .header .brand { order: 1; }
+  .vanguard .h-back ~ .brand { display: none; }
+  .vanguard .h-title { order: 2; flex: 1; min-width: 0; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vanguard .h-search { order: 3; }
+  .vanguard .header .hright { order: 4; margin-left: 0; gap: 0; }
+  .vanguard .header .hright > :not(:last-child) { display: none; } /* fiscal year, Tower/Flat, language: in "Plus" */
+  .vanguard .h-back, .vanguard .h-search { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: none; border-radius: 10px; background: none; color: var(--dark-text); }
+  .vanguard .h-back:active, .vanguard .h-search:active { background: rgba(255,255,255,.1); }
+
+  /* the search, over everything once opened */
+  .vanguard .header:not(.search-open) .search { display: none; }
+  .vanguard .header.search-open .search { position: fixed; top: 0; left: 0; right: 0; z-index: 60; max-width: none; display: flex; gap: 8px; align-items: center; padding: calc(8px + env(safe-area-inset-top)) 10px 8px; background: var(--navy-ink); }
+  .vanguard .header.search-open .search svg { display: none; }
+  .vanguard .header.search-open .search input { flex: 1; height: 40px; padding: 0 12px; font-size: 16px; }
+  .vanguard .h-cancel { flex: none; height: 40px; padding: 0 6px; border: none; background: none; color: var(--blue-soft); font-size: 15px; }
+  .vanguard .header.search-open .search-results { position: fixed; top: calc(56px + env(safe-area-inset-top)); left: 0; right: 0; bottom: 0; max-height: none; border-radius: 0; border: none; }
+  .vanguard .header.search-open .search-results button { padding: 12px 14px; flex-direction: column; gap: 2px; }
+
+  /* the bar at the bottom */
+  .vanguard .pnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: calc(60px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); background: rgba(19, 28, 50, .98); border-top: 1px solid var(--dark-border); }
+  .vanguard .pnav button { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: none; background: none; color: var(--dark-muted); font-size: 10.5px; padding: 0 2px; }
+  .vanguard .pnav button span { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vanguard .pnav button.on { color: #fff; }
+  .vanguard .pnav button.on::before { content: ''; position: absolute; top: 0; left: 28%; right: 28%; height: 2px; border-radius: 0 0 2px 2px; background: var(--blue-soft); }
+  .vanguard .pnav button i { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--gold); color: #1c1200; font-size: 10px; font-weight: 700; font-style: normal; line-height: 16px; text-align: center; }
+  .vanguard .toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
+
+  /* "Plus": a sheet from the bottom */
+  .vanguard .pm-back { position: fixed; inset: 0; z-index: 80; background: rgba(10, 16, 30, .45); }
+  .vanguard .pm-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 81; max-height: 88dvh; overflow-y: auto; overscroll-behavior: contain; padding: 8px 12px calc(16px + env(safe-area-inset-bottom)); background: var(--paper); color: var(--ink); border-radius: 16px 16px 0 0; box-shadow: var(--shadow); animation: vg-pm-up .18s ease-out; }
+  .vanguard .pm-h { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 0; }
+  .vanguard .pm-h b { font-size: 16px; }
+  .vanguard .pm-sheet h3 { margin: 14px 6px 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .vanguard .pm-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 46px; padding: 0 10px; border: none; border-radius: 10px; background: none; color: var(--ink); font-size: 15px; text-align: left; }
+  .vanguard .pm-row > span { flex: 1; min-width: 0; }
+  .vanguard .pm-row small { color: var(--muted); }
+  .vanguard .pm-row.on { background: var(--blue-pale); font-weight: 600; }
+  .vanguard .pm-row:disabled { opacity: .45; }
+  .vanguard .pm-row i { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--gold); color: #1c1200; font-size: 11px; font-weight: 700; font-style: normal; line-height: 20px; text-align: center; }
+  .vanguard .pm-floors { padding: 6px; border-radius: 12px; background: var(--navy-ink); color: var(--dark-text); }
+  .vanguard .pm-floors button { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 10px; border: none; border-radius: 8px; background: none; color: var(--dark-text); text-align: left; font-size: 14px; }
+  .vanguard .pm-floors button > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vanguard .pm-floors button b { display: inline-block; width: 22px; color: var(--blue-soft); }
+  .vanguard .pm-floors button.cur { background: rgba(107, 141, 193, .28); }
+  .vanguard .pm-floors button.off { color: #7f8aa0; }
+  .vanguard .pm-prefs { display: grid; gap: 8px; padding: 0 6px; }
+  .vanguard .pm-prefs label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .vanguard .pm-prefs .seg { display: flex; }
+  .vanguard .pm-prefs .seg .btn { flex: 1; justify-content: center; height: 40px; }
+
+  /* a room's own title bar: the header already shows the title; the tabs are one line that scrolls */
+  .vanguard .sheet-head { padding: 0 12px; gap: 6px; min-height: 46px; }
+  .vanguard .sheet > .sheet-head, .vanguard .sheet.narrow > .sheet-head { padding-right: 12px; }
+  .vanguard .sheet-head > h1 { display: none; }
+  .vanguard .sheet-head:has(> h1:only-child) { display: none; } /* nothing left in it */
+  .vanguard .sheet-head > [role=tablist], .vanguard .tabs { flex: 1 1 200px; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .vanguard .tabs::-webkit-scrollbar { display: none; }
+  .vanguard .sheet-head > .hright { flex: none; margin-left: 0; }
+  .vanguard .sheet-head .tab { height: 46px; padding: 0 10px; }
+  .vanguard .sheet-body { padding: 12px; }
+  @keyframes vg-pm-up { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
+}
+
+/* ---- every screen (plan step 5) ---- */
+
+/* touch: 16 px fields (iOS zooms into anything smaller), fingers' sizes, no keyboard hints */
+@media (hover: none) and (pointer: coarse) {
+  .vanguard .in, .vanguard input:not([type=checkbox]):not([type=radio]), .vanguard select, .vanguard textarea, .vanguard .rt-area, .vanguard .ts-cellin { font-size: 16px; }
+  .vanguard .in:not(textarea) { height: 40px; }
+  .vanguard .btn { min-height: 40px; }
+  .vanguard .btn.sm { height: auto; min-height: 36px; }
+  .vanguard .tab { height: 44px; }
+  .vanguard .pill, .vanguard .seg-mini button, .vanguard .wk-chip { min-height: 36px; }
+  .vanguard input[type=checkbox], .vanguard input[type=radio] { width: 20px; height: 20px; }
+  .vanguard kbd, .vanguard .hint, .vanguard .kbd-hint { display: none; }
+  .vanguard .sheet-body, .vanguard .page-main { overscroll-behavior: contain; }
+}
+
+/* tablets and phones: a table scrolls inside its card, never the page; a field is never wider than its place */
+@media (max-width: 1024px) {
+  .vanguard .card:has(> table), .vanguard .card:has(> div > table) { overflow-x: auto; }
+  .vanguard .in, .vanguard .vsel { max-width: 100%; }
+}
+
+/* a form's field spread over 2 or 3 columns (inline style) once its grid has one: it would add columns of its own */
+@media (max-width: 900px) {
+  .vanguard :is(.grid2, .grid3, .grid4) > [style*="grid-column"] { grid-column: 1 / -1 !important; }
+}
+
+@media (max-width: 640px) {
+  /* figures two by two */
+  .vanguard .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* a toolbar's fields share the line, whatever width they were given (inline) */
+  .vanguard .toolbar > .in, .vanguard .toolbar > .vsel, .vanguard .toolbar > input { flex: 1 1 140px; width: auto !important; }
+  /* button strips scroll on one line */
+  .vanguard .strip, .vanguard .seg-mini { display: flex; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .vanguard .strip > .btn, .vanguard .seg-mini > button { flex: none; }
+  /* rows and headers that wrap instead of running off the screen */
+  .vanguard .tk-sec-h, .vanguard .cl-head, .vanguard .arc-q, .vanguard .ib-row { flex-wrap: wrap; }
+  .vanguard .ib-row > .toolbar { width: 100%; padding-left: 18px; }
+  .vanguard .tk-sec-x { flex-wrap: wrap; justify-content: flex-end; min-width: 0; } /* a section's buttons wrap under its title */
+  /* dialogs: a sheet from the bottom */
+  .vanguard .modal-back { align-items: flex-end; padding: 0; }
+  .vanguard .ts-modal-back { place-items: end stretch; padding: 0; }
+  .vanguard .modal, .vanguard .ts-modal { width: 100%; max-height: 92dvh; overflow-y: auto; border-radius: 16px 16px 0 0; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+}
+
+/* ---- phones: the work screens (plan step 6) ---- */
+@media (max-width: 640px) {
+  /* a long file name wraps instead of widening the ticket */
+  .vanguard .tk-file { min-width: 0; overflow-wrap: anywhere; }
+  /* a sub-task: its title on a line of its own, its person, date and buttons under it */
+  .vanguard .tk-row > .grow { flex: 1 0 calc(100% - 40px); }
+  .vanguard .tk-row > .tk-mini, .vanguard .tk-row > .tk-date { flex: 1 1 140px; width: auto; }
+  /* the filters of a board or a list: a sheet from the bottom */
+  .vanguard .wk-pop { position: fixed; top: auto; left: 0; right: 0; bottom: 0; z-index: 85; width: auto; max-height: 75dvh; border-radius: 16px 16px 0 0; padding-bottom: calc(16px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 40px rgba(0,0,0,.25); }
+}
+
+/* ---- tablets: a ticket's or a mission's page keeps its two columns, with a narrower side ---- */
+@media (min-width: 901px) and (max-width: 1024px) {
+  .vanguard .tk-grid { grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; }
+  .vanguard .tk-side { order: 0; }
+}
+
+/* ---- phones: the week (Missions › Semaine) as an agenda, day under day ---- */
+@media (max-width: 640px) {
+  .vanguard .wk-week { flex-direction: column; overflow-x: visible; }
+  .vanguard .wk-week > .col { min-width: 0 !important; } /* inline 120 px */
+}
+
+/* ---- phones: Time, one day at a time (one/Time.tsx) ---- */
+@media (max-width: 640px) {
+  .vanguard .ts-dl-chips { gap: 6px; padding-bottom: 2px; }
+  .vanguard .ts-dl-chip { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 64px; padding: 8px 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--paper); color: var(--ink); }
+  .vanguard .ts-dl-chip span { font-size: 12px; color: var(--muted); text-transform: capitalize; }
+  .vanguard .ts-dl-chip b { font-size: 14px; }
+  .vanguard .ts-dl-chip.today { border-color: var(--navy); }
+  .vanguard .ts-dl-chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .vanguard .ts-dl-chip.on span { color: var(--blue-soft); }
+  .vanguard .ts-dl-line { border-top: 1px solid var(--line); }
+  .vanguard .ts-dl-line .ts-dl-e { border-top: none; }
+  .vanguard .ts-dl-e:disabled { color: inherit; opacity: 1; }
+  .vanguard .ts-dl-add { display: flex; gap: 6px; padding: 0 10px 10px; }
+  .vanguard .ts-dl-add .pill { flex: 1; }
+  .vanguard .ts-dl-foot { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--paper); box-shadow: 0 -6px 20px rgba(16, 24, 40, .08); }
+}
+
+/* ---- tablets: the opened rail floats over the page instead of pushing it (plan step 9) ---- */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .vanguard .rail.open { position: absolute; top: 0; bottom: 0; left: 0; box-shadow: 0 0 40px rgba(0, 0, 0, .35); }
+  .vanguard .rail.open + * { margin-left: var(--rail); }
+  .vanguard .rail-back { position: absolute; inset: 0; z-index: 24; background: rgba(10, 16, 30, .3); }
+}
+
+/* ---- phones: the board, one column at a time, with its stages as chips above (one/Board.tsx) ---- */
+@media (max-width: 640px) {
+  .vanguard .wk-stages { gap: 6px; margin-bottom: 8px; padding-bottom: 2px; }
+  .vanguard .wk-stage { flex: none; height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 17px; background: var(--paper); color: var(--ink); font-size: 13px; white-space: nowrap; }
+  .vanguard .wk-stage b { margin-left: 4px; color: var(--muted); font-weight: 600; }
+  .vanguard .wk-stage.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .vanguard .wk-stage.on b { color: var(--blue-soft); }
+  .vanguard .wk-col { flex: 0 0 calc(100vw - 56px); }
+  .vanguard .wk-col.folded { flex: 0 0 44px; }
+}
+/* tablets: the board snaps column by column too */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .vanguard .wk-board { scroll-snap-type: x mandatory; }
+  .vanguard .wk-col { scroll-snap-align: start; }
+}
+
+/* ---- milestones: a phone shows the list by mission only (the timeline needs 820 px); a tablet keeps a narrower label column ---- */
+@media (max-width: 640px) {
+  .vanguard .rm-chart { display: none; }
+  .vanguard .rm-range { min-width: 0; }
+}
+@media (min-width: 641px) and (max-width: 1024px) {
+  .vanguard .rm-row { grid-template-columns: 180px minmax(0, 1fr); }
+  .vanguard .rm-inner { min-width: 680px; }
+}
+
+/* ---- the floor's overview: the team keeps person, load and hours on a tablet or a phone (one/Overview.tsx) ---- */
+@media (max-width: 1024px) {
+  .vanguard .ov-team { min-width: 0; }
+  .vanguard .ov-team :is(th, td):is(:nth-child(2), :nth-child(3), :nth-child(4)) { display: none; }
+}
+@media (max-width: 640px) {
+  .vanguard .ov-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- phones and upright tablets: a ticket's page in one column, what it is about first, its details folded under
+   its status (one/Ticket.tsx; work.css puts the side first up to 1100 px) ---- */
+@media (max-width: 900px) {
+  .vanguard .tk-side { order: 1; }
+  .vanguard .tk-more { border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+  .vanguard .tk-more > summary { padding: 12px 14px; font-weight: 600; cursor: pointer; }
+  .vanguard .tk-more[open] > summary { border-bottom: 1px solid var(--line); }
+  .vanguard .tk-more > :not(summary) { padding: 4px 12px 10px; }
+}
+
+/* ---- phones: the text editor keeps its bar in sight and leaves room for the keyboard (one/RichText.tsx) ---- */
+@media (max-width: 640px) {
+  .vanguard .rt-bar { position: sticky; top: 0; z-index: 2; flex-wrap: wrap; }
+  .vanguard .rt-area { max-height: 50dvh; }
+}
+@media (hover: none) and (pointer: coarse) {
+  .vanguard .rt-tool { min-width: 36px; min-height: 36px; }
+}
+
+/* ---- phones: the note over an editor made for a large screen (one/WideNote.tsx) takes its own line ---- */
+@media (max-width: 640px) {
+  .vanguard .banner[role=note] { flex: 1 0 100%; }
+}

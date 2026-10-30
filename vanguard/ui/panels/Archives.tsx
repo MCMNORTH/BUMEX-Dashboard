@@ -63,7 +63,7 @@ export function ArchivesPanel({ entityId, compact = false, initialTab }: { entit
           <div className="card" style={{ borderColor: 'var(--gold)' }}>
             <h2>{t('arc_queue')} · {queue.length}</h2>
             {queue.map((e) => (
-              <div key={e.id} className="row" style={{ borderTopColor: 'var(--line)', color: 'var(--ink)' }}>
+              <div key={e.id} className="row arc-q" style={{ borderTopColor: 'var(--line)', color: 'var(--ink)' }}>
                 <span><b>{e.code}</b> · {e.name} <span className="muted small">· {state.customers.find((c) => c.id === e.customerId)?.name}</span></span>
                 <span className="toolbar">
                   <Select className="in" style={{ width: 'auto', height: 27 }} value={boxKind} onChange={(ev) => setBoxKind(ev.target.value as ArchiveKind)}><option value="box">{t('arc_box')}</option><option value="binder">{t('arc_binder')}</option></Select>

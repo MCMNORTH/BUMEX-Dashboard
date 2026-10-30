@@ -60,7 +60,7 @@ export function Inbox() {
           {items?.map((n) => {
             const t = TYPES[n.type] ?? TYPES.system;
             return (
-              <div key={n.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', borderBottom: '1px solid var(--line)', background: n.is_read ? undefined : 'var(--blue-pale)' }}>
+              <div key={n.id} className="ib-row" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', borderBottom: '1px solid var(--line)', background: n.is_read ? undefined : 'var(--blue-pale)' }}>
                 <span className="status-dot" style={{ marginTop: 6, background: n.is_read ? 'transparent' : 'var(--accent)' }} />
                 <div className="click" style={{ flex: 1, minWidth: 0 }} onClick={() => open(n)}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}><b>{n.title}</b><Chip kind={t[2]}>{say(t[0], t[1])}</Chip><span className="small muted mono" style={{ marginLeft: 'auto' }}>{when(n.created_at)}</span></div>

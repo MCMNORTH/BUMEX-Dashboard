@@ -7,6 +7,7 @@ import { stageStatus } from '@/lib/tickets/workflow';
 import type { TicketStatus } from '@/types/ticket';
 import type { BoardWorkflow } from '@/types/workflow';
 import { useStore } from '../store';
+import { useBackLayer } from './back'; // [mobile]
 import { Icon, Tabs } from '../ui/common';
 import { BoardHint, MoveReason, TicketBoard, boardColumns, stageIdOf, useTicketMove, type MissionTag, type MoveFlow, type MoveTarget } from './Board';
 import { dueIn, hasDeadline } from './Missions';
@@ -14,6 +15,7 @@ import { QuickLogDialog } from './QuickLog';
 import { TicketPanel } from './Ticket';
 import { TicketList, type ListChange } from './TicketList';
 import { PRIORITY, label, reload } from './Tasks';
+import { isPhone } from './screen';
 import { WorkToolbar, type Scope } from './WorkToolbar';
 import { StageLozenge, moveCheck, stageTicketOf, useBoardOf, useBoardsReady } from './stages';
 import { useSay } from './say';
@@ -32,7 +34,6 @@ import { Avatar, Block, Figure, LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursT
 const FILTER_KEY = 'bumex-vanguard-mywork';
 const ticketOf = (tab?: string | null) => (tab?.startsWith('ticket:') ? tab.slice(7) : null);
 const viewOf = (tab?: string | null): WorkView | null => (tab === 'board' || tab === 'list' ? tab : null);
-const phoneNow = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches;
 const minutes = (m: number) => `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
 const dmy = (iso: string) => iso.slice(0, 10).split('-').reverse().join('/');
 const MORE = 8; // rows of a block before "see all"
@@ -48,7 +49,7 @@ export function MyWorkRoom({ entityId, initialTab }: { entityId: Id; initialTab?
   const [data, setData] = useState<Data | null | undefined>(undefined);
   const [attempt, setAttempt] = useState(0);
   // the view chosen last; else the board, but the list on a phone
-  const [view, setView] = useState<WorkView>(() => viewOf(initialTab) ?? readView('mywork', phoneNow() ? 'list' : 'board'));
+  const [view, setView] = useState<WorkView>(() => viewOf(initialTab) ?? readView('mywork', isPhone() ? 'list' : 'board'));
   const [ticketId, setTicketId] = useState<string | null>(ticketOf(initialTab));
   const [seenTab, setSeenTab] = useState(initialTab);
   if (initialTab !== seenTab) {
@@ -92,6 +93,7 @@ export function MyWorkRoom({ entityId, initialTab }: { entityId: Id; initialTab?
     scroll.current = null;
   }, [ticketId, data]);
 
+  useBackLayer(Boolean(ticketId), () => setTicketId(null)); // [mobile] Back closes the ticket (one/back.ts)
   const pick = (v: WorkView) => { setView(v); writeView('mywork', v); setTicketId(null); };
   return (
     <>

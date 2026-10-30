@@ -5,11 +5,19 @@ import emblemImage from '../assets/emblem.png'; // [bumex-one] Next imports imag
 import { useBumexOneSearch } from '../one/search'; // [bumex-one] one search for everything
 const emblem = emblemImage.src;
 import { Select } from './Select';
+import { Icon } from './common';
+import { useScreen } from '../one/screen'; // [mobile]
+import { goBack, useCanGoBack } from '../one/back'; // [mobile]
 
 export function Header() {
   const { ui, state, t, setUi, goTower, goHome, goFloor, openRoom, setLang, focusRoom, openArchive } = useStore();
   const [q, setQ] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  // [mobile] a phone's header: Back or the emblem, the screen's title, a search that opens over everything
+  const { phone } = useScreen();
+  const canBack = useCanGoBack();
+  const [searching, setSearching] = useState(false);
+  const searchOpen = phone && searching;
   const entity = state.entities.find((e) => e.id === ui.entityId);
   const fys = useMemo(() => [...new Set(state.fiscalYears.map((f) => f.label))].sort().reverse(), [state.fiscalYears]);
 
@@ -61,7 +69,10 @@ export function Header() {
 
   const roomLabel = (r: Room) => (t(`room_${r}`) === `room_${r}` ? t(`nav_${r}`) : t(`room_${r}`));
   return (
-    <header className="header">
+    <header className={`header ${searchOpen ? 'search-open' : ''}`}>
+      {phone && canBack && <button className="h-back" onClick={goBack} aria-label={ui.lang === 'fr' ? 'Retour' : 'Back'}><Icon name="back" size={20} /></button>}
+      {phone && <span className="h-title">{roomLabel(ui.room ?? 'myday')}</span>}
+      {phone && <button className="h-search" onClick={() => { setSearching(true); setTimeout(() => inputRef.current?.focus(), 0); }} aria-label={t('search_ph')}><Icon name="search" size={20} /></button>}
       <div className="brand" onClick={goHome} style={{ cursor: 'pointer' }} title={t('nav_overview')}>
         <img src={emblem} alt="" />
         <span><b>BUMEX</b> <span>VANGUARD</span></span>
@@ -103,13 +114,14 @@ export function Header() {
         {allResults.length > 0 && (
           <div className="search-results">
             {allResults.map((r, i) => (
-              <button key={i} onClick={() => { r.go(); setQ(''); }}>
+              <button key={i} onClick={() => { r.go(); setQ(''); setSearching(false); }}>
                 <span>{r.label}</span>
                 <span className="muted small">{r.sub}</span>
               </button>
             ))}
           </div>
         )}
+        {searchOpen && <button className="h-cancel" onClick={() => { setQ(''); setSearching(false); }}>{ui.lang === 'fr' ? 'Annuler' : 'Cancel'}</button>}
       </div>
       <div className="hright">
         <Select className="dark" aria-label={t('fiscal_year')} value={ui.fiscalYearLabel} onChange={(e) => setUi({ fiscalYearLabel: e.target.value })}>

@@ -9,6 +9,8 @@ import { useSay } from './say';
 import { loadOf } from '@/lib/work/load';
 import { hoursText } from './work-ui';
 import { Select } from '../ui/Select';
+import { useScreen } from './screen'; // [mobile]
+import { useBackLayer } from './back'; // [mobile]
 
 // The Missions room's "Semaine" tab: BUMEX One's weekly planning on the floor's tickets (lib/erp/vanguard/tickets.ts),
 // day by day, with what is late, what has no date and each person's load. A task dropped on another day is
@@ -31,6 +33,8 @@ export function WeekView({ entityId }: { entityId: Id }) {
   const [who, setWho] = useState<string>(TEAM_ROLES.includes(state.session.role) ? 'all' : me);
   const [dragged, setDragged] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const { touch } = useScreen(); // [mobile]
+  const [moving, setMoving] = useState<TicketTask | null>(null); // [mobile] the task being moved, on a touch screen
 
   const tasks = useMemo(() => state.tasks.filter((x) => x.entityId === entityId) as TicketTask[], [state.tasks, entityId]);
   const people = useMemo(() => {
@@ -86,8 +90,8 @@ export function WeekView({ entityId }: { entityId: Id }) {
       <div
         key={x.id}
         className={`desk ${late ? 'late' : ''} ${ui.focusTaskId === x.id ? 'focus' : ''}`}
-        draggable={x.status !== 'done' && busy !== x.id}
-        onDragStart={() => setDragged(x.id)}
+        draggable={!touch && x.status !== 'done' && busy !== x.id}
+        onDragStart={(e) => { setDragged(x.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', x.id); }} // [mobile] without data, Firefox never starts the drag
         onDragEnd={() => setDragged(null)}
         onClick={() => show(x)}
         style={{ cursor: 'pointer', opacity: x.status === 'done' || busy === x.id ? 0.55 : 1 }}
@@ -99,6 +103,7 @@ export function WeekView({ entityId }: { entityId: Id }) {
           {x.status === 'in_progress' && <Chip kind="dim">{say('En cours', 'In progress')}</Chip>}
           {late && <Chip kind="warn">{say('en retard', 'late')}</Chip>}
         </div>
+        {touch && x.status !== 'done' && <button className="btn sm" style={{ alignSelf: 'flex-start' }} disabled={busy === x.id} onClick={(e) => { e.stopPropagation(); setMoving(x); }}>{say('Déplacer…', 'Move…')}</button>}{/* [mobile] no dragging on a touch screen */}
       </div>
     );
   };
@@ -124,7 +129,7 @@ export function WeekView({ entityId }: { entityId: Id }) {
         <div className="kpi"><div className="l">{say('Sans échéance', 'No due date')}</div><div className="v">{undated.length}</div></div>
       </div>
 
-      <div className="kanban">
+      <div className="kanban wk-week">
         {days.map((day) => {
           const list = scoped.filter((x) => x.dueDate === day);
           return (
@@ -139,7 +144,8 @@ export function WeekView({ entityId }: { entityId: Id }) {
           {undated.map(card)}
         </div>
       </div>
-      <p className="small muted" style={{ margin: 0 }}>{say('Glissez une tâche sur un autre jour pour la replanifier.', 'Drag a task onto another day to reschedule it.')}</p>
+      <p className="small muted" style={{ margin: 0 }}>{touch ? say('Touchez « Déplacer… » sur une tâche pour la replanifier.', 'Tap "Move…" on a task to reschedule it.') : say('Glissez une tâche sur un autre jour pour la replanifier.', 'Drag a task onto another day to reschedule it.')}</p>
+      {moving && <MoveSheet task={moving} days={days} dayLabel={dayLabel} onPick={(day) => { setMoving(null); void reschedule(moving.id, day); }} onClose={() => setMoving(null)} />}
 
       <div className="grid2">
         <div className="card flush">
@@ -177,5 +183,29 @@ export function WeekView({ entityId }: { entityId: Id }) {
         </div>
       </div>
     </>
+  );
+}
+
+// [mobile] On a touch screen a task is moved through this sheet (no dragging): one of the week's days, another date or
+// no due date.
+function MoveSheet({ task, days, dayLabel, onPick, onClose }: { task: TicketTask; days: string[]; dayLabel: (iso: string) => string; onPick: (day: string | null) => void; onClose: () => void }) {
+  const say = useSay();
+  const [other, setOther] = useState('');
+  useBackLayer(true, onClose);
+  return (
+    <div className="modal-back" onClick={onClose}>
+      <div className="modal" role="dialog" aria-label={say('Déplacer', 'Move')} onClick={(e) => e.stopPropagation()}>
+        <h2>{say('Déplacer', 'Move')} · {task.title}</h2>
+        <div className="pill-list" style={{ margin: '14px 0' }}>
+          {days.map((day) => <button key={day} className={`pill ${task.dueDate === day ? 'on' : ''}`} onClick={() => onPick(day)}>{dayLabel(day)}</button>)}
+          <button className={`pill ${task.dueDate === NO_DUE_DATE ? 'on' : ''}`} onClick={() => onPick(null)}>{say('Sans échéance', 'No due date')}</button>
+        </div>
+        <div className="toolbar">
+          <input className="in" type="date" value={other} onChange={(e) => setOther(e.target.value)} aria-label={say('Autre date', 'Another date')} style={{ flex: 1 }} />
+          <button className="btn primary" disabled={!other} onClick={() => onPick(other)}>{say('Déplacer', 'Move')}</button>
+        </div>
+        <div className="actions" style={{ marginTop: 12 }}><button className="btn" onClick={onClose}>{say('Annuler', 'Cancel')}</button></div>
+      </div>
+    </div>
   );
 }

@@ -10,6 +10,7 @@ import { reload } from './Tasks';
 import { forgetWorkflows } from './stages';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
+import { WideNote } from './WideNote'; // [mobile]
 
 // The floor's board (0014: one per entity, every mission of the floor follows it; asked on 2026-10-28), its columns and
 // rules, as BUMEX One's workflow settings had them: stages (renamed, reordered, archived, never deleted), the default
@@ -133,6 +134,7 @@ export function WorkflowEditor({ entityId }: { entityId: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <WideNote />{/* [mobile] */}
       <div className="wf-floor">
         <div><b>{say(`Le tableau de ${floor?.name ?? "l'étage"}`, `${floor?.name ?? "The floor"}'s board`)}</b>
           <div className="small muted">{missions === 1

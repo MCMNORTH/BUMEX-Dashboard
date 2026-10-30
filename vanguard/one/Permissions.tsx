@@ -9,6 +9,7 @@ import { Chip, Field, Icon } from '../ui/common';
 import { reload } from './Tasks';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
+import { WideNote } from './WideNote'; // [mobile]
 
 // The Settings room's Permissions tab, for the administrators who manage access (the "role modifiers"): who sees which
 // entity, and which parts of each. A role gives its standard parts; each person's can be tweaked per entity (a tweaked
@@ -94,6 +95,7 @@ export function PermissionsPanel() {
 
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-start' }}>
+      <WideNote />{/* [mobile] */}
       <div className="card flush" style={{ flex: '1 1 250px', maxWidth: 340, minWidth: 0 }}>
         <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 6, borderBottom: '1px solid var(--border)' }}>
           <div className="toolbar" style={{ flexWrap: 'nowrap' }}>
@@ -137,7 +139,7 @@ export function PermissionsPanel() {
         <div className="card" style={{ padding: '8px 12px' }}>
           <button className="btn ghost sm" style={{ padding: 0 }} onClick={() => setShowRoles(!showRoles)}>{showRoles ? '▾' : '▸'} {say('Standard de chaque rôle', "Each role's standard")}</button>
           {showRoles && (
-            <table style={{ marginTop: 6, fontSize: 12 }}>
+            <div style={{ overflowX: 'auto' }}><table style={{ marginTop: 6, fontSize: 12 }}>{/* [mobile] scrolls, not the page */}
               <thead><tr><th style={{ padding: '4px 6px' }}>{say('Rôle', 'Role')}</th>{erpEntityModuleKeys.map((m) => <th key={m} style={{ ...cell, fontSize: 10.5 }} title={erpModules[m].label[lang]}>{SHORT[m][lang === 'fr' ? 0 : 1]}</th>)}<th style={{ ...cell, fontSize: 10.5 }}>{say('Groupe', 'Group')}</th></tr></thead>
               <tbody>
                 {erpRoles.map((r) => (
@@ -148,7 +150,7 @@ export function PermissionsPanel() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )}
           {showRoles && <div className="small muted" style={{ marginTop: 6 }}>{say("Missions, tâches et temps : ouverts à tous, selon le rôle et les missions de chacun. Bâtiment 3D : désactivé par défaut, pour tous les rôles. Seuls les administrateurs « modificateurs de rôles » changent les accès.", "Missions, tasks and time: open to everyone, by their role and missions. 3D building: off by default, for every role. Only administrators who are 'role modifiers' change access.")}</div>}
         </div>

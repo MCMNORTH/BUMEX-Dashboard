@@ -4,14 +4,17 @@ import { useStore, MODULE_ROOM } from '../store';
 import type { Room } from '../i18n';
 import { Icon, Lamp } from './common';
 import { MyDayButton } from '../one/MyDay'; // [bumex-one]
+import { useScreen } from '../one/screen'; // [mobile]
 
 // The left rail: slim by default, expandable for labels. It routes to the existing modules and the new ones; the
 // 3D camera follows (a module opened from here focuses its room first) and the flat mode shows the same page.
 
-interface Item { id: string; icon: string; label: string; badge?: number; room?: Room; off?: boolean; kbd?: string }
+export interface Item { id: string; icon: string; label: string; badge?: number; room?: Room; off?: boolean; kbd?: string }
 
-export function Sidebar() {
-  const { state, ui, t, setUi, goTower, goFloor, openRoom, focusRoom } = useStore();
+// [mobile] what the rail shows and how an item opens, shared with the phone's bottom bar and its "Plus" sheet
+// (one/PhoneNav.tsx)
+export function useNavItems() {
+  const { state, ui, t, setUi, openRoom, focusRoom } = useStore();
   const floors = useMemo(() => allFloors(state), [state]);
   const entityId = ui.entityId ?? state.entities.find((e) => e.code === 'AUD')!.id;
   const entity = state.entities.find((e) => e.id === entityId)!;
@@ -55,6 +58,41 @@ export function Sidebar() {
     }
     openRoom(item.room);
   };
+  const settings: Item = { id: 'settings', icon: 'settings', label: t('nav_settings'), room: 'settings' };
+  return { entity, entityId, floors, atOverview, modules, work, reports, settings, open };
+}
+
+// [mobile] the floors, as the rail's flyout lists them (and the phone's "Plus" sheet)
+export function FloorList({ onPick }: { onPick: () => void }) {
+  const { state, ui, setUi, goFloor, openRoom } = useStore();
+  const { floors, entityId } = useNavItems();
+  return (
+    <>
+      {floors.map((f) => (
+        <button
+          key={f.entity.id}
+          role="menuitem"
+          className={`${f.entity.id === entityId ? 'cur' : ''} ${f.visible ? '' : 'off'}`}
+          disabled={!f.visible}
+          onClick={() => {
+            onPick();
+            if (ui.view === 'flat') { setUi({ entityId: f.entity.id }); openRoom(f.entity.isHolding ? 'penthouse' : ['tasks', 'reports', 'settings', 'archives', 'overview', 'missions'].includes(ui.room ?? '') ? ui.room : 'overview'); return; } // [bumex-one] the floor's overview first
+            goFloor(f.entity.id);
+            if (f.entity.isHolding) openRoom('penthouse');
+          }}
+        >
+          <span><b>{f.entity.isTest ? '−1' : state.entities.filter((e) => !e.isTest).length - f.entity.floorOrder}</b> {f.entity.name}<span className="small muted" style={{ marginLeft: 6 }}>{f.entity.activity}</span></span>
+          {f.visible ? <span className="sigs"><Lamp kind={f.cashSignal} letter="T" /><Lamp kind={f.overdueSignal} letter="C" /><Lamp kind={f.engagementSignal} letter="M" /><Lamp kind={f.draftSignal === 'good' ? 'off' : f.draftSignal} letter="É" /></span> : <span className="small">non autorisé</span>}
+        </button>
+      ))}
+    </>
+  );
+}
+
+export function Sidebar() {
+  const { ui, t, setUi, goTower, openRoom } = useStore();
+  const { entity, atOverview, modules, work, reports, settings, open } = useNavItems();
+  const { tablet } = useScreen(); // [mobile] on a tablet the opened rail floats over the page (responsive.css)
   const Btn = ({ item, on }: { item: Item; on: boolean }) => (
     <button className={`sb-item ${on ? 'on' : ''} ${item.off ? 'off' : ''}`} onClick={() => open(item)} aria-label={item.label} aria-current={on ? 'page' : undefined} disabled={item.off}>
       <Icon name={item.icon} />
@@ -64,6 +102,8 @@ export function Sidebar() {
     </button>
   );
   return (
+    <>
+    {tablet && ui.sidebarOpen && <div className="rail-back" onClick={() => setUi({ sidebarOpen: false })} />}
     <nav className={`rail ${ui.sidebarOpen ? 'open' : ''}`} aria-label="Navigation">
       <div className="grp">
         <button className={`sb-item ${atOverview ? 'on' : ''}`} onClick={() => { if (ui.view === 'flat') openRoom('overview'); else goTower(); }} aria-label={t('nav_overview')}>
@@ -82,23 +122,7 @@ export function Sidebar() {
           <div className="flyout-back" onClick={() => setUi({ flyout: null })} />
           <div className="flyout" role="menu" aria-label={t('nav_floors')}>
             <h2>{t('group')}</h2>
-            {floors.map((f) => (
-              <button
-                key={f.entity.id}
-                role="menuitem"
-                className={`${f.entity.id === entityId ? 'cur' : ''} ${f.visible ? '' : 'off'}`}
-                disabled={!f.visible}
-                onClick={() => {
-                  setUi({ flyout: null });
-                  if (ui.view === 'flat') { setUi({ entityId: f.entity.id }); openRoom(f.entity.isHolding ? 'penthouse' : ['tasks', 'reports', 'settings', 'archives', 'overview', 'missions'].includes(ui.room ?? '') ? ui.room : 'overview'); return; } // [bumex-one] the floor's overview first
-                  goFloor(f.entity.id);
-                  if (f.entity.isHolding) openRoom('penthouse');
-                }}
-              >
-                <span><b>{f.entity.isTest ? '−1' : state.entities.filter((e) => !e.isTest).length - f.entity.floorOrder}</b> {f.entity.name}<span className="small muted" style={{ marginLeft: 6 }}>{f.entity.activity}</span></span>
-                {f.visible ? <span className="sigs"><Lamp kind={f.cashSignal} letter="T" /><Lamp kind={f.overdueSignal} letter="C" /><Lamp kind={f.engagementSignal} letter="M" /><Lamp kind={f.draftSignal === 'good' ? 'off' : f.draftSignal} letter="É" /></span> : <span className="small">non autorisé</span>}
-              </button>
-            ))}
+            <FloorList onPick={() => setUi({ flyout: null })} />
           </div>
         </>
       )}
@@ -114,7 +138,7 @@ export function Sidebar() {
       </div>
       <div className="grow" />
       <div className="grp">
-        <Btn item={{ id: 'settings', icon: 'settings', label: t('nav_settings'), room: 'settings' }} on={ui.room === 'settings'} />
+        <Btn item={settings} on={ui.room === 'settings'} />
         <button className="sb-item" onClick={() => setUi({ sidebarOpen: !ui.sidebarOpen })} aria-label={ui.sidebarOpen ? t('collapse') : t('expand')} aria-expanded={ui.sidebarOpen}>
           <Icon name={ui.sidebarOpen ? 'chevronLeft' : 'chevronRight'} />
           <span className="lbl">{t('collapse')}</span>
@@ -122,5 +146,6 @@ export function Sidebar() {
         </button>
       </div>
     </nav>
+    </>
   );
 }

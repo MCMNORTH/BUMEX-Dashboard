@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { addDays, canOpenRoom, floorSignals, type Id } from '@bumex/domain';
 import { floorOverviewAction, type FloorOverview, type OverviewPerson } from '@/lib/erp/vanguard/overview-actions';
 import { useStore } from '../store';
+import { useBackLayer } from './back'; // [mobile]
 import type { Room } from '../i18n';
 import { Icon, Money } from '../ui/common';
 import { hasDeadline } from './Missions';
@@ -30,6 +31,7 @@ export function OverviewRoom({ entityId, initialTab }: { entityId: Id; initialTa
   const say = useSay();
   const entity = useStore((s) => s.state.entities.find((e) => e.id === entityId));
   const [person, setPerson] = useState<string | null>(personOf(initialTab));
+  useBackLayer(Boolean(person) && person !== personOf(initialTab), () => setPerson(null)); // [mobile] Back closes the person (one/back.ts)
   const [seenTab, setSeenTab] = useState(initialTab);
   if (initialTab !== seenTab) {
     setSeenTab(initialTab);

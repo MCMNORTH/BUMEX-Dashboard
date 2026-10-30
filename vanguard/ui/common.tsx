@@ -22,7 +22,7 @@ export function Lamp({ kind, letter }: { kind: 'good' | 'warn' | 'crit' | 'off';
 
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: T; label: ReactNode }[]; value: T; onChange: (t: T) => void }) {
   return (
-    <div role="tablist" style={{ display: 'flex', flexWrap: 'wrap' }}>
+    <div role="tablist" className="tabs">{/* [mobile] one scrolling line on a phone (responsive.css) */}
       {tabs.map((t) => (
         <button key={t.id} role="tab" aria-selected={value === t.id} className={`tab ${value === t.id ? 'on' : ''}`} onClick={() => onChange(t.id)}>
           {t.label}
@@ -116,6 +116,9 @@ export const ICONS: Record<string, ReactNode> = {
   upload: <><path d="M12 15V4M7 9l5-5 5 5" /><path d="M4 20h16" /></>,
   mywork: <><path d="M4 6h10M4 12h10M4 18h7" /><path d="m15 17 2 2 4-4" /></>, // [bumex-one] My work
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
+  myday: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>, // [mobile] the phone's bottom bar
+  bell: <><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" /><path d="M10 20a2 2 0 0 0 4 0" /></>, // [mobile]
+  more: <><circle cx="5" cy="12" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="19" cy="12" r="1.4" /></>, // [mobile]
 };
 
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {

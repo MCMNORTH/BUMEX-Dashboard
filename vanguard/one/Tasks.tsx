@@ -7,6 +7,8 @@ import type { VanguardData } from '@/lib/erp/vanguard/run';
 import type { TaskTicket } from '@/lib/erp/vanguard/tickets';
 import { createTicketAction } from '@/app/(app)/tickets/actions';
 import { useStore } from '../store';
+import { useBackLayer } from './back'; // [mobile]
+import { isPhone } from './screen'; // [mobile]
 import { Field, Icon, Tabs } from '../ui/common';
 import { MissionBoard } from './Board';
 import { WorkflowEditor } from './Workflow';
@@ -58,7 +60,7 @@ export function TasksRoom({ entityId, initialTab }: { entityId: Id; initialTab?:
   // "board:<mission>" opens that mission's board (the mission card's button, vanguard/one/Missions.tsx)
   const boardFor = initialTab?.startsWith('board:') ? initialTab.slice(6) : null;
   const legacy = ['open', 'mine', 'overdue', 'done', 'all', 'week', 'unassigned', 'unestimated', 'blocked'].includes(initialTab ?? '');
-  const [view, setView] = useState<View>(() => (initialTab === 'rules' ? 'rules' : legacy || initialTab === 'list' ? 'list' : boardFor ? 'board' : readView('tasks', 'board')));
+  const [view, setView] = useState<View>(() => (initialTab === 'rules' ? 'rules' : legacy || initialTab === 'list' ? 'list' : boardFor ? 'board' : readView('tasks', isPhone() ? 'list' : 'board'))); // [mobile] a phone opens on the list
   const [scope, setScope] = useState<string>(boardFor ?? 'all');
   const [filters, setFiltersState] = useState<WorkFilters>(() => {
     const saved = readFilters(storeKey(entityId));
@@ -85,6 +87,7 @@ export function TasksRoom({ entityId, initialTab }: { entityId: Id; initialTab?:
     if (ui.focusTaskId && state.tasks.some((x) => x.id === ui.focusTaskId)) setTicketId(ui.focusTaskId);
   }
   const close = () => { setTicketId(null); if (ui.focusTaskId) setUi({ focusTaskId: null }); };
+  useBackLayer(Boolean(ticketId), close); // [mobile] Back closes the ticket (one/back.ts)
   const [creating, setCreating] = useState(false);
   const all = useMemo(() => state.tasks.filter((x) => x.entityId === entityId) as TicketTask[], [state.tasks, entityId]);
   const me = state.session.userId;

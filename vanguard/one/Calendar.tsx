@@ -5,6 +5,7 @@ import { calendarAction, type CalendarItem } from '@/lib/erp/vanguard/calendar-a
 import { useStore } from '../store';
 import { Select } from '../ui/Select';
 import { useSay } from './say';
+import { isPhone } from './screen'; // [mobile] a tapped day shows its list, under the month
 
 // The Missions room's "Calendrier" tab: BUMEX One's Calendar page (redrawn on 2026-10-28: the titles were cut and the
 // month said little). Ticket due dates, mission deadlines, milestones and contract renewals on a month grid, each kind
@@ -119,7 +120,7 @@ export function CalendarView({ entityId }: { entityId: Id }) {
               const cls = ['cal-day', other && 'other', d === today && 'today', d === day && 'sel', idx % 7 > 4 && 'we'].filter(Boolean).join(' ');
               return (
                 <div key={d} className={cls} role="button" tabIndex={0} aria-label={`${longDay(d)} · ${list.length}`} aria-pressed={d === day}
-                  onClick={() => setDay(d)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDay(d); } }}>
+                  onClick={() => { setDay(d); if (isPhone()) window.setTimeout(() => document.querySelector('.cal-side')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDay(d); } }}>
                   <span className="cal-num">{Number(d.slice(8))}</span>
                   <div className="cal-pills">
                     {list.slice(0, SHOWN_PER_DAY).map((i) => (

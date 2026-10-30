@@ -1,4 +1,4 @@
-import { useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
+import { type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { LOAD_PRIORITIES, type Load } from '@/lib/work/load';
 import { Icon } from '../ui/common';
@@ -128,15 +128,4 @@ export function Block({ id, title, count, tone, extra, className, children }: {
   );
 }
 
-/** Whether a media query matches (a phone, a screen without hover), following it; false on the server. */
-export function useMedia(query: string): boolean {
-  return useSyncExternalStore(
-    (notify) => {
-      const list = window.matchMedia(query);
-      list.addEventListener('change', notify);
-      return () => list.removeEventListener('change', notify);
-    },
-    () => window.matchMedia(query).matches,
-    () => false,
-  );
-}
+export { useMedia } from './screen'; // [mobile] moved there, with the phone/tablet queries

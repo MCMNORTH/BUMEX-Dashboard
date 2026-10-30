@@ -32,7 +32,7 @@ export function FinanceArchive() {
     <>
       <div className="banner info">{say("Les dossiers financiers de BUMEX One, en lecture seule : la comptabilité se tient désormais dans l'ERP (salles Clients, Fournisseurs, Trésorerie).", "BUMEX One's finance records, read-only: the books are now kept in the ERP (the Clients, Suppliers and Bank rooms).")}</div>
       <div className="actions" style={{ justifyContent: 'flex-start' }}>
-        <div className="seg">{parts.map(([k, fr, en, n]) => <button key={k} className={`btn sm ${part === k ? 'on' : ''}`} onClick={() => setPart(k)}>{say(fr, en)} · {n}</button>)}</div>
+        <div className="seg strip">{parts.map(([k, fr, en, n]) => <button key={k} className={`btn sm ${part === k ? 'on' : ''}`} onClick={() => setPart(k)}>{say(fr, en)} · {n}</button>)}</div>
         <input className="in" style={{ maxWidth: 260, marginLeft: 'auto' }} placeholder={say('Rechercher…', 'Search…')} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       <div className="card flush">

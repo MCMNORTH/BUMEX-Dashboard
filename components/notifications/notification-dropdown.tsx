@@ -37,7 +37,7 @@ export function NotificationDropdown() {
         ) : null}
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
-      <div className="max-h-[28rem] overflow-y-auto px-2 py-2">
+      <div className="max-h-[min(28rem,calc(var(--radix-dropdown-menu-content-available-height)-8rem))] overflow-y-auto px-2 py-2">
         {loading ? (
           <div className="px-2 py-4 text-sm text-muted-foreground">{isFr ? "Chargement des notifications..." : "Loading notifications..."}</div>
         ) : (

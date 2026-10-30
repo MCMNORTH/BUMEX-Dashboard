@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { DomainError, canSee, setChainBreaks, type State, type Id } from '@bumex/domain';
 import type { Lang, Room } from './i18n';
 import { makeT } from './i18n';
+import { isPhoneOrTablet } from './one/screen'; // [mobile]
 // [bumex-one] The state is the ERP database's: the page brings it (hydrate), each change is recorded and sent to the
 // server, which replays it and answers with the database's state (lib/erp/vanguard). Nothing is kept in the browser.
 import { reloadVanguardAction, runVanguardChangeAction, vanguardVersionAction } from '@/lib/erp/vanguard/actions';
@@ -130,7 +131,9 @@ const EMPTY: State = {
 };
 // BUMEX One's language (it keeps the two apps on the same one: components/vanguard/vanguard-app.tsx)
 const initialLang: Lang = typeof document !== 'undefined' && document.documentElement.lang === 'en' ? 'en' : 'fr';
-const webgl = typeof document !== 'undefined' ? webglAvailable() : false; // the browser's; hydrate() adds the person's option
+// the browser's; hydrate() adds the person's option. [mobile] A phone or a tablet never draws the building (asked on
+// 2026-10-30): the flat rooms only
+const webgl = typeof document !== 'undefined' ? webglAvailable() && !isPhoneOrTablet() : false;
 const prefs = loadPrefs();
 
 // The floor shown first: [bumex-one] the person's default entity (0015: their choice, else their home) when they see
@@ -267,7 +270,7 @@ export const useStore = create<Store>((set, get) => ({
     const scene3d = state.session.view3d === true;
     const view: View = !(scene3d && webgl) ? 'flat' : loadedAt ? ui.view : 'tower';
     set({ state, loadedAt: data.loadedAt, version: data.version, ui: { ...ui, entityId: entity?.id ?? null, fiscalYearLabel, scene3d, webgl: scene3d && webgl, view, switching: null } });
-    if (!loadedAt && scene3d && !webgl) get().toast('info', get().t('no_webgl'));
+    if (!loadedAt && scene3d && !webgl && !isPhoneOrTablet()) get().toast('info', get().t('no_webgl'));
   },
   refreshIfChanged: () => {
     if (pending > 0 || checking) return;

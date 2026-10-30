@@ -10,6 +10,7 @@ import { ContractPanel, ContractsTab } from '../../one/Contracts'; // [bumex-one
 import { useSay } from '../../one/say'; // [bumex-one]
 import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, DeleteButton, downloadXlsx } from '../common';
 import { Select } from '../Select';
+import { WideNote } from '../../one/WideNote'; // [mobile]
 
 // Withholding codes that a customer applies on our invoices (the receivable side), as opposed to the ones we apply on suppliers.
 export function salesWithholdingCodes(codes: TaxCode[], entityId: Id): TaxCode[] {
@@ -191,6 +192,7 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
   };
   return (
     <div className="cols">
+      <WideNote />{/* [mobile] */}
       <form className="grow" onSubmit={(e) => e.preventDefault()}>
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="grid4">

@@ -69,7 +69,7 @@ export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
           </div>
           {/* [bumex-one] no demo sign-in: the person is the one signed in to BUMEX One */}
         </div>
-        <div className="card">
+        <div className="card set-display">{/* [mobile] hidden on a phone, which has no building (responsive.css) */}
           <h2>{t('set_display')}</h2>
           <div className="small muted" style={{ marginBottom: 6 }}>{t('set_quality_sub')}</div>
           <Toggle label={t('set_shadows')} value={ui.quality.shadows} onChange={(v) => setQuality({ shadows: v })} />

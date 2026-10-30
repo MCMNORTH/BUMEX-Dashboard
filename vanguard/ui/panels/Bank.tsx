@@ -7,6 +7,7 @@ import {
 import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, DeleteButton, downloadXlsx, readXlsx, entryRef } from '../common';
 import { Select } from '../Select';
+import { WideNote } from '../../one/WideNote'; // [mobile]
 
 type Tab = 'accounts' | 'recon' | 'import' | 'forecast' | 'loans';
 
@@ -152,6 +153,7 @@ function Recon({ entityId }: { entityId: Id }) {
   };
   return (
     <div className="card flush">
+      <WideNote />{/* [mobile] */}
       <div style={{ display: 'flex', gap: 8, padding: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <Select recent="banks" className="in" style={{ width: 300 }} value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name} ({b.currency})</option>)}</Select>
         <span className="muted small">{rows.length} ligne(s) non expliquée(s) · une ligne mise en attente compte comme écriture non comptabilisée sur la façade</span>

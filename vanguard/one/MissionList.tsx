@@ -8,6 +8,7 @@ import { useSay } from './say';
 import type { TicketTask } from './Tasks';
 import { fold, readView, writeView, type WorkView } from './work-filters';
 import { Avatar, Lozenge, PriorityIcon, hoursText } from './work-ui';
+import { useScreen } from './screen'; // [mobile]
 
 // [bumex-one] The Missions room's first tab (asked on 2026-10-28: "the engagement pages are not good"): the floor's
 // missions as cards grouped by status, or as a list (the choice remembered in this browser), with search and filters
@@ -27,7 +28,9 @@ export function MissionList({ entityId }: { entityId: Id }) {
   const say = useSay();
   const today = state.today;
   const me = state.session.userId;
-  const [view, setView] = useState<WorkView>(() => readView('missions', 'board'));
+  const [chosen, setView] = useState<WorkView>(() => readView('missions', 'board'));
+  const { phone } = useScreen();
+  const view: WorkView = phone ? 'board' : chosen; // [mobile] a phone shows the cards: the list is an 860 px table
   const [scope, setScope] = useState<Scope>('open');
   const [search, setSearch] = useState('');
   const [client, setClient] = useState('');
@@ -133,10 +136,10 @@ export function MissionList({ entityId }: { entityId: Id }) {
               <option value="progress">{say('Par avancement', 'By progress')}</option>
             </Select>
           )}
-          <div className="seg-mini">
+          {!phone && <div className="seg-mini">
             <button className={view === 'board' ? 'on' : ''} onClick={() => pickView('board')}>{say('Cartes', 'Cards')}</button>
             <button className={view === 'list' ? 'on' : ''} onClick={() => pickView('list')}>{say('Liste', 'List')}</button>
-          </div>
+          </div>}
           {canCreate && <button className="btn sm primary" onClick={() => setCreating(true)}><Icon name="plus" size={13} /> {say('Nouvelle mission', 'New mission')}</button>}
         </div>
       </div>

@@ -49,7 +49,7 @@ export function ClientRelations({ entityId }: { entityId: Id }) {
 
   return (
     <div className="card flush">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
+      <div className="cl-head" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
         <h2 style={{ margin: 0 }}>{say('Relations', 'Relations')} · {clients.length}</h2>
         <span className="small muted">{say('les clients du groupe et leur compte dans cette entité', "the group's clients and their account in this entity")}</span>
         <input className="in" style={{ maxWidth: 220, marginLeft: 'auto' }} placeholder={say('Rechercher…', 'Search…')} value={q} onChange={(e) => setQ(e.target.value)} />

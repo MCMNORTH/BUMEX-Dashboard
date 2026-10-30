@@ -2,6 +2,7 @@ import { Children, Fragment, isValidElement, useEffect, useId, useLayoutEffect, 
 import { createPortal } from 'react-dom';
 import { useStore } from '../store';
 import { highlights, rank } from './select-search';
+import { isPhone } from '../one/screen'; // [mobile]
 
 // [bumex-one] Every dropdown of the app (asked on 2026-10-27): a modern list with a smart search instead of the
 // browser's <select> and <datalist>. Written as the native ones were — <Select value onChange> with <option>s, the
@@ -77,7 +78,7 @@ function Marked({ label, query }: { label: string; query: string }) {
   return <>{out}</>;
 }
 
-const phone = () => typeof window !== 'undefined' && window.innerWidth < 640;
+const phone = isPhone; // [mobile] the app's phone query (one/screen.ts)
 
 type Row = { option: Option; section: 'recent' | 'all' };
 

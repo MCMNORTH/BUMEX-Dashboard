@@ -124,6 +124,7 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
   const [extra, setExtra] = useState<Pick[]>([]); // lines added to the grid, not saved yet
   const [adding, setAdding] = useState<{ what: string; label: string } | null>(null);
   const [quick, setQuick] = useState<{ date?: string; ticketId?: string | null; n: number }>({ ticketId: log?.taskId ?? null, n: 0 });
+  const [phoneDay, setPhoneDay] = useState<string | null>(null); // [mobile] the day a phone shows
 
   useEffect(() => {
     let live = true;
@@ -169,6 +170,13 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
   const status = data.weekStatus?.status ?? 'draft';
   const canAdd = data.projects.length > 0 && data.week <= today && !locked;
   const canSend = total > 0 && !data.test && (!data.weekStatus || data.weekStatus.status === 'returned');
+  // [mobile] the day a phone shows (today in this week, else its Monday) and its lines: the week's lines with time that
+  // day, or that can take some (the tickets just moved too)
+  const shownDay = phoneDay && days.includes(phoneDay) ? phoneDay : days.includes(today) ? today : days[0];
+  const phoneLines = rows.map((r) => {
+    const cell = r.days.get(shownDay) ?? [];
+    return { r, cell, m: cellMinutes(r, shownDay), can: shownDay <= today && allowed.has(r.projectId) && !locked };
+  }).filter((x) => x.m > 0 || x.can);
 
   const submit = async () => {
     setBusy(true);
@@ -307,24 +315,43 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
         </div>
       </section>
 
+      {/* [mobile] a phone: one day at a time (docs/plans/mobile-tablet.md); the grid above is hidden there (work.css) */}
       <section className="ts-daylist" aria-label={say('Ma semaine, jour par jour', 'My week, day by day')}>
-        {days.filter((d) => d <= today).map((d) => {
-          const lines = data.entries.filter((e) => e.work_date === d);
-          return (
-            <div key={d} className={`ts-dl-day ${d === today ? 'today' : ''}`}>
-              <div className="ts-dl-h">
-                <b>{day(d, { weekday: 'long', day: 'numeric', month: 'short' })}</b>
-                <span className="muted">{duration(lines.reduce((s, e) => s + e.duration_minutes, 0))}</span>
-                {canAdd && <button className="btn sm" onClick={() => { setQuick({ date: d, ticketId: null, n: quick.n + 1 }); window.scrollTo({ top: 0, behavior: 'smooth' }); document.querySelector<HTMLElement>('.ql-panel')?.scrollIntoView({ behavior: 'smooth' }); }} aria-label={say('Ajouter du temps ce jour', 'Add time that day')}><Icon name="plus" size={13} /></button>}
-              </div>
-              {lines.map((e) => (
-                <button key={e.id} className="ts-dl-e" disabled={locked} onClick={() => setSelection({ date: d, projectId: e.project_id, mission: e.mission, taskId: e.task_id ?? null, entries: [e], entry: e })}>
-                  <span>{e.mission}<span className="small muted"> · {e.project?.name ?? '—'}</span></span><b>{duration(e.duration_minutes)}</b>
-                </button>
-              ))}
+        <div className="ts-dl-chips strip" role="tablist">
+          {days.map((d, i) => (
+            <button key={d} role="tab" aria-selected={d === shownDay} className={`ts-dl-chip ${d === shownDay ? 'on' : ''} ${d === today ? 'today' : ''}`} onClick={() => setPhoneDay(d)}>
+              <span>{day(d, { weekday: 'short' })} {day(d, { day: 'numeric' })}</span>
+              <b>{daily[i] ? duration(daily[i]) : '—'}</b>
+            </button>
+          ))}
+        </div>
+        <div className={`ts-dl-day ${shownDay === today ? 'today' : ''}`}>
+          <div className="ts-dl-h">
+            <b>{day(shownDay, { weekday: 'long', day: 'numeric', month: 'short' })}</b>
+            <span className="muted">{duration(daily[days.indexOf(shownDay)] ?? 0)}</span>
+            {canAdd && shownDay <= today && <button className="btn sm" onClick={() => { setQuick({ date: shownDay, ticketId: null, n: quick.n + 1 }); document.querySelector<HTMLElement>('.ql-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}><Icon name="plus" size={13} /> {say('Ajouter', 'Add')}</button>}
+          </div>
+          {phoneLines.map(({ r, m, cell, can }) => (
+            <div key={r.key} className="ts-dl-line">
+              <button className="ts-dl-e" disabled={!cell.length || locked} onClick={() => setSelection({ date: shownDay, projectId: r.projectId, mission: r.mission, taskId: r.taskId, entries: cell, entry: cell[0] })}>
+                <span>{r.taskKey && <span className="ts-tkey">{r.taskKey}</span>}{r.mission || '—'}<span className="small muted"> · {r.projectName ?? '—'}</span></span>
+                <b>{m ? duration(m) : '—'}</b>
+              </button>
+              {can && cell.length <= 1 && (
+                <div className="ts-dl-add">
+                  {[15, 30, 60].map((n) => <button key={n} className="pill" disabled={`${r.key}|${shownDay}` in override} onClick={() => void commitCell(r, shownDay, m + n)}>+{n < 60 ? `${n} min` : '1 h'}</button>)}
+                </div>
+              )}
             </div>
-          );
-        })}
+          ))}
+          {!phoneLines.length && <div className="small muted" style={{ padding: '10px 12px' }}>{shownDay > today ? say('Jour à venir.', 'A day to come.') : say('Rien ce jour-là.', 'Nothing that day.')}</div>}
+        </div>
+        {(canSend || total > 0) && (
+          <div className="ts-dl-foot">
+            <span><b>{duration(total)}</b> <span className="muted">/ {data.capacityHours} h</span></span>
+            {canSend && <button className="btn primary" disabled={busy} onClick={() => setConfirm('submit')}>{data.weekStatus?.status === 'returned' ? say('Renvoyer la semaine', 'Resubmit the week') : say('Envoyer la semaine', 'Send the week')}</button>}
+          </div>
+        )}
       </section>
 
       {data.events.length > 0 && (

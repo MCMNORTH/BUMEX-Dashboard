@@ -8,6 +8,7 @@ import {
 import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, saveFile, downloadXlsx, readXlsx, DeleteButton } from '../common';
 import { Select, Suggest } from '../Select';
+import { WideNote } from '../../one/WideNote'; // [mobile]
 
 type Tab = 'entry' | 'journals' | 'gl' | 'tb' | 'closing' | 'coa' | 'setup' | 'integrity';
 
@@ -156,6 +157,7 @@ function EntryForm({ entityId, editing, onDone }: { entityId: Id; editing: Id | 
   const canPost = checks.length === 0;
   return (
     <div className="cols">
+      <WideNote />{/* [mobile] */}
       <form className="grow" onSubmit={(e) => e.preventDefault()} onKeyDown={onKey}>
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
