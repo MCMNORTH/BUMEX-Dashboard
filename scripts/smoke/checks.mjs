@@ -71,6 +71,13 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
   const ahmedRow = peopleRows?.find?.((p) => p.id === uid.ahmed);
   check("People and the pickers show each person's load in hours against their capacity", typeof ahmedRow?.load?.weekHours === "number" && ahmedRow?.load?.capacityHours > 0 && typeof loads?.[uid.ahmed]?.percent === "number", { row: ahmedRow?.load, pick: loads?.[uid.ahmed] });
 
+  // ---- a timesheet's review: the tickets its lines were logged on, with their reporter and estimate against logged time
+  const reviewed = await act("mohamed.cheikh", "reviewTicketsAction", { args: [[T.t1]] });
+  const notMine = await act("ahmed.ba", "reviewTicketsAction", { args: [[T.t1]] });
+  check("a timesheet's reviewer reads the tickets of its lines (reporter, estimate, logged time); an employee does not",
+    reviewed?.[0]?.key === "AUD-1" && typeof reviewed?.[0]?.reporter === "string" && reviewed?.[0]?.estimatedHours === 6 && typeof reviewed?.[0]?.loggedMinutes === "number" && Array.isArray(notMine) && notMine.length === 0,
+    { reviewed: reviewed?.[0] && { ...reviewed[0], description: undefined }, notMine });
+
   // ---- statuses: one board per floor, which every mission of the floor follows (0014, 2026-10-28) -------------------------
   const floorNow = (await act("mariem.sow", "floorBoardAction", { args: [entity.bumex_audit] }))?.workflow;
   const auditStages = floorNow?.stages?.map((st) => st.name).join(" → ");

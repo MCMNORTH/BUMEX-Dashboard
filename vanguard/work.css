@@ -925,3 +925,32 @@
 .vanguard .mw-lower .mw-block-h { flex-wrap: wrap; row-gap: 4px; }
 .vanguard .mw-lower .mw-block-h h2 { white-space: nowrap; }
 .vanguard .mw-extra button { white-space: nowrap; }
+
+/* ---- the review of a person's week (Time.tsx TeamSheet): its lines by ticket, the ticket on hover, opened on the right ---- */
+.vanguard .ts-rv { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; }
+.vanguard .ts-rv-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 14px; width: 100%; padding: 6px 10px; border: none; border-radius: 6px; background: none; color: var(--ink); text-align: left; font-size: 13px; cursor: pointer; }
+.vanguard .ts-rv-line:hover:not(:disabled), .vanguard .ts-rv-line:focus-visible { background: var(--blue-pale); }
+.vanguard .ts-rv-line.plain, .vanguard .ts-rv-line:disabled { cursor: default; opacity: 1; }
+.vanguard .ts-rv-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vanguard .ts-rv-week { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.vanguard .ts-rv-est { min-width: 150px; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--graphite); }
+.vanguard .ts-rv-est.over { color: var(--crit); }
+.vanguard .ts-hover { position: fixed; z-index: 130; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background: var(--paper); color: var(--ink); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); pointer-events: none; font-size: 13px; }
+.vanguard .ts-hover-h { display: flex; align-items: center; gap: 8px; }
+.vanguard .ts-hover-t { font-weight: 600; font-size: 14px; line-height: 1.35; }
+.vanguard .ts-hover dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 12px; margin: 0; }
+.vanguard .ts-hover dt { color: var(--muted); }
+.vanguard .ts-hover dd { margin: 0; }
+.vanguard .ts-hover dd.over { color: var(--crit); font-weight: 600; }
+.vanguard .ts-hover-bar { height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.vanguard .ts-hover-bar i { display: block; height: 100%; background: var(--good); }
+.vanguard .ts-hover-bar.over i { background: var(--crit); }
+.vanguard .ts-hover-d { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--graphite); display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+.vanguard .ts-drawer-back { position: fixed; inset: 0; z-index: 110; background: rgba(10, 16, 30, .3); }
+.vanguard .ts-drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 111; width: min(960px, 100%); overflow-y: auto; overflow-x: hidden; padding: 18px 22px; background: var(--ground); box-shadow: -20px 0 50px rgba(0, 0, 0, .3); animation: vg-slidein .2s ease-out; }
+@media (max-width: 640px) {
+  .vanguard .ts-rv-line { grid-template-columns: minmax(0, 1fr) auto; }
+  .vanguard .ts-rv-est { grid-column: 1 / -1; text-align: left; min-width: 0; }
+  .vanguard .ts-drawer { padding: calc(12px + env(safe-area-inset-top)) 12px 12px; }
+}
+@media (min-width: 641px) { .vanguard .ts-drawer .tk-grid { grid-template-columns: minmax(0, 1fr) 290px; gap: 18px; } .vanguard .ts-drawer .tk-side { order: 0; } }

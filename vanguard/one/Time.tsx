@@ -1,7 +1,9 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { approveTimesheetWeekAction, approveTimesheetWeeksAction, copyPreviousWeekAction, deleteTimeAction, remindTimesheetWeekAction, returnTimesheetWeekAction, saveTimeAction, setMissionFavoriteAction, submitTimesheetWeekAction } from '@/app/(app)/timesheet/actions';
 import { usePermissions } from '@/hooks/use-permissions';
-import { myTimeAction, teamTimeAction, type MyTime, type RecentTicket, type TeamTime } from '@/lib/erp/vanguard/time-actions';
+import { myTimeAction, reviewTicketsAction, teamTimeAction, type MyTime, type RecentTicket, type ReviewTicket, type TeamTime } from '@/lib/erp/vanguard/time-actions';
+import { TicketPanel } from './Ticket';
+import { useBackLayer } from './back';
 import { floorCode } from '@/lib/erp/vanguard/floors';
 import { addDays } from '@/lib/timesheet/validation';
 import { groupWeeklyEntries, missionKey } from '@/lib/timesheet/weekly';
@@ -607,6 +609,32 @@ function TeamSheet() {
   const [returning, setReturning] = useState<{ id: string; reason: string } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // a person's week opened: the tickets its lines were logged on, a card on hover, the ticket itself in a panel on the
+  // right (the review stays where it is)
+  const [tickets, setTickets] = useState<Record<string, ReviewTicket>>({});
+  const [hover, setHover] = useState<{ t: ReviewTicket; x: number; y: number } | null>(null);
+  const [ticketOpen, setTicketOpen] = useState<string | null>(null);
+  const asked = useRef(new Set<string>()); // asked once each, read or not
+  const closeTicket = () => {
+    const id = ticketOpen;
+    setTicketOpen(null);
+    if (id) void reviewTicketsAction([id]).then((list) => setTickets((all) => ({ ...all, ...Object.fromEntries(list.map((t) => [t.id, t])) }))).catch(() => undefined);
+  };
+  useBackLayer(Boolean(ticketOpen), closeTicket);
+  useEffect(() => {
+    if (!ticketOpen) return;
+    // Escape closes the panel, not the room (vanguard/ui/Header.tsx listens on the window too)
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setTicketOpen(null); } };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [ticketOpen]);
+  useEffect(() => {
+    if (!open || !data) return;
+    const ids = [...new Set(data.entries.filter((e) => e.user_id === open && e.task_id).map((e) => e.task_id!))].filter((id) => !asked.current.has(id));
+    if (!ids.length) return;
+    ids.forEach((id) => asked.current.add(id));
+    reviewTicketsAction(ids).then((list) => setTickets((all) => ({ ...all, ...Object.fromEntries(list.map((t) => [t.id, t])) }))).catch(() => ids.forEach((id) => asked.current.delete(id)));
+  }, [open, data]);
 
   useEffect(() => {
     let live = true;
@@ -751,7 +779,8 @@ function TeamSheet() {
                     <tr className="ts-detail">
                       <td />
                       <td colSpan={11}>
-                        {groupWeeklyEntries(data.entries.filter((e) => e.user_id === p.id)).map((g) => <div key={g.key} className="small" style={{ padding: '3px 0' }}><b>{g.mission || '—'}</b> · {g.projectName ?? '—'} · {duration(g.minutes)}</div>)}
+                        <ReviewLines entries={data.entries.filter((e) => e.user_id === p.id)} tickets={tickets} say={say}
+                          onOpen={(id) => { setHover(null); setTicketOpen(id); }} onHover={(t, el) => { if (!t || !el) { setHover(null); return; } const r = el.getBoundingClientRect(); setHover({ t, x: r.left, y: r.bottom }); }} />
                         {!totals.get(p.id) && <span className="small muted">{say('Aucun temps cette semaine.', 'No time this week.')}</span>}
                       </td>
                     </tr>
@@ -763,6 +792,78 @@ function TeamSheet() {
           </table>
         </div>
       </section>
+      {hover && !ticketOpen && <TicketHoverCard t={hover.t} x={hover.x} y={hover.y} say={say} />}
+      {ticketOpen && (
+        <>
+          <div className="ts-drawer-back" onClick={closeTicket} />
+          <aside className="ts-drawer" role="dialog" aria-label={say('Ticket', 'Ticket')}>
+            <TicketPanel id={ticketOpen} onClose={closeTicket} backLabel={say('Retour à la revue', 'Back to the review')} />
+          </aside>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---- the review of a person's week: its lines by ticket, the ticket on hover, and opened on the right ----
+
+const hoursOf = (h: number) => duration(Math.round(h * 60));
+
+/** A ticket's estimate against all the time logged on it; past the estimate, by how much. */
+function overrun(t: ReviewTicket | undefined) {
+  if (!t || !(Number(t.estimatedHours) > 0)) return null;
+  const over = t.loggedMinutes - Math.round(Number(t.estimatedHours) * 60);
+  return over > 0 ? over : 0;
+}
+
+function ReviewLines({ entries, tickets, onOpen, onHover, say }: {
+  entries: TimeEntry[]; tickets: Record<string, ReviewTicket>; onOpen: (id: string) => void;
+  onHover: (t: ReviewTicket | null, el: HTMLElement | null) => void; say: Say;
+}) {
+  return (
+    <div className="ts-rv">
+      {groupWeeklyEntries(entries).map((g) => {
+        const taskId = [...g.days.values()].flat().find((e) => e.task_id)?.task_id ?? null;
+        const t = taskId ? tickets[taskId] : undefined;
+        const over = overrun(t);
+        return (
+          <button key={g.key} type="button" className={`ts-rv-line ${taskId ? '' : 'plain'}`} disabled={!taskId}
+            onClick={() => taskId && onOpen(taskId)}
+            onMouseEnter={(e) => t && onHover(t, e.currentTarget)} onMouseLeave={() => onHover(null, null)} onFocus={(e) => t && onHover(t, e.currentTarget)} onBlur={() => onHover(null, null)}>
+            <span className="ts-rv-t"><b>{g.mission || '—'}</b> <span className="muted">· {g.projectName ?? '—'}</span></span>
+            <span className="ts-rv-week">{duration(g.minutes)} <span className="muted small">{say('cette semaine', 'this week')}</span></span>
+            {taskId && (
+              <span className={`ts-rv-est ${over ? 'over' : ''}`}>
+                {!t ? '…' : t.estimatedHours ? <>{duration(t.loggedMinutes)} {say('saisi', 'logged')} / {hoursOf(Number(t.estimatedHours))} {say('estimé', 'estimated')}{over ? <b> · {say('dépassé de', 'over by')} {duration(over)}</b> : null}</> : <span className="muted">{say('non estimé', 'not estimated')} · {duration(t.loggedMinutes)}</span>}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function TicketHoverCard({ t, x, y, say }: { t: ReviewTicket; x: number; y: number; say: Say }) {
+  const over = overrun(t);
+  const est = Number(t.estimatedHours) > 0 ? Math.round(Number(t.estimatedHours) * 60) : 0;
+  const width = 380;
+  const left = Math.max(8, Math.min(x, window.innerWidth - width - 8));
+  const below = y + 300 < window.innerHeight;
+  return (
+    <div className="ts-hover" role="tooltip" style={{ left, width, ...(below ? { top: y + 6 } : { bottom: window.innerHeight - y + 40 }) }}>
+      <div className="ts-hover-h"><b>{t.key ?? ''}</b> <span className="tag dim">{t.stage}</span></div>
+      <div className="ts-hover-t">{t.title}</div>
+      <dl>
+        <dt>{say('Rapporteur', 'Reporter')}</dt><dd>{t.reporter ?? '—'}</dd>
+        <dt>{say('Assigné', 'Assignee')}</dt><dd>{t.assignee ?? '—'}</dd>
+        <dt>{say('Échéance', 'Due')}</dt><dd>{t.dueDate ? t.dueDate.slice(0, 10).split('-').reverse().join('/') : '—'}</dd>
+        <dt>{say('Saisi / estimé', 'Logged / estimate')}</dt>
+        <dd className={over ? 'over' : ''}>{duration(t.loggedMinutes)} / {est ? duration(est) : say('non estimé', 'not estimated')}{over ? ` · ${say('dépassé de', 'over by')} ${duration(over)}` : ''}</dd>
+      </dl>
+      {est > 0 && <div className={`ts-hover-bar ${over ? 'over' : ''}`}><i style={{ width: `${Math.min(100, (t.loggedMinutes / est) * 100)}%` }} /></div>}
+      <div className="ts-hover-d">{t.description.trim() || <span className="muted">{say('Pas de description.', 'No description.')}</span>}</div>
+      <div className="small muted">{say('Cliquez pour ouvrir le ticket.', 'Click to open the ticket.')}</div>
     </div>
   );
 }

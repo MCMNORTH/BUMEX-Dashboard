@@ -2,6 +2,7 @@
 
 import { requireRouteAccess } from "@/lib/auth/server";
 import { getAdminTimesheetOverview, getTimesheet } from "@/lib/timesheet/service";
+import { getTicketsByIds } from "@/lib/tickets/service";
 import { weekBounds } from "@/lib/timesheet/validation";
 import { asPerson, select } from "@/lib/work/db";
 import type { TimeEntry, TimeMission, TimeMissionFavorite, TimeProject, TimeTicket, TimesheetProfile, TimesheetWeekEvent, TimesheetWeekStatus } from "@/types/timesheet";
@@ -90,6 +91,41 @@ export type TeamTime = Week & {
   companyWide: boolean;
   me: string;
 };
+
+// A ticket a reviewed line was logged on: what it is, who asked for it, and its estimate against all the time logged
+// on it (asked on 2026-10-30, to review a week like Jira shows a ticket on hover).
+export type ReviewTicket = {
+  id: string;
+  key: string | null;
+  title: string;
+  description: string;
+  reporter: string | null;
+  assignee: string | null;
+  stage: string;
+  priority: string;
+  dueDate: string | null;
+  estimatedHours: number | null;
+  loggedMinutes: number;
+};
+
+export async function reviewTicketsAction(ids: string[]): Promise<ReviewTicket[]> {
+  const auth = await requireRouteAccess("timesheet");
+  if (auth.role !== "admin" && auth.role !== "manager") return [];
+  const tickets = await getTicketsByIds(auth.role, Array.isArray(ids) ? ids.map(String) : []);
+  return tickets.map((t) => ({
+    id: t.id,
+    key: t.key,
+    title: t.title,
+    description: (t.description ?? "").slice(0, 600),
+    reporter: (Array.isArray(t.reporter) ? t.reporter[0] : t.reporter)?.full_name ?? null,
+    assignee: (Array.isArray(t.assignee) ? t.assignee[0] : t.assignee)?.full_name ?? null,
+    stage: t.stage_name ?? t.status,
+    priority: t.priority,
+    dueDate: t.due_date,
+    estimatedHours: t.estimated_hours,
+    loggedMinutes: t.logged_minutes,
+  }));
+}
 
 export async function teamTimeAction(week?: string | null): Promise<TeamTime | null> {
   const auth = await requireRouteAccess("timesheet");

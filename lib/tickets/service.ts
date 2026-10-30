@@ -193,6 +193,13 @@ export async function getTickets(role: AppRole, filters: TicketFilters = {}) {
 // Every entity's (the lists were scoped by entity in BUMEX One; the rules are not).
 export const getTicketsAcrossEntities = getTickets;
 
+/** These tickets, as the person may see them (a timesheet's review reads the tickets its lines were logged on). */
+export async function getTicketsByIds(role: AppRole, ids: string[]) {
+  const wanted = [...new Set(ids)].filter((id) => /^[0-9a-f-]{36}$/i.test(id)).slice(0, 200);
+  if (!wanted.length) return [];
+  return readTickets(role, {}, { where: "t.id = any($1::uuid[])", params: [wanted] });
+}
+
 export function isOpenTicket(ticket: Pick<TicketRecord, "status">) {
   return ticket.status !== "done" && ticket.status !== "archived";
 }
