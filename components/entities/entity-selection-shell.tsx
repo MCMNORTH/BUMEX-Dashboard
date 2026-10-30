@@ -24,7 +24,7 @@ export function EntitySelectionShell({ error = "" }: { error?: string }) {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-muted/50 px-4 py-5 sm:px-6 lg:px-8">
+    <main className="relative min-h-dvh overflow-hidden bg-muted/50 px-4 py-5 sm:px-6 lg:px-8">
       <div className="absolute inset-0 bg-slate-950/18 dark:bg-slate-950/38" />
 
       {selectedCode ? (
@@ -33,7 +33,7 @@ export function EntitySelectionShell({ error = "" }: { error?: string }) {
         </div>
       ) : null}
 
-      <div className="relative flex min-h-screen items-center justify-center">
+      <div className="relative flex min-h-full items-center justify-center">
         <div className="w-full max-w-3xl rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-elevated)] sm:p-6">
           <div className="max-w-md">
               <h1 className="text-2xl font-semibold tracking-tight">

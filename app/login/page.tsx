@@ -19,7 +19,7 @@ export default async function LoginPage() {
   const tr = (fr: string, en: string) => (isFr ? fr : en);
 
   return (
-    <main className="login-scene relative min-h-screen overflow-hidden bg-background">
+    <main className="login-scene relative min-h-dvh overflow-hidden bg-background">
       <div className="login-grid pointer-events-none absolute inset-0 opacity-60 dark:opacity-35" />
       <div className="login-orb login-orb-a" />
       <div className="login-orb login-orb-b" />
@@ -29,7 +29,7 @@ export default async function LoginPage() {
         <LanguageSwitcher />
       </div>
 
-      <div className="container-shell relative flex min-h-screen items-center px-4 py-10 sm:px-6 lg:px-8">
+      <div className="container-shell relative flex min-h-dvh items-center px-4 pt-16 pb-10 sm:px-6 lg:px-8 lg:py-10">
         <div className="grid w-full gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <section className="space-y-8">
             <div className="space-y-5">
@@ -44,7 +44,7 @@ export default async function LoginPage() {
               </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="hidden gap-4 sm:grid-cols-3 lg:grid">
               {[
                 {
                   icon: FolderKanban,
@@ -93,7 +93,7 @@ export default async function LoginPage() {
             ) : null}
           </section>
 
-          <section className="relative">
+          <section className="relative order-first lg:order-none">
             <AuthForm />
           </section>
         </div>

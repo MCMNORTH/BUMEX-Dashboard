@@ -16,12 +16,12 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
   const tr = (fr: string, en: string) => (isFr ? fr : en);
 
   return (
-    <main className="login-scene relative min-h-screen overflow-hidden bg-background">
+    <main className="login-scene relative min-h-dvh overflow-hidden bg-background">
       <div className="login-grid pointer-events-none absolute inset-0 opacity-60 dark:opacity-35" />
       <div className="absolute top-4 right-4 z-10">
         <LanguageSwitcher />
       </div>
-      <div className="relative flex min-h-screen items-center justify-center px-4 py-10">
+      <div className="relative flex min-h-dvh items-center justify-center px-4 py-10">
         <Card className="login-panel w-full max-w-md shadow-[var(--shadow-elevated)]">
           <CardHeader className="space-y-2 p-5 sm:p-6">
             <CardTitle className="text-2xl">{tr("Mot de passe oublié", "Forgot password")}</CardTitle>

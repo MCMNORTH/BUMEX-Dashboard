@@ -100,7 +100,7 @@ export function AuthForm() {
               id="email"
               name="email"
               type="email"
-              autoComplete="email"
+              autoComplete="username"
               placeholder="name@bumex.mr"
               aria-describedby="email-hint"
               required

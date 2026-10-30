@@ -18,12 +18,12 @@ export default async function InvitationPage({ params }: { params: Promise<{ tok
   const invitation: Invitation | null = await findInvitation(token).catch(() => null);
 
   return (
-    <main className="login-scene relative min-h-screen overflow-hidden bg-background">
+    <main className="login-scene relative min-h-dvh overflow-hidden bg-background">
       <div className="login-grid pointer-events-none absolute inset-0 opacity-60 dark:opacity-35" />
       <div className="absolute top-4 right-4 z-10">
         <LanguageSwitcher />
       </div>
-      <div className="relative flex min-h-screen items-center justify-center px-4 py-10">
+      <div className="relative flex min-h-dvh items-center justify-center px-4 py-10">
         <Card className="login-panel w-full max-w-md shadow-[var(--shadow-elevated)]">
           {invitation && !("error" in invitation) ? (
             <>
