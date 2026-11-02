@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addTicketLinkAction, removeTicketLinkAction, searchTicketsAction, ticketViewAction, type TicketLink, type TicketLinkKind, type TicketView } from '@/lib/erp/vanguard/ticket-actions';
-import { ARCHIVED_STAGE_VALUE, evaluateTransition, findStage, getActiveStages, getCompletedStage, getCompletionRule, getSignOffStage } from '@/lib/tickets/workflow';
+import { ARCHIVED_STAGE_VALUE, evaluateTransition, findStage, getActiveStages, getCompletedStage, getCompletionRule, getSignOffStage, missingEstimate } from '@/lib/tickets/workflow';
+import { EstimateAsk } from './EstimateAsk';
 import { moveTicketStageAction, removeTicketAction, updateTicketFieldAction, type TicketField, createSubtaskAction, toggleSubtaskAction, renameSubtaskAction, setSubtaskOwnerAction, setSubtaskDueDateAction, reorderSubtasksAction, deleteSubtaskAction } from '@/app/(app)/tickets/actions';
 import { changeDocumentAction, saveDocumentAction } from '@/app/(app)/documents/actions';
 import { remainingHours } from '@/lib/work/load';
@@ -404,22 +405,24 @@ function Links({ view, busy, run, say, open, onOpened }: { view: TicketView; bus
 // ---- the right: status, next action, details ----
 function StatusControl({ view, busy, run, say }: { view: TicketView; busy: boolean; run: Run; say: Say }) {
   const { ticket, workflow } = view;
-  const [asking, setAsking] = useState<{ stageId: string; name: string; message: string } | null>(null);
+  // a reason, or an estimate when the stage forces one and the ticket has none (2026-11-02)
+  const [asking, setAsking] = useState<{ stageId: string; name: string; message: string; kind: 'reason' | 'estimate'; why?: string } | null>(null);
   const [reason, setReason] = useState('');
   const stages = getActiveStages(workflow);
   const current = ticket.status === 'archived' ? ARCHIVED_STAGE_VALUE : ticket.stage_id;
   const stage = findStage(workflow, ticket.stage_id);
   const tone = ticket.status === 'archived' ? 'archived' : stageTone(stage);
-  const move = async (stageId: string, why?: string) => {
+  const move = async (stageId: string, why?: string, estimate?: number) => {
     if (stageId === current) return;
     const name = stageId === ARCHIVED_STAGE_VALUE ? say('Archivé', 'Archived') : stages.find((s) => s.id === stageId)?.name ?? '';
     let answer: { error?: string; code?: string } = {};
     const ok = await run(async () => {
       // archiving, and leaving the archive, go through the edit (its rules: managers only); a move through the board's
-      answer = stageId === ARCHIVED_STAGE_VALUE || current === ARCHIVED_STAGE_VALUE ? await updateTicketFieldAction(ticket.id, 'stage_id', stageId) : await moveTicketStageAction(ticket.id, { stageId }, why);
-      return answer.code === 'reason_required' ? undefined : answer;
+      answer = stageId === ARCHIVED_STAGE_VALUE || current === ARCHIVED_STAGE_VALUE ? await updateTicketFieldAction(ticket.id, 'stage_id', stageId) : await moveTicketStageAction(ticket.id, { stageId }, why, estimate);
+      return answer.code === 'reason_required' || answer.code === 'estimate_required' ? undefined : answer;
     }, undefined);
-    if (answer.code === 'reason_required') { setAsking({ stageId, name, message: answer.error ?? '' }); return; }
+    if (answer.code === 'reason_required') { setAsking({ stageId, name, message: answer.error ?? '', kind: 'reason' }); return; }
+    if (answer.code === 'estimate_required') { setAsking({ stageId, name, message: answer.error ?? '', kind: 'estimate', why }); return; }
     if (ok && !answer.error) { setAsking(null); setReason(''); useStore.getState().toast('ok', `${ticket.key ?? ticket.title} → ${name}`); }
   };
   const canMove = view.canUpdate || view.isReporter;
@@ -435,7 +438,7 @@ function StatusControl({ view, busy, run, say }: { view: TicketView; busy: boole
               if (s.id === current) return <option key={s.id} value={s.id}>{s.name}</option>;
               const check = evaluateTransition(workflow, ticket.stage_id ?? ticket.status, s.id, 'motif', rules);
               const plain = check.ok ? evaluateTransition(workflow, ticket.stage_id ?? ticket.status, s.id, null, rules) : null;
-              const hint = !check.ok ? say(...(SHORT_REASONS[check.error.code] ?? ['non permis', 'not allowed'])) : plain && !plain.ok && plain.error.code === 'reason_required' ? say('motif demandé', 'reason asked') : undefined;
+              const hint = !check.ok ? say(...(SHORT_REASONS[check.error.code] ?? ['non permis', 'not allowed'])) : plain && !plain.ok && plain.error.code === 'reason_required' ? say('motif demandé', 'reason asked') : missingEstimate(s, ticket.estimated_hours) ? say('estimation demandée', 'estimate asked') : undefined;
               return <option key={s.id} value={s.id} disabled={!check.ok && current !== ARCHIVED_STAGE_VALUE} data-hint={hint}>{s.name}</option>;
             })}
             {view.canManage && <option value={ARCHIVED_STAGE_VALUE}>{say('Archivé', 'Archived')}</option>}
@@ -443,7 +446,8 @@ function StatusControl({ view, busy, run, say }: { view: TicketView; busy: boole
         ) : <Lozenge tone={tone}>{stage?.name ?? ticket.status}</Lozenge>}
         {view.signOff && <button className="btn sm primary" disabled={busy} onClick={() => move(view.signOff!.stageId)}>{say('Valider', 'Sign off')} → {view.signOff.stageName}</button>}
       </div>
-      {asking && (
+      {asking?.kind === 'estimate' && <div className="tk-reason"><EstimateAsk name={asking.name} busy={busy} onConfirm={(h) => void move(asking.stageId, asking.why, h)} onCancel={() => setAsking(null)} say={say} /></div>}
+      {asking?.kind === 'reason' && (
         <div className="tk-reason">
           <span className="small">{asking.message || say('Ce déplacement demande un motif.', 'This move needs a reason.')}</span>
           <input className="in" autoFocus value={reason} onChange={(e) => setReason(e.target.value)} placeholder={say('Motif', 'Reason')} onKeyDown={(e) => { if (e.key === 'Enter' && reason.trim()) void move(asking.stageId, reason.trim()); }} />

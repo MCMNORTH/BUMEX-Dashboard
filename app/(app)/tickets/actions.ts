@@ -19,11 +19,13 @@ import {
 import {
   ARCHIVED_STAGE_VALUE,
   describeTransitionError,
+  estimateHours,
   evaluateTransition,
   findStage,
   getActiveStages,
   getCompletionRule,
   getDefaultStage,
+  missingEstimate,
   stageStatus,
 } from "@/lib/tickets/workflow";
 import { getBoardWorkflow } from "@/lib/tickets/workflow-service";
@@ -210,6 +212,9 @@ export async function createTicketAction(
   const workflow = await getBoardWorkflow(values.project_id);
   const picked = getActiveStages(workflow).find((stage) => stage.id === values.stage_id && !stage.is_completed);
   const startStage = picked ?? getDefaultStage(workflow);
+  if (missingEstimate(startStage, values.estimated_hours)) {
+    return { error: describeTransitionError({ code: "estimate_required", from: startStage.name, to: startStage.name }, await getCurrentLocale()) };
+  }
   values.stage_id = startStage.id;
   values.status = stageStatus(startStage);
 
@@ -401,7 +406,8 @@ async function applyFormStage(
 ): Promise<{ error: string } | { change?: TicketStageChange }> {
   const sameBoard = values.project_id === ticket.project_id;
   const workflow = await getBoardWorkflow(values.project_id);
-  const rules = getCompletionRule(ticket, actorUserId);
+  // a stage may force an estimate (2026-11-02): the one this edit saves
+  const rules = { ...getCompletionRule(ticket, actorUserId), hasEstimate: estimateHours(values.estimated_hours) !== null };
   const requested = values.stage_id || (sameBoard ? ticket.stage_id : getDefaultStage(workflow).id);
 
   if (requested === ARCHIVED_STAGE_VALUE) {
@@ -430,6 +436,10 @@ async function applyFormStage(
       };
     }
 
+    if (missingEstimate(stage, values.estimated_hours)) {
+      return { error: describeTransitionError({ code: "estimate_required", from: ticket.stage_name ?? ticket.stage_id, to: stage.name }, locale) };
+    }
+
     values.stage_id = stage.id;
     values.status = stageStatus(stage);
     return {};
@@ -451,6 +461,10 @@ async function applyFormStage(
   values.status = stageStatus(stage!);
 
   if (check.noop) {
+    // a ticket in a stage that forces an estimate keeps one (one set before the stage forced it may stay unestimated)
+    if (estimateHours(ticket.estimated_hours) !== null && missingEstimate(stage, values.estimated_hours)) {
+      return { error: describeTransitionError({ code: "estimate_required", from: stage!.name, to: stage!.name }, locale) };
+    }
     return {};
   }
 
@@ -474,6 +488,8 @@ export async function moveTicketStageAction(
   ticketId: string,
   target: { stageId?: string; status?: TicketStatus },
   reason?: string,
+  // the estimate asked when the stage forces one and the ticket has none (2026-11-02)
+  estimate?: number,
 ): Promise<TicketMoveActionState> {
   const auth = await requireRouteAccess("tickets");
   const locale = await getCurrentLocale();
@@ -503,6 +519,7 @@ export async function moveTicketStageAction(
 
   const result = await moveTicketToStage(ticket, moveTarget, {
     reason: typeof reason === "string" ? reason : "",
+    estimateHours: estimateHours(estimate),
     actorUserId: auth.profile.id,
     locale,
   });

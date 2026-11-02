@@ -7,7 +7,7 @@ import { createStageId, sortStages, type WorkflowDraft } from "@/lib/tickets/wor
 import { stageKey } from "@/lib/tickets/stage-columns";
 import type { BoardWorkflow, StageCategory, WorkflowSettings, WorkflowStage } from "@/types/workflow";
 
-export type ModelStage = { name: string; category: StageCategory; completed?: boolean; default?: boolean };
+export type ModelStage = { name: string; category: StageCategory; completed?: boolean; default?: boolean; forceEstimate?: boolean };
 export type WorkflowModel = { id: string; fr: string; en: string; hint: [string, string]; stages: ModelStage[]; settings: WorkflowSettings };
 
 const FREE: WorkflowSettings = { allow_backward: true, allow_skip_forward: true, allow_reopen: true, require_reason: false, custom_transitions_enabled: false };
@@ -64,7 +64,7 @@ export const WORKFLOW_MODELS: WorkflowModel[] = [
 export function modelOfBoard(workflow: BoardWorkflow): Pick<WorkflowModel, "stages" | "settings"> {
   const stages = sortStages(workflow.stages).filter((s) => !s.archived_at);
   return {
-    stages: stages.map((s) => ({ name: s.name, category: s.category, completed: s.is_completed, default: s.is_default })),
+    stages: stages.map((s) => ({ name: s.name, category: s.category, completed: s.is_completed, default: s.is_default, forceEstimate: Boolean(s.force_estimate) })),
     settings: {
       allow_backward: workflow.allow_backward,
       allow_skip_forward: workflow.allow_skip_forward,
@@ -94,6 +94,8 @@ export function applyModel(draft: WorkflowDraft, model: Pick<WorkflowModel, "sta
       is_completed: Boolean(m.completed),
       category: m.category,
       archived_at: null,
+      // a model says nothing of it: the board's own stage keeps its choice; another board's copy brings its own
+      force_estimate: !(hasDefault ? m.default : i === 0) && (m.forceEstimate ?? Boolean(existing?.force_estimate)),
     };
   });
   for (const s of draft.stages) {

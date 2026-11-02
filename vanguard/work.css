@@ -985,3 +985,12 @@
 .vanguard .ts-cal-w.pending { border-left-color: var(--gold); background: var(--warn-bg); }
 .vanguard .ts-cal-w.late { border-left-color: var(--crit); background: var(--crit-bg); color: #8a1a21; }
 .vanguard .ts-cal-w.late .no { color: #8a1a21; }
+
+/* ---- the estimate a stage forces, asked on the move (EstimateAsk.tsx, 2026-11-02) ---- */
+.vanguard .est-ask { display: flex; flex-direction: column; gap: 6px; flex: 1 1 100%; }
+.vanguard .est-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vanguard .est-ask .actions { margin: 0; }
+.vanguard .est-in { width: 70px; flex: none; text-align: right; }
+.vanguard .stage-reason .est-in { width: 52px; }
+.vanguard .wk-addest { display: flex; align-items: center; gap: 6px; }
+.vanguard .wk-addest .in { width: 60px; height: 26px; text-align: right; }

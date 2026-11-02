@@ -12,6 +12,7 @@ import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
 import { getTicketDueState, redactTicketDescription, normalizeTicketPriority, normalizeTicketStatus } from "@/lib/tickets/helpers";
 import {
   describeTransitionError,
+  estimateHours,
   evaluateTransition,
   findStage,
   getCompletionRule,
@@ -563,12 +564,15 @@ export function normalizeMoveReason(reason: string | null | undefined) {
 export async function moveTicketToStage(
   ticket: TicketRecord,
   target: StageMoveTarget,
-  options: { reason?: string | null; actorUserId: string; locale: "en" | "fr" },
+  options: { reason?: string | null; estimateHours?: number | null; actorUserId: string; locale: "en" | "fr" },
 ): Promise<StageMoveResult> {
   const workflow = await getBoardWorkflow(ticket.project_id);
   const fromId = resolveTicketStageId(workflow, ticket);
   const reason = normalizeMoveReason(options.reason);
-  const rules = getCompletionRule(ticket, options.actorUserId);
+  // a stage may force an estimate (2026-11-02): the one given with the move is saved with it, when the ticket has none
+  const estimated = estimateHours(ticket.estimated_hours);
+  const given = estimated === null ? estimateHours(options.estimateHours) : null;
+  const rules = { ...getCompletionRule(ticket, options.actorUserId), hasEstimate: estimated !== null || given !== null };
   let toId: string;
 
   if ("stageId" in target) {
@@ -599,7 +603,10 @@ export async function moveTicketToStage(
 
   const to = findStage(workflow, toId)!;
   const fromName = findStage(workflow, fromId)?.name ?? fromId;
-  const moved = await asPerson((tx) => tx.run(`update erp.task set stage_id = $2, ${statusSet("$3")} where id = $1::uuid`, [ticket.id, to.id, stageStatus(to)]));
+  const moved = await asPerson((tx) => tx.run(
+    `update erp.task set stage_id = $2, ${statusSet("$3")}, estimated_hours = coalesce($4::numeric, estimated_hours) where id = $1::uuid`,
+    [ticket.id, to.id, stageStatus(to), given],
+  ));
 
   // The rules skip rows the caller may not update instead of failing.
   if (!moved) {

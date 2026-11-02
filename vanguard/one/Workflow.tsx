@@ -161,7 +161,7 @@ export function WorkflowEditor({ entityId }: { entityId: string }) {
 
       <div className="card flush">
         <table>
-          <thead><tr><th style={{ width: 70 }} /><th>{say('Étape', 'Stage')}</th><th>{say('Compte comme', 'Counts as')}</th><th>{say('Terminée', 'Completed')}</th><th>{say('Par défaut', 'Default')}</th><th className="num">{say('Cartes', 'Cards')}</th><th /></tr></thead>
+          <thead><tr><th style={{ width: 70 }} /><th>{say('Étape', 'Stage')}</th><th>{say('Compte comme', 'Counts as')}</th><th>{say('Terminée', 'Completed')}</th><th>{say('Par défaut', 'Default')}</th><th title={say("Un ticket n'entre dans cette étape qu'avec une estimation du temps ; elle est demandée au déplacement (4 h proposées).", 'A ticket enters this stage only with a time estimate; it is asked on the move (4 h suggested).')}>{say("Forcer l'estimation", 'Force estimate')}</th><th className="num">{say('Cartes', 'Cards')}</th><th /></tr></thead>
           <tbody>
             {active.map((s, i) => {
               const cards = data.cardCounts[s.id] ?? 0;
@@ -178,7 +178,9 @@ export function WorkflowEditor({ entityId }: { entityId: string }) {
                     </Select>
                   </td>
                   <td><input type="checkbox" checked={s.is_completed} disabled={readOnly} onChange={(e) => update(s.id, { is_completed: e.target.checked })} aria-label={say('Terminée', 'Completed')} /></td>
-                  <td><input type="radio" name={`default-${entityId}`} checked={s.is_default} disabled={readOnly} onChange={() => edit((d) => ({ ...d, stages: d.stages.map((x) => ({ ...x, is_default: x.id === s.id })) }))} aria-label={say('Par défaut', 'Default')} /></td>
+                  <td><input type="radio" name={`default-${entityId}`} checked={s.is_default} disabled={readOnly} onChange={() => edit((d) => ({ ...d, stages: d.stages.map((x) => ({ ...x, is_default: x.id === s.id, force_estimate: x.id === s.id ? false : x.force_estimate })) }))} aria-label={say('Par défaut', 'Default')} /></td>
+                  {/* the default stage takes new tickets, most without an estimate yet: it cannot force one */}
+                  <td><input type="checkbox" checked={Boolean(s.force_estimate)} disabled={readOnly || s.is_default} title={s.is_default ? say("L'étape par défaut reçoit les nouveaux tickets : elle ne peut pas forcer l'estimation.", 'The default stage takes new tickets: it cannot force an estimate.') : undefined} onChange={(e) => update(s.id, { force_estimate: e.target.checked })} aria-label={say("Forcer l'estimation", 'Force estimate')} /></td>
                   <td className="num">{cards}</td>
                   <td>
                     {saved.has(s.id)
@@ -251,7 +253,7 @@ export function WorkflowEditor({ entityId }: { entityId: string }) {
         <Select className="in" style={{ width: 180 }} value={test.from} onChange={(e) => setTest({ ...test, from: e.target.value })}><option value="">{say('de…', 'from…')}</option>{active.map((s) => <option key={s.id} value={s.id}>{s.name || '—'}</option>)}</Select>
         <Select className="in" style={{ width: 180 }} value={test.to} onChange={(e) => setTest({ ...test, to: e.target.value })}><option value="">{say('vers…', 'to…')}</option>{active.map((s) => <option key={s.id} value={s.id}>{s.name || '—'}</option>)}</Select>
         {result && (result.ok
-          ? <Chip kind="good">{say('Permis', 'Allowed')}{(result.backward || result.reopen) && draft.require_reason ? say(' · un motif sera demandé', ' · a reason will be asked') : ''}</Chip>
+          ? <Chip kind="good">{say('Permis', 'Allowed')}{(result.backward || result.reopen) && draft.require_reason ? say(' · un motif sera demandé', ' · a reason will be asked') : ''}{active.find((s) => s.id === test.to)?.force_estimate ? say(' · une estimation sera demandée si le ticket n’en a pas', ' · an estimate will be asked if the ticket has none') : ''}</Chip>
           : <Chip kind="crit">{describeTransitionError(result.error, locale)}</Chip>)}
         {result && active.find((s) => s.id === test.to)?.is_completed && <span className="small muted">{say('Le passage à une étape terminée reste réservé au rapporteur du ticket.', "Moving to a completed stage stays the ticket's reporter's.")}</span>}
       </div>

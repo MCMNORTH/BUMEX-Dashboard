@@ -215,6 +215,22 @@ export function evaluateTransition(
   reason?: string | null,
   options: TransitionOptions = {},
 ): TransitionCheck {
+  const check = evaluateRules(workflow, fromStageId, toStageId, reason, options);
+  // last, so a move the board refuses anyway never asks for an estimate first
+  const to = findStage(workflow, toStageId);
+  if (check.ok && !check.noop && to && options.hasEstimate === false && to.force_estimate) {
+    return fail({ code: "estimate_required", from: findStage(workflow, fromStageId)?.name ?? fromStageId, to: to.name });
+  }
+  return check;
+}
+
+function evaluateRules(
+  workflow: BoardWorkflow,
+  fromStageId: string,
+  toStageId: string,
+  reason: string | null | undefined,
+  options: TransitionOptions,
+): TransitionCheck {
   const from = findStage(workflow, fromStageId);
   const to = findStage(workflow, toStageId);
 
@@ -273,6 +289,23 @@ export function evaluateTransition(
   }
 
   return { ok: true, noop: false, backward, reopen };
+}
+
+// ---- the estimate a stage may force (asked on 2026-11-02) ----
+
+/** What the quick estimate asked on such a move starts from. */
+export const DEFAULT_ESTIMATE_HOURS = 4;
+export const MAX_ESTIMATE_HOURS = 9999;
+
+/** A usable estimate in hours (above 0, two decimals), or null. */
+export function estimateHours(value: unknown): number | null {
+  const hours = Number(typeof value === "string" ? value.replace(",", ".") : value);
+  return Number.isFinite(hours) && hours > 0 && hours <= MAX_ESTIMATE_HOURS ? Math.round(hours * 100) / 100 : null;
+}
+
+/** Whether a ticket with this estimate may not be in that stage. */
+export function missingEstimate(stage: Pick<WorkflowStage, "force_estimate"> | null | undefined, estimated: unknown) {
+  return Boolean(stage?.force_estimate) && estimateHours(estimated) === null;
 }
 
 /** The moves the board's settings allow, as a custom transition list: where the editor's list starts from. */
@@ -341,7 +374,7 @@ export function resolveCategoryTarget(
     return { ok: true, stageId: allowed.stage.id, noop: false };
   }
 
-  const needsReason = checks.find((entry) => !entry.check.ok && entry.check.error.code === "reason_required");
+  const needsReason = checks.find((entry) => !entry.check.ok && (entry.check.error.code === "reason_required" || entry.check.error.code === "estimate_required"));
   const chosen = needsReason ?? checks[0];
 
   return { ok: false, error: (chosen.check as Extract<TransitionCheck, { ok: false }>).error, stageId: chosen.stage.id };
@@ -375,6 +408,10 @@ export function describeTransitionError(error: TransitionError, locale: Locale) 
       return error.needsReasonFor === "reopen"
         ? (fr ? "Indiquez une raison pour rouvrir une carte terminée." : "A reason is required to reopen a completed card.")
         : (fr ? "Indiquez une raison pour ramener une carte à une étape précédente." : "A reason is required to move a card backward.");
+    case "estimate_required":
+      return fr
+        ? `« ${error.to} » demande une estimation du temps : estimez le ticket pour l’y déplacer.`
+        : `${error.to} needs a time estimate: estimate the ticket to move it there.`;
     case "reporter_only":
       if (error.noReporter) {
         return fr
@@ -406,6 +443,7 @@ export function normalizeWorkflowDraft(draft: WorkflowDraft): WorkflowDraft {
     is_completed: Boolean(stage.is_completed),
     category: stage.category,
     archived_at: stage.archived_at ? String(stage.archived_at) : null,
+    force_estimate: Boolean(stage.force_estimate),
   }));
   const ids = new Set(stages.map((stage) => stage.id));
   const transitions: Record<string, string[]> = {};
@@ -494,6 +532,13 @@ export function validateWorkflowDraft(
 
   if (defaults.length !== 1) {
     return fr ? "Choisissez exactement une étape active par défaut pour les nouveaux tickets." : "Choose exactly one active default stage for new tickets.";
+  }
+
+  // new tickets land in the default stage, most of them without an estimate yet
+  if (defaults[0].force_estimate) {
+    return fr
+      ? `L’étape par défaut « ${defaults[0].name} » ne peut pas exiger d’estimation : les nouveaux tickets y arrivent.`
+      : `The default stage "${defaults[0].name}" cannot force an estimate: new tickets land there.`;
   }
 
   // a custom list with no move at all would freeze every card

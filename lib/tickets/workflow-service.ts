@@ -35,6 +35,7 @@ function mapWorkflow(row: FloorRow, projectId: string): BoardWorkflow {
       is_completed: Boolean(stage.is_completed),
       category: stage.category,
       archived_at: stage.archived_at ?? null,
+      force_estimate: Boolean(stage.force_estimate),
     })),
     transitions: row.transitions ?? {},
     allow_backward: Boolean(row.allow_backward),

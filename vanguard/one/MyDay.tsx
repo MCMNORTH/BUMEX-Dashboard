@@ -7,6 +7,7 @@ import type { VanguardData } from '@/lib/erp/vanguard/run';
 import { useStore } from '../store';
 import { Chip, D } from '../ui/common';
 import { useSay } from './say';
+import { EstimateAsk } from './EstimateAsk';
 import { LoadBar, hoursText } from './work-ui';
 
 // "My day": the home's panel (the building stays the home), with what BUMEX One's overview showed: my tickets, what
@@ -40,6 +41,7 @@ export function MyDay({ initialTab }: { initialTab?: string | null }) {
   const loadedAt = useStore((s) => s.loadedAt);
   const [data, setData] = useState<MyDayData | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [estimating, setEstimating] = useState<string | null>(null); // a sign-off into a stage that forces an estimate (2026-11-02)
 
   useEffect(() => {
     let live = true;
@@ -51,10 +53,12 @@ export function MyDay({ initialTab }: { initialTab?: string | null }) {
 
   const openTask = (id: string) => openRoom('tasks', `ticket:${id}`);
   const openMission = (projectId: string) => openRoom('missions', `mission:${projectId}`);
-  const signOff = async (id: string, stageId: string, title: string) => {
+  const signOff = async (id: string, stageId: string, title: string, estimate?: number) => {
     setBusy(id);
     try {
-      const result = await moveTicketStageAction(id, { stageId });
+      const result = await moveTicketStageAction(id, { stageId }, undefined, estimate);
+      if (result.code === 'estimate_required') { setEstimating(id); return; }
+      setEstimating(null);
       if (result.error) toast('error', result.error);
       else toast('ok', `${say('Validé', 'Signed off')} · ${title}`);
       const fresh = await reloadVanguardAction().catch(() => null);
@@ -99,7 +103,9 @@ export function MyDay({ initialTab }: { initialTab?: string | null }) {
                     {data.signOff.items.map((t) => (
                       <tr key={t.id}>
                         <td className="click" onClick={() => openTask(t.id)}><b>{t.title}</b><div className="small muted">{t.projectName ?? '—'} · {t.assigneeName ?? '—'}</div></td>
-                        <td><div className="toolbar" style={{ justifyContent: 'flex-end' }}><button className="btn sm primary" disabled={busy === t.id} onClick={() => signOff(t.id, t.completedStageId, t.title)}>{say('Valider', 'Sign off')} · {t.completedStageName}</button></div></td>
+                        <td>{estimating === t.id
+                          ? <EstimateAsk compact name={t.completedStageName} busy={busy === t.id} onConfirm={(h) => void signOff(t.id, t.completedStageId, t.title, h)} onCancel={() => setEstimating(null)} say={say} />
+                          : <div className="toolbar" style={{ justifyContent: 'flex-end' }}><button className="btn sm primary" disabled={busy === t.id} onClick={() => signOff(t.id, t.completedStageId, t.title)}>{say('Valider', 'Sign off')} · {t.completedStageName}</button></div>}</td>
                       </tr>
                     ))}
                     {!data.signOff.items.length && <tr><td colSpan={2} className="muted" style={{ padding: 14 }}>{say('Rien n\'attend votre validation.', 'Nothing waits for your sign-off.')}</td></tr>}

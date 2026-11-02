@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { evaluateTransition, strandedStages, toWorkflowDraft, transitionsFromSettings, validateWorkflowDraft } from "../workflow";
+import { estimateHours, evaluateTransition, missingEstimate, normalizeWorkflowDraft, resolveCategoryTarget, strandedStages, toWorkflowDraft, transitionsFromSettings, validateWorkflowDraft } from "../workflow";
 import type { BoardWorkflow, StageCategory } from "@/types/workflow";
 
 // The board's move rules (asked on 2026-10-28: "the moves section bugs out with custom moves or reasons").
@@ -72,5 +72,54 @@ describe("custom transitions", () => {
     const draft = { ...toWorkflowDraft(b), custom_transitions_enabled: true, transitions: {} };
     expect(validateWorkflowDraft(draft, b, {}, "en")).toMatch(/no move is ticked/);
     expect(validateWorkflowDraft({ ...draft, transitions: { todo: ["doing"] } }, b, {}, "en")).toBeNull();
+  });
+});
+
+// A stage that forces a time estimate (asked on 2026-11-02).
+describe("forced estimates", () => {
+  const forced = () => {
+    const b = board({ allow_backward: true, allow_skip_forward: true, allow_reopen: true, require_reason: true });
+    return { ...b, stages: b.stages.map((s) => (s.id === "doing" ? { ...s, force_estimate: true } : s)) };
+  };
+
+  it("a ticket without an estimate cannot enter the stage; with one, or unknown, it can", () => {
+    const b = forced();
+    expect(evaluateTransition(b, "todo", "doing", null, { hasEstimate: false })).toMatchObject({ ok: false, error: { code: "estimate_required", to: "doing" } });
+    expect(evaluateTransition(b, "todo", "doing", null, { hasEstimate: true }).ok).toBe(true);
+    expect(evaluateTransition(b, "todo", "doing").ok).toBe(true);
+    expect(evaluateTransition(b, "todo", "review", null, { hasEstimate: false }).ok).toBe(true);
+    expect(evaluateTransition(b, "doing", "doing", null, { hasEstimate: false })).toMatchObject({ ok: true, noop: true });
+  });
+
+  it("the board's own rules come first: a reason before the estimate, a refused move never asks one", () => {
+    const b = forced();
+    expect(evaluateTransition(b, "review", "doing", null, { hasEstimate: false })).toMatchObject({ ok: false, error: { code: "reason_required" } });
+    expect(evaluateTransition(b, "review", "doing", "back", { hasEstimate: false })).toMatchObject({ ok: false, error: { code: "estimate_required" } });
+    const strict = { ...b, allow_skip_forward: false };
+    expect(evaluateTransition({ ...strict, stages: strict.stages.map((s) => (s.id === "review" ? { ...s, force_estimate: true } : s)) }, "todo", "review", null, { hasEstimate: false })).toMatchObject({ ok: false, error: { code: "skip" } });
+  });
+
+  it("a column of a mixed board asks the estimate of the stage it would pick", () => {
+    expect(resolveCategoryTarget(forced(), "todo", "in_progress", "en", null, { hasEstimate: false })).toMatchObject({ ok: false, error: { code: "estimate_required" }, stageId: "doing" });
+  });
+
+  it("the setting is kept when saved, and the default stage cannot force one", () => {
+    const b = forced();
+    const draft = normalizeWorkflowDraft(toWorkflowDraft(b));
+    expect(draft.stages.find((s) => s.id === "doing")?.force_estimate).toBe(true);
+    expect(draft.stages.find((s) => s.id === "review")?.force_estimate).toBe(false);
+    expect(validateWorkflowDraft(draft, b, {}, "en")).toBeNull();
+    const onDefault = { ...draft, stages: draft.stages.map((s) => (s.id === "todo" ? { ...s, force_estimate: true } : s)) };
+    expect(validateWorkflowDraft(onDefault, b, {}, "en")).toMatch(/cannot force an estimate/);
+  });
+
+  it("an estimate is above 0 hours", () => {
+    expect(estimateHours("4")).toBe(4);
+    expect(estimateHours("2,5")).toBe(2.5);
+    expect(estimateHours(0)).toBeNull();
+    expect(estimateHours("")).toBeNull();
+    expect(missingEstimate({ force_estimate: true }, null)).toBe(true);
+    expect(missingEstimate({ force_estimate: true }, 3)).toBe(false);
+    expect(missingEstimate({}, null)).toBe(false);
   });
 });

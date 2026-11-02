@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { boardWorkflowsAction } from '@/lib/erp/vanguard/board-actions';
 import { moveTicketStageAction } from '@/app/(app)/tickets/actions';
-import { evaluateTransition, getActiveStages, getCompletionRule, getLegacyWorkflow, getStageCategoryLabel, resolveTicketStageId, stageStatus } from '@/lib/tickets/workflow';
+import { evaluateTransition, findStage, getActiveStages, getCompletionRule, getLegacyWorkflow, getStageCategoryLabel, missingEstimate, resolveTicketStageId, stageStatus } from '@/lib/tickets/workflow';
 import type { TicketStatus } from '@/types/ticket';
 import type { BoardWorkflow, TransitionErrorCode } from '@/types/workflow';
 import { useStore } from '../store';
@@ -9,6 +9,7 @@ import { Select } from '../ui/Select';
 import { useSay } from './say';
 import type { Say } from './ticket-history';
 import { Lozenge, statusTone } from './work-ui';
+import { EstimateAsk } from './EstimateAsk';
 import type { WorkTicket } from './work-filters';
 
 // [bumex-one] Each ticket's status is a stage of its board (asked on 2026-10-28), its floor's since 0014, as BUMEX One
@@ -110,19 +111,20 @@ export const SHORT_REASONS: Partial<Record<TransitionErrorCode, [string, string]
   archived_stage: ['archivée', 'archived'],
 };
 
-export type StageTicket = { id: string; projectId: string; stageId: string | null; stageName?: string | null; status: string; assigneeId: string | null; reporterId: string | null; key?: string | null; title?: string };
+export type StageTicket = { id: string; projectId: string; stageId: string | null; stageName?: string | null; status: string; assigneeId: string | null; reporterId: string | null; key?: string | null; title?: string; estimate?: number | null };
 
 /** What the stage picker and the boards read of a ticket of the board, the list or My work (work-filters.ts). */
 export const stageTicketOf = (x: WorkTicket): StageTicket => ({
   id: x.id, projectId: x.ticket.project_id, stageId: x.ticket.stage_id, stageName: x.ticket.stage_name, status: x.ticket.status,
-  assigneeId: x.ticket.assignee_id, reporterId: x.ticket.reporter_id, key: x.ticket.key, title: x.title,
+  assigneeId: x.ticket.assignee_id, reporterId: x.ticket.reporter_id, key: x.ticket.key, title: x.title, estimate: x.ticket.estimated_hours ?? null,
 });
 
 /** A ticket's stage on its board (a ticket from before the boards: by its status). */
 export const stageOfTicket = (workflow: BoardWorkflow, ticket: StageTicket) =>
   resolveTicketStageId(workflow, { stage_id: ticket.stageId, status: (ticket.status === 'archived' ? 'done' : ticket.status) as TicketStatus });
 
-export type DropCheck = { ok: true; reason: boolean } | { ok: false; why: [string, string] };
+// estimate: the stage forces one and the ticket has none, it is asked on the move (2026-11-02)
+export type DropCheck = { ok: true; reason: boolean; estimate: boolean } | { ok: false; why: [string, string] };
 
 /**
  * Whether this person may move the ticket to that stage, by its board's rules (order, reopening, the reporter's
@@ -135,7 +137,8 @@ export function moveCheck(workflow: BoardWorkflow, ticket: StageTicket, toStageI
   const check = evaluateTransition(workflow, from, toStageId, 'motif', rules);
   if (!check.ok) return { ok: false, why: SHORT_REASONS[check.error.code] ?? ['non permis', 'not allowed'] };
   const plain = evaluateTransition(workflow, from, toStageId, null, rules);
-  return { ok: true, reason: !plain.ok && plain.error.code === 'reason_required' };
+  const estimate = ticket.estimate !== undefined && missingEstimate(findStage(workflow, toStageId), ticket.estimate);
+  return { ok: true, reason: !plain.ok && plain.error.code === 'reason_required', estimate };
 }
 
 /**
@@ -148,7 +151,7 @@ export function StageSelect({ ticket, onMoved, disabled, className }: { ticket: 
   const toast = useStore((s) => s.toast);
   const workflow = useBoardWorkflows([ticket.projectId])[ticket.projectId];
   const [busy, setBusy] = useState(false);
-  const [asking, setAsking] = useState<{ stageId: string; name: string; message: string } | null>(null);
+  const [asking, setAsking] = useState<{ stageId: string; name: string; message: string; kind: 'reason' | 'estimate'; why?: string } | null>(null);
   const [reason, setReason] = useState('');
 
   if (!workflow) return <StageLozenge name={ticket.stageName} status={ticket.status} />;
@@ -156,18 +159,19 @@ export function StageSelect({ ticket, onMoved, disabled, className }: { ticket: 
   const stages = getActiveStages(workflow).map((s) => {
     // refused: greyed with why; allowed only with a reason: said beside it, asked when picked
     const check = moveCheck(workflow, ticket, s.id, me);
-    return { stage: s, why: check && !check.ok ? check.why : null, reason: Boolean(check?.ok && check.reason) };
+    return { stage: s, why: check && !check.ok ? check.why : null, reason: Boolean(check?.ok && check.reason), estimate: Boolean(check?.ok && check.estimate) };
   });
   const current = workflow.stages.find((s) => s.id === from);
   const tone = statusTone(current ? (current.is_completed ? 'done' : current.category) : ticket.status);
 
-  const move = async (stageId: string, why?: string) => {
+  const move = async (stageId: string, why?: string, estimate?: number) => {
     const to = workflow.stages.find((s) => s.id === stageId);
     if (!to || stageId === from) return;
     setBusy(true);
     try {
-      const result = await moveTicketStageAction(ticket.id, { stageId }, why);
-      if (result.code === 'reason_required') { setAsking({ stageId, name: to.name, message: result.error ?? '' }); return; }
+      const result = await moveTicketStageAction(ticket.id, { stageId }, why, estimate);
+      if (result.code === 'reason_required') { setAsking({ stageId, name: to.name, message: result.error ?? '', kind: 'reason' }); return; }
+      if (result.code === 'estimate_required') { setAsking({ stageId, name: to.name, message: result.error ?? '', kind: 'estimate', why }); return; }
       if (result.error) { toast('error', result.error); return; }
       toast('ok', `${ticket.key ?? ticket.title ?? ''} → ${to.name}`);
       setAsking(null);
@@ -183,12 +187,13 @@ export function StageSelect({ ticket, onMoved, disabled, className }: { ticket: 
   return (
     <span className="stage-pick">
       <Select className={`stsel mini ${tone} ${className ?? ''}`} value={from} disabled={disabled || busy} onChange={(e) => void move(e.target.value)} aria-label={say('Étape', 'Stage')}>
-        {stages.map(({ stage, why, reason: needsReason }) => (
-          <option key={stage.id} value={stage.id} disabled={Boolean(why)} data-hint={why ? say(...why) : needsReason ? say('motif demandé', 'reason asked') : undefined}>{stage.name}</option>
+        {stages.map(({ stage, why, reason: needsReason, estimate }) => (
+          <option key={stage.id} value={stage.id} disabled={Boolean(why)} data-hint={why ? say(...why) : needsReason ? say('motif demandé', 'reason asked') : estimate ? say('estimation demandée', 'estimate asked') : undefined}>{stage.name}</option>
         ))}
         {!stages.some((s) => s.stage.id === from) && current && <option value={from} disabled>{current.name}</option>}
       </Select>
-      {asking && (
+      {asking?.kind === 'estimate' && <EstimateAsk compact name={asking.name} busy={busy} onConfirm={(h) => void move(asking.stageId, asking.why, h)} onCancel={() => setAsking(null)} say={say} />}
+      {asking?.kind === 'reason' && (
         <span className="stage-reason" role="group" aria-label={say('Motif du déplacement', 'Reason for the move')}>
           <input className="in" autoFocus value={reason} onChange={(e) => setReason(e.target.value)} placeholder={asking.message || say(`Motif pour « ${asking.name} »`, `Reason for "${asking.name}"`)}
             onKeyDown={(e) => { if (e.key === 'Enter' && reason.trim()) void move(asking.stageId, reason.trim()); if (e.key === 'Escape') { setAsking(null); setReason(''); } }} />

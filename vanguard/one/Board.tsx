@@ -15,6 +15,8 @@ import { NO_DUE_DATE, groupTickets, type GroupBy, type GroupLabels, type WorkTic
 import { Avatar, PriorityIcon, TypeIcon, hoursText, stageTone, useMedia, type Tone } from './work-ui';
 import { QuickLogButton } from './QuickLog';
 import { StageSelect, moveCheck, stageTicketOf, type DropCheck } from './stages';
+import { EstimateAsk, parseEstimate } from './EstimateAsk';
+import { DEFAULT_ESTIMATE_HOURS } from '@/lib/tickets/workflow';
 import type { ListChange } from './TicketList';
 import type { Say } from './ticket-history';
 
@@ -27,7 +29,7 @@ import type { Say } from './ticket-history';
 // hover a card moves through its stage picker. Lanes group the cards by assignee, priority or mission.
 
 type Mission = Engagement & { projectId?: string };
-export type BoardColumn = { id: string; name: string; tone: Tone; completed: boolean; archived: boolean };
+export type BoardColumn = { id: string; name: string; tone: Tone; completed: boolean; archived: boolean; forceEstimate?: boolean };
 export type MoveTarget = { stageId: string } | { status: TicketStatus };
 export type MissionTag = { code: string; name: string };
 
@@ -38,16 +40,17 @@ export const stageIdOf = (workflow: BoardWorkflow, x: WorkTicket) => resolveTick
 export function boardColumns(workflow: BoardWorkflow, tickets: WorkTicket[]): BoardColumn[] {
   const used = new Set(tickets.map((x) => stageIdOf(workflow, x)));
   return sortStages(workflow.stages).filter((s) => !s.archived_at || used.has(s.id)).map((s) => ({
-    id: s.id, name: s.name, tone: s.archived_at ? 'archived' : stageTone(s), completed: s.is_completed, archived: Boolean(s.archived_at),
+    id: s.id, name: s.name, tone: s.archived_at ? 'archived' : stageTone(s), completed: s.is_completed, archived: Boolean(s.archived_at), forceEstimate: Boolean(s.force_estimate),
   }));
 }
 
-// ---- moving a ticket: the server's answer, a reason when the board asks one ----
+// ---- moving a ticket: the server's answer, a reason or an estimate when the board asks one ----
 
-type Asking = { t: { id: string; label: string }; target: MoveTarget; name: string; message: string };
+// estimate: the stage forces one and the ticket has none (2026-11-02); `why` the reason already given for this move
+type Asking = { t: { id: string; label: string }; target: MoveTarget; name: string; message: string; kind: 'reason' | 'estimate'; why?: string };
 export type MoveFlow = ReturnType<typeof useTicketMove>;
 
-/** Moves a ticket with BUMEX One's action; asks a reason when the board wants one; `onMoved` once the server accepted. */
+/** Moves a ticket with BUMEX One's action; asks a reason or an estimate when the board wants one; `onMoved` once the server accepted. */
 export function useTicketMove(onMoved: (id: string, target: MoveTarget, name: string) => void | Promise<void>) {
   const toast = useStore((s) => s.toast);
   const say = useSay();
@@ -56,11 +59,12 @@ export function useTicketMove(onMoved: (id: string, target: MoveTarget, name: st
   const [reason, setReason] = useState('');
   const latest = useRef(onMoved);
   useEffect(() => { latest.current = onMoved; });
-  const move = useCallback(async (t: { id: string; label: string }, target: MoveTarget, name: string, why?: string) => {
+  const move = useCallback(async (t: { id: string; label: string }, target: MoveTarget, name: string, why?: string, estimate?: number) => {
     setBusyId(t.id);
     try {
-      const result = await moveTicketStageAction(t.id, target, why);
-      if (result.code === 'reason_required') { setAsking({ t, target, name, message: result.error ?? '' }); return; }
+      const result = await moveTicketStageAction(t.id, target, why, estimate);
+      if (result.code === 'reason_required') { setAsking({ t, target, name, message: result.error ?? '', kind: 'reason' }); return; }
+      if (result.code === 'estimate_required') { setAsking({ t, target, name, message: result.error ?? '', kind: 'estimate', why }); return; }
       setAsking(null);
       setReason('');
       if (result.error) { toast('error', result.error); return; }
@@ -73,14 +77,18 @@ export function useTicketMove(onMoved: (id: string, target: MoveTarget, name: st
     }
   }, [toast, say]);
   const confirm = () => { if (asking && reason.trim()) void move(asking.t, asking.target, asking.name, reason.trim()); };
+  const estimate = (hours: number) => { if (asking) void move(asking.t, asking.target, asking.name, asking.why, hours); };
   const cancel = () => { setAsking(null); setReason(''); };
-  return { busyId, asking, reason, setReason, move, confirm, cancel };
+  return { busyId, asking, reason, setReason, move, confirm, estimate, cancel };
 }
 
-/** The reason a move needs, asked above the board. */
+/** The reason, or the estimate, a move needs, asked above the board. */
 export function MoveReason({ flow, say }: { flow: MoveFlow; say: Say }) {
   if (!flow.asking) return null;
   const { asking } = flow;
+  if (asking.kind === 'estimate') {
+    return <div className="wk-reason"><EstimateAsk key={asking.t.id} name={asking.name} label={asking.t.label} busy={flow.busyId === asking.t.id} onConfirm={flow.estimate} onCancel={flow.cancel} say={say} /></div>;
+  }
   return (
     <div className="wk-reason" role="group" aria-label={say('Motif du déplacement', 'Reason for the move')}>
       <span className="small">{asking.message || say('Ce déplacement demande un motif.', 'This move needs a reason.')} · <b>{asking.t.label}</b></span>
@@ -196,7 +204,7 @@ export function TicketBoard<T extends WorkTicket>({ columns, tickets, columnOf, 
           const all = tickets.filter((x) => columnOf(x) === column.id);
           const isFolded = folded.includes(column.id);
           const check = checks?.get(column.id);
-          const why = check ? (check.ok ? (check.reason ? say('motif demandé', 'reason asked') : null) : say(...check.why)) : null;
+          const why = check ? (check.ok ? (check.reason ? say('motif demandé', 'reason asked') : check.estimate ? say('estimation demandée', 'estimate asked') : null) : say(...check.why)) : null;
           return (
             <div key={column.id} role="listitem" data-col={column.id}
               className={`wk-col ${isFolded ? 'folded' : ''} ${over === column.id ? 'over' : ''} ${check && !check.ok ? 'nodrop' : ''} ${column.archived ? 'archived' : ''} tone-${column.tone}`}
@@ -348,16 +356,19 @@ export function MissionBoard({ entityId, scope, tickets, groupBy, onOpen, onRule
   );
 }
 
-// "+" at the bottom of a column: a title, Enter, and the ticket is in that column (reported by me, unassigned)
+// "+" at the bottom of a column: a title, Enter, and the ticket is in that column (reported by me, unassigned); a column
+// that forces an estimate asks it too, from 4 h (2026-11-02)
 function QuickAdd({ mission, column, say }: { mission: Mission; column: BoardColumn; say: Say }) {
   const { state, toast } = useStore();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
+  const [estimate, setEstimate] = useState(String(DEFAULT_ESTIMATE_HOURS));
   const [busy, setBusy] = useState(false);
+  const hours = column.forceEstimate ? parseEstimate(estimate) : null;
   const add = async () => {
-    if (!title.trim() || !mission.projectId) return;
+    if (!title.trim() || !mission.projectId || (column.forceEstimate && !hours)) return;
     const form = new FormData();
-    for (const [k, v] of Object.entries({ title: title.trim(), description: '', project_id: mission.projectId, assignee_id: '', reporter_id: state.session.userId, priority: 'medium', type: 'task', due_date: '', create_another: '1' })) form.set(k, v);
+    for (const [k, v] of Object.entries({ title: title.trim(), description: '', project_id: mission.projectId, assignee_id: '', reporter_id: state.session.userId, priority: 'medium', type: 'task', due_date: '', estimated_hours: hours ? String(hours) : '', create_another: '1' })) form.set(k, v);
     setBusy(true);
     try {
       const result = await createTicketAction({}, form);
@@ -377,6 +388,11 @@ function QuickAdd({ mission, column, say }: { mission: Mission; column: BoardCol
     <div className="wk-addform">
       <textarea className="in" autoFocus rows={2} value={title} disabled={busy} onChange={(e) => setTitle(e.target.value)} placeholder={say('Que faut-il faire ?', 'What needs to be done?')}
         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void add(); } if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); setTitle(''); } }} />
+      {column.forceEstimate && (
+        <label className="small wk-addest">{say('Estimation (obligatoire ici)', 'Estimate (required here)')}
+          <input className="in" value={estimate} disabled={busy} onChange={(e) => setEstimate(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void add(); } }} aria-label={say('Estimation en heures', 'Estimate in hours')} /> h
+        </label>
+      )}
       <div className="small muted">{say('Entrée pour créer · Échap pour fermer', 'Enter to create · Esc to close')}</div>
     </div>
   );

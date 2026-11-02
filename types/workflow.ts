@@ -16,6 +16,8 @@ export type WorkflowStage = {
   is_completed: boolean;
   category: StageCategory;
   archived_at: string | null;
+  /** A card enters this stage only with a time estimate (asked on 2026-11-02); absent on boards saved before. */
+  force_estimate?: boolean;
 };
 
 export type WorkflowSettings = {
@@ -48,7 +50,8 @@ export type TransitionErrorCode =
   | "not_listed"
   | "no_matching_stage"
   | "reason_required"
-  | "reporter_only";
+  | "reporter_only"
+  | "estimate_required";
 
 export type TransitionError = {
   code: TransitionErrorCode;
@@ -68,6 +71,8 @@ export type TransitionOptions = {
   /** False when the mover may not move this ticket to a completed stage. */
   canComplete?: boolean;
   hasReporter?: boolean;
+  /** False when the ticket has no time estimate (a stage may force one); unknown, nothing is checked. */
+  hasEstimate?: boolean;
 };
 
 export type TransitionCheck =
