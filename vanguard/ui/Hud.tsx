@@ -71,7 +71,7 @@ export function TowerHud() {
         </section>
       </div>
       <div className="hint">
-        {t('click_floor')} · {t('explore').toLowerCase()} : glisser pour tourner, molette pour zoomer · <kbd>F</kbd> {t('flat')} · <kbd>Ctrl</kbd>+<kbd>K</kbd>
+        {t('click_floor')} · {t('explore').toLowerCase()} : glisser pour tourner, molette pour zoomer · <kbd>Ctrl</kbd>+<kbd>K</kbd>
       </div>
     </>
   );

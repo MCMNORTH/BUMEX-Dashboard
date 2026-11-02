@@ -40,11 +40,7 @@ export function Header() {
         else if (s.ui.focusRoom) s.focusRoom(null);
         else if (s.ui.view === 'floor') s.goTower();
       }
-      if (e.key.toLowerCase() === 'f' && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLSelectElement) && !e.ctrlKey && !e.metaKey) {
-        const s = useStore.getState();
-        if (s.ui.view === 'flat' && s.ui.webgl) s.setUi({ view: 'tower', room: null, focusRoom: null, rackFocus: false });
-        else if (s.ui.view !== 'flat') s.setUi({ view: 'flat' });
-      }
+      // ("F" switched Flat/3D: removed on 2026-11-02, it fired while typing in the rich-text editors; the header's buttons do it)
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
