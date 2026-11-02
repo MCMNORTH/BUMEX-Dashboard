@@ -15,7 +15,8 @@ export const TIME_ENTRY_COLUMNS = `
   t.mission, t.updated_at, (select jsonb_build_object('name', e.name) from erp.engagement e where e.id = t.engagement_id) as project,
   t.task_id, (select kx.ticket_prefix || '-' || k.number from erp.task k join erp.entity kx on kx.id = k.entity_id where k.id = t.task_id) as task_key`;
 
-export const WEEK_COLUMNS = `w.user_id, w.week_start, x.code as entity_code, w.status, w.submitted_at, w.reviewed_at, w.reviewed_by, w.review_note`;
+export const WEEK_COLUMNS = `w.user_id, w.week_start, x.code as entity_code, w.status, w.submitted_at, w.reviewed_at, w.reviewed_by,
+  (select p.full_name from work.person p where p.id = w.reviewed_by) as reviewer_name, w.review_note`;
 
 const EVENT_SQL = `
   select v.id, v.user_id, v.week_start, x.code as entity_code, v.status, v.actor_id, (select p.full_name from work.person p where p.id = v.actor_id) as actor_name,
@@ -143,6 +144,31 @@ export async function getAdminTimesheetOverview(week: string) {
     }));
   } catch (error) {
     console.error("[timesheet:overview]", error instanceof Error ? error.message : "connection");
+    throw new Error("Timesheet unavailable");
+  }
+}
+
+// The weeks sent in a year, for the review's calendar (asked on 2026-11-02): each person's week and its state, in the
+// reviewer's scope (an administrator every entity, a manager their own), the test floor never. Weeks overlapping the
+// year count in it.
+export async function getTimesheetYear(year: number) {
+  const { auth, entityCode } = await requireCurrentEntityContext();
+  const first = Number.isInteger(year) && year >= 2000 && year <= 9998 ? weekBounds(`${year}-01-01`) : null;
+  if (!first || (auth.role !== "admin" && auth.role !== "manager")) throw new Error("Timesheet unavailable");
+  const scope = auth.role === "admin" ? null : entityCode;
+  try {
+    return await asPerson((tx) =>
+      select<{ week_start: string; user_id: string; full_name: string | null; status: TimesheetWeekStatus["status"] }>(
+        tx,
+        `select to_char(w.week_start, 'YYYY-MM-DD') as week_start, w.user_id, p.full_name, w.status
+           from work.timesheet_week w join erp.entity x on x.id = w.entity_id left join work.person p on p.id = w.user_id
+          where w.week_start >= $1::date and w.week_start < $2::date and ($3::text is null or x.code = $3) and not x.is_test
+          order by w.week_start, p.full_name`,
+        [first.start, `${year + 1}-01-01`, scope],
+      ),
+    );
+  } catch (error) {
+    console.error("[timesheet:year]", error instanceof Error ? error.message : "connection");
     throw new Error("Timesheet unavailable");
   }
 }

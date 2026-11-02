@@ -17,6 +17,7 @@ export function salesWithholdingCodes(codes: TaxCode[], entityId: Id): TaxCode[]
   return codes.filter((x) => x.entityId === entityId && x.kind === 'withholding' && !!x.deductibleAccountId);
 }
 
+type InvoiceMode = 'normal' | 'gta' | 'rsa' | 'card';
 type Tab = 'invoices' | 'new' | 'payments' | 'aging' | 'dunning' | 'customers' | 'withholding' | 'contracts'; // [bumex-one] contracts
 const CATEGORIES = [['AUDIT', 'Audit'], ['TAX', 'Fiscal'], ['LEGAL', 'Juridique'], ['ADVISORY', 'Conseil'], ['IT', 'IT'], ['OTHER', 'Autre']];
 const REGIMES: [CounterpartyRegime, string][] = [['standard', 'Standard'], ['gta', 'GTA · sous-traitant enregistré'], ['exempt', 'Exonéré'], ['non_resident', 'Non-résident · export'], ['public', 'Organisme public']];
@@ -152,6 +153,29 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
   const taxCodes = state.taxCodes.filter((x) => x.entityId === entityId && x.kind === 'vat');
   const whtCodes = salesWithholdingCodes(state.taxCodes, entityId);
   const [wht, setWht] = useState<string>('default'); // 'default' = the customer's setting, '' = none, else a code id
+  // This invoice's regime (asked on 2026-11-02), the customer's card unchanged: Normal (the standard rules), GTA (GTA-EXO
+  // 0 %), RSA (the client keeps RAS 7 %: every line then GTA-EXO 0 %); "card" keeps another regime of the card
+  // (exempt, export, public body) as it is.
+  const gtaExo = taxCodes.find((x) => x.code === 'GTA-EXO');
+  const ras7 = whtCodes.find((x) => x.code === 'RAS-7');
+  const modeOf = (c: typeof customer): InvoiceMode => (!c ? 'normal' : ras7 && gtaExo && c.withholdingCodeId === ras7.id ? 'rsa' : c.regime === 'gta' ? 'gta' : c.regime === 'standard' ? 'normal' : 'card');
+  const [mode, setMode] = useState<InvoiceMode>(() => modeOf(customer));
+  const whtOf = (v: string) => (v === 'default' ? customer?.withholdingCodeId : v || undefined);
+  const whtId = whtOf(wht);
+  const rsa = Boolean(ras7 && gtaExo && whtId === ras7.id); // RAS 7 %: the lines' tax is always GTA-EXO 0 %
+  const regime: CounterpartyRegime | undefined = mode === 'gta' ? 'gta' : mode === 'card' ? undefined : 'standard';
+  const pickMode = (m: InvoiceMode) => {
+    setMode(m);
+    if (m === 'rsa' && ras7) setWht(ras7.id);
+    else if (m === 'card') setWht('default');
+    else if (rsa) setWht('');
+  };
+  const pickWht = (v: string) => {
+    setWht(v);
+    const id = whtOf(v);
+    if (ras7 && gtaExo && id === ras7.id) setMode('rsa');
+    else if (mode === 'rsa') setMode('normal');
+  };
   const revenueAccounts = state.accounts.filter((a) => a.entityId === entityId && a.isPostable && a.kind === 'income' && a.code.startsWith('7')).sort((a, b) => a.code.localeCompare(b.code));
   const banks = state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && !b.isCash);
   const [bankId, setBankId] = useState(banks.find((b) => b.currency === currency)?.id ?? banks[0]?.id ?? '');
@@ -160,8 +184,8 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
 
   const input = () => ({
     entityId, customerId, date, currency, fxRate: effRate, engagementId: engagementId || undefined, bankAccountId: bankId || undefined,
-    withholdingCodeId: wht === 'default' ? undefined : wht === '' ? null : wht,
-    lines: lines.filter((l) => l.description.trim() && parseAmount(l.unitPrice) !== null).map((l) => ({ description: l.description, quantity: Number(l.quantity.replace(',', '.')) || 1, unitPrice: parseAmount(l.unitPrice) ?? 0, serviceCategory: l.serviceCategory, taxCodeId: l.taxCodeId || undefined, revenueAccountId: l.revenueAccountId || undefined })),
+    withholdingCodeId: wht === 'default' ? undefined : wht === '' ? null : wht, regime,
+    lines: lines.filter((l) => l.description.trim() && parseAmount(l.unitPrice) !== null).map((l) => ({ description: l.description, quantity: Number(l.quantity.replace(',', '.')) || 1, unitPrice: parseAmount(l.unitPrice) ?? 0, serviceCategory: l.serviceCategory, taxCodeId: (rsa ? gtaExo?.id : l.taxCodeId) || undefined, revenueAccountId: l.revenueAccountId || undefined })),
   });
   const preview = useMemo(() => {
     if (!customer) return null;
@@ -169,7 +193,6 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
       const { lines: computed, mention } = computeLines(state, input());
       const ht = r2(computed.reduce((a, l) => a + l.lineHt, 0)), tax = r2(computed.reduce((a, l) => a + l.taxAmount, 0));
       const ar = customer.groupEntityId ? mapped(state, entityId, 'AR_GROUP') : mapped(state, entityId, 'AR_CONTROL');
-      const whtId = wht === 'default' ? customer.withholdingCodeId : wht || undefined;
       const whtCode = whtId ? whtCodes.find((x) => x.id === whtId) : undefined;
       const withholding = whtCode ? r2(ht * whtCode.rate) : 0;
       const whtAccount = whtCode ? state.accounts.find((a) => a.id === whtCode.deductibleAccountId) : undefined;
@@ -178,8 +201,8 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
       return { computed: [], mention: undefined, ht: 0, tax: 0, ttc: 0, withholding: 0, whtCode: undefined, whtAccount: undefined, net: 0, ar: null, error: e instanceof DomainError ? e.message : String(e) };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, customerId, date, currency, effRate, engagementId, lines, wht]);
-  const resolvedFor = (l: LineForm) => { if (!customer) return null; try { return resolveTaxCode(state, entityId, customer, l.serviceCategory, date); } catch { return null; } };
+  }, [state, customerId, date, currency, effRate, engagementId, lines, wht, mode]);
+  const resolvedFor = (l: LineForm) => { if (!customer) return null; try { return resolveTaxCode(state, entityId, regime ? { ...customer, regime } : customer, l.serviceCategory, date); } catch { return null; } };
   const setLine = (i: number, patch: Partial<LineForm>) => setLines((ls) => ls.map((l, k) => (k === i ? { ...l, ...patch } : l)));
   const save = (validate: boolean) => {
     const ok = apply((s) => {
@@ -196,14 +219,21 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
       <form className="grow" onSubmit={(e) => e.preventDefault()}>
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="grid4">
-            <Field label={t('customer')}><Select recent="customers" className="in" value={customerId} onChange={(e) => { setCustomerId(e.target.value); const c = customers.find((x) => x.id === e.target.value); if (c) { setCurrency(c.defaultCurrency); setBankId(banks.find((b) => b.currency === c.defaultCurrency)?.id ?? banks[0]?.id ?? ''); } }}>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
-            <Field label="Régime du client"><input className="in" readOnly value={REGIMES.find((r) => r[0] === customer?.regime)?.[1] ?? ''} /></Field>
+            <Field label={t('customer')}><Select recent="customers" className="in" value={customerId} onChange={(e) => { setCustomerId(e.target.value); const c = customers.find((x) => x.id === e.target.value); if (c) { setCurrency(c.defaultCurrency); setBankId(banks.find((b) => b.currency === c.defaultCurrency)?.id ?? banks[0]?.id ?? ''); } setWht('default'); setMode(modeOf(c)); }}>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
+            <Field label="Régime du client">
+              <Select className="in" value={mode} onChange={(e) => pickMode(e.target.value as InvoiceMode)}>
+                {customer && customer.regime !== 'standard' && customer.regime !== 'gta' && <option value="card">Fiche client · {REGIMES.find((r) => r[0] === customer.regime)?.[1]}</option>}
+                <option value="normal">Normal · TVA {Math.round((taxCodes.find((x) => x.revenueStatus === 'taxable_standard')?.rate ?? 0) * 100)} %</option>
+                <option value="gta">GTA · sous-traitant enregistré</option>
+                {ras7 && gtaExo && <option value="rsa">RSA · retenue à la source {Math.round(ras7.rate * 1000) / 10} %</option>}
+              </Select>
+            </Field>
             <Field label={`${t('date')} · échéance ${customer?.paymentTermsDays ?? 30} j`}><input className="in mono" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
             <Field label={`${t('currency')} · taux du jour ${autoRate}`}><div style={{ display: 'flex', gap: 6 }}><Select className="in" style={{ width: 90 }} value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>{['MRU', 'USD', 'EUR', 'MAD'].map((c) => <option key={c}>{c}</option>)}</Select><input className="in num" placeholder={String(autoRate)} value={rate} onChange={(e) => setRate(e.target.value)} disabled={currency === entity.functionalCurrency} aria-label="Taux forcé" /></div></Field>
             <Field label="Mission"><Select recent="missions" className="in" value={engagementId} onChange={(e) => setEngagementId(e.target.value)}><option value="">—</option>{state.engagements.filter((x) => x.entityId === entityId && x.customerId === customerId).map((x) => <option key={x.id} value={x.id}>{x.code} · {x.name}</option>)}</Select></Field>
             <Field label="Bloc bancaire imprimé"><Select recent="banks" className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name}</option>)}</Select></Field>
             <Field label="Retenue à la source appliquée par le client">
-              <Select className="in" value={wht} onChange={(e) => setWht(e.target.value)}>
+              <Select className="in" value={wht} onChange={(e) => pickWht(e.target.value)}>
                 <option value="default">{customer?.withholdingCodeId ? `Fiche client · ${whtCodes.find((x) => x.id === customer.withholdingCodeId)?.code ?? ''} (${Math.round((whtCodes.find((x) => x.id === customer.withholdingCodeId)?.rate ?? 0) * 100)} %)` : 'Fiche client · aucune retenue'}</option>
                 <option value="">Aucune retenue</option>
                 {whtCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {Math.round(x.rate * 1000) / 10} % · {x.nameFr}</option>)}
@@ -216,7 +246,7 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
               <tbody>
                 {lines.map((l, i) => {
                   const auto = resolvedFor(l);
-                  const chosen = l.taxCodeId ? taxCodes.find((x) => x.id === l.taxCodeId) : auto;
+                  const chosen = rsa ? gtaExo : l.taxCodeId ? taxCodes.find((x) => x.id === l.taxCodeId) : auto;
                   const status = chosen?.revenueStatus ?? 'taxable_standard';
                   const defaultRevenue = (() => { try { return mapped(state, entityId, 'REVENUE', `${l.serviceCategory}:${status}`); } catch { try { return mapped(state, entityId, 'REVENUE', status); } catch { return null; } } })();
                   const ht = r2((Number(l.quantity.replace(',', '.')) || 0) * (parseAmount(l.unitPrice) ?? 0));
@@ -227,7 +257,7 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
                       <td><input className="in num" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} aria-label={`Quantité ${i + 1}`} /></td>
                       <td><input className="in num" value={l.unitPrice} onChange={(e) => setLine(i, { unitPrice: e.target.value })} aria-label={`Prix ${i + 1}`} /></td>
                       <td><Select className="in" value={l.serviceCategory} onChange={(e) => setLine(i, { serviceCategory: e.target.value })} aria-label={`Catégorie ${i + 1}`}>{CATEGORIES.map(([k, n]) => <option key={k} value={k}>{n}</option>)}</Select></td>
-                      <td><Select className="in" value={l.taxCodeId} onChange={(e) => setLine(i, { taxCodeId: e.target.value })} aria-label={`Code taxe ${i + 1}`}><option value="">{auto ? `${auto.code} · ${auto.rate * 100} % (règle)` : '—'}</option>{taxCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {x.rate * 100} %</option>)}</Select></td>
+                      <td>{rsa && gtaExo ? <Select className="in" value="" disabled title="Retenue à la source 7 % : la ligne est toujours en GTA-EXO 0 %" aria-label={`Code taxe ${i + 1}`}><option value="">{gtaExo.code} · 0 % (RAS 7 %)</option></Select> : <Select className="in" value={l.taxCodeId} onChange={(e) => setLine(i, { taxCodeId: e.target.value })} aria-label={`Code taxe ${i + 1}`}><option value="">{auto ? `${auto.code} · ${auto.rate * 100} % (règle)` : '—'}</option>{taxCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {x.rate * 100} %</option>)}</Select>}</td>
                       <td><Select recent="accounts" className="in mono" value={l.revenueAccountId} onChange={(e) => setLine(i, { revenueAccountId: e.target.value })} aria-label={`Compte de produit ${i + 1}`}><option value="">{defaultRevenue ? `${defaultRevenue.code} (défaut · ${REVENUE_STATUS_LABEL[status]})` : '—'}</option>{revenueAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></td>
                       <td className="num">{fmt(ht)}</td>
                       <td><button type="button" className="btn sm" aria-label="Supprimer la ligne" onClick={() => setLines((ls) => (ls.length > 1 ? ls.filter((_, k) => k !== i) : ls))}>×</button></td>
@@ -256,6 +286,8 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
           <div className="small">Document forcé &gt; règle (régime du client + catégorie) &gt; défaut de l'entité. Le code figé sur la ligne choisit aussi le sous-compte de produit, que vous pouvez remplacer par n'importe quel compte de classe 7, y compris un sous-compte créé dans le plan.</div>
           <h2 style={{ marginTop: 12 }}>Retenue ≠ exonération</h2>
           <div className="small">Une ligne <b>exonérée</b> ou <b>à taux zéro</b> ne porte pas de TVA (code taxe de la ligne). La <b>retenue à la source</b> s'applique au niveau du document, sur le HT des prestations, sans changer la TVA : le client verse le net et reverse la retenue au Trésor ; nous la suivons en créance ({whtCodes.map((x) => `${x.code} ${Math.round(x.rate * 1000) / 10} %`).join(', ') || 'aucun code'}) jusqu'à l'imputation sur notre impôt. Taux et comptes se règlent dans Fiscalité · codes.</div>
+          <h2 style={{ marginTop: 12 }}>Régime de la facture</h2>
+          <div className="small">Il part de la fiche client et ne vaut que pour cette facture. <b>Normal</b> : règles de l'entité (TVA). <b>GTA</b> : GTA-EXO 0 %. <b>RSA</b> : le client retient 7 % (RAS-7) et chaque ligne passe en GTA-EXO 0 %, quel que soit le moyen de choisir cette retenue.</div>
           <div style={{ marginTop: 10 }} className="small">
             {taxCodes.map((x) => <div key={x.id} className="kv" style={{ padding: '3px 0' }}><span className="mono">{x.code}</span><span>{x.nameFr}</span></div>)}
           </div>

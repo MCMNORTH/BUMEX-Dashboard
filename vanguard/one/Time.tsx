@@ -17,6 +17,7 @@ import { Select, Suggest } from '../ui/Select';
 import { Lozenge, type Tone } from './work-ui';
 import { QuickLog, TIME_ERRORS, pickOf, ticketMission, whatOptions, type Pick } from './QuickLog';
 import { ago } from './ticket-history';
+import { TeamCalendar } from './TimeCalendar';
 
 // The "Temps" room: BUMEX One's timesheet in Vanguard (asked on 2026-10-27), made simple on 2026-10-28 (MySheet): my
 // week in one strip, a quick entry, a grid typed into; an entry may be on one of my tickets, and then counts on it (0012). For the administrator and
@@ -31,6 +32,15 @@ const STATUS: Record<string, [string, string, Tone]> = {
 };
 const STRIPES = ['#2b3f66', '#6b8dc1', '#2e7d4f', '#b07a1e', '#b4232c', '#7a5cc7'];
 const duration = (m: number) => `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
+// the quick durations (asked on 2026-11-02: whole hours, 1 h to a full day); a day holds 24 h at most, 8 h fill its bar
+const QUICK = [60, 120, 240, 480];
+const DAY_FULL = 480;
+const DAY_MAX = 24 * 60;
+
+/** A ticket's estimate, next to its name (asked on 2026-11-02). */
+function Estimate({ hours, say }: { hours: number | undefined; say: Say }) {
+  return hours ? <span className="ts-est" title={say('Temps estimé du ticket', "The ticket's estimated time")}>{say('estimé', 'est.')} {duration(Math.round(hours * 60))}</span> : <span className="ts-est none">{say('non estimé', 'not estimated')}</span>;
+}
 
 function useDayLabel() {
   const lang = useStore((s) => s.ui.lang);
@@ -83,7 +93,8 @@ function logOf(tab?: string | null): { projectId: string; mission: string; taskI
 
 export function TimeRoom({ initialTab }: { initialTab?: string | null }) {
   const say = useSay();
-  const [tab, setTab] = useState<'mine' | 'team'>(initialTab === 'team' ? 'team' : 'mine');
+  const [tab, setTab] = useState<'mine' | 'team' | 'calendar'>(initialTab === 'team' || initialTab === 'calendar' ? initialTab : 'mine');
+  const [teamWeek, setTeamWeek] = useState<string | null>(null); // a week picked on the calendar opens in the review
   // the administrator and managers review their people's weeks (BUMEX One's rule; the server checks it again)
   const { role } = usePermissions();
   // on the test floor (test mode, 0013), the person's test lines alone: no week to send, no review
@@ -93,10 +104,10 @@ export function TimeRoom({ initialTab }: { initialTab?: string | null }) {
     <>
       <div className="sheet-head">
         <h1>{say('Temps', 'Time')}</h1>
-        <Tabs tabs={[{ id: 'mine' as const, label: say('Ma feuille', 'My timesheet') }, ...(canReview ? [{ id: 'team' as const, label: role === 'admin' ? say("Toute l'entreprise", 'The whole company') : say('Mon équipe', 'My team') }] : [])]} value={tab} onChange={setTab} />
+        <Tabs tabs={[{ id: 'mine' as const, label: say('Ma feuille', 'My timesheet') }, ...(canReview ? [{ id: 'team' as const, label: role === 'admin' ? say("Toute l'entreprise", 'The whole company') : say('Mon équipe', 'My team') }, { id: 'calendar' as const, label: say('Calendrier', 'Calendar') }] : [])]} value={tab} onChange={setTab} />
       </div>
       <div className="sheet-body">
-        {tab === 'team' && canReview ? <TeamSheet /> : <MySheet key={`${initialTab ?? ''}:${test}`} log={logOf(initialTab)} test={test} />}
+        {tab === 'team' && canReview ? <TeamSheet key={teamWeek ?? ''} initialWeek={teamWeek} /> : tab === 'calendar' && canReview ? <TeamCalendar onWeek={(w) => { setTeamWeek(w); setTab('team'); }} /> : <MySheet key={`${initialTab ?? ''}:${test}`} log={logOf(initialTab)} test={test} />}
       </div>
     </>
   );
@@ -240,11 +251,23 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
           <div className="ts-strip-total"><b>{duration(total)}</b> <span className="muted">/ {data.capacityHours} h</span></div>
           <div className="ts-strip-bar" title={`${completion} %`}><i style={{ width: `${completion}%` }} /></div>
           <div className="ts-strip-days" aria-hidden="true">
-            {daily.map((m, i) => <span key={days[i]} className={`${days[i] === today ? 'today' : ''} ${m ? 'on' : ''}`} title={`${day(days[i], { weekday: 'long' })} · ${m ? duration(m) : '0 h'}`}><i style={{ height: `${m ? Math.max(20, Math.min(100, Math.round((m / 480) * 100))) : 8}%` }} /><b>{day(days[i], { weekday: 'narrow' })}</b></span>)}
+            {daily.map((m, i) => {
+              // up to 8 h the bar fills; the hours past 8 spill above it in orange, a full bar more at 24 h
+              const over = Math.min(m, DAY_MAX) - DAY_FULL;
+              return (
+                <span key={days[i]} className={`${days[i] === today ? 'today' : ''} ${m ? 'on' : ''}`} title={`${day(days[i], { weekday: 'long' })} · ${m ? duration(m) : '0 h'}${over > 0 ? say(` · ${duration(over)} au-delà de 8 h`, ` · ${duration(over)} past 8 h`) : ''}`}>
+                  <em className={over > 0 ? 'full' : ''}>
+                    {over > 0 && <i className="over" style={{ height: `${Math.round((over / (DAY_MAX - DAY_FULL)) * 100)}%` }} />}
+                    <i style={{ height: `${m ? Math.max(20, Math.min(100, Math.round((m / DAY_FULL) * 100))) : 8}%` }} />
+                  </em>
+                  <b>{day(days[i], { weekday: 'narrow' })}</b>
+                </span>
+              );
+            })}
           </div>
         </div>
         <div className="ts-strip-act">
-          {data.weekStatus && <span className={`ts-pill ${status}`}>{say(STATUS[status][0], STATUS[status][1])}</span>}
+          {data.weekStatus && <span className={`ts-pill ${status}`}>{say(STATUS[status][0], STATUS[status][1])}{(status === 'approved' || status === 'returned') && data.weekStatus.reviewer_name ? ` · ${say('par', 'by')} ${data.weekStatus.reviewer_name}` : ''}</span>}
           {canSend && <span className="small">{say(`Vous avez saisi ${duration(total)} sur ${data.capacityHours} h`, `You logged ${duration(total)} of ${data.capacityHours} h`)}</span>}
           {canSend && <button className="btn sm primary" disabled={busy} onClick={() => setConfirm('submit')}>{data.weekStatus?.status === 'returned' ? say('Renvoyer la semaine', 'Resubmit the week') : say('Envoyer la semaine', 'Send the week')}</button>}
           {!data.entries.length && data.week <= today && !locked && <button className="btn sm" disabled={busy} onClick={() => setConfirm('copy')}>{say('Reprendre la semaine précédente', 'Copy the previous week')}</button>}
@@ -277,7 +300,7 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
             <tbody>
               {rows.map((r, ri) => (
                 <tr key={r.key}>
-                  <th scope="row" className="ts-first"><div className="ts-mission"><span className="stripe" style={{ background: STRIPES[ri % STRIPES.length] }} /><div><p>{r.taskKey && <span className="ts-tkey">{r.taskKey}</span>}{(r.taskKey && r.mission.startsWith(`${r.taskKey} · `) ? r.mission.slice(r.taskKey.length + 3) : r.mission) || say('Mission à préciser', 'Unspecified mission')}</p><span className="small muted">{r.projectName ?? say('Projet non accessible', 'Unavailable project')}</span></div></div></th>
+                  <th scope="row" className="ts-first"><div className="ts-mission"><span className="stripe" style={{ background: STRIPES[ri % STRIPES.length] }} /><div><p>{r.taskKey && <span className="ts-tkey">{r.taskKey}</span>}{(r.taskKey && r.mission.startsWith(`${r.taskKey} · `) ? r.mission.slice(r.taskKey.length + 3) : r.mission) || say('Mission à préciser', 'Unspecified mission')}</p><span className="small muted">{r.projectName ?? say('Projet non accessible', 'Unavailable project')}</span>{r.taskId && <> <Estimate hours={data.estimates[r.taskId]} say={say} /></>}</div></div></th>
                   {days.map((d, i) => {
                     const cell = r.days.get(d) ?? [];
                     return (
@@ -336,12 +359,12 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
           {phoneLines.map(({ r, m, cell, can }) => (
             <div key={r.key} className="ts-dl-line">
               <button className="ts-dl-e" disabled={!cell.length || locked} onClick={() => setSelection({ date: shownDay, projectId: r.projectId, mission: r.mission, taskId: r.taskId, entries: cell, entry: cell[0] })}>
-                <span>{r.taskKey && <span className="ts-tkey">{r.taskKey}</span>}{r.mission || '—'}<span className="small muted"> · {r.projectName ?? '—'}</span></span>
+                <span>{r.taskKey && <span className="ts-tkey">{r.taskKey}</span>}{r.mission || '—'}<span className="small muted"> · {r.projectName ?? '—'}</span>{r.taskId && <> <Estimate hours={data.estimates[r.taskId]} say={say} /></>}</span>
                 <b>{m ? duration(m) : '—'}</b>
               </button>
               {can && cell.length <= 1 && (
                 <div className="ts-dl-add">
-                  {[15, 30, 60].map((n) => <button key={n} className="pill" disabled={`${r.key}|${shownDay}` in override} onClick={() => void commitCell(r, shownDay, m + n)}>+{n < 60 ? `${n} min` : '1 h'}</button>)}
+                  {QUICK.map((n) => <button key={n} className="pill" disabled={`${r.key}|${shownDay}` in override || (daily[days.indexOf(shownDay)] ?? 0) + n > DAY_MAX} onClick={() => void commitCell(r, shownDay, m + n)}>+{n / 60} h</button>)}
                 </div>
               )}
             </div>
@@ -390,7 +413,6 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
 
 // The tickets one just worked on, the last moved first (asked on 2026-10-28): one click logs time on one for the day
 // picked, added to what that day already holds; the last click can be undone. Another duration is typed ("1h30").
-const RECENT_CHIPS = [15, 30, 60, 120, 240];
 
 function RecentPanel({ data, locked, onLogged, say }: { data: MyTime; locked: boolean; onLogged: () => Promise<void>; say: Say }) {
   const { toast } = useStore();
@@ -402,6 +424,7 @@ function RecentPanel({ data, locked, onLogged, say }: { data: MyTime; locked: bo
   const [undo, setUndo] = useState<{ id: string; date: string; before: number; label: string } | null>(null);
   const [now] = useState(Date.now);
   const lineOf = (t: RecentTicket, d: string) => data.entries.find((e) => e.task_id === t.id && e.work_date === d);
+  const dayTotal = data.entries.filter((e) => e.work_date === date).reduce((s, e) => s + e.duration_minutes, 0);
   const write = async (t: RecentTicket, d: string, total: number) => {
     const one = lineOf(t, d);
     const split = { hours: String(Math.floor(total / 60)), minutes: String(total % 60) };
@@ -453,12 +476,12 @@ function RecentPanel({ data, locked, onLogged, say }: { data: MyTime; locked: bo
           <div key={t.id} className={`ts-recent-row ${busy === t.id ? 'busy' : ''}`}>
             <div className="ts-recent-what">
               <span className="ts-tkey">{t.key}</span>
-              <b>{t.title}</b>
+              <b>{t.title}</b> <Estimate hours={data.estimates[t.id]} say={say} />
               <span className="small muted">{t.projectName ?? ''}{t.stage ? ` · ${t.stage}` : ''} · {t.movedAt ? say(`déplacé ${ago(t.movedAt, now, say)}`, `moved ${ago(t.movedAt, now, say)}`) : say('en cours', 'in progress')}</span>
             </div>
             <span className={`ts-recent-logged ${logged ? 'on' : ''}`}>{logged ? duration(logged) : '—'}</span>
             <div className="ts-recent-chips">
-              {RECENT_CHIPS.map((m) => <button key={m} className="wk-chip" disabled={busy !== null} onClick={() => log(t, m)}>+{m < 60 ? `${m} min` : `${m / 60} h`}</button>)}
+              {QUICK.map((m) => <button key={m} className="wk-chip" disabled={busy !== null || dayTotal + m > DAY_MAX} onClick={() => log(t, m)}>+{m / 60} h</button>)}
               <input className="in ts-recent-in" value={typed[t.id] ?? ''} placeholder={say('autre', 'other')} aria-label={say(`Durée sur ${t.key}`, `Time on ${t.key}`)} disabled={busy !== null}
                 onChange={(e) => setTyped((x) => ({ ...x, [t.id]: e.target.value }))}
                 onKeyDown={(e) => { if (e.key !== 'Enter') return; const m = parseDuration(typed[t.id] ?? ''); if (m) void log(t, m); else toast('error', say('Une durée : 2, 1h30, 45min…', 'A duration: 2, 1h30, 45min…')); }} />
@@ -578,7 +601,7 @@ function EntryEditor({ data, selection, onPick, onClose, onSaved, say }: { data:
           <Field label={say('Jour', 'Day')}><input className="in mono" type="date" value={date} min={data.week} max={data.days[6] < data.today ? data.days[6] : data.today} onChange={(e) => setDate(e.target.value)} /></Field>
           <Field label={say('Heures', 'Hours')}><input className="in num" type="number" min={0} max={24} value={hours} onChange={(e) => setHours(Number(e.target.value))} /></Field>
           <Field label="Minutes"><input className="in num" type="number" min={0} max={59} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} /></Field>
-          <Field label={say('Raccourcis', 'Shortcuts')} style={{ gridColumn: 'span 3' }}><div className="ts-presets">{[30, 60, 120, 240, 480].map((m) => <button key={m} className={`btn sm ${hours * 60 + minutes === m ? 'primary' : ''}`} onClick={() => { setHours(Math.floor(m / 60)); setMinutes(m % 60); }}>{m < 60 ? `${m} min` : `${m / 60} h`}</button>)}</div></Field>
+          <Field label={say('Raccourcis', 'Shortcuts')} style={{ gridColumn: 'span 3' }}><div className="ts-presets">{QUICK.map((m) => <button key={m} className={`btn sm ${hours * 60 + minutes === m ? 'primary' : ''}`} onClick={() => { setHours(Math.floor(m / 60)); setMinutes(m % 60); }}>{m < 60 ? `${m} min` : `${m / 60} h`}</button>)}</div></Field>
         </div>
       )}
       {linked && <div className="banner info small">{say('Ce temps comptera sur le ticket', 'This time counts on the ticket')} <b>{ticketLabel(linked)}</b>.</div>}
@@ -595,11 +618,11 @@ function EntryEditor({ data, selection, onPick, onClose, onSaved, say }: { data:
 
 type SortKey = 'control' | 'name' | 'time_desc' | 'time_asc';
 
-function TeamSheet() {
+function TeamSheet({ initialWeek }: { initialWeek?: string | null }) {
   const say = useSay();
   const { state, toast } = useStore();
   const day = useDayLabel();
-  const [week, setWeek] = useState<string | null>(null);
+  const [week, setWeek] = useState<string | null>(initialWeek ?? null);
   const [data, setData] = useState<TeamTime | null | undefined>(undefined);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -678,7 +701,8 @@ function TeamSheet() {
       const rank = (r: typeof a) => (r.st === 'submitted' ? 0 : r.incomplete ? 1 : r.st === 'draft' ? 2 : 3);
       return rank(a) - rank(b) || a.p.full_name.localeCompare(b.p.full_name);
     });
-  const submitted = rows.filter((r) => r.st === 'submitted').map((r) => r.p.id);
+  // nobody approves their own week (asked on 2026-11-02; the server and the database refuse it too)
+  const submitted = rows.filter((r) => r.st === 'submitted' && r.p.id !== data.me).map((r) => r.p.id);
   const filtered = Boolean(s) || statusFilter !== 'all' || entityFilter !== 'all' || sort !== 'control';
   const exportCsv = () => {
     const quote = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
@@ -762,15 +786,19 @@ function TeamSheet() {
               {rows.map(({ p, total, st, incomplete }) => (
                 <Fragment key={p.id}>
                   <tr className={open === p.id ? 'sel' : ''}>
-                    <td>{st === 'submitted' && <input type="checkbox" checked={selected.includes(p.id)} onChange={(e) => setSelected(e.target.checked ? [...selected, p.id] : selected.filter((x) => x !== p.id))} aria-label={p.full_name} />}</td>
+                    <td>{st === 'submitted' && p.id !== data.me && <input type="checkbox" checked={selected.includes(p.id)} onChange={(e) => setSelected(e.target.checked ? [...selected, p.id] : selected.filter((x) => x !== p.id))} aria-label={p.full_name} />}</td>
                     <td className="click" onClick={() => setOpen(open === p.id ? null : p.id)}><b>{p.full_name}</b><div className="small muted">{p.role} · {floorName(p.entity_code)}</div></td>
                     {data.days.map((d) => { const m = daily.get(p.id)?.get(d) ?? 0; return <td key={d} className="num small">{m ? duration(m) : '—'}</td>; })}
                     <td className="num" style={{ color: incomplete ? 'var(--warn)' : undefined }}><b>{duration(total)}</b><div className="small muted">/ {p.weekly_capacity_hours} h</div></td>
-                    <td><Lozenge tone={STATUS[st][2]}>{say(STATUS[st][0], STATUS[st][1])}</Lozenge></td>
+                    <td>
+                      <Lozenge tone={STATUS[st][2]}>{say(STATUS[st][0], STATUS[st][1])}</Lozenge>
+                      {(st === 'approved' || st === 'returned') && statusOf.get(p.id)?.reviewer_name && <div className="small muted ts-reviewer">{say('par', 'by')} {statusOf.get(p.id)!.reviewer_name}{statusOf.get(p.id)!.reviewed_at ? ` · ${day(statusOf.get(p.id)!.reviewed_at!.slice(0, 10), { day: 'numeric', month: 'short' })}` : ''}</div>}
+                    </td>
                     <td>
                       <div className="toolbar" style={{ justifyContent: 'flex-end' }}>
-                        {st === 'submitted' && <button className="btn sm primary" disabled={busy} onClick={() => act(() => approveTimesheetWeekAction(p.id, data.week), say('Feuille validée', 'Timesheet approved'))}>{say('Valider', 'Approve')}</button>}
-                        {(st === 'submitted' || st === 'approved') && <button className="btn sm" disabled={busy} onClick={() => setReturning({ id: p.id, reason: '' })}>{say('Retourner', 'Return')}</button>}
+                        {st === 'submitted' && p.id === data.me && <span className="small muted">{say('À valider par un autre responsable', 'Another reviewer approves it')}</span>}
+                        {st === 'submitted' && p.id !== data.me && <button className="btn sm primary" disabled={busy} onClick={() => act(() => approveTimesheetWeekAction(p.id, data.week), say('Feuille validée', 'Timesheet approved'))}>{say('Valider', 'Approve')}</button>}
+                        {(st === 'submitted' || st === 'approved') && p.id !== data.me && <button className="btn sm" disabled={busy} onClick={() => setReturning({ id: p.id, reason: '' })}>{say('Retourner', 'Return')}</button>}
                         {(st === 'draft' || st === 'returned') && p.id !== data.me && <button className="btn sm ghost" disabled={busy} onClick={() => act(() => remindTimesheetWeekAction(p.id, data.week), say('Rappel envoyé', 'Reminder sent'))}>{say('Relancer', 'Remind')}</button>}
                       </div>
                     </td>

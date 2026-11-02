@@ -95,8 +95,8 @@ function webglAvailable(): boolean {
   }
 }
 
-function loadPrefs(): { quality: Quality; sidebarOpen: boolean; barOpen: boolean } {
-  const def = { quality: { shadows: true, ao: true, people: true }, sidebarOpen: false, barOpen: false };
+function loadPrefs(): { quality: Quality; sidebarOpen: boolean; barOpen: boolean; flat: boolean } {
+  const def = { quality: { shadows: true, ao: true, people: true }, sidebarOpen: false, barOpen: false, flat: false };
   // ?q=low (or #q=low) starts in the light rendering mode: tablets, laptops without a GPU, automated tests
   const q = typeof location !== 'undefined' ? new URLSearchParams(location.search + '&' + location.hash.replace('#', '')).get('q') : null;
   if (q === 'low') return { ...def, quality: { shadows: false, ao: false, people: false } };
@@ -104,15 +104,18 @@ function loadPrefs(): { quality: Quality; sidebarOpen: boolean; barOpen: boolean
     const raw = localStorage.getItem(PREFS_KEY);
     if (!raw) return def;
     const p = JSON.parse(raw) as Partial<typeof def>;
-    return { quality: { ...def.quality, ...(p.quality ?? {}) }, sidebarOpen: !!p.sidebarOpen, barOpen: !!p.barOpen };
+    return { quality: { ...def.quality, ...(p.quality ?? {}) }, sidebarOpen: !!p.sidebarOpen, barOpen: !!p.barOpen, flat: !!p.flat };
   } catch {
     return def;
   }
 }
 
 function savePrefs(ui: UI) {
+  // flat: the Tower/Flat choice, kept across refreshes (asked on 2026-11-02); only a choice the person could make (the
+  // building drawn) changes it, not the flat pages forced without it
+  if (ui.webgl) prefs.flat = ui.view === 'flat';
   try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ quality: ui.quality, sidebarOpen: ui.sidebarOpen, barOpen: ui.barOpen }));
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ quality: ui.quality, sidebarOpen: ui.sidebarOpen, barOpen: ui.barOpen, flat: prefs.flat }));
   } catch {
     /* ignore */
   }
@@ -268,7 +271,7 @@ export const useStore = create<Store>((set, get) => ({
     const entity = keep ? state.entities.find((e) => e.id === ui.entityId) : defaultEntity(state);
     const fiscalYearLabel = loadedAt ? ui.fiscalYearLabel : state.fiscalYears.find((f) => f.entityId === entity?.id && state.today >= f.start && state.today <= f.end)?.label ?? ui.fiscalYearLabel;
     const scene3d = state.session.view3d === true;
-    const view: View = !(scene3d && webgl) ? 'flat' : loadedAt ? ui.view : 'tower';
+    const view: View = !(scene3d && webgl) ? 'flat' : loadedAt ? ui.view : prefs.flat ? 'flat' : 'tower';
     set({ state, loadedAt: data.loadedAt, version: data.version, ui: { ...ui, entityId: entity?.id ?? null, fiscalYearLabel, scene3d, webgl: scene3d && webgl, view, switching: null } });
     if (!loadedAt && scene3d && !webgl && !isPhoneOrTablet()) get().toast('info', get().t('no_webgl'));
   },
@@ -282,7 +285,7 @@ export const useStore = create<Store>((set, get) => ({
   },
   setUi: (patch) => {
     set((s) => ({ ui: { ...s.ui, ...patch } }));
-    if ('quality' in patch || 'sidebarOpen' in patch || 'barOpen' in patch) savePrefs(get().ui);
+    if ('quality' in patch || 'sidebarOpen' in patch || 'barOpen' in patch || 'view' in patch) savePrefs(get().ui);
   },
   goTower: () => set((s) => ({ ui: { ...s.ui, view: s.ui.view === 'flat' ? 'flat' : 'tower', room: null, tab: null, focusRoom: null, hoverRoom: null, archiveId: null, rackFocus: false, transition: 'to-tower' } })),
   goHome: () => {

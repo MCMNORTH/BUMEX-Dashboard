@@ -1,4 +1,4 @@
-import type { State, Id, ISODate, Currency, SalesInvoice, SalesInvoiceLine, CreditNote, CustomerPayment, Allocation, Customer } from './types';
+import type { State, Id, ISODate, Currency, SalesInvoice, SalesInvoiceLine, CreditNote, CustomerPayment, Allocation, Customer, CounterpartyRegime } from './types';
 import { DomainError } from './types';
 import { r2, sum, addDays, daysBetween } from './money';
 import { nextId, audit, fxRate, mapped, nextNumber, requirePost, accountById, arAccountFor, bankJournalFor } from './core';
@@ -26,6 +26,7 @@ export interface InvoiceInput {
   paymentMode?: string;
   bankAccountId?: Id;
   withholdingCodeId?: Id | null; // undefined = the customer's default, null = none
+  regime?: CounterpartyRegime; // this invoice's regime for the tax rules; undefined = the customer's
   lines: InvoiceLineInput[];
 }
 
@@ -44,7 +45,8 @@ function customerOf(state: State, id: Id): Customer {
 }
 
 export function computeLines(state: State, input: InvoiceInput): { lines: SalesInvoiceLine[]; mention?: string } {
-  const customer = customerOf(state, input.customerId);
+  const card = customerOf(state, input.customerId);
+  const customer = input.regime ? { ...card, regime: input.regime } : card;
   let mention: string | undefined;
   const lines = input.lines.map((l, i) => {
     const tc = l.taxCodeId ? state.taxCodes.find((t) => t.id === l.taxCodeId) : resolveTaxCode(state, input.entityId, customer, l.serviceCategory, input.date);

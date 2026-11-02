@@ -1,7 +1,7 @@
 "use server";
 
 import { requireRouteAccess } from "@/lib/auth/server";
-import { getAdminTimesheetOverview, getTimesheet } from "@/lib/timesheet/service";
+import { getAdminTimesheetOverview, getTimesheet, getTimesheetYear } from "@/lib/timesheet/service";
 import { getTicketsByIds } from "@/lib/tickets/service";
 import { weekBounds } from "@/lib/timesheet/validation";
 import { asPerson, select } from "@/lib/work/db";
@@ -31,6 +31,7 @@ export type MyTime = Week & {
   // the tickets the person moved on a board lately, the last moved first, then their own in progress (2026-10-28: time is
   // logged on what one just worked on)
   recent: RecentTicket[];
+  estimates: Record<string, number>; // the estimated hours of the week's tickets, by ticket id (asked on 2026-11-02)
 };
 
 export type RecentTicket = TimeTicket & { stage: string | null; movedAt: string | null; projectName: string | null };
@@ -42,13 +43,28 @@ export async function myTimeAction(week?: string | null, test = false): Promise<
   const [sheet, recent] = await Promise.all([getTimesheet(at.week, test), recentTickets(auth.profile.id).catch(() => [])]);
   // only what the person may log time on (their timesheet's missions)
   const allowed = new Map(sheet.projects.map((p) => [p.id, p.name]));
+  const mine = recent.filter((t) => allowed.has(t.project_id));
+  const ids = [...new Set([...sheet.entries.map((e) => e.task_id), ...sheet.tickets.map((t) => t.id), ...mine.map((t) => t.id)].filter((id): id is string => Boolean(id)))];
   return {
     ...at,
     ...sheet,
     capacityHours: auth.profile.weekly_capacity_hours,
     test,
-    recent: recent.filter((t) => allowed.has(t.project_id)).map((t) => ({ ...t, projectName: allowed.get(t.project_id) ?? null })),
+    recent: mine.map((t) => ({ ...t, projectName: allowed.get(t.project_id) ?? null })),
+    estimates: await estimates(ids).catch(() => ({})),
   };
+}
+
+async function estimates(ids: string[]): Promise<Record<string, number>> {
+  if (!ids.length) return {};
+  const rows = await asPerson((tx) =>
+    select<{ id: string; estimated_hours: string | number }>(
+      tx,
+      `select id::text as id, estimated_hours from erp.task where id = any($1::uuid[]) and estimated_hours > 0`,
+      [ids],
+    ),
+  );
+  return Object.fromEntries(rows.map((r) => [r.id, Number(r.estimated_hours)]));
 }
 
 // The tickets moved by the person (their stage changes, work.activity) in the last three weeks, the last moved first;
@@ -132,4 +148,16 @@ export async function teamTimeAction(week?: string | null): Promise<TeamTime | n
   if (auth.role !== "admin" && auth.role !== "manager") return null;
   const at = weekOf(week);
   return { ...at, ...(await getAdminTimesheetOverview(at.week)), companyWide: auth.role === "admin", me: auth.profile.id };
+}
+
+// The review's calendar (asked on 2026-11-02): the year's weeks, each with its people's sent weeks and their state.
+export type TeamYear = { year: number; today: string; week: string; weeks: { week: string; userId: string; name: string; status: "submitted" | "approved" | "returned" }[] };
+
+export async function teamYearAction(year?: number | null): Promise<TeamYear | null> {
+  const auth = await requireRouteAccess("timesheet");
+  if (auth.role !== "admin" && auth.role !== "manager") return null;
+  const at = weekOf(null);
+  const y = Number.isInteger(year) ? Number(year) : Number(at.today.slice(0, 4));
+  const rows = await getTimesheetYear(y);
+  return { year: y, today: at.today, week: at.week, weeks: rows.map((r) => ({ week: r.week_start, userId: r.user_id, name: r.full_name ?? "—", status: r.status })) };
 }

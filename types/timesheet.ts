@@ -36,6 +36,7 @@ export type TimesheetWeekStatus = {
   submitted_at: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
+  reviewer_name: string | null;
   review_note: string | null;
 };
 

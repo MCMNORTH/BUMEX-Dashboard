@@ -199,7 +199,8 @@ const reviewable = (role: string, entityCode: string, userIds: string[]) =>
 async function review(userIds: string[], week: string, change: { status: "approved" | "returned"; note?: string }) {
   const { auth, entityCode } = await requireCurrentEntityContext();
   const bounds = weekBounds(week);
-  const ids = [...new Set(userIds)].filter(Boolean).slice(0, 500);
+  // nobody reviews their own week (the database refuses it too: work.timesheet_week's policy)
+  const ids = [...new Set(userIds)].filter((id) => id && id !== auth.user.id).slice(0, 500);
   if (!bounds || !ids.length || (auth.role !== "admin" && auth.role !== "manager")) return { auth, done: [] as string[] };
   const allowed = (await reviewable(auth.role, entityCode, ids)).map((p) => p.id);
   if (!allowed.length) return { auth, done: [] };

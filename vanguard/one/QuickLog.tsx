@@ -31,7 +31,7 @@ export const TIME_ERRORS: Record<TimeError, [string, string]> = {
   locked: ['Cette semaine est envoyée : elle ne change plus, sauf si elle vous est retournée.', 'This week is sent: it no longer changes unless it is returned to you.'],
 };
 
-const CHIPS = [15, 30, 60, 120, 240];
+const CHIPS = [60, 120, 240, 480]; // whole hours, 1 h to a full day (asked on 2026-11-02)
 const LAST = 'bumex-vanguard-quicklog';
 
 export const ticketMission = (t: { key: string | null; title: string }) => `${t.key ? `${t.key} · ` : ''}${t.title}`.slice(0, 200);

@@ -3,7 +3,7 @@ import {
   buildDemo, entityByCode, createDraft, postEntry, reverseEntry, checkPostable, verifyChain, setPeriodStatus, setFiscalYearClosed,
   trialBalance, accountByCode, createInvoice, validateInvoice, recordPayment, createCreditNote, aging, openInvoices,
   importStatement, parseStatementCsv, suggestFor, bookByRule, bookTransfer, bankSummary, cashForecast, floorSignals, groupFigures,
-  addAccount, r2, type State, DomainError, resolveTaxCode, sha256, entryHash, approveSupplierInvoice,
+  addAccount, r2, type State, DomainError, resolveTaxCode, computeLines, sha256, entryHash, approveSupplierInvoice,
   taskStats, createTask, completeTask, reopenTask, alerts, recentActivity, archiveRows, rackLayout, archiveEngagement, retrieveArchive, returnArchive, destroyArchive, nextFreeSlot, archiveQueue, RACK_CAPACITY, slotKey,
 } from '..';
 
@@ -125,6 +125,13 @@ describe('sales', () => {
     expect(resolveTaxCode(base, AUD, cust('standard'), 'AUDIT', TODAY).rate).toBe(0.16);
     expect(resolveTaxCode(base, AUD, cust('gta'), 'AUDIT', TODAY).code).toBe('GTA-EXO');
     expect(resolveTaxCode(base, AUD, cust('non_resident'), 'AUDIT', TODAY).code).toBe('EXP-0');
+  });
+  it("an invoice's own regime overrides the customer's for its tax codes", () => {
+    const line = [{ description: 'Audit', quantity: 1, unitPrice: 1000, serviceCategory: 'AUDIT' }];
+    const code = (customerId: string, regime?: 'standard' | 'gta') => base.taxCodes.find((t) => t.id === computeLines(base, { entityId: AUD, customerId, date: TODAY, currency: 'MRU', regime, lines: line }).lines[0].taxCodeId)!.code;
+    expect(code(cust('standard').id, 'gta')).toBe('GTA-EXO');
+    expect(code(cust('gta').id, 'standard')).toBe('TVA-16');
+    expect(code(cust('gta').id)).toBe('GTA-EXO');
   });
   it('posts a standard invoice: AR 522 000 / revenue 450 000 / VAT 72 000', () => {
     const customer = cust('standard');
