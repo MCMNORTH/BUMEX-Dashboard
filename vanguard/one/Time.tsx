@@ -717,21 +717,20 @@ function TeamSheet({ initialWeek }: { initialWeek?: string | null }) {
     URL.revokeObjectURL(url);
   };
 
+  const toApprove = data.statuses.filter((x) => x.status === 'submitted').length;
   return (
     <div className="ts">
-      <section className="ts-hero">
-        <div className="ts-hero-t">
-          <div className="ts-kicker">{say('Revue des feuilles', 'Timesheet review')}</div>
-          <h1>{data.companyWide ? say("Temps de toute l'entreprise", 'Time across the company') : say('Temps de mon équipe', "My team's time")}</h1>
-          <p>{data.companyWide ? say('Tous les profils, toutes entités et temps déclarés pour la semaine.', 'Every profile, every entity and the time logged this week.') : say('Tous les profils de votre entité et leurs temps déclarés pour la semaine.', "Your entity's profiles and the time they logged this week.")}</p>
-        </div>
-      </section>
+      {/* Vanguard's own heading, KPI cards and card (2026-11-03: the BUMEX One hero and gradient tiles left the theme) */}
+      <div className="ts-review-h">
+        <h2>{data.companyWide ? say("Temps de toute l'entreprise", 'Time across the company') : say('Temps de mon équipe', "My team's time")}</h2>
+        <span className="small muted">{data.companyWide ? say('Tous les profils, toutes entités et temps déclarés pour la semaine.', 'Every profile, every entity and the time logged this week.') : say('Tous les profils de votre entité et leurs temps déclarés pour la semaine.', "Your entity's profiles and the time they logged this week.")}</span>
+      </div>
       <WeekBar week={data.week} days={data.days} today={data.today} onWeek={setWeek} say={say} />
-      <div className="ts-kpis four">
-        <div className="ts-kpi"><div><div className="l">{say('Profils', 'Profiles')}</div><div className="v">{data.profiles.length}</div></div><span className="ic"><Icon name="clients" size={18} /></span></div>
-        <div className="ts-kpi good"><div><div className="l">{say('Actifs', 'Active')}</div><div className="v">{all.filter((r) => r.total > 0).length}</div></div><span className="ic"><Icon name="activity" size={18} /></span></div>
-        <div className="ts-kpi warn"><div><div className="l">{say('À valider', 'To approve')}</div><div className="v">{data.statuses.filter((x) => x.status === 'submitted').length}</div></div><span className="ic"><Icon name="flag" size={18} /></span></div>
-        <div className="ts-kpi"><div><div className="l">{say('Déclaré', 'Logged')}</div><div className="v">{duration(data.entries.reduce((a, e) => a + e.duration_minutes, 0))}</div></div><span className="ic"><Icon name="clock" size={18} /></span></div>
+      <div className="grid4">
+        <div className="kpi"><div className="l">{say('Profils', 'Profiles')}</div><div className="v">{data.profiles.length}</div></div>
+        <div className="kpi"><div className="l">{say('Actifs', 'Active')}</div><div className="v">{all.filter((r) => r.total > 0).length}</div></div>
+        <div className="kpi"><div className="l">{say('À valider', 'To approve')}</div><div className="v" style={{ color: toApprove ? 'var(--warn)' : undefined }}>{toApprove}</div></div>
+        <div className="kpi"><div className="l">{say('Déclaré', 'Logged')}</div><div className="v">{duration(data.entries.reduce((a, e) => a + e.duration_minutes, 0))}</div></div>
       </div>
       <div className="ts-filters">
         <div className="wk-search" style={{ flex: '1 1 260px' }}>
@@ -771,7 +770,7 @@ function TeamSheet({ initialWeek }: { initialWeek?: string | null }) {
           </div>
         </Modal>
       )}
-      <section className="ts-panel flush">
+      <section className="card flush">
         <div className="ts-gridwrap">
           <table className="ts-team">
             <thead>
