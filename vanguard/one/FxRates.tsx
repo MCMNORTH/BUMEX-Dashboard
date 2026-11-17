@@ -50,7 +50,7 @@ export function FxRatesPanel() {
       const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
       const sheets = wb.SheetNames.map((name) => ({ name, rows: XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[name], { header: 1, raw: true, defval: '' }) }));
       const parsed = parseFxSheets(sheets, functionals.includes('MRU') ? 'MRU' : functionals[0]);
-      if (!parsed.format) { toast('error', say('Aucun tableau de taux reconnu (colonnes Date / Devise / Cours, ou date / currency / rate)', 'No rate table found (columns Date / Devise / Cours, or date / currency / rate)')); return; }
+      if (!parsed.format) { toast('error', say('Aucun tableau de taux reconnu (colonnes Date / Devise / Cours, date / currency / value, ou date / currency / rate)', 'No rate table found (columns Date / Devise / Cours, date / currency / value, or date / currency / rate)')); return; }
       setFile({ name: f.name, parsed });
       const dates = parsed.rows.map((r) => r.date).sort();
       setFromDate(dates[0] ?? ''); setToDate(dates.at(-1) ?? '');
@@ -62,7 +62,7 @@ export function FxRatesPanel() {
   const found = file ? [...new Set(file.parsed.rows.map((r) => r.from))] : [];
   const runImport = () => {
     const ok = apply((s) => {
-      const [next, out] = importFxRates(s, chosen, file?.parsed.format === 'bcm' ? 'BCM' : undefined);
+      const [next, out] = importFxRates(s, chosen, file?.parsed.format === 'table' ? undefined : 'BCM');
       window.setTimeout(() => toast('ok', say(`Taux importés : ${out.added} ajoutés, ${out.replaced} remplacés, ${out.unchanged} déjà là`, `Rates imported: ${out.added} added, ${out.replaced} replaced, ${out.unchanged} already there`)), 0);
       return next;
     });
@@ -126,7 +126,7 @@ export function FxRatesPanel() {
             <input type="file" accept=".xlsx,.xls,.csv" style={{ marginTop: 8 }} onChange={(e) => { void read(e.target.files?.[0]); e.target.value = ''; }} />
             {file && (
               <div style={{ marginTop: 10 }}>
-                <div className="small"><b>{file.name}</b> · {file.parsed.format === 'bcm' ? say('format BCM', 'BCM format') : say('tableau', 'table')} · {file.parsed.rows.length} {say('taux lus', 'rates read')}</div>
+                <div className="small"><b>{file.name}</b> · {file.parsed.format === 'bcm' ? say('fichier annuel de la BCM', 'BCM yearly file') : file.parsed.format === 'bcm-export' ? say('export du site de la BCM', 'BCM site export') : say('tableau', 'table')} · {file.parsed.rows.length} {say('taux lus', 'rates read')}</div>
                 {file.parsed.skipped.map((s) => <div key={s.reason} className="small muted">{s.count} {say('lignes écartées', 'rows left out')} : {s.reason}</div>)}
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '8px 0' }}>
                   {found.map((c) => <label key={c} className="small"><input type="checkbox" checked={pick.includes(c)} onChange={(e) => setPick((p) => (e.target.checked ? [...p, c] : p.filter((x) => x !== c)))} /> {c}</label>)}

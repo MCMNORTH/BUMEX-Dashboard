@@ -39,4 +39,32 @@ describe('reading an exchange-rate file', () => {
     expect(parsed.skipped).toEqual([{ reason: 'ligne illisible (date ou taux)', count: 1 }]);
     expect(parseFxSheets([{ name: 'x', rows: [['a', 'b'], [1, 2]] }]).format).toBeNull();
   });
+
+  it("reads the BCM site's export: value per weight, the reference rate's rows, dates month first", () => {
+    const head = ['date', 'minBandeFluctuationUSD', 'nameArabic', 'nameEnglish', 'weight', 'maxBandeFluctuationUSD', 'currency', 'value', 'key', 'nameFrench'];
+    const parsed = parseFxSheets([{ name: 'Sheet1', rows: [head,
+      ['1/2/24', 36.96, 'يورو', 'Euro', 1, 40.85, 'EUR', 43.0341, 'coursChangeReference', 'Euro'],
+      ['1/30/24', 37.1, 'يورو', 'Euro', 1, 41.01, 'EUR', 44.037, 'coursChangeReference', 'Euro'],
+      ['1/30/24', 37.1, 'دولار', 'US Dollar', 1, 41.01, 'USD', 39.6, 'coursChangeReference', 'Dollar'],
+      ['1/30/24', 37.1, 'درهم', 'Dirham', 100, 41.01, 'MAD', 395.06, 'coursChangeReference', 'Dirham'],
+      ['1/30/24', 37.1, 'يورو', 'Euro', 1, 41.01, 'EUR', 44.5, 'coursChangeVente', 'Euro'],
+      ['1/30/24', 37.1, 'ين', 'Yen', 1000, 41.01, 'JPY', 276.36, 'coursChangeReference', 'Yen'],
+    ] }]);
+    expect(parsed.format).toBe('bcm-export');
+    expect(parsed.rows).toEqual([
+      { date: '2024-01-02', from: 'EUR', to: 'MRU', rate: 43.0341, source: 'BCM' },
+      { date: '2024-01-30', from: 'EUR', to: 'MRU', rate: 44.037, source: 'BCM' },
+      { date: '2024-01-30', from: 'USD', to: 'MRU', rate: 39.6, source: 'BCM' },
+      { date: '2024-01-30', from: 'MAD', to: 'MRU', rate: 3.9506, source: 'BCM' },
+    ]);
+    expect(parsed.skipped).toEqual([
+      { reason: 'devises non tenues en comptabilité (JPY)', count: 1 },
+      { reason: 'autre cours que le cours de référence (coursChangeVente)', count: 1 },
+    ]);
+    // the same file with real Excel dates, and a day-first file found as such
+    const serialDates = parseFxSheets([{ name: 'S', rows: [head, [serial('2024-12-31'), '', '', '', 1, '', 'USD', 39.84, 'coursChangeReference', '']] }]);
+    expect(serialDates.rows).toEqual([{ date: '2024-12-31', from: 'USD', to: 'MRU', rate: 39.84, source: 'BCM' }]);
+    const dayFirst = parseFxSheets([{ name: 'S', rows: [['date', 'currency', 'rate'], ['02/01/2024', 'EUR', 43], ['30/01/2024', 'EUR', 44]] }]);
+    expect(dayFirst.rows.map((r) => r.date)).toEqual(['2024-01-02', '2024-01-30']);
+  });
 });
