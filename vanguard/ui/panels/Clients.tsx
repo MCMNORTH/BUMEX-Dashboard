@@ -77,6 +77,13 @@ export function ClientsPanel({ entityId, initialTab }: { entityId: Id; initialTa
 
 // [bumex-one] The invoice as printed (asked on 2026-11-17): the same sheet as its public page, the QR code's link
 // (app/i/[token]); printing opens that page, which prints the invoice alone.
+// The notes an invoice prints (Fiscalité › Mentions des factures): its WHT's when a line bears it, then each VAT code's of
+// its lines, in their order. The same in SQL for the invoice's public page (lib/erp/invoice-link.ts).
+export function invoiceNotes(codes: TaxCode[], inv: Pick<SalesInvoice, 'lines' | 'withholdingAmount' | 'withholdingCodeId'>): { fr?: string; en?: string }[] {
+  const ids = [...(inv.withholdingAmount > 0 && inv.withholdingCodeId ? [inv.withholdingCodeId] : []), ...inv.lines.map((l) => l.taxCodeId).filter((x): x is Id => !!x)];
+  return [...new Set(ids)].map((id) => codes.find((c) => c.id === id)).filter((c): c is TaxCode => !!c && !!(c.legalMentionFr || c.legalMentionEn)).map((c) => ({ fr: c.legalMentionFr, en: c.legalMentionEn }));
+}
+
 export function invoiceSheetData(state: State, inv: SalesInvoice, origin?: string): InvoiceSheetData {
   const entity = state.entities.find((e) => e.id === inv.entityId)!;
   const customer = state.customers.find((c) => c.id === inv.customerId)!;
@@ -84,8 +91,7 @@ export function invoiceSheetData(state: State, inv: SalesInvoice, origin?: strin
   return {
     number: inv.number, status: inv.status, date: inv.date, dueDate: inv.dueDate, currency: inv.currency, paymentMode: inv.paymentMode, lines: inv.lines,
     totalHt: inv.totalHt, totalTax: inv.totalTax, totalTtc: inv.totalTtc, withholdingRate: inv.withholdingRate, withholdingAmount: inv.withholdingAmount, netPayable: inv.netPayable,
-    legalMention: inv.legalMentionFr,
-    gtaVat: inv.lines.some((l) => state.taxCodes.find((x) => x.id === l.taxCodeId)?.code === 'GTA-EXO'),
+    notes: invoiceNotes(state.taxCodes, inv),
     entity: { name: entity.name, country: entity.country, address: entity.address, phone: entity.phone, fax: entity.fax, email: entity.email, web: entity.web, nif: entity.nif, capitalAmount: entity.capitalAmount, capitalCurrency: entity.capitalCurrency, logoUrl: entity.logoUrl },
     customer: { name: customer?.name ?? '', address: customer?.address ?? customer?.clientAddress, nif: customer?.nif },
     bank: bank && !bank.isCash ? { bankName: bank.bankName, accountHolder: bank.accountHolder, iban: bank.iban, bic: bank.bic, accountNumber: bank.accountNumber, rib: bank.rib } : undefined,
@@ -277,9 +283,10 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
       const whtBase = r2(bearing.reduce((a, l) => a + l.lineHt, 0));
       const withholding = wht ? r2(whtBase * wht.rate) : 0;
       const whtAccount = wht ? state.accounts.find((a) => a.id === wht.deductibleAccountId) : undefined;
-      return { computed, mention, ht, tax, ttc: r2(ht + tax), withholding, whtBase, whtCode: wht, whtAccount, net: r2(ht + tax - withholding), ar, error: null as string | null };
+      const notes = invoiceNotes(state.taxCodes, { lines: computed, withholdingAmount: withholding, withholdingCodeId: wht?.id });
+      return { computed, mention, notes, ht, tax, ttc: r2(ht + tax), withholding, whtBase, whtCode: wht, whtAccount, net: r2(ht + tax - withholding), ar, error: null as string | null };
     } catch (e) {
-      return { computed: [], mention: undefined, ht: 0, tax: 0, ttc: 0, withholding: 0, whtBase: 0, whtCode: undefined, whtAccount: undefined, net: 0, ar: null, error: e instanceof DomainError ? e.message : String(e) };
+      return { computed: [], mention: undefined, notes: [] as { fr?: string; en?: string }[], ht: 0, tax: 0, ttc: 0, withholding: 0, whtBase: 0, whtCode: undefined, whtAccount: undefined, net: 0, ar: null, error: e instanceof DomainError ? e.message : String(e) };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, customerId, date, currency, effRate, engagementId, lines, mode]);
@@ -341,7 +348,7 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
                       <td><Select className="in" value={l.taxCodeId} onChange={(e) => setLine(i, { taxCodeId: e.target.value })} aria-label={`TVA ${i + 1}`}><option value="">{auto ? `${auto.code} · ${auto.rate * 100} % (règle)` : '—'}</option>{taxCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {x.rate * 100} %</option>)}</Select></td>
                       <td>
                         <Select className="in" value={l.whtId} disabled={!whtCode && !olderWht(l.whtId)} title={whtCode ? undefined : 'Code RAS-7 absent : à créer dans Fiscalité › codes'} onChange={(e) => setLine(i, { whtId: e.target.value })} aria-label={`WHT ${i + 1}`}>
-                          <option value="">0 %</option>
+                          <option value="">{say('Non applicable', 'Not applicable')}</option>
                           {whtCode && <option value={whtCode.id}>7 %</option>}
                           {olderWht(l.whtId) && <option value={l.whtId}>{Math.round((olderWht(l.whtId)?.rate ?? 0) * 1000) / 10} % · {olderWht(l.whtId)?.code}</option>}
                         </Select>
@@ -355,8 +362,8 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
               </tbody>
               <tfoot>
                 <tr><td colSpan={7}><button type="button" className="btn sm" onClick={() => setLines((ls) => [...ls, emptyLine(cardWht(customer))])}>+ ligne</button></td><td className="muted">Total HT</td><td className="num">{fmt(preview?.ht ?? 0)}</td><td></td></tr>
-                <tr><td colSpan={7} className="small muted">{preview?.mention ? `Mention imprimée : « ${preview.mention} »` : ''}</td><td className="muted">TVA</td><td className="num">{fmt(preview?.tax ?? 0)}</td><td></td></tr>
-                <tr><td colSpan={7} className="small muted">{preview?.whtCode ? `WHT ${Math.round(preview.whtCode.rate * 1000) / 10} % sur ${fmt(preview.whtBase)} HT · compte ${preview.whtAccount?.code ?? ''} (créance sur le Trésor) · la TVA reste due sur le HT` : 'WHT 0 % : rien de retenu, rien d\'imprimé'}</td><td className="muted">Total TTC</td><td className="num">{fmt(preview?.ttc ?? 0)}</td><td></td></tr>
+                <tr><td colSpan={7} className="small muted">{preview?.notes.length ? `Mentions imprimées : ${preview.notes.map((n) => `« ${n.fr || n.en} »`).join(' · ')}` : ''}</td><td className="muted">TVA</td><td className="num">{fmt(preview?.tax ?? 0)}</td><td></td></tr>
+                <tr><td colSpan={7} className="small muted">{preview?.whtCode ? `WHT ${Math.round(preview.whtCode.rate * 1000) / 10} % sur ${fmt(preview.whtBase)} HT · compte ${preview.whtAccount?.code ?? ''} (créance sur le Trésor) · la TVA reste due sur le HT` : 'WHT non applicable : rien de retenu, rien d\'imprimé'}</td><td className="muted">Total TTC</td><td className="num">{fmt(preview?.ttc ?? 0)}</td><td></td></tr>
                 {preview && preview.withholding > 0 && <tr><td colSpan={7}></td><td className="muted">WHT {Math.round((preview.whtCode?.rate ?? 0) * 1000) / 10} %</td><td className="num">−{fmt(preview.withholding)}</td><td></td></tr>}
                 <tr><td colSpan={7} className="small">{rateMissing ? <span style={{ color: 'var(--crit)' }}>Saisissez le taux 1 {currency} = ? {entity.functionalCurrency} pour enregistrer cette facture.</span> : preview?.ar && preview.ttc > 0 ? `Écriture prévue : ${preview.ar.code} D ${fmt(r2(preview.net * effRate))}${preview.withholding ? ` · ${preview.whtAccount?.code ?? 'WHT'} D ${fmt(r2(preview.withholding * effRate))}` : ''} ${entity.functionalCurrency} · ${preview.computed.map((l) => `${state.accounts.find((a) => a.id === l.revenueAccountId)?.code} C ${fmt(r2(l.lineHt * effRate))}`).join(' · ')}${preview.tax ? ` · TVA C ${fmt(r2(preview.tax * effRate))}` : ' · aucune ligne de TVA'}` : preview?.error ?? ''}</td><td><b>Net à payer</b></td><td className="num"><b>{currency} {fmt(preview?.net ?? 0)}</b></td><td></td></tr>
               </tfoot>
@@ -531,7 +538,7 @@ function Customers({ entityId }: { entityId: Id }) {
         <div className="card flush">
           <table>
             <thead><tr><th>Code auxiliaire</th><th>Nom</th><th>Compte collectif</th><th>Régime TVA</th><th>WHT</th><th>Devise</th><th>Conditions</th><th className="num">Solde auxiliaire</th><th className="num">En retard</th><th></th></tr></thead>
-            <tbody>{rows.map((c) => { const o = open.filter((x) => x.customer.id === c.id); const w = whtCodes.find((x) => x.id === c.withholdingCodeId); const aux = auxOf(c); const col = aux?.collectiveId ? state.accounts.find((a) => a.id === aux.collectiveId) : undefined; return <tr key={c.id} className={c.id === editId ? 'sel' : ''}><td className="mono">{c.code}</td><td>{c.name}{c.groupEntityId && <Chip kind="dim"> groupe</Chip>}{!c.active && <Chip kind="dim"> inactif</Chip>}<div className="small muted">{c.email ?? ''}{c.nif ? ` · NIF ${c.nif}` : ''}</div></td><td className="mono small">{col ? `${col.code} ${col.nameFr}` : '—'}</td><td>{REGIMES.find((r) => r[0] === c.regime)?.[1]}</td><td>{w ? <Chip kind="warn">WHT {Math.round(w.rate * 1000) / 10} %</Chip> : <span className="muted">0 %</span>}</td><td>{c.defaultCurrency}</td><td>{c.paymentTermsDays} j</td><td className="num">{aux ? fmt(accountBalance(state, entityId, aux.id), 0) : fmt(r2(o.reduce((a, x) => a + x.openFunctional, 0)), 0)}</td><td className="num">{fmt(r2(o.filter((x) => x.daysOverdue > 0).reduce((a, x) => a + x.openFunctional, 0)))}</td><td style={{ whiteSpace: 'nowrap' }}><button className="btn sm" onClick={() => load(c.id)}>{t('edit')}</button> <DeleteButton table="customer" rowId={c.id} label={`Client ${c.name}`} entityId={entityId} /></td></tr>; })}</tbody>
+            <tbody>{rows.map((c) => { const o = open.filter((x) => x.customer.id === c.id); const w = whtCodes.find((x) => x.id === c.withholdingCodeId); const aux = auxOf(c); const col = aux?.collectiveId ? state.accounts.find((a) => a.id === aux.collectiveId) : undefined; return <tr key={c.id} className={c.id === editId ? 'sel' : ''}><td className="mono">{c.code}</td><td>{c.name}{c.groupEntityId && <Chip kind="dim"> groupe</Chip>}{!c.active && <Chip kind="dim"> inactif</Chip>}<div className="small muted">{c.email ?? ''}{c.nif ? ` · NIF ${c.nif}` : ''}</div></td><td className="mono small">{col ? `${col.code} ${col.nameFr}` : '—'}</td><td>{REGIMES.find((r) => r[0] === c.regime)?.[1]}</td><td>{w ? <Chip kind="warn">WHT {Math.round(w.rate * 1000) / 10} %</Chip> : <span className="muted">N/A</span>}</td><td>{c.defaultCurrency}</td><td>{c.paymentTermsDays} j</td><td className="num">{aux ? fmt(accountBalance(state, entityId, aux.id), 0) : fmt(r2(o.reduce((a, x) => a + x.openFunctional, 0)), 0)}</td><td className="num">{fmt(r2(o.filter((x) => x.daysOverdue > 0).reduce((a, x) => a + x.openFunctional, 0)))}</td><td style={{ whiteSpace: 'nowrap' }}><button className="btn sm" onClick={() => load(c.id)}>{t('edit')}</button> <DeleteButton table="customer" rowId={c.id} label={`Client ${c.name}`} entityId={entityId} /></td></tr>; })}</tbody>
           </table>
         </div>
         <ClientRelations entityId={entityId} />{/* [bumex-one] the relationship side, BUMEX One's clients */}
@@ -546,7 +553,7 @@ function Customers({ entityId }: { entityId: Id }) {
           </div>
           {editing && auxOf(editing) && <div className="small muted" style={{ marginTop: 4 }}>Compte auxiliaire <span className="mono">{auxOf(editing)!.code}</span> · solde {fmt(accountBalance(state, entityId, auxOf(editing)!.id), 0)} · renommer le code renomme le compte.</div>}
           <Field label="Régime TVA" style={{ marginTop: 8 }}><Select className="in" value={regime} onChange={(e) => setRegime(e.target.value as CounterpartyRegime)}>{REGIMES.map(([k, n]) => <option key={k} value={k}>{n}</option>)}</Select></Field>
-          <Field label="WHT par défaut sur ses factures" style={{ marginTop: 8 }}><Select className="in" value={wht} onChange={(e) => setWht(e.target.value)}><option value="">0 %</option>{whtCodes.filter((x) => x.id === whtCodeFor(state.taxCodes, entityId)?.id || x.id === wht).map((x) => <option key={x.id} value={x.id}>{Math.round(x.rate * 1000) / 10} %{x.code !== 'RAS-7' ? ` · ${x.code}` : ''}</option>)}</Select></Field>
+          <Field label="WHT par défaut sur ses factures" style={{ marginTop: 8 }}><Select className="in" value={wht} onChange={(e) => setWht(e.target.value)}><option value="">Non applicable</option>{whtCodes.filter((x) => x.id === whtCodeFor(state.taxCodes, entityId)?.id || x.id === wht).map((x) => <option key={x.id} value={x.id}>{Math.round(x.rate * 1000) / 10} %{x.code !== 'RAS-7' ? ` · ${x.code}` : ''}</option>)}</Select></Field>
           <div className="grid2" style={{ marginTop: 8 }}>
             <Field label="Devise"><Select className="in" value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>{['MRU', 'USD', 'EUR', 'MAD'].map((c) => <option key={c}>{c}</option>)}</Select></Field>
             <Field label="Délai (jours)"><input className="in num" value={terms} onChange={(e) => setTerms(e.target.value)} /></Field>

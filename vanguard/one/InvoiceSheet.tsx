@@ -25,8 +25,9 @@ export type InvoiceSheetData = {
   withholdingRate: number;
   withholdingAmount: number;
   netPayable: number;
-  legalMention?: string;
-  gtaVat?: boolean; // a line is GTA-EXO: the "VAT not applicable … GTA" note
+  // the notes beside the totals (asked on 2026-11-17), each tax code's as edited in Fiscalité › Mentions des factures:
+  // the WHT's when a line bears it, then each VAT code's of the lines, in their order
+  notes?: { fr?: string; en?: string }[];
   entity: {
     name: string; country: string; address?: string; phone?: string; fax?: string; email?: string; web?: string; nif?: string;
     capitalAmount?: number; capitalCurrency?: string; logoUrl?: string;
@@ -48,9 +49,7 @@ const L = {
     invoice: 'Invoice', draft: 'Draft', cancelled: 'Cancelled', invoiceDate: 'Invoice date:', dueDate: 'Due date:', paymentMethod: 'Payment method:', paymentTerms: 'Payment Terms:',
     days: (n: number) => `${n} day${n === 1 ? '' : 's'}`, billedTo: 'Billed To', amountIn: (c: string) => `Amount in ${c}`,
     description: 'DESCRIPTION', qty: 'QTY', up: 'U.P.', vat: 'VAT', wht: 'WHT', total: 'TOTAL', totalNet: 'Total Net', totalTax: 'Total VAT', totalTtc: 'Total (inc. tax)',
-    totalWht: 'Total WHT', customerNif: 'VAT ID',
-    whtNote: 'Invoice issued under the specific tax regime of the GTA Project (Mauritania–Senegal). The withholding tax (WHT) is withheld by the Client and remitted to the Joint Unit.',
-    gtaNote: 'VAT not applicable in accordance with the GTA tax regime', totalDue: 'TOTAL DUE', paymentInfo: 'PAYMENT INFORMATION', bank: 'BANK', owner: 'ACCOUNT OWNER NAME',
+    totalWht: 'Total WHT', customerNif: 'VAT ID', notApplicable: 'N/A', totalDue: 'TOTAL DUE', paymentInfo: 'PAYMENT INFORMATION', bank: 'BANK', owner: 'ACCOUNT OWNER NAME',
     iban: 'IBAN', bic: 'BIC/SWIFT', account: 'ACCOUNT NO.', rib: 'RIB', signature: 'Signature', registered: 'Registered office', phone: 'Phone', fax: 'Fax', email: 'Email', web: 'Web',
     capital: 'Capital of', nif: 'NIF', sep: ':',
   },
@@ -58,9 +57,7 @@ const L = {
     invoice: 'Facture', draft: 'brouillon', cancelled: 'annulée', invoiceDate: 'Date de facture :', dueDate: "Date d'échéance :", paymentMethod: 'Mode de paiement :', paymentTerms: 'Conditions de paiement :',
     days: (n: number) => `${n} jour${n === 1 ? '' : 's'}`, billedTo: 'Facturé à', amountIn: (c: string) => `Montant en ${c}`,
     description: 'DÉSIGNATION', qty: 'QTÉ', up: 'P.U.', vat: 'TVA', wht: 'WHT', total: 'TOTAL', totalNet: 'Total HT', totalTax: 'Total TVA', totalTtc: 'Total TTC',
-    totalWht: 'Total WHT', customerNif: 'NIF',
-    whtNote: "Facture émise dans le cadre du régime fiscal spécifique du Projet GTA (Mauritanie–Sénégal). La retenue à la source (WHT) est prélevée par le Client et reversée à l'Unité Conjointe.",
-    gtaNote: 'TVA non applicable conformément au régime fiscal GTA', totalDue: 'NET À PAYER', paymentInfo: 'INFORMATIONS DE PAIEMENT', bank: 'BANQUE', owner: 'TITULAIRE DU COMPTE',
+    totalWht: 'Total WHT', customerNif: 'NIF', notApplicable: 'N/A', totalDue: 'NET À PAYER', paymentInfo: 'INFORMATIONS DE PAIEMENT', bank: 'BANQUE', owner: 'TITULAIRE DU COMPTE',
     iban: 'IBAN', bic: 'BIC/SWIFT', account: 'N° DE COMPTE', rib: 'RIB', signature: 'Signature', registered: 'Siège social', phone: 'Tél', fax: 'Fax', email: 'E-mail', web: 'Web',
     capital: 'Capital de', nif: 'NIF', sep: ' :',
   },
@@ -111,7 +108,8 @@ export function InvoiceSheet({ data, lang }: { data: InvoiceSheetData; lang: Inv
   // the registered office in one line: "BUMEX SA - 301, Rue …, Extension … - BP : 7763 Nouakchott, Mauritanie"
   const office = [e.name, address.length > 1 ? address.slice(0, -1).join(', ') : '', `${address[address.length - 1] ?? ''}${country ? `${address.length ? ', ' : ''}${country}` : ''}`].filter(Boolean).join(' - ');
   const footContact = [e.phone && `${t.phone}${t.sep} ${e.phone}`, e.fax && `${t.fax}${t.sep} ${e.fax}`, e.web, e.email].filter(Boolean).join(' - ');
-  const wht = data.withholdingAmount > 0; // WHT at 0 %: nothing of it on the invoice
+  const wht = data.withholdingAmount > 0; // WHT not applicable: nothing of it on the invoice
+  const notes = [...new Set((data.notes ?? []).map((n) => (lang === 'en' ? n.en || n.fr : n.fr || n.en)?.trim()).filter((n): n is string => !!n))];
   const b = data.bank;
   const payRows: [string, string | undefined][] = b
     ? [[t.bank, b.bankName], [t.owner, b.accountHolder || e.name], [t.iban, b.iban], [t.bic, b.bic], ...(!b.iban ? [[t.account, b.accountNumber] as [string, string | undefined], [t.rib, b.rib] as [string, string | undefined]] : [])]
@@ -162,18 +160,15 @@ export function InvoiceSheet({ data, lang }: { data: InvoiceSheetData; lang: Inv
             {data.lines.map((l) => (
               <tr key={l.lineNo}>
                 <td>{l.description}</td><td className="ivx-n ivx-qty">{quantity(l.quantity, lang)}</td><td className="ivx-n">{money(l.unitPrice, lang)}</td>
-                <td className="ivx-vat">{percent(l.taxRateSnapshot ?? 0, lang)}</td>{wht && <td className="ivx-vat">{percent(l.withholdingRate ?? data.withholdingRate, lang)}</td>}<td className="ivx-n">{money(l.lineHt, lang)}</td>
+                <td className="ivx-vat">{percent(l.taxRateSnapshot ?? 0, lang)}</td>{wht && <td className="ivx-vat">{(l.withholdingRate ?? data.withholdingRate) > 0 ? percent(l.withholdingRate ?? data.withholdingRate, lang) : t.notApplicable}</td>}<td className="ivx-n">{money(l.lineHt, lang)}</td>
               </tr>
             ))}
           </tbody>
         </table>
         <div className="ivx-words">{amountSentence(data.netPayable, data.currency, lang)}</div>{/* the net to pay (asked on 2026-11-17) */}
         <div className="ivx-sums">
-          {/* the notes, beside the totals (asked on 2026-11-17): the WHT's when it applies, the GTA's when VAT is GTA-exempt,
-              else the tax code's legal mention */}
           <div className="ivx-notes">
-            {wht && <div className="ivx-note">{t.whtNote}</div>}
-            {data.gtaVat ? <div className="ivx-note">{t.gtaNote}</div> : data.legalMention && <div className="ivx-note">{data.legalMention}</div>}
+            {notes.map((n, i) => <div key={i} className="ivx-note">{n}</div>)}
           </div>
           <div className="ivx-totals">
             <table>

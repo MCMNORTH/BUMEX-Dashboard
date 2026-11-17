@@ -171,7 +171,8 @@ export async function loadVanguardState(
   const taxCodes = await records<State["taxCodes"][number]>(
     tx,
     `select id, entity_id as "entityId", code, name_fr as "nameFr", kind, rate::float8 as rate, collected_account_id as "collectedAccountId",
-            deductible_account_id as "deductibleAccountId", revenue_status as "revenueStatus", legal_mention_fr as "legalMentionFr"
+            deductible_account_id as "deductibleAccountId", revenue_status as "revenueStatus", legal_mention_fr as "legalMentionFr",
+            legal_mention_en as "legalMentionEn"
        from erp.tax_code where active order by entity_id, code`,
   );
   const taxRules = await rows<TaxRule>(

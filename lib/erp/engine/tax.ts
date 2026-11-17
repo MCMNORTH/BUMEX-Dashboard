@@ -38,7 +38,7 @@ export const REVENUE_STATUS_LABEL: Record<RevenueStatus, string> = {
 
 // ---- tax codes and rules are configurable per entity ------------------------------------------------------
 
-export function addTaxCode(state: State, input: { entityId: Id; code: string; nameFr: string; kind: TaxKind; rate: number; collectedAccountId?: Id; deductibleAccountId?: Id; revenueStatus?: RevenueStatus; legalMentionFr?: string }): [State, TaxCode] {
+export function addTaxCode(state: State, input: { entityId: Id; code: string; nameFr: string; kind: TaxKind; rate: number; collectedAccountId?: Id; deductibleAccountId?: Id; revenueStatus?: RevenueStatus; legalMentionFr?: string; legalMentionEn?: string }): [State, TaxCode] {
   requireRole(state, [...PARTNER_ROLES, 'accountant', 'manager'], 'de paramétrer les taxes');
   const code = input.code.trim().toUpperCase();
   if (!/^[A-Z0-9-]{2,12}$/.test(code)) throw new DomainError('tax_code', 'Code taxe : 2 à 12 caractères (lettres, chiffres, tiret)');
@@ -50,7 +50,7 @@ export function addTaxCode(state: State, input: { entityId: Id; code: string; na
   return [audit({ ...s1, taxCodes: [...s1.taxCodes, tc] }, 'tax_code', id, 'I', `Code taxe ${code} · ${Math.round(input.rate * 1000) / 10} %`, input.entityId), tc];
 }
 
-export function updateTaxCode(state: State, id: Id, patch: Partial<Pick<TaxCode, 'nameFr' | 'rate' | 'collectedAccountId' | 'deductibleAccountId' | 'revenueStatus' | 'legalMentionFr'>>): [State, TaxCode] {
+export function updateTaxCode(state: State, id: Id, patch: Partial<Pick<TaxCode, 'nameFr' | 'rate' | 'collectedAccountId' | 'deductibleAccountId' | 'revenueStatus' | 'legalMentionFr' | 'legalMentionEn'>>): [State, TaxCode] {
   requireRole(state, [...PARTNER_ROLES, 'accountant', 'manager'], 'de paramétrer les taxes');
   const tc = state.taxCodes.find((t) => t.id === id);
   if (!tc) throw new DomainError('not_found', 'Code taxe inconnu');

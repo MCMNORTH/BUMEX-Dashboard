@@ -173,12 +173,12 @@ export function seedChart(state: State, entityId: Id, template: CoaTemplate): St
   const whtReceivable = byCode(template === 'PCM' ? '4421' : template === 'CGNC' ? '3453' : '4494');
   const codes: Omit<TaxCode, 'id'>[] = [
     { entityId, code: `TVA-${Math.round(vatRate * 100)}`, nameFr: `TVA ${Math.round(vatRate * 100)} %`, kind: 'vat', rate: vatRate, collectedAccountId: collected, deductibleAccountId: deductible, revenueStatus: 'taxable_standard' },
-    { entityId, code: 'GTA-EXO', nameFr: 'Exonération régime GTA 0 %', kind: 'vat', rate: 0, collectedAccountId: collected, revenueStatus: 'exempt_domestic', legalMentionFr: 'Prestation exonérée de TVA — sous-traitant enregistré au régime fiscal du projet GTA' },
-    { entityId, code: 'EXO', nameFr: 'Exonération 0 %', kind: 'vat', rate: 0, collectedAccountId: collected, revenueStatus: 'exempt_domestic', legalMentionFr: 'Prestation exonérée de TVA' },
-    { entityId, code: 'EXP-0', nameFr: 'Exportation de services 0 %', kind: 'vat', rate: 0, collectedAccountId: collected, revenueStatus: 'export_exempt', legalMentionFr: 'Exportation de services — TVA 0 %' },
+    { entityId, code: 'GTA-EXO', nameFr: 'Exonération régime GTA 0 %', kind: 'vat', rate: 0, collectedAccountId: collected, revenueStatus: 'exempt_domestic', legalMentionFr: 'Prestation exonérée de TVA — sous-traitant enregistré au régime fiscal du projet GTA', legalMentionEn: 'VAT not applicable in accordance with the GTA tax regime' },
+    { entityId, code: 'EXO', nameFr: 'Exonération 0 %', kind: 'vat', rate: 0, collectedAccountId: collected, revenueStatus: 'exempt_domestic', legalMentionFr: 'Prestation exonérée de TVA', legalMentionEn: 'VAT-exempt service' },
+    { entityId, code: 'EXP-0', nameFr: 'Exportation de services 0 %', kind: 'vat', rate: 0, collectedAccountId: collected, revenueStatus: 'export_exempt', legalMentionFr: 'Exportation de services — TVA 0 %', legalMentionEn: 'Export of services — VAT at 0 %' },
     { entityId, code: 'RAS-3', nameFr: 'Retenue à la source honoraires 3 % (fournisseurs)', kind: 'withholding', rate: 0.03, collectedAccountId: wht },
     { entityId, code: 'RAS-15', nameFr: 'Retenue à la source non-résidents 15 % (fournisseurs)', kind: 'withholding', rate: 0.15, collectedAccountId: wht },
-    { entityId, code: 'RAS-7', nameFr: 'Retenue à la source 7 % sur prestations (subie, client)', kind: 'withholding', rate: 0.07, deductibleAccountId: whtReceivable, legalMentionFr: 'Prestation soumise à la retenue à la source de 7 % — le client retient et reverse au Trésor' },
+    { entityId, code: 'RAS-7', nameFr: 'Retenue à la source 7 % sur prestations (subie, client)', kind: 'withholding', rate: 0.07, deductibleAccountId: whtReceivable, legalMentionFr: 'Facture émise dans le cadre du régime fiscal spécifique du Projet GTA (Mauritanie–Sénégal). La retenue à la source (WHT) est prélevée par le Client et reversée à l\'Unité Conjointe.', legalMentionEn: 'Invoice issued under the specific tax regime of the GTA Project (Mauritania–Senegal). The withholding tax (WHT) is withheld by the Client and remitted to the Joint Unit.' }, // [bumex-one] the WHT's note (2026-11-17)
   ];
   const taxCodes: TaxCode[] = [];
   for (const c of codes) {

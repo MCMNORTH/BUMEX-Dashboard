@@ -50,6 +50,9 @@ const model: InvoiceSheetData = {
   bank: { bankName: 'SOCIETE GENERALE MAURITANIE', accountHolder: 'BUMEX', iban: 'MR1300012000010000034369703', bic: 'BIIMMRMR' },
   url: 'https://app.bumex.mr/i/0b7c6f2e-1111-4444-8888-123456789abc',
 };
+// the notes as Fiscalité › Mentions des factures holds them (the WHT's, GTA-EXO's)
+const WHT_NOTE = { en: 'Invoice issued under the specific tax regime of the GTA Project (Mauritania–Senegal). The withholding tax (WHT) is withheld by the Client and remitted to the Joint Unit.', fr: "Facture émise dans le cadre du régime fiscal spécifique du Projet GTA (Mauritanie–Sénégal). La retenue à la source (WHT) est prélevée par le Client et reversée à l'Unité Conjointe." };
+const GTA_NOTE = { en: 'VAT not applicable in accordance with the GTA tax regime', fr: 'Prestation exonérée de TVA — sous-traitant enregistré au régime fiscal du projet GTA' };
 const text = (html: string) => html.replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, '|').replace(/\|+/g, '|').replace(/&#x27;/g, "'").replace(/&amp;/g, '&');
 
 describe('the invoice sheet', () => {
@@ -70,7 +73,7 @@ describe('the invoice sheet', () => {
     for (const s of ['WHT', 'GTA']) expect(t).not.toContain(s);
   });
   it('with WHT 7 % (the old invoices): a WHT column, Total WHT apart above TOTAL DUE, the GTA notes beside the totals', () => {
-    const gta = { ...model, currency: 'MRU', lines: [{ lineNo: 1, description: 'Seconded Junior Accountant', quantity: 1, unitPrice: 94_742.04, taxRateSnapshot: 0, lineHt: 94_742.04 }], totalHt: 94_742.04, totalTax: 0, totalTtc: 94_742.04, withholdingRate: 0.07, withholdingAmount: 6_631.94, netPayable: 88_110.1, gtaVat: true, legalMention: 'Prestation exonérée de TVA — régime GTA', customer: { ...model.customer, nif: '00625939' } };
+    const gta = { ...model, currency: 'MRU', lines: [{ lineNo: 1, description: 'Seconded Junior Accountant', quantity: 1, unitPrice: 94_742.04, taxRateSnapshot: 0, lineHt: 94_742.04 }], totalHt: 94_742.04, totalTax: 0, totalTtc: 94_742.04, withholdingRate: 0.07, withholdingAmount: 6_631.94, netPayable: 88_110.1, notes: [WHT_NOTE, GTA_NOTE], customer: { ...model.customer, nif: '00625939' } };
     const html = renderToStaticMarkup(createElement(InvoiceSheet, { data: gta, lang: 'en' }));
     const t = text(html);
     for (const s of ['|VAT|WHT|TOTAL|', '|0%|7%|94,742.04|', 'Amount in Mauritania Ouguiya', 'VAT ID: 00625939', 'Total VAT', 'Total WHT|−6,631.94', 'TOTAL DUE|88,110.10',
@@ -79,19 +82,19 @@ describe('the invoice sheet', () => {
       'VAT not applicable in accordance with the GTA tax regime']) {
       expect(t, s).toContain(s);
     }
-    expect(t).not.toContain('régime GTA|'); // the GTA note stands for the line's French mention
+    expect(t).not.toContain('Prestation exonérée'); // the English invoice prints the English notes
     // WHT per line: a line at 0 % shows 0 %, an older line (no rate of its own) the invoice's
     const perLine = text(renderToStaticMarkup(createElement(InvoiceSheet, { data: { ...gta, lines: [{ ...gta.lines[0], withholdingRate: 0.07 }, { lineNo: 2, description: 'Débours', quantity: 1, unitPrice: 10, taxRateSnapshot: 0, lineHt: 10, withholdingRate: 0 }, { lineNo: 3, description: 'Ancienne', quantity: 1, unitPrice: 10, taxRateSnapshot: 0, lineHt: 10 }] }, lang: 'en' })));
-    for (const s of ['|Débours|1|10.00|0%|0%|10.00|', '|Ancienne|1|10.00|0%|7%|10.00|']) expect(perLine, s).toContain(s);
+    for (const s of ['|Débours|1|10.00|0%|N/A|10.00|', '|Ancienne|1|10.00|0%|7%|10.00|']) expect(perLine, s).toContain(s);
     // VAT 16 % with WHT 7 %: the WHT note, not the GTA one
-    const both = text(renderToStaticMarkup(createElement(InvoiceSheet, { data: { ...gta, gtaVat: false, legalMention: undefined, totalTax: 15_158.73, totalTtc: 109_900.77, netPayable: 103_268.83 }, lang: 'en' })));
+    const both = text(renderToStaticMarkup(createElement(InvoiceSheet, { data: { ...gta, notes: [WHT_NOTE], totalTax: 15_158.73, totalTtc: 109_900.77, netPayable: 103_268.83 }, lang: 'en' })));
     expect(both).toContain('The withholding tax (WHT) is withheld by the Client');
     expect(both).not.toContain('VAT not applicable');
   });
   it('in French, with the withholding and no QR code before the invoice has its link', () => {
-    const t = text(renderToStaticMarkup(createElement(InvoiceSheet, { data: { ...model, number: undefined, currency: 'MRU', withholdingRate: 0.07, withholdingAmount: 262.5, netPayable: 3487.5, url: undefined }, lang: 'fr' })));
+    const t = text(renderToStaticMarkup(createElement(InvoiceSheet, { data: { ...model, number: undefined, currency: 'MRU', withholdingRate: 0.07, withholdingAmount: 262.5, netPayable: 3487.5, url: undefined, notes: [WHT_NOTE, { en: 'Only English' }] }, lang: 'fr' })));
     for (const s of ['Facture (brouillon)', 'Facturé à', 'Montant en ouguiyas', 'Virement bancaire', '1 500,00', '|TVA|WHT|TOTAL|', 'Total WHT|−262,50', 'NET À PAYER', '3 487,50', 'Arrêtée la présente facture à la somme de trois mille quatre cent quatre-vingt-sept ouguiyas et cinquante centimes|',
-      "La retenue à la source (WHT) est prélevée par le Client et reversée à l'Unité Conjointe.", 'BANQUE : SOCIETE GENERALE MAURITANIE', 'Capital de 10 000 000 MRU']) {
+      "La retenue à la source (WHT) est prélevée par le Client et reversée à l'Unité Conjointe.", 'Only English', /* a note without French prints its English */ 'BANQUE : SOCIETE GENERALE MAURITANIE', 'Capital de 10 000 000 MRU']) {
       expect(t, s).toContain(s);
     }
     expect(renderToStaticMarkup(createElement(InvoiceSheet, { data: { ...model, url: undefined }, lang: 'fr' }))).not.toContain('ivx-qr"');

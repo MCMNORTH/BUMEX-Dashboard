@@ -382,6 +382,12 @@ describe("the modules", () => {
     expect(mixedInv).toMatchObject({ withholdingAmount: 7000, withholdingCodeId: ras7 });
     expect(mixedInv.lines.map((l) => [l.withholdingCodeId ?? null, l.withholdingRate])).toEqual([[ras7, 0.07], [null, 0]]);
     expect((await asSystem(() => readInvoiceByLink(tx, mixedInv.publicToken!)))!.data.lines.map((l) => l.withholdingRate)).toEqual([0.07, 0]);
+    // its notes (0019, Fiscalité › Mentions des factures): the WHT's, then each VAT code's that has one, both languages
+    expect((await asSystem(() => readInvoiceByLink(tx, mixedInv.publicToken!)))!.data.notes).toEqual([{ fr: expect.stringContaining("Projet GTA"), en: expect.stringContaining("GTA Project") }]);
+    const vat16 = mixedInv.lines[0].taxCodeId!;
+    const noted = await change("aicha", (s) => domain.updateTaxCode(s, vat16, { legalMentionFr: "TVA 16 % facturée", legalMentionEn: "VAT 16 % charged" }));
+    expect(noted.state.taxCodes.find((t) => t.id === vat16)).toMatchObject({ legalMentionFr: "TVA 16 % facturée", legalMentionEn: "VAT 16 % charged" });
+    expect((await asSystem(() => readInvoiceByLink(tx, mixedInv.publicToken!)))!.data.notes!.map((n) => n.en)).toEqual([expect.stringContaining("GTA Project"), "VAT 16 % charged"]);
     // a line saved before 0019 has neither column: it reads as bearing the invoice's WHT
     await asSystem(() => tx.query("update erp.sales_invoice_line set withholding_code_id = null, withholding_rate = null where invoice_id = $1", [mixedInv.id]));
     const reread = (await load("aicha")).state.salesInvoices.find((i) => i.id === mixedInv.id)!;

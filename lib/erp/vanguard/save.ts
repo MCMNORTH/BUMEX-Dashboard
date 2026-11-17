@@ -141,16 +141,16 @@ const taxCodes: Writer<TaxCode> = {
   add: (tx, t) =>
     tx.query(
       `insert into erp.tax_code (id, entity_id, code, name_fr, kind, rate, effective_from, collected_account_id, deductible_account_id, revenue_status,
-                                 legal_mention_fr, is_exempt)
-       values ($1, $2, $3, $4, $5::erp.tax_kind, $6::numeric, date '2000-01-01', $7, $8, $9::erp.revenue_tax_status, $10, $5::text = 'vat' and $6::numeric = 0)`,
-      [t.id, t.entityId, t.code, t.nameFr, t.kind, t.rate, nil(t.collectedAccountId), nil(t.deductibleAccountId), nil(t.revenueStatus), nil(t.legalMentionFr)],
+                                 legal_mention_fr, is_exempt, legal_mention_en)
+       values ($1, $2, $3, $4, $5::erp.tax_kind, $6::numeric, date '2000-01-01', $7, $8, $9::erp.revenue_tax_status, $10, $5::text = 'vat' and $6::numeric = 0, $11)`,
+      [t.id, t.entityId, t.code, t.nameFr, t.kind, t.rate, nil(t.collectedAccountId), nil(t.deductibleAccountId), nil(t.revenueStatus), nil(t.legalMentionFr), nil(t.legalMentionEn)],
     ),
   change: (tx, _, t) =>
     tx.query(
       `update erp.tax_code set code = $2, name_fr = $3, kind = $4::erp.tax_kind, rate = $5::numeric, collected_account_id = $6, deductible_account_id = $7,
-              revenue_status = $8::erp.revenue_tax_status, legal_mention_fr = $9, is_exempt = $4::text = 'vat' and $5::numeric = 0
+              revenue_status = $8::erp.revenue_tax_status, legal_mention_fr = $9, is_exempt = $4::text = 'vat' and $5::numeric = 0, legal_mention_en = $10
         where id = $1`,
-      [t.id, t.code, t.nameFr, t.kind, t.rate, nil(t.collectedAccountId), nil(t.deductibleAccountId), nil(t.revenueStatus), nil(t.legalMentionFr)],
+      [t.id, t.code, t.nameFr, t.kind, t.rate, nil(t.collectedAccountId), nil(t.deductibleAccountId), nil(t.revenueStatus), nil(t.legalMentionFr), nil(t.legalMentionEn)],
     ),
   remove: (tx, t) => tx.query("delete from erp.tax_code where id = $1", [t.id]),
 };

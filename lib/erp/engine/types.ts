@@ -191,6 +191,7 @@ export interface TaxCode {
   deductibleAccountId?: Id;
   revenueStatus?: RevenueStatus;
   legalMentionFr?: string;
+  legalMentionEn?: string; // [bumex-one] the invoice's note in English (0019); the French one when empty
 }
 
 export interface TaxRule {
