@@ -186,8 +186,14 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
   const revenueAccounts = state.accounts.filter((a) => a.entityId === entityId && a.isPostable && a.kind === 'income' && a.code.startsWith('7')).sort((a, b) => a.code.localeCompare(b.code));
   const banks = state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && !b.isCash);
   const [bankId, setBankId] = useState(banks.find((b) => b.currency === currency)?.id ?? banks[0]?.id ?? '');
-  const autoRate = useMemo(() => { try { return fxRate(state, currency, entity.functionalCurrency, date); } catch { return 1; } }, [state, currency, entity.functionalCurrency, date]);
-  const effRate = rate.trim() ? Number(rate.replace(',', '.')) || autoRate : autoRate;
+  // An invoice in another currency than the floor's (MRU, or MAD at BUMEX Maroc) carries the rate typed on it, never the
+  // rate table's (asked on 2026-11-17): it cannot be saved, not even as a draft, until the rate is entered.
+  const foreign = currency !== entity.functionalCurrency;
+  const lastRate = useMemo(() => { try { return fxRate(state, currency, entity.functionalCurrency, date); } catch { return null; } }, [state, currency, entity.functionalCurrency, date]);
+  const typedRate = (() => { const n = Number(rate.trim().replace(/\s/g, '').replace(',', '.')); return rate.trim() && Number.isFinite(n) && n > 0 ? n : null; })();
+  const rateMissing = foreign && typedRate === null;
+  const effRate = foreign ? typedRate ?? 0 : 1;
+  const pickCurrency = (c: Currency) => { setCurrency(c); setRate(''); };
 
   const input = () => ({
     entityId, customerId, date, currency, fxRate: effRate, engagementId: engagementId || undefined, bankAccountId: bankId || undefined,
@@ -220,14 +226,14 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
     }, step === 'post' ? 'Facture validée, numérotée et comptabilisée' : step === 'validate' ? 'Facture validée et numérotée, à comptabiliser' : 'Facture enregistrée en brouillon');
     if (ok) onDone();
   };
-  const ready = !!preview && !preview.error && preview.ttc > 0;
+  const ready = !!preview && !preview.error && preview.ttc > 0 && !rateMissing;
   return (
     <div className="cols">
       <WideNote />{/* [mobile] */}
       <form className="grow" onSubmit={(e) => e.preventDefault()}>
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="grid4">
-            <Field label={t('customer')}><Select recent="customers" className="in" value={customerId} onChange={(e) => { setCustomerId(e.target.value); const c = customers.find((x) => x.id === e.target.value); if (c) { setCurrency(c.defaultCurrency); setBankId(banks.find((b) => b.currency === c.defaultCurrency)?.id ?? banks[0]?.id ?? ''); } setWht('default'); setMode(modeOf(c)); }}>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
+            <Field label={t('customer')}><Select recent="customers" className="in" value={customerId} onChange={(e) => { setCustomerId(e.target.value); const c = customers.find((x) => x.id === e.target.value); if (c) { pickCurrency(c.defaultCurrency); setBankId(banks.find((b) => b.currency === c.defaultCurrency)?.id ?? banks[0]?.id ?? ''); } setWht('default'); setMode(modeOf(c)); }}>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
             <Field label="Régime du client">
               <Select className="in" value={mode} onChange={(e) => pickMode(e.target.value as InvoiceMode)}>
                 {customer && customer.regime !== 'standard' && customer.regime !== 'gta' && <option value="card">Fiche client · {REGIMES.find((r) => r[0] === customer.regime)?.[1]}</option>}
@@ -237,7 +243,14 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
               </Select>
             </Field>
             <Field label={`${t('date')} · échéance ${customer?.paymentTermsDays ?? 30} j`}><input className="in mono" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-            <Field label={`${t('currency')} · taux du jour ${autoRate}`}><div style={{ display: 'flex', gap: 6 }}><Select className="in" style={{ width: 90 }} value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>{['MRU', 'USD', 'EUR', 'MAD'].map((c) => <option key={c}>{c}</option>)}</Select><input className="in num" placeholder={String(autoRate)} value={rate} onChange={(e) => setRate(e.target.value)} disabled={currency === entity.functionalCurrency} aria-label="Taux forcé" /></div></Field>
+            <Field label={foreign ? `${t('currency')} · taux 1 ${currency} = ? ${entity.functionalCurrency} (obligatoire)` : t('currency')}>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <Select className="in" style={{ width: 90 }} value={currency} onChange={(e) => pickCurrency(e.target.value as Currency)}>{['MRU', 'USD', 'EUR', 'MAD'].map((c) => <option key={c}>{c}</option>)}</Select>
+                {foreign && <input className="in num" value={rate} onChange={(e) => setRate(e.target.value)} placeholder={`1 ${currency} = … ${entity.functionalCurrency}`} required aria-invalid={rateMissing}
+                  style={rateMissing ? { borderColor: 'var(--crit)' } : undefined} aria-label={`Taux de conversion ${currency} vers ${entity.functionalCurrency}`}
+                  title={lastRate ? `Dernier taux enregistré : ${lastRate} — saisissez celui de cette facture` : `Saisissez le taux ${currency}/${entity.functionalCurrency} de cette facture`} />}
+              </div>
+            </Field>
             <Field label="Mission"><Select recent="missions" className="in" value={engagementId} onChange={(e) => setEngagementId(e.target.value)}><option value="">—</option>{state.engagements.filter((x) => x.entityId === entityId && x.customerId === customerId).map((x) => <option key={x.id} value={x.id}>{x.code} · {x.name}</option>)}</Select></Field>
             <Field label="Bloc bancaire imprimé"><Select recent="banks" className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name}</option>)}</Select></Field>
             <Field label="Retenue à la source appliquée par le client">
@@ -278,12 +291,12 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
                 <tr><td colSpan={6} className="small muted">{preview?.mention ? `Mention imprimée : « ${preview.mention} »` : ''}</td><td className="muted">TVA</td><td className="num">{fmt(preview?.tax ?? 0)}</td><td></td></tr>
                 <tr><td colSpan={6} className="small muted">{preview?.whtCode ? `Retenue ${Math.round(preview.whtCode.rate * 1000) / 10} % sur ${fmt(preview.ht)} HT · compte ${preview.whtAccount?.code ?? ''} (créance sur le Trésor) · la TVA reste due sur le HT` : 'Aucune retenue à la source sur ce document'}</td><td className="muted">Total TTC</td><td className="num">{fmt(preview?.ttc ?? 0)}</td><td></td></tr>
                 {preview && preview.withholding > 0 && <tr><td colSpan={6}></td><td className="muted">Retenue {Math.round((preview.whtCode?.rate ?? 0) * 1000) / 10} %</td><td className="num">−{fmt(preview.withholding)}</td><td></td></tr>}
-                <tr><td colSpan={6} className="small">{preview?.ar && preview.ttc > 0 ? `Écriture prévue : ${preview.ar.code} D ${fmt(r2(preview.net * effRate))}${preview.withholding ? ` · ${preview.whtAccount?.code ?? 'RAS'} D ${fmt(r2(preview.withholding * effRate))}` : ''} ${entity.functionalCurrency} · ${preview.computed.map((l) => `${state.accounts.find((a) => a.id === l.revenueAccountId)?.code} C ${fmt(r2(l.lineHt * effRate))}`).join(' · ')}${preview.tax ? ` · TVA C ${fmt(r2(preview.tax * effRate))}` : ' · aucune ligne de TVA'}` : preview?.error ?? ''}</td><td><b>Net à payer</b></td><td className="num"><b>{currency} {fmt(preview?.net ?? 0)}</b></td><td></td></tr>
+                <tr><td colSpan={6} className="small">{rateMissing ? <span style={{ color: 'var(--crit)' }}>Saisissez le taux 1 {currency} = ? {entity.functionalCurrency} pour enregistrer cette facture.</span> : preview?.ar && preview.ttc > 0 ? `Écriture prévue : ${preview.ar.code} D ${fmt(r2(preview.net * effRate))}${preview.withholding ? ` · ${preview.whtAccount?.code ?? 'RAS'} D ${fmt(r2(preview.withholding * effRate))}` : ''} ${entity.functionalCurrency} · ${preview.computed.map((l) => `${state.accounts.find((a) => a.id === l.revenueAccountId)?.code} C ${fmt(r2(l.lineHt * effRate))}`).join(' · ')}${preview.tax ? ` · TVA C ${fmt(r2(preview.tax * effRate))}` : ' · aucune ligne de TVA'}` : preview?.error ?? ''}</td><td><b>Net à payer</b></td><td className="num"><b>{currency} {fmt(preview?.net ?? 0)}</b></td><td></td></tr>
               </tfoot>
             </table>
           </div>
           <div className="actions">
-            <button type="button" className="btn" onClick={() => save('draft')}>{t('keep_draft')}</button>
+            <button type="button" className="btn" disabled={rateMissing} onClick={() => save('draft')}>{t('keep_draft')}</button>
             <button type="button" className="btn" disabled={!ready} onClick={() => save('validate')}>{t('validate')}</button>
             <button type="button" className="btn primary" disabled={!ready} onClick={() => save('post')}>{t('post')}</button>
           </div>
