@@ -212,6 +212,13 @@ export const moduleTables: TableSpec[] = [
       int("paymentTermsDays"), uuid("groupEntityId"), text("email"), text("nif"), uuid("withholdingCodeId"), uuid("arAccountId"), bool("active"),
       // beyond the engine's record: the group's client this customer is the accounting side of (0008: kept in step by the database)
       { field: "clientId", read: "t.client_id::text", write: false },
+      // the invoice's "billed to" (0018): the card's address, else its client's address and city (read only)
+      text("address", { column: "address_lines" }),
+      {
+        field: "clientAddress",
+        read: "(select nullif(concat_ws(E'\\n', nullif(trim(c.address), ''), nullif(trim(c.city), '')), '') from work.client c where c.id = t.client_id)",
+        write: false,
+      },
     ],
     order: "t.code",
   },
@@ -231,7 +238,7 @@ export const moduleTables: TableSpec[] = [
     fields: [
       id, entityId, text("name"), text("bankName"), text("iban"), text("accountNumber"), text("rib"), text("bankAddress"), text("currency"),
       uuid("glAccountId"), uuid("journalId"), bool("isCash"), bool("showOnInvoices"), bool("active", { fallback: true }), num("statementBalance", { fallback: 0 }),
-      date("statementDate"),
+      date("statementDate"), text("accountHolder"), text("bic"), bool("favorite", { fallback: false }), // the invoice's payment block (0018)
     ],
     order: "t.name",
   },
@@ -335,6 +342,7 @@ export const moduleTables: TableSpec[] = [
       text("currency"), num("fxRate"), text("paymentMode"), uuid("bankAccountId"), num("totalHt"), num("totalTax"), num("totalTtc"),
       uuid("withholdingCodeId"), num("withholdingRate"), num("withholdingAmount"), num("netPayable"), num("amountPaidTxn"), uuid("journalEntryId"),
       text("legalMentionFr"), int("dunningLevel"), date("lastDunningDate"),
+      { field: "publicToken", read: "t.public_token::text", write: false }, // the QR code's link (0018), the database's
     ],
     children: [documentLines("sales_invoice_line", "invoice_id")],
     order: "t.invoice_date, t.created_at",

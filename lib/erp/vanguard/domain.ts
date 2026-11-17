@@ -58,6 +58,7 @@ export const setFiscalYearClosed = recorded("setFiscalYearClosed", c.setFiscalYe
 export const setLoanSchedule = recorded("setLoanSchedule", c.setLoanSchedule);
 export const setPayrollRules = recorded("setPayrollRules", c.setPayrollRules);
 export const setPeriodStatus = recorded("setPeriodStatus", c.setPeriodStatus);
+export const setEntityLetterhead = recorded("setEntityLetterhead", c.setEntityLetterhead);
 export const setTaxRule = recorded("setTaxRule", c.setTaxRule);
 export const setThirdPartyRules = recorded("setThirdPartyRules", c.setThirdPartyRules);
 export const startTask = recorded("startTask", c.startTask);

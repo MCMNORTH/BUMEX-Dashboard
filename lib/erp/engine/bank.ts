@@ -239,6 +239,9 @@ export interface BankAccountInput {
   journalId?: Id;
   isCash?: boolean;
   showOnInvoices?: boolean;
+  accountHolder?: string; // [bumex-one]
+  bic?: string; // [bumex-one]
+  favorite?: boolean; // [bumex-one]
 }
 
 function checkBankAccount(state: State, input: BankAccountInput, selfId?: Id) {
@@ -265,7 +268,7 @@ export function addBankAccount(state: State, input: BankAccountInput): [State, B
   requireRole(state, [...PARTNER_ROLES, 'accountant', 'manager'], 'de créer un compte bancaire');
   checkBankAccount(state, input);
   const [s1, id] = nextId(state, 'bank');
-  const b: BankAccount = { id, entityId: input.entityId, name: input.name.trim(), bankName: input.bankName.trim(), accountNumber: input.accountNumber?.trim() || undefined, rib: input.rib?.trim() || undefined, iban: input.iban?.trim() || undefined, bankAddress: input.bankAddress?.trim() || undefined, currency: input.currency, glAccountId: input.glAccountId, journalId: input.journalId || undefined, isCash: !!input.isCash, showOnInvoices: !!input.showOnInvoices, active: true, statementBalance: 0 };
+  const b: BankAccount = { id, entityId: input.entityId, name: input.name.trim(), bankName: input.bankName.trim(), accountNumber: input.accountNumber?.trim() || undefined, rib: input.rib?.trim() || undefined, iban: input.iban?.trim() || undefined, bankAddress: input.bankAddress?.trim() || undefined, accountHolder: input.accountHolder?.trim() || undefined, bic: input.bic?.trim().toUpperCase() || undefined, favorite: !!input.favorite, currency: input.currency, glAccountId: input.glAccountId, journalId: input.journalId || undefined, isCash: !!input.isCash, showOnInvoices: !!input.showOnInvoices, active: true, statementBalance: 0 };
   return [audit({ ...s1, bankAccounts: [...s1.bankAccounts, b] }, 'bank_account', id, 'I', `Compte bancaire ${b.name} · ${b.bankName} · ${b.currency}`, b.entityId), b];
 }
 
@@ -276,9 +279,9 @@ export function updateBankAccount(state: State, id: Id, patch: Partial<Omit<Bank
   const used = state.entries.some((e) => e.status !== 'draft' && e.lines.some((l) => l.bankAccountId === id));
   if (used && patch.currency && patch.currency !== b.currency) throw new DomainError('in_use', 'Des opérations existent : la devise ne change plus');
   if (used && patch.glAccountId && patch.glAccountId !== b.glAccountId) throw new DomainError('in_use', 'Des opérations existent : le compte comptable ne change plus');
-  const merged: BankAccountInput = { entityId: b.entityId, name: patch.name ?? b.name, bankName: patch.bankName ?? b.bankName, accountNumber: patch.accountNumber ?? b.accountNumber, rib: patch.rib ?? b.rib, iban: patch.iban ?? b.iban, bankAddress: patch.bankAddress ?? b.bankAddress, currency: patch.currency ?? b.currency, glAccountId: patch.glAccountId ?? b.glAccountId, journalId: patch.journalId === undefined ? b.journalId : patch.journalId || undefined, isCash: patch.isCash ?? b.isCash, showOnInvoices: patch.showOnInvoices ?? b.showOnInvoices };
+  const merged: BankAccountInput = { entityId: b.entityId, name: patch.name ?? b.name, bankName: patch.bankName ?? b.bankName, accountNumber: patch.accountNumber ?? b.accountNumber, rib: patch.rib ?? b.rib, iban: patch.iban ?? b.iban, bankAddress: patch.bankAddress ?? b.bankAddress, currency: patch.currency ?? b.currency, glAccountId: patch.glAccountId ?? b.glAccountId, journalId: patch.journalId === undefined ? b.journalId : patch.journalId || undefined, isCash: patch.isCash ?? b.isCash, showOnInvoices: patch.showOnInvoices ?? b.showOnInvoices, accountHolder: patch.accountHolder ?? b.accountHolder, bic: patch.bic ?? b.bic, favorite: patch.favorite ?? b.favorite };
   checkBankAccount(state, merged, id);
-  const next: BankAccount = { ...b, ...merged, name: merged.name.trim(), bankName: merged.bankName.trim(), accountNumber: merged.accountNumber?.trim() || undefined, rib: merged.rib?.trim() || undefined, iban: merged.iban?.trim() || undefined, bankAddress: merged.bankAddress?.trim() || undefined, journalId: merged.journalId || undefined, isCash: !!merged.isCash, showOnInvoices: !!merged.showOnInvoices };
+  const next: BankAccount = { ...b, ...merged, name: merged.name.trim(), bankName: merged.bankName.trim(), accountNumber: merged.accountNumber?.trim() || undefined, rib: merged.rib?.trim() || undefined, iban: merged.iban?.trim() || undefined, bankAddress: merged.bankAddress?.trim() || undefined, journalId: merged.journalId || undefined, isCash: !!merged.isCash, showOnInvoices: !!merged.showOnInvoices, accountHolder: merged.accountHolder?.trim() || undefined, bic: merged.bic?.trim().toUpperCase() || undefined, favorite: !!merged.favorite };
   return [audit({ ...state, bankAccounts: state.bankAccounts.map((x) => (x.id === id ? next : x)) }, 'bank_account', id, 'U', `Compte bancaire ${next.name} modifié`, b.entityId), next];
 }
 
@@ -294,4 +297,17 @@ export function setBankAccountActive(state: State, id: Id, active: boolean): [St
 
 export function activeBankAccounts(state: State, entityId: Id): BankAccount[] {
   return state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false);
+}
+
+// [bumex-one] The favourite accounts first (asked on 2026-11-17), then by name.
+export function favoritesFirst<T extends Pick<BankAccount, 'favorite' | 'name'>>(accounts: T[]): T[] {
+  return [...accounts].sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite) || a.name.localeCompare(b.name));
+}
+
+// [bumex-one] The bank printed on an invoice when none is chosen: a favourite in the invoice's currency, a favourite,
+// one printed on invoices in its currency, one in its currency, then any; bank accounts only (no cash box), active
+// ones. (The same order in SQL: lib/erp/invoice-link.ts.)
+export function invoiceBankFor(state: State, entityId: Id, currency: Currency): BankAccount | undefined {
+  const banks = favoritesFirst(state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && !b.isCash));
+  return banks.find((b) => b.favorite && b.currency === currency) ?? banks.find((b) => b.favorite) ?? banks.find((b) => b.showOnInvoices && b.currency === currency) ?? banks.find((b) => b.currency === currency) ?? banks[0];
 }

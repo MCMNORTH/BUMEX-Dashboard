@@ -63,9 +63,11 @@ const entities: Writer<Entity> = {
     // entities have no row-level security (every floor is listed): the visibility check is here
     const updated = await tx.query(
       `update erp.entity set name = $2, nif = $3, address_lines = $4, cash_threshold = $5, account_code_length = $6,
-              coa_template = $7::erp.coa_template, fx_method = $8::erp.fx_method
+              coa_template = $7::erp.coa_template, fx_method = $8::erp.fx_method,
+              phone = $9, fax = $10, email = $11, web = $12, capital_amount = $13, capital_currency = $14, logo_url = $15
         where id = $1 and erp.can_see_entity(id) returning id`,
-      [after.id, after.name, nil(after.nif), nil(after.address), after.cashThreshold, after.accountCodeLength ?? 6, after.coaTemplate, after.fxMethod],
+      [after.id, after.name, nil(after.nif), nil(after.address), after.cashThreshold, after.accountCodeLength ?? 6, after.coaTemplate, after.fxMethod,
+        nil(after.phone), nil(after.fax), nil(after.email), nil(after.web), nil(after.capitalAmount), nil(after.capitalCurrency), nil(after.logoUrl)],
     );
     if (!updated.length) throw new VanguardSaveError("Entité non autorisée.");
     const rules = after.thirdPartyRules;

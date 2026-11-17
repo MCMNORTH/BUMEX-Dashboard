@@ -96,6 +96,8 @@ export async function loadVanguardState(
             e.fx_method as "fxMethod", e.cash_threshold::float8 as "cashThreshold", e.floor_order as "floorOrder", e.is_holding as "isHolding",
             e.is_test as "isTest",
             e.nif, e.address_lines as address, e.account_code_length as "accountCodeLength",
+            e.phone, e.fax, e.email, e.web, e.capital_amount::float8 as "capitalAmount",
+            e.capital_currency::text as "capitalCurrency", e.logo_url as "logoUrl",
             case when r.entity_id is not null then jsonb_strip_nulls(jsonb_build_object(
               'customerPrefix', r.customer_prefix, 'supplierPrefix', r.supplier_prefix, 'digits', r.digits,
               'customerCollectiveId', r.customer_collective_id, 'supplierCollectiveId', r.supplier_collective_id)) end as rules

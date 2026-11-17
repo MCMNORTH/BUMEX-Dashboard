@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   bankSummary, suggestFor, matchToPayment, recordPayment, bookByRule, bookToSuspense, bookTransfer, importStatement, parseStatementCsv, cashForecast, loanSummaries, loanSchedule, addLoan, payInstalment, headcount,
-  addBankAccount, updateBankAccount, setBankAccountActive, setLoanSchedule, updateLoan, parseScheduleRows, checkManualSchedule,
+  addBankAccount, updateBankAccount, setBankAccountActive, favoritesFirst, setLoanSchedule, updateLoan, parseScheduleRows, checkManualSchedule,
   fmt, r2, addDays, parseAmount, type Id, type BankTransaction, type Currency, type Loan, type ManualInstalment, type BankAccount,
 } from '@bumex/domain';
 import { useStore } from '../../store';
@@ -43,7 +43,10 @@ function Accounts({ entityId }: { entityId: Id }) {
   const rows = bankSummary(state, entityId);
   const entity = state.entities.find((e) => e.id === entityId)!;
   const [showInactive, setShowInactive] = useState(false);
-  const shown = rows.filter((r) => showInactive || r.account.active !== false);
+  // [bumex-one] the favourite accounts first (asked on 2026-11-17): the new invoice's bank, first in every list
+  const order = new Map(favoritesFirst(rows.map((r) => r.account)).map((a, i) => [a.id, i]));
+  const shown = rows.filter((r) => showInactive || r.account.active !== false).sort((a, b) => order.get(a.account.id)! - order.get(b.account.id)!);
+  const star = (b: BankAccount) => apply((s) => updateBankAccount(s, b.id, { favorite: !b.favorite }), b.favorite ? 'Retiré des favoris' : 'Compte favori : proposé en premier sur les factures');
   const total = r2(shown.reduce((a, r) => a + r.bookBalanceFunctional, 0));
   const [editId, setEditId] = useState<Id | null | 'new'>(null);
   return (
@@ -63,7 +66,7 @@ function Accounts({ entityId }: { entityId: Id }) {
                 const j = state.journals.find((x) => x.id === r.account.journalId) ?? state.journals.find((x) => x.entityId === entityId && x.kind === (r.account.isCash ? 'cash' : 'bank'));
                 return (
                   <tr key={r.account.id} className={r.account.id === editId ? 'sel' : ''} style={{ opacity: r.account.active === false ? 0.55 : 1 }}>
-                    <td><b>{r.account.name}</b>{r.account.active === false && <Chip kind="off"> désactivé</Chip>}{r.account.showOnInvoices && <div className="small muted">imprimé sur les factures</div>}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{!r.account.isCash && <button type="button" className="btn sm" style={{ padding: '0 6px', marginRight: 6, color: r.account.favorite ? '#d99a00' : 'var(--muted)', border: 0, background: 'none', fontSize: 16 }} title={r.account.favorite ? 'Favori : retirer' : 'Mettre en favori (proposé en premier, banque par défaut des factures)'} aria-pressed={!!r.account.favorite} onClick={() => star(r.account)}>{r.account.favorite ? '★' : '☆'}</button>}<b>{r.account.name}</b>{r.account.active === false && <Chip kind="off"> désactivé</Chip>}{r.account.showOnInvoices && <div className="small muted">imprimé sur les factures</div>}</td>
                     <td>{r.account.isCash ? <span className="muted">caisse</span> : <>{r.account.bankName}<div className="small muted mono">{r.account.accountNumber ?? r.account.iban ?? '—'}</div></>}</td>
                     <td>{r.account.currency}</td><td className="mono small">{gl ? `${gl.code} ${gl.nameFr}` : '—'}</td><td className="mono small">{j ? `${j.code} · ${j.name}` : '—'}</td>
                     <td className="num">{r.bookBalance === null ? <span className="muted" title={`Pas de taux ${r.account.currency}/${entity.functionalCurrency} à ce jour : saisissez-le dans les taux de change`}>— · {fmt(r.bookBalanceFunctional)} {entity.functionalCurrency}</span> : fmt(r.bookBalance)}</td><td className="num">{r.account.isCash ? '—' : fmt(r.statementBalance)}</td>
@@ -100,9 +103,12 @@ function BankAccountForm({ entityId, id, onClose }: { entityId: Id; id: Id | nul
   const [journalId, setJournalId] = useState(b?.journalId ?? journals.find((j) => j.kind === 'bank')?.id ?? '');
   const [isCash, setIsCash] = useState(b?.isCash ?? false);
   const [showOnInvoices, setShow] = useState(b?.showOnInvoices ?? false);
+  const [accountHolder, setAccountHolder] = useState(b?.accountHolder ?? ''); // [bumex-one] the invoice's payment block
+  const [bic, setBic] = useState(b?.bic ?? '');
+  const [favorite, setFavorite] = useState(b?.favorite ?? false);
   const used = !!b && state.entries.some((e) => e.status !== 'draft' && e.lines.some((l) => l.bankAccountId === b.id));
   const save = () => {
-    const input = { name, bankName, accountNumber, rib, iban, bankAddress, currency, glAccountId, journalId: journalId || undefined, isCash, showOnInvoices };
+    const input = { name, bankName, accountNumber, rib, iban, bankAddress, currency, glAccountId, journalId: journalId || undefined, isCash, showOnInvoices, accountHolder, bic, favorite: !isCash && favorite };
     if (apply((s) => (b ? updateBankAccount(s, b.id, input) : addBankAccount(s, { entityId, ...input })), b ? 'Compte bancaire modifié' : 'Compte bancaire créé')) onClose();
   };
   return (
@@ -117,6 +123,10 @@ function BankAccountForm({ entityId, id, onClose }: { entityId: Id; id: Id | nul
           <Field label="RIB"><input className="in mono" value={rib} onChange={(e) => setRib(e.target.value)} /></Field>
         </div>
         <Field label="IBAN" style={{ marginTop: 8 }}><input className="in mono" value={iban} onChange={(e) => setIban(e.target.value)} /></Field>
+        <div className="grid2" style={{ marginTop: 8 }}>
+          <Field label="BIC / SWIFT"><input className="in mono" value={bic} onChange={(e) => setBic(e.target.value.toUpperCase())} /></Field>
+          <Field label="Titulaire du compte"><input className="in" value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)} placeholder={entity.name} /></Field>
+        </div>
         <Field label="Adresse de la banque" style={{ marginTop: 8 }}><input className="in" value={bankAddress} onChange={(e) => setBankAddress(e.target.value)} /></Field>
       </>}
       <div className="grid2" style={{ marginTop: 8 }}>
@@ -125,6 +135,7 @@ function BankAccountForm({ entityId, id, onClose }: { entityId: Id; id: Id | nul
       </div>
       <Field label="Compte comptable (classe 5, imputable et actif)" style={{ marginTop: 8 }}><Select recent="accounts" className="in mono" value={glAccountId} disabled={used} onChange={(e) => setGl(e.target.value)}><option value="">—</option>{glAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
       <label className="small" style={{ display: 'block', margin: '8px 0' }}><input type="checkbox" checked={showOnInvoices} onChange={(e) => setShow(e.target.checked)} /> Imprimer les coordonnées sur les factures</label>
+      {!isCash && <label className="small" style={{ display: 'block', margin: '8px 0' }}><input type="checkbox" checked={favorite} onChange={(e) => setFavorite(e.target.checked)} /> ★ Favori : proposé en premier, banque par défaut des nouvelles factures</label>}
       {used && <div className="small muted">Des opérations existent : la devise et le compte comptable sont figés, le reste reste modifiable.</div>}
       <div className="small muted" style={{ marginTop: 6 }}>Un compte comptable absent du plan se crée dans Comptabilité › Plan comptable ; un journal de banque supplémentaire dans Comptabilité › Journaux · tiers.</div>
       <div className="actions" style={{ marginTop: 10 }}><button className="btn" onClick={onClose}>Annuler</button><button className="btn primary" disabled={!name.trim() || !glAccountId || (!isCash && !bankName.trim())} onClick={save}>{b ? 'Enregistrer' : 'Créer le compte'}</button></div>
@@ -134,7 +145,7 @@ function BankAccountForm({ entityId, id, onClose }: { entityId: Id; id: Id | nul
 
 function Recon({ entityId }: { entityId: Id }) {
   const { state, apply } = useStore();
-  const banks = state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && !b.isCash);
+  const banks = favoritesFirst(state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && !b.isCash)); // [bumex-one] favourites first
   const [bankId, setBankId] = useState(banks[0]?.id ?? '');
   const rows = state.bankTransactions.filter((x) => x.bankAccountId === bankId && x.status === 'unmatched').sort((a, b) => (a.date < b.date ? 1 : -1));
   const bank = banks.find((b) => b.id === bankId);
@@ -155,7 +166,7 @@ function Recon({ entityId }: { entityId: Id }) {
     <div className="card flush">
       <WideNote />{/* [mobile] */}
       <div style={{ display: 'flex', gap: 8, padding: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <Select recent="banks" className="in" style={{ width: 300 }} value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name} ({b.currency})</option>)}</Select>
+        <Select className="in" style={{ width: 300 }} value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.favorite ? '★ ' : ''}{b.bankName} · {b.name} ({b.currency})</option>)}</Select>
         <span className="muted small">{rows.length} ligne(s) non expliquée(s) · une ligne mise en attente compte comme écriture non comptabilisée sur la façade</span>
       </div>
       <table>
@@ -174,7 +185,7 @@ function Recon({ entityId }: { entityId: Id }) {
 
 function Import({ entityId }: { entityId: Id }) {
   const { state, apply } = useStore();
-  const banks = state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && !b.isCash);
+  const banks = favoritesFirst(state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && !b.isCash)); // [bumex-one] favourites first
   const [bankId, setBankId] = useState(banks[0]?.id ?? '');
   const sample = `${addDays(state.today, 0).split('-').reverse().join('/')};VIR RECU CLIENT HOTEL M;150000\n${addDays(state.today, -1).split('-').reverse().join('/')};COMMISSION VIREMENT INTERNATIONAL;-6500\n${addDays(state.today, -1).split('-').reverse().join('/')};PRLV TELECOMS J;-71920`;
   const [text, setText] = useState('');
@@ -185,7 +196,7 @@ function Import({ entityId }: { entityId: Id }) {
         <div className="card">
           <h2>Coller un relevé (CSV : date;libellé;montant[;référence])</h2>
           <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
-            <Select recent="banks" className="in" style={{ width: 300 }} value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name} ({b.currency})</option>)}</Select>
+            <Select className="in" style={{ width: 300 }} value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.favorite ? '★ ' : ''}{b.bankName} · {b.name} ({b.currency})</option>)}</Select>
             <button className="btn sm" onClick={() => setText(sample)}>Exemple</button>
             <span className="muted small">Dates JJ/MM/AAAA ou AAAA-MM-JJ, montants signés, virgule ou point. Les doublons sont ignorés à la ré-importation.</span>
           </div>
@@ -351,7 +362,7 @@ function Loans({ entityId }: { entityId: Id }) {
 function NewLoan({ entityId, onDone }: { entityId: Id; onDone: (id: Id) => void }) {
   const { state, apply } = useStore();
   const entity = state.entities.find((e) => e.id === entityId)!;
-  const banks = state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && !b.isCash);
+  const banks = favoritesFirst(state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && !b.isCash)); // [bumex-one] favourites first
   const [lender, setLender] = useState('');
   const [reference, setReference] = useState('');
   const [currency, setCurrency] = useState<Currency>(entity.functionalCurrency);
@@ -384,7 +395,7 @@ function NewLoan({ entityId, onDone }: { entityId: Id; onDone: (id: Id) => void 
           <div className="grid3">
             <Field label="Prêteur"><input className="in" value={lender} onChange={(e) => setLender(e.target.value)} placeholder="BMCI · BNM · Attijari…" /></Field>
             <Field label="Référence du contrat"><input className="in mono" value={reference} onChange={(e) => setReference(e.target.value)} /></Field>
-            <Field label="Compte bancaire de déblocage et de prélèvement"><Select recent="banks" className="in" value={bankId} onChange={(e) => { setBankId(e.target.value); const b = banks.find((x) => x.id === e.target.value); if (b) setCurrency(b.currency); }}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name} · {b.currency}</option>)}</Select></Field>
+            <Field label="Compte bancaire de déblocage et de prélèvement"><Select className="in" value={bankId} onChange={(e) => { setBankId(e.target.value); const b = banks.find((x) => x.id === e.target.value); if (b) setCurrency(b.currency); }}>{banks.map((b) => <option key={b.id} value={b.id}>{b.favorite ? '★ ' : ''}{b.bankName} · {b.name} · {b.currency}</option>)}</Select></Field>
             <Field label={`Montant emprunté (${currency})`}><input className="in num" value={principal} onChange={(e) => setPrincipal(e.target.value)} /></Field>
             <Field label="Taux annuel (%)"><input className="in num" value={rate} onChange={(e) => setRate(e.target.value)} /></Field>
             <Field label="Durée (mois)"><input className="in num" value={months} onChange={(e) => setMonths(e.target.value)} /></Field>

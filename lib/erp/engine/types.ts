@@ -85,6 +85,14 @@ export interface Entity {
   isTest?: boolean; // [bumex-one] the test floor (BUMEX Testing, the basement, 0011): left out of the group's figures
   nif?: string;
   address?: string;
+  // [bumex-one] the invoice's letterhead (0018, vanguard/one/InvoiceSheet.tsx); the address above is its lines
+  phone?: string;
+  fax?: string;
+  email?: string;
+  web?: string;
+  capitalAmount?: number;
+  capitalCurrency?: Currency;
+  logoUrl?: string; // an address, or /entities/<code>.png by default
   staffPresent: number;
   staffTotal: number;
   accountCodeLength?: number; // presentation length of general-ledger accounts (6 by default); roots and auxiliaries are not padded
@@ -255,6 +263,8 @@ export interface Customer {
   withholdingCodeId?: Id; // the withholding this customer applies on our invoices by default (e.g. RAS 7 %)
   arAccountId?: Id; // auxiliary account attached to the customers' collective
   active: boolean;
+  address?: string; // [bumex-one] printed under "Billed to" (its lines)
+  clientAddress?: string; // [bumex-one] the group's client's address and city (read only): the invoice's when the card has none
 }
 
 export type DocStatus = 'draft' | 'validated' | 'posted' | 'paid' | 'cancelled' | 'pending_approval' | 'approved' | 'rejected';
@@ -299,6 +309,7 @@ export interface SalesInvoice {
   legalMentionFr?: string;
   dunningLevel: number;
   lastDunningDate?: ISODate;
+  publicToken?: string; // [bumex-one] the invoice's link, its QR code (/i/<token>, 0018), given by the database
 }
 
 export interface CreditNote {
@@ -468,6 +479,9 @@ export interface BankAccount {
   journalId?: Id; // the journal every operation of this account posts to (the entity's bank journal by default)
   isCash: boolean;
   showOnInvoices: boolean;
+  accountHolder?: string; // [bumex-one] the invoice's "account owner name" (the entity's name by default)
+  bic?: string; // [bumex-one]
+  favorite?: boolean; // [bumex-one] first in the lists, the new invoice's bank (0018)
   active?: boolean; // false = closed, kept for history
   statementBalance: number;
   statementDate?: ISODate;

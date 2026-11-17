@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   createInvoice, validateInvoice, postInvoice, createCreditNote, recordPayment, openInvoices, aging, dunningQueue, sendDunning, addCustomer, updateCustomer, computeLines, resolveTaxCode, fxRate, mapped, withholdingStatement, nextThirdPartyCode, collectiveFor, accountBalance,
   fmt, r2, parseAmount, type Id, type Currency, type CounterpartyRegime, type SalesInvoice, type TaxCode, DomainError, REVENUE_STATUS_LABEL,
+  invoiceBankFor, favoritesFirst, setEntityLetterhead, type State,
 } from '@bumex/domain';
 import { useStore } from '../../store';
 import { ClientRelations } from '../../one/Clients'; // [bumex-one] one client, two sides
@@ -11,6 +12,8 @@ import { useSay } from '../../one/say'; // [bumex-one]
 import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, DeleteButton, downloadXlsx } from '../common';
 import { Select } from '../Select';
 import { WideNote } from '../../one/WideNote'; // [mobile]
+import { InvoiceSheet, defaultInvoiceLang, type InvoiceLang, type InvoiceSheetData } from '../../one/InvoiceSheet'; // [bumex-one] the invoice as printed
+import { InvoiceFit } from '../../one/InvoiceFit'; // [bumex-one]
 
 // Withholding codes that a customer applies on our invoices (the receivable side), as opposed to the ones we apply on suppliers.
 export function salesWithholdingCodes(codes: TaxCode[], entityId: Id): TaxCode[] {
@@ -18,7 +21,7 @@ export function salesWithholdingCodes(codes: TaxCode[], entityId: Id): TaxCode[]
 }
 
 type InvoiceMode = 'normal' | 'gta' | 'rsa' | 'card';
-type Tab = 'invoices' | 'new' | 'payments' | 'aging' | 'dunning' | 'customers' | 'withholding' | 'contracts'; // [bumex-one] contracts
+type Tab = 'invoices' | 'new' | 'payments' | 'aging' | 'dunning' | 'customers' | 'withholding' | 'contracts' | 'letterhead'; // [bumex-one] contracts, letterhead
 const CATEGORIES = [['AUDIT', 'Audit'], ['TAX', 'Fiscal'], ['LEGAL', 'Juridique'], ['ADVISORY', 'Conseil'], ['IT', 'IT'], ['OTHER', 'Autre']];
 const REGIMES: [CounterpartyRegime, string][] = [['standard', 'Standard'], ['gta', 'GTA · sous-traitant enregistré'], ['exempt', 'Exonéré'], ['non_resident', 'Non-résident · export'], ['public', 'Organisme public']];
 
@@ -33,6 +36,7 @@ export function ClientsPanel({ entityId, initialTab }: { entityId: Id; initialTa
     { id: 'invoices' as Tab, label: t('tab_invoices') }, { id: 'new' as Tab, label: t('tab_new_invoice') }, { id: 'payments' as Tab, label: t('tab_payments') },
     { id: 'aging' as Tab, label: <>{t('tab_aging')} <Chip kind={ag.overdueCount ? 'crit' : 'good'}>{ag.overdueCount}</Chip></> }, { id: 'dunning' as Tab, label: t('tab_dunning') }, { id: 'withholding' as Tab, label: 'Retenues subies' }, { id: 'customers' as Tab, label: t('tab_customers') },
     { id: 'contracts' as Tab, label: say('Contrats', 'Contracts') }, // [bumex-one] BUMEX One's contracts (vanguard/one/Contracts.tsx)
+    { id: 'letterhead' as Tab, label: say('Modèle de facture', 'Invoice layout') }, // [bumex-one] the invoice's letterhead (2026-11-17)
   ];
   // [bumex-one] "client:<id>" and "contract:<id>" open that client's or contract's page
   const page = (tab as string).match(/^(client|contract):(.+)$/);
@@ -52,6 +56,7 @@ export function ClientsPanel({ entityId, initialTab }: { entityId: Id; initialTa
         {tab === 'withholding' && <WithholdingSuffered entityId={entityId} />}
         {tab === 'customers' && <Customers entityId={entityId} />}
         {tab === 'contracts' && <ContractsTab />}
+        {tab === 'letterhead' && <Letterhead entityId={entityId} />}
         {page?.[1] === 'client' && <ClientPanel key={page[2]} clientId={page[2]} onClose={() => closePage('customers')} />}
         {page?.[1] === 'contract' && <ContractPanel key={page[2]} contractId={page[2]} onClose={() => closePage('contracts')} />}
       </div>
@@ -59,35 +64,89 @@ export function ClientsPanel({ entityId, initialTab }: { entityId: Id; initialTa
   );
 }
 
-function InvoiceDoc({ inv, onClose }: { inv: SalesInvoice; onClose: () => void }) {
-  const { state } = useStore();
+// [bumex-one] The invoice as printed (asked on 2026-11-17): the same sheet as its public page, the QR code's link
+// (app/i/[token]); printing opens that page, which prints the invoice alone.
+export function invoiceSheetData(state: State, inv: SalesInvoice, origin?: string): InvoiceSheetData {
   const entity = state.entities.find((e) => e.id === inv.entityId)!;
   const customer = state.customers.find((c) => c.id === inv.customerId)!;
-  const bank = state.bankAccounts.find((b) => b.id === inv.bankAccountId) ?? state.bankAccounts.find((b) => b.entityId === inv.entityId && b.showOnInvoices && b.currency === inv.currency);
+  const bank = state.bankAccounts.find((b) => b.id === inv.bankAccountId) ?? invoiceBankFor(state, inv.entityId, inv.currency);
+  return {
+    number: inv.number, status: inv.status, date: inv.date, dueDate: inv.dueDate, currency: inv.currency, paymentMode: inv.paymentMode, lines: inv.lines,
+    totalHt: inv.totalHt, totalTax: inv.totalTax, totalTtc: inv.totalTtc, withholdingRate: inv.withholdingRate, withholdingAmount: inv.withholdingAmount, netPayable: inv.netPayable,
+    legalMention: inv.legalMentionFr,
+    entity: { name: entity.name, country: entity.country, address: entity.address, phone: entity.phone, fax: entity.fax, email: entity.email, web: entity.web, nif: entity.nif, capitalAmount: entity.capitalAmount, capitalCurrency: entity.capitalCurrency, logoUrl: entity.logoUrl },
+    customer: { name: customer?.name ?? '', address: customer?.address ?? customer?.clientAddress, nif: customer?.nif },
+    bank: bank && !bank.isCash ? { bankName: bank.bankName, accountHolder: bank.accountHolder, iban: bank.iban, bic: bank.bic, accountNumber: bank.accountNumber, rib: bank.rib } : undefined,
+    url: inv.publicToken && origin ? `${origin}/i/${inv.publicToken}` : undefined,
+  };
+}
+
+function InvoiceDoc({ inv, onClose }: { inv: SalesInvoice; onClose: () => void }) {
+  const { state, toast } = useStore();
+  const current = state.salesInvoices.find((i) => i.id === inv.id) ?? inv; // its status and number as they are now
+  const customer = state.customers.find((c) => c.id === current.customerId);
+  const [lang, setLang] = useState<InvoiceLang>(() => defaultInvoiceLang(current.currency, customer?.country));
+  const origin = typeof window !== 'undefined' ? window.location.origin : undefined;
+  const data = invoiceSheetData(state, current, origin);
+  const page = current.publicToken ? `/i/${current.publicToken}?lang=${lang}` : null;
+  const copy = () => { if (data.url) navigator.clipboard?.writeText(`${data.url}?lang=${lang}`).then(() => toast('ok', 'Lien de la facture copié'), () => toast('error', 'Copie impossible')); };
   return (
-    <div className="sheet-back" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflow: 'auto', padding: 20 }} onClick={onClose}>
-      <div className="invoice-doc" onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20 }}>
-          <div><h1>{entity.name}</h1><div className="small muted">{entity.address ?? 'Nouakchott, Mauritanie'}<br />NIF {entity.nif ?? '[NIF]'}</div></div>
-          <div style={{ textAlign: 'right' }}><div style={{ fontSize: 18, fontWeight: 600 }}>Facture {inv.number ?? '(brouillon)'}</div><div className="small">Date <D iso={inv.date} /> · Échéance <D iso={inv.dueDate} /></div></div>
+    <div className="sheet-back" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'auto', padding: 20 }} onClick={onClose}>
+      <div style={{ width: '100%', maxWidth: 820 }} onClick={(e) => e.stopPropagation()}>
+        <div className="actions" style={{ justifyContent: 'flex-start', flexWrap: 'wrap', marginBottom: 10 }}>
+          <div className="pill-list">{(['en', 'fr'] as const).map((l) => <button key={l} className={`pill ${lang === l ? 'on' : ''}`} onClick={() => setLang(l)}>{l === 'en' ? 'English' : 'Français'}</button>)}</div>
+          <span style={{ flex: 1 }} />
+          {page && <button className="btn" onClick={copy}>Copier le lien</button>}
+          {page && <button className="btn" onClick={() => window.open(page, '_blank', 'noopener')}>Ouvrir la page</button>}
+          <button className="btn" disabled={!page} title={page ? undefined : 'Le lien de la facture arrive avec son enregistrement'} onClick={() => page && window.open(`${page}&print=1`, '_blank', 'noopener')}>Imprimer / PDF</button>
+          <button className="btn primary" onClick={onClose}>Fermer</button>
         </div>
-        <div style={{ margin: '20px 0', padding: 12, background: '#f6f7f9', borderRadius: 6 }}><b>Adressé à</b><br />{customer.name}<br /><span className="small muted">{customer.country} · régime {REGIMES.find((r) => r[0] === customer.regime)?.[1]}</span></div>
-        <div className="small muted">Montant en {inv.currency === 'USD' ? 'dollars US' : inv.currency === 'EUR' ? 'euros' : inv.currency === 'MAD' ? 'dirhams' : 'ouguiyas'}</div>
-        <table style={{ marginTop: 6 }}>
-          <thead><tr><th>Désignation</th><th className="num">Qté</th><th className="num">P.U.</th><th className="num">TVA</th><th className="num">Total HT</th></tr></thead>
-          <tbody>{inv.lines.map((l) => <tr key={l.lineNo}><td>{l.description}</td><td className="num">{l.quantity}</td><td className="num">{fmt(l.unitPrice)}</td><td className="num">{((l.taxRateSnapshot ?? 0) * 100).toFixed(0)} %</td><td className="num">{fmt(l.lineHt)}</td></tr>)}</tbody>
-          <tfoot>
-            <tr><td colSpan={4}>Montant des prestations (HT)</td><td className="num">{fmt(inv.totalHt)}</td></tr>
-            <tr><td colSpan={4}>TVA</td><td className="num">{fmt(inv.totalTax)}</td></tr>
-            <tr><td colSpan={4}>Total TTC</td><td className="num">{fmt(inv.totalTtc)}</td></tr>
-            {inv.withholdingAmount > 0 && <tr><td colSpan={4}>Retenue à la source {Math.round(inv.withholdingRate * 1000) / 10} % sur prestations (retenue par le client)</td><td className="num">−{fmt(inv.withholdingAmount)}</td></tr>}
-            <tr><td colSpan={4}><b>Net à payer</b></td><td className="num"><b>{inv.currency} {fmt(inv.netPayable)}</b></td></tr>
-          </tfoot>
-        </table>
-        {inv.legalMentionFr && <div className="small" style={{ marginTop: 10 }}>Mention : {inv.legalMentionFr}</div>}
-        {inv.withholdingAmount > 0 && <div className="small" style={{ marginTop: 4 }}>Le client retient {fmt(inv.withholdingAmount)} et le reverse au Trésor pour notre compte ; ce montant n'est pas une exonération : la TVA reste due sur le montant HT.</div>}
-        <div className="small muted" style={{ marginTop: 14 }}>Paiement par {inv.paymentMode.toLowerCase()} · {bank ? `${bank.bankName} · ${bank.name} · IBAN ${bank.iban ?? '—'}` : ''}</div>
-        <div className="actions" style={{ marginTop: 16 }}><button className="btn" onClick={() => window.print()}>Imprimer / PDF</button><button className="btn primary" onClick={onClose}>Fermer</button></div>
+        <InvoiceFit><div style={{ boxShadow: '0 2px 18px rgba(15, 35, 60, .25)' }}><InvoiceSheet data={data} lang={lang} /></div></InvoiceFit>
+      </div>
+    </div>
+  );
+}
+
+// [bumex-one] The letterhead the invoices print (asked on 2026-11-17): the entity's address, phone, fax, e-mail, web, NIF,
+// capital and logo, beside the invoice as it prints (its latest invoice, or a sample). The bank comes from the
+// treasury's accounts (Trésorerie › comptes: the favourite one is the default).
+function Letterhead({ entityId }: { entityId: Id }) {
+  const { state, apply } = useStore();
+  const e = state.entities.find((x) => x.id === entityId)!;
+  const [form, setForm] = useState(() => ({ address: e.address ?? '', phone: e.phone ?? '', fax: e.fax ?? '', email: e.email ?? '', web: e.web ?? '', nif: e.nif ?? '', capital: e.capitalAmount != null ? String(e.capitalAmount) : '', capitalCurrency: e.capitalCurrency ?? e.functionalCurrency, logoUrl: e.logoUrl ?? '' }));
+  const [lang, setLang] = useState<InvoiceLang>('en');
+  const set = (k: keyof typeof form) => (ev: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: ev.target.value }));
+  const capital = form.capital.trim() ? parseAmount(form.capital) : undefined;
+  const patch = { address: form.address, phone: form.phone, fax: form.fax, email: form.email, web: form.web, nif: form.nif, capitalAmount: capital ?? undefined, capitalCurrency: form.capitalCurrency as Currency, logoUrl: form.logoUrl };
+  const latest = state.salesInvoices.filter((i) => i.entityId === entityId).sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+  const sample: InvoiceSheetData = latest
+    ? invoiceSheetData(state, latest, typeof window !== 'undefined' ? window.location.origin : undefined)
+    : { status: 'draft', date: state.today, dueDate: state.today, currency: 'EUR', paymentMode: 'Virement', lines: [{ lineNo: 1, description: 'Preparation and submission of IMF declaration', quantity: 6, unitPrice: 250, taxRateSnapshot: 0, lineHt: 1500 }], totalHt: 1500, totalTax: 0, totalTtc: 1500, withholdingRate: 0, withholdingAmount: 0, netPayable: 1500, entity: { name: e.name, country: e.country }, customer: { name: 'Client', address: 'Nouakchott' }, bank: undefined };
+  const data: InvoiceSheetData = { ...sample, entity: { ...sample.entity, name: e.name, country: e.country, address: form.address, phone: form.phone, fax: form.fax, email: form.email, web: form.web, nif: form.nif, capitalAmount: capital ?? undefined, capitalCurrency: form.capitalCurrency, logoUrl: form.logoUrl } };
+  return (
+    <div className="cols">
+      <aside className="side" style={{ order: 0 }}>
+        <div className="card">
+          <h2>En-tête · {e.name}</h2>
+          <Field label="Adresse (une ligne par ligne imprimée)"><textarea className="in" rows={3} value={form.address} onChange={set('address')} style={{ height: 'auto', resize: 'vertical' }} /></Field>
+          <div className="grid2" style={{ marginTop: 8 }}>
+            <Field label="Téléphone"><input className="in" value={form.phone} onChange={set('phone')} /></Field>
+            <Field label="Fax"><input className="in" value={form.fax} onChange={set('fax')} /></Field>
+            <Field label="E-mail"><input className="in" value={form.email} onChange={set('email')} /></Field>
+            <Field label="Site web"><input className="in" value={form.web} onChange={set('web')} /></Field>
+            <Field label="NIF"><input className="in mono" value={form.nif} onChange={set('nif')} /></Field>
+            <Field label="Capital"><div style={{ display: 'flex', gap: 6 }}><input className="in num" value={form.capital} onChange={set('capital')} /><Select className="in" style={{ width: 90 }} value={form.capitalCurrency} onChange={set('capitalCurrency')}>{['MRU', 'USD', 'EUR', 'MAD'].map((c) => <option key={c}>{c}</option>)}</Select></div></Field>
+          </div>
+          <Field label="Logo (adresse ; vide = logo BUMEX)" style={{ marginTop: 8 }}><input className="in" value={form.logoUrl} onChange={set('logoUrl')} placeholder="/bumex-official-logo-transparent.png" /></Field>
+          <div className="small muted" style={{ marginTop: 8 }}>Les coordonnées bancaires viennent des comptes de la Trésorerie : le compte choisi sur la facture, sinon le favori (★) dans sa devise. La signature viendra plus tard.</div>
+          <div className="actions" style={{ marginTop: 10 }}>
+            <button className="btn primary" disabled={form.capital.trim() !== '' && capital === null} onClick={() => apply((s) => setEntityLetterhead(s, entityId, patch), "En-tête des factures enregistré")}>Enregistrer</button>
+          </div>
+        </div>
+      </aside>
+      <div className="grow">
+        <div className="pill-list" style={{ marginBottom: 8 }}>{(['en', 'fr'] as const).map((l) => <button key={l} className={`pill ${lang === l ? 'on' : ''}`} onClick={() => setLang(l)}>{l === 'en' ? 'English' : 'Français'}</button>)}<span className="small muted" style={{ alignSelf: 'center' }}>{latest ? `Aperçu sur ${latest.number ?? 'le dernier brouillon'}` : 'Aperçu sur un exemple'}</span></div>
+        <InvoiceFit><div style={{ boxShadow: '0 2px 14px rgba(15, 35, 60, .18)' }}><InvoiceSheet data={data} lang={lang} /></div></InvoiceFit>
       </div>
     </div>
   );
@@ -184,8 +243,10 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
     else if (mode === 'rsa') setMode('normal');
   };
   const revenueAccounts = state.accounts.filter((a) => a.entityId === entityId && a.isPostable && a.kind === 'income' && a.code.startsWith('7')).sort((a, b) => a.code.localeCompare(b.code));
-  const banks = state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && !b.isCash);
-  const [bankId, setBankId] = useState(banks.find((b) => b.currency === currency)?.id ?? banks[0]?.id ?? '');
+  // [bumex-one] the favourite accounts first, and the default (invoiceBankFor: a favourite in the invoice's currency…)
+  const banks = favoritesFirst(state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && !b.isCash));
+  const bankFor = (c: Currency) => invoiceBankFor(state, entityId, c)?.id ?? '';
+  const [bankId, setBankId] = useState(() => bankFor(currency));
   // An invoice in another currency than the floor's (MRU, or MAD at BUMEX Maroc) carries the rate typed on it, never the
   // rate table's (asked on 2026-11-17): it cannot be saved, not even as a draft, until the rate is entered.
   const foreign = currency !== entity.functionalCurrency;
@@ -193,7 +254,7 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
   const typedRate = (() => { const n = Number(rate.trim().replace(/\s/g, '').replace(',', '.')); return rate.trim() && Number.isFinite(n) && n > 0 ? n : null; })();
   const rateMissing = foreign && typedRate === null;
   const effRate = foreign ? typedRate ?? 0 : 1;
-  const pickCurrency = (c: Currency) => { setCurrency(c); setRate(''); };
+  const pickCurrency = (c: Currency) => { setCurrency(c); setRate(''); setBankId(bankFor(c)); };
 
   const input = () => ({
     entityId, customerId, date, currency, fxRate: effRate, engagementId: engagementId || undefined, bankAccountId: bankId || undefined,
@@ -233,7 +294,7 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
       <form className="grow" onSubmit={(e) => e.preventDefault()}>
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="grid4">
-            <Field label={t('customer')}><Select recent="customers" className="in" value={customerId} onChange={(e) => { setCustomerId(e.target.value); const c = customers.find((x) => x.id === e.target.value); if (c) { pickCurrency(c.defaultCurrency); setBankId(banks.find((b) => b.currency === c.defaultCurrency)?.id ?? banks[0]?.id ?? ''); } setWht('default'); setMode(modeOf(c)); }}>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
+            <Field label={t('customer')}><Select recent="customers" className="in" value={customerId} onChange={(e) => { setCustomerId(e.target.value); const c = customers.find((x) => x.id === e.target.value); if (c) pickCurrency(c.defaultCurrency); setWht('default'); setMode(modeOf(c)); }}>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
             <Field label="Régime du client">
               <Select className="in" value={mode} onChange={(e) => pickMode(e.target.value as InvoiceMode)}>
                 {customer && customer.regime !== 'standard' && customer.regime !== 'gta' && <option value="card">Fiche client · {REGIMES.find((r) => r[0] === customer.regime)?.[1]}</option>}
@@ -252,7 +313,7 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
               </div>
             </Field>
             <Field label="Mission"><Select recent="missions" className="in" value={engagementId} onChange={(e) => setEngagementId(e.target.value)}><option value="">—</option>{state.engagements.filter((x) => x.entityId === entityId && x.customerId === customerId).map((x) => <option key={x.id} value={x.id}>{x.code} · {x.name}</option>)}</Select></Field>
-            <Field label="Bloc bancaire imprimé"><Select recent="banks" className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name}</option>)}</Select></Field>
+            <Field label="Bloc bancaire imprimé"><Select className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id} data-hint={b.currency}>{b.favorite ? '★ ' : ''}{b.bankName} · {b.name}</option>)}</Select></Field>
             <Field label="Retenue à la source appliquée par le client">
               <Select className="in" value={wht} onChange={(e) => pickWht(e.target.value)}>
                 <option value="default">{customer?.withholdingCodeId ? `Fiche client · ${whtCodes.find((x) => x.id === customer.withholdingCodeId)?.code ?? ''} (${Math.round((whtCodes.find((x) => x.id === customer.withholdingCodeId)?.rate ?? 0) * 100)} %)` : 'Fiche client · aucune retenue'}</option>
@@ -326,11 +387,11 @@ function Payments({ entityId, preselect }: { entityId: Id; preselect: Id | null 
   const sel = open.find((o) => o.invoice.id === invoiceId);
   const [amount, setAmount] = useState(sel ? String(sel.openTxn) : '');
   const [date, setDate] = useState(state.today);
-  const banks = state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && b.currency === (sel?.invoice.currency ?? 'MRU'));
+  const banks = favoritesFirst(state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && b.currency === (sel?.invoice.currency ?? 'MRU')));
   const [bankId, setBankId] = useState(banks[0]?.id ?? '');
   const [ref, setRef] = useState('');
   const [tracked, setTracked] = useState(invoiceId);
-  if (tracked !== invoiceId) { setTracked(invoiceId); const o = open.find((x) => x.invoice.id === invoiceId); setAmount(o ? String(o.openTxn) : ''); const b = state.bankAccounts.find((x) => x.entityId === entityId && x.currency === o?.invoice.currency); if (b) setBankId(b.id); }
+  if (tracked !== invoiceId) { setTracked(invoiceId); const o = open.find((x) => x.invoice.id === invoiceId); setAmount(o ? String(o.openTxn) : ''); const b = favoritesFirst(state.bankAccounts.filter((x) => x.entityId === entityId && x.active !== false && x.currency === o?.invoice.currency))[0]; if (b) setBankId(b.id); }
   const payments = state.customerPayments.filter((p) => p.entityId === entityId).sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 40);
   return (
     <div className="cols">
@@ -348,7 +409,7 @@ function Payments({ entityId, preselect }: { entityId: Id; preselect: Id | null 
           <Field label="Facture ouverte"><Select className="in" value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)}>{open.map((o) => <option key={o.invoice.id} value={o.invoice.id}>{o.invoice.number} · {o.customer.name} · {o.invoice.currency} {fmt(o.openTxn)}</option>)}</Select></Field>
           <Field label={`${t('amount')} reçu (${sel?.invoice.currency ?? ''})`} style={{ marginTop: 8 }}><input className="in num" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
           <Field label={t('date')} style={{ marginTop: 8 }}><input className="in mono" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-          <Field label="Compte bancaire (même devise)" style={{ marginTop: 8 }}><Select recent="banks" className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name}</option>)}</Select></Field>
+          <Field label="Compte bancaire (même devise)" style={{ marginTop: 8 }}><Select className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.favorite ? '★ ' : ''}{b.bankName} · {b.name}</option>)}</Select></Field>
           <Field label="Référence" style={{ marginTop: 8 }}><input className="in" value={ref} onChange={(e) => setRef(e.target.value)} /></Field>
           <button className="btn primary" style={{ marginTop: 10, width: '100%', justifyContent: 'center' }} disabled={!sel || !bankId} onClick={() => { const amt = parseAmount(amount); if (!sel || amt === null) return; apply((s) => recordPayment(s, { entityId, customerId: sel.customer.id, date, currency: sel.invoice.currency, amountTxn: amt, bankAccountId: bankId, invoiceId: sel.invoice.id, reference: ref || sel.invoice.number }), "Encaissement comptabilisé et lettré"); }}>Enregistrer l'encaissement</button>
           <div className="small muted" style={{ marginTop: 8 }}>Lettrage automatique ; en devise, l'écart entre le cours de la facture et celui du jour est passé en 778 / 678.</div>
@@ -432,6 +493,7 @@ function Customers({ entityId }: { entityId: Id }) {
   const [wht, setWht] = useState('');
   const [nif, setNif] = useState('');
   const [email, setEmail] = useState('');
+  const [address, setAddress] = useState(''); // [bumex-one] printed under "Billed To"
   const [code, setCode] = useState('');
   const [collectiveId, setCollectiveId] = useState('');
   const nextCode = (() => { try { return nextThirdPartyCode(state, entityId, 'customer'); } catch { return ''; } })();
@@ -440,10 +502,10 @@ function Customers({ entityId }: { entityId: Id }) {
   const auxOf = (c: { arAccountId?: Id }) => (c.arAccountId ? state.accounts.find((a) => a.id === c.arAccountId) : undefined);
   const load = (id: Id | null) => {
     const c = id ? rows.find((x) => x.id === id) : undefined;
-    setEditId(id); setName(c?.name ?? ''); setRegime(c?.regime ?? 'standard'); setCurrency(c?.defaultCurrency ?? 'MRU'); setTerms(String(c?.paymentTermsDays ?? 30)); setWht(c?.withholdingCodeId ?? ''); setNif(c?.nif ?? ''); setEmail(c?.email ?? ''); setCode(c?.code ?? ''); setCollectiveId(c ? auxOf(c)?.collectiveId ?? '' : '');
+    setEditId(id); setName(c?.name ?? ''); setRegime(c?.regime ?? 'standard'); setCurrency(c?.defaultCurrency ?? 'MRU'); setTerms(String(c?.paymentTermsDays ?? 30)); setWht(c?.withholdingCodeId ?? ''); setNif(c?.nif ?? ''); setEmail(c?.email ?? ''); setAddress(c?.address ?? ''); setCode(c?.code ?? ''); setCollectiveId(c ? auxOf(c)?.collectiveId ?? '' : '');
   };
   const save = () => {
-    const patch = { name: name.trim(), regime, defaultCurrency: currency, paymentTermsDays: Number(terms) || 30, withholdingCodeId: wht || undefined, nif: nif || undefined, email: email || undefined, country: regime === 'non_resident' ? 'XX' : 'MR', collectiveId: collectiveId || undefined };
+    const patch = { name: name.trim(), regime, defaultCurrency: currency, paymentTermsDays: Number(terms) || 30, withholdingCodeId: wht || undefined, nif: nif || undefined, email: email || undefined, address: address.trim() || undefined, country: regime === 'non_resident' ? 'XX' : 'MR', collectiveId: collectiveId || undefined };
     if (apply((s) => (editing ? updateCustomer(s, editing.id, { ...patch, code: code.trim() || editing.code }) : addCustomer(s, { entityId, code: code.trim() || undefined, ...patch })), editing ? 'Fiche client mise à jour' : 'Client créé avec son compte auxiliaire')) load(null);
   };
   const open = openInvoices(state, entityId);
@@ -475,6 +537,7 @@ function Customers({ entityId }: { entityId: Id }) {
             <Field label="NIF"><input className="in mono" value={nif} onChange={(e) => setNif(e.target.value)} /></Field>
             <Field label="E-mail"><input className="in" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
           </div>
+          <Field label="Adresse (imprimée sur les factures)" style={{ marginTop: 8 }}><textarea className="in" rows={3} value={address} onChange={(e) => setAddress(e.target.value)} placeholder={editing?.clientAddress ? `Fiche relation · ${editing.clientAddress.replace(/\n/g, ', ')}` : 'Villa N° 538 Ksar 23-030\n538 Nouakchott'} style={{ height: 'auto', resize: 'vertical' }} /></Field>
           <div className="actions" style={{ marginTop: 10 }}>
             {editing && <button className="btn" onClick={() => load(null)}>Annuler</button>}
             <button className="btn primary" disabled={!name.trim()} onClick={save}>{editing ? 'Enregistrer' : 'Créer'}</button>

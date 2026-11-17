@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   assetRegister, addAsset, updateAsset, depreciationSchedule, yearDepreciation, postDepreciation, addAssetCategory, updateAssetCategory, DECLINING_COEFFICIENT,
   fmt, r2, parseAmount, type Id, type Asset, type DepreciationMethod,
+  favoritesFirst, // [bumex-one]
 } from '@bumex/domain';
 import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, DeleteButton, downloadXlsx, entryRef } from '../common';
@@ -100,7 +101,7 @@ function NewAsset({ entityId, onDone }: { entityId: Id; onDone: (id: Id) => void
   const [location, setLocation] = useState('');
   const [supplierId, setSupplierId] = useState('');
   const [post, setPost] = useState<'none' | 'supplier' | 'bank'>('none');
-  const banks = state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false);
+  const banks = favoritesFirst(state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false)); // [bumex-one] favourites first
   const [bankId, setBankId] = useState(banks[0]?.id ?? '');
   const [vat, setVat] = useState('');
   const [notes, setNotes] = useState('');
@@ -137,7 +138,7 @@ function NewAsset({ entityId, onDone }: { entityId: Id; onDone: (id: Id) => void
             <Field label="Fournisseur"><Select recent="suppliers" className="in" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}><option value="">—</option>{state.suppliers.filter((s) => s.entityId === entityId).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field>
             <Field label="Écriture d'acquisition"><Select className="in" value={post} onChange={(e) => setPost(e.target.value as 'none' | 'supplier' | 'bank')}><option value="none">Aucune (déjà comptabilisée)</option><option value="supplier">Immobilisation D · fournisseur C</option><option value="bank">Immobilisation D · banque C</option></Select></Field>
             {post !== 'none' && <Field label="TVA déductible (montant)"><input className="in num" value={vat} onChange={(e) => setVat(e.target.value)} placeholder="0,00" /></Field>}
-            {post === 'bank' && <Field label="Compte bancaire"><Select recent="banks" className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name}</option>)}</Select></Field>}
+            {post === 'bank' && <Field label="Compte bancaire"><Select className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.favorite ? '★ ' : ''}{b.bankName} · {b.name}</option>)}</Select></Field>}
             <Field label="Notes" style={{ gridColumn: 'span 3' }}><input className="in" value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
           </div>
           <div className="actions"><button type="submit" className="btn primary" disabled={!name.trim() || !categoryId || c <= 0 || (post === 'supplier' && !supplierId)}>Enregistrer l'immobilisation</button></div>

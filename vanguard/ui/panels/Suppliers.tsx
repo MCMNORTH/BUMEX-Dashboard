@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   createSupplierInvoice, approveSupplierInvoice, rejectSupplierInvoice, paySupplierInvoice, supplierPayables, addSupplier, updateSupplier, fxRate, mapped, APPROVAL_THRESHOLDS, nextThirdPartyCode, collectiveFor, accountBalance,
   fmt, r2, parseAmount, type Id, type Currency, type CounterpartyRegime, type SupplierInvoice,
+  favoritesFirst, // [bumex-one]
 } from '@bumex/domain';
 import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, DeleteButton, downloadXlsx, entryRef } from '../common';
@@ -203,7 +204,7 @@ function Payments({ entityId, preselect }: { entityId: Id; preselect: Id | null 
   const sel = open.find((o) => o.id === invoiceId);
   const [amount, setAmount] = useState(sel ? String(r2(sel.netPayable - sel.amountPaid)) : '');
   const [date, setDate] = useState(state.today);
-  const banks = state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && b.currency === (sel?.currency ?? 'MRU'));
+  const banks = favoritesFirst(state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && b.currency === (sel?.currency ?? 'MRU'))); // [bumex-one] favourites first
   const [bankId, setBankId] = useState(banks[0]?.id ?? '');
   const [ref, setRef] = useState('');
   const [tracked, setTracked] = useState(invoiceId);
@@ -225,7 +226,7 @@ function Payments({ entityId, preselect }: { entityId: Id; preselect: Id | null 
           <Field label="Facture comptabilisée"><Select recent="supplier-invoices" className="in" value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)}>{open.map((o) => <option key={o.id} value={o.id}>{state.suppliers.find((s) => s.id === o.supplierId)?.name} · {o.supplierRef} · {o.currency} {fmt(r2(o.netPayable - o.amountPaid))}</option>)}</Select></Field>
           <Field label={`${t('amount')} (${sel?.currency ?? ''})`} style={{ marginTop: 8 }}><input className="in num" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
           <Field label={t('date')} style={{ marginTop: 8 }}><input className="in mono" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-          <Field label="Compte bancaire (même devise)" style={{ marginTop: 8 }}><Select recent="banks" className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.name}</option>)}</Select></Field>
+          <Field label="Compte bancaire (même devise)" style={{ marginTop: 8 }}><Select className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.favorite ? '★ ' : ''}{b.bankName} · {b.name}</option>)}</Select></Field>
           <Field label="Référence du virement" style={{ marginTop: 8 }}><input className="in" value={ref} onChange={(e) => setRef(e.target.value)} /></Field>
           <button className="btn primary" style={{ marginTop: 10, width: '100%', justifyContent: 'center' }} disabled={!sel || !bankId} onClick={() => { const amt = parseAmount(amount); if (!sel || amt === null) return; apply((s) => paySupplierInvoice(s, { invoiceId: sel.id, date, bankAccountId: bankId, amount: amt, reference: ref || undefined }), 'Règlement comptabilisé'); }}>Enregistrer le règlement</button>
           <div className="small muted" style={{ marginTop: 8 }}>Écriture fournisseur D · banque C ; un règlement partiel laisse la facture ouverte pour le solde.</div>

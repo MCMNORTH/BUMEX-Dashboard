@@ -19,6 +19,7 @@ import { record, type VanguardChange } from "@/lib/erp/vanguard/record";
 import { ReplayError } from "@/lib/erp/vanguard/replay";
 import { applyVanguardChange, saveVanguardChange } from "@/lib/erp/vanguard/save";
 import { visibleState } from "@/lib/erp/vanguard/visible";
+import { readInvoiceByLink } from "@/lib/erp/invoice-link";
 import { storedAccess } from "@/lib/erp/permissions";
 import type { BumexEntityCode } from "@/types/entity";
 import type { ErpAccess, ErpEntityModules, ErpModuleKey, ErpRole } from "@/types/erp";
@@ -334,6 +335,30 @@ describe("the modules", () => {
     const thirdPosted = booked.state.salesInvoices.find((i) => i.id === third.id)!;
     expect(thirdPosted).toMatchObject({ status: "posted", number: "IN2605-0003" });
     expect(booked.state.entries.find((e) => e.id === thirdPosted.journalEntryId)).toMatchObject({ status: "posted", sourceType: "sales_invoice" });
+
+    // the invoice as printed (0018): the letterhead, the customer's address, a favourite bank with its BIC and holder,
+    // and the invoice's link, read without signing in
+    const headed = await change("aicha", (s) => domain.setEntityLetterhead(s, audit, { address: "301, Rue Cheikh Saad Bouh Kane\n BP : 7763 Nouakchott ", phone: "45 25 26 26", email: "audit@bumex.mr", capitalAmount: 5000000, capitalCurrency: "MRU" }));
+    expect(headed.state.entities.find((e) => e.id === audit)).toMatchObject({ address: "301, Rue Cheikh Saad Bouh Kane\nBP : 7763 Nouakchott", phone: "45 25 26 26", email: "audit@bumex.mr", capitalAmount: 5000000, capitalCurrency: "MRU" });
+    const addressed = await change("aicha", (s) => domain.updateCustomer(s, customer, { address: "Villa N° 538 Ksar 23-030\n538 Nouakchott" }));
+    expect(addressed.state.customers.find((c) => c.id === customer)!.address).toBe("Villa N° 538 Ksar 23-030\n538 Nouakchott");
+    const starred = await change("aicha", (s) => domain.updateBankAccount(s, bank, { favorite: true, accountHolder: "BUMEX AUDIT", bic: "biimmrmr" }));
+    expect(starred.state.bankAccounts.find((b) => b.id === bank)).toMatchObject({ favorite: true, accountHolder: "BUMEX AUDIT", bic: "BIIMMRMR" });
+    expect(domain.invoiceBankFor(starred.state, audit, "MRU")!.id).toBe(bank);
+
+    const token = starred.state.salesInvoices.find((i) => i.id === third.id)!.publicToken!;
+    expect(token).toMatch(/^[0-9a-f-]{36}$/);
+    expect(new Set(starred.state.salesInvoices.map((i) => i.publicToken)).size).toBe(starred.state.salesInvoices.length);
+    const linked = await asSystem(() => readInvoiceByLink(tx, token));
+    expect(linked!.data).toMatchObject({
+      number: "IN2605-0003", status: "posted", currency: "MRU", totalHt: 80000,
+      entity: { phone: "45 25 26 26", address: "301, Rue Cheikh Saad Bouh Kane\nBP : 7763 Nouakchott", capitalAmount: 5000000 },
+      customer: { name: "SNIM", address: "Villa N° 538 Ksar 23-030\n538 Nouakchott" },
+      bank: { bankName: "BNM", accountHolder: "BUMEX AUDIT", bic: "BIIMMRMR" },
+    });
+    expect(linked!.data.lines).toMatchObject([{ lineNo: 1, description: "Fiscal", quantity: 1, unitPrice: 80000, lineHt: 80000 }]);
+    expect(await asSystem(() => readInvoiceByLink(tx, "00000000-0000-4000-8000-000000000000"))).toBeNull();
+    expect(await asSystem(() => readInvoiceByLink(tx, "not-a-token"))).toBeNull();
   });
 
   it("bank: a statement imported, a fee booked by rule", async () => {
