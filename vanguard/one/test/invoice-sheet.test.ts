@@ -58,6 +58,8 @@ describe('the invoice sheet', () => {
       expect(t, s).toContain(s);
     }
     expect(html).toContain('<svg class="ivx-qr"');
+    // the app's print rules hide <header>, <nav> and <aside> (app/globals.css): the letterhead vanished on paper
+    expect(html).not.toMatch(/<(header|nav|aside)[\s>]/);
     expect(html).toContain('aria-label="https://app.bumex.mr/i/0b7c6f2e-1111-4444-8888-123456789abc"');
   });
   it('in French, with the withholding and no QR code before the invoice has its link', () => {

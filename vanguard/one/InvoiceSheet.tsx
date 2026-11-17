@@ -7,6 +7,7 @@ import { amountSentence, currencyName, type InvoiceLang } from './invoice-words'
 // and the registered office's footer. One A4 page; English or French.
 // Pure: drawn in Vanguard (Clients › invoices, vanguard/ui/panels/Clients.tsx) and on the invoice's public page, the
 // QR code's link (app/i/[token]); its styles are its own (the .bumex-page class keeps Vanguard's out).
+// Plain <div>s only: the app's print rules hide every <header>, <nav> and <aside> (app/globals.css).
 
 export type { InvoiceLang };
 
@@ -113,7 +114,7 @@ export function InvoiceSheet({ data, lang }: { data: InvoiceSheetData; lang: Inv
     <div className="ivx bumex-page" lang={lang}>
       <style>{CSS}</style>
       <div className="ivx-page">
-        <header className="ivx-head">
+        <div className="ivx-head">
           <img className="ivx-logo" src={e.logoUrl || DEFAULT_INVOICE_LOGO} alt="" />
           <div className="ivx-co">
             <div className="ivx-co-name">{e.name}</div>
@@ -134,9 +135,9 @@ export function InvoiceSheet({ data, lang }: { data: InvoiceSheetData; lang: Inv
               </tbody>
             </table>
           </div>
-        </header>
+        </div>
         <div className="ivx-bar" />
-        <section className="ivx-parties">
+        <div className="ivx-parties">
           <div className="ivx-qr-cell">{data.url && <Qr text={data.url} />}</div>
           <div className="ivx-to">
             <div className="ivx-label">{t.billedTo}</div>
@@ -146,7 +147,7 @@ export function InvoiceSheet({ data, lang }: { data: InvoiceSheetData; lang: Inv
               {data.customer.nif && <div>{t.nif}{t.sep} {data.customer.nif}</div>}
             </div>
           </div>
-        </section>
+        </div>
         <div className="ivx-rule" />
         <div className="ivx-amount-in">{t.amountIn(currencyName(data.currency, lang))}</div>
         <table className="ivx-lines">
@@ -174,7 +175,7 @@ export function InvoiceSheet({ data, lang }: { data: InvoiceSheetData; lang: Inv
           <div className="ivx-due"><span>{t.totalDue}</span><span>{money(data.netPayable, lang)}</span></div>
         </div>
         <div className="ivx-fill" />
-        <section className="ivx-bottom">
+        <div className="ivx-bottom">
           <div className="ivx-pay">
             {b && <>
               <div className="ivx-pay-h">{t.paymentInfo}</div>
@@ -185,14 +186,14 @@ export function InvoiceSheet({ data, lang }: { data: InvoiceSheetData; lang: Inv
           <div className="ivx-sign">
             <div className="ivx-sign-area">{t.signature}</div>
           </div>
-        </section>
-        <footer className="ivx-foot">
+        </div>
+        <div className="ivx-foot">
           <div className="ivx-b">{t.registered}{t.sep} {office}</div>
           {footContact && <div className="ivx-b">{footContact}</div>}
           {e.capitalAmount != null && <div>{t.capital} {money(e.capitalAmount, lang, 0)} {e.capitalCurrency ?? ''}</div>}
           {e.nif && <div>{t.nif}{t.sep} {e.nif}</div>}
           {data.lines.length <= 10 && <span className="ivx-pageno">1 / 1</span>}
-        </footer>
+        </div>
       </div>
     </div>
   );
