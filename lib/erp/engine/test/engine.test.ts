@@ -229,6 +229,12 @@ describe('sales', () => {
     expect(validateInvoice(s3, blank.id)[1].number).toMatch(/^IN\d{4}-\d{4}$/);
     const [, renamed] = updateInvoice(s3, blank.id, { ...input, number: 'OLD-2025-007' });
     expect(renamed.number).toBe('OLD-2025-007');
+    // a credit note too: typed, kept; blank, the sequence; no duplicate
+    const [s4, cn] = createCreditNote(s2, typed.id, 'reprise', TODAY, undefined, ' AV-OLD-12 ');
+    expect(cn.number).toBe('AV-OLD-12');
+    expect(() => createCreditNote(s4, typed.id, 'reprise', TODAY, undefined, 'av-old-12')).toThrow(/existe déjà/);
+    const [, auto] = createCreditNote(s2, typed.id, 'reprise', TODAY);
+    expect(auto.number).toMatch(/^AV\d{4}-\d{4}$/);
   });
   it('edits a draft (lines, WHT) and deletes it; a validated invoice is neither edited nor deleted (2026-11-17)', () => {
     const customer = cust('gta');

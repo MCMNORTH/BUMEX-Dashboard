@@ -217,14 +217,18 @@ export function postInvoice(state: State, invoiceId: Id): [State, SalesInvoice] 
 }
 
 // credit_note.v1 — mirror of the invoice entry
-export function createCreditNote(state: State, invoiceId: Id, reason: string, date: ISODate, lineNos?: number[]): [State, CreditNote] {
+// [bumex-one] number: typed by hand (importing the old credit notes, 2026-11-17), unique on the entity; empty: the sequence's
+export function createCreditNote(state: State, invoiceId: Id, reason: string, date: ISODate, lineNos?: number[], typedNumber?: string): [State, CreditNote] {
   requirePost(state);
   const inv = state.salesInvoices.find((i) => i.id === invoiceId);
   if (!inv || !invoiceAccounted(inv)) throw new DomainError('state', 'Avoir possible sur une facture comptabilisée uniquement');
   const customer = customerOf(state, inv.customerId);
   const lines = inv.lines.filter((l) => !lineNos || lineNos.includes(l.lineNo)).map((l, i) => ({ ...l, lineNo: i + 1 }));
   const [s1, id] = nextId(state, 'cn');
-  const [s2, number] = nextNumber(s1, inv.entityId, 'credit_note', '', date, 'AV{YY}{MM}-{SEQ4}', 'month');
+  const typed = typedNumber?.trim();
+  if (typed && typed.length > 40) throw new DomainError('number', "Numéro d'avoir : 40 caractères au plus");
+  if (typed && state.creditNotes.some((c) => c.entityId === inv.entityId && c.number?.toLowerCase() === typed.toLowerCase())) throw new DomainError('number', `L'avoir ${typed} existe déjà`);
+  const [s2, number] = typed ? [s1, typed] : nextNumber(s1, inv.entityId, 'credit_note', '', date, 'AV{YY}{MM}-{SEQ4}', 'month');
   const ar = arAccountFor(state, inv.entityId, customer);
   const journal = state.journals.find((j) => j.entityId === inv.entityId && j.kind === 'sales')!;
   const totalTtc = sum(lines.map((l) => l.lineTtc));

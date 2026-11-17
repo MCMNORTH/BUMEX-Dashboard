@@ -202,7 +202,7 @@ function Invoices({ entityId, onPay, onEdit }: { entityId: Id; onPay: (id: Id) =
                     {i.status === 'draft' && <><button className="btn sm" onClick={() => onEdit(i.id)}>{t('edit')}</button>{' '}<button className="btn sm" onClick={() => apply((s) => validateInvoice(s, i.id), 'Facture validée et numérotée')}>{t('validate')}</button>{' '}</>}
                     {(i.status === 'draft' || i.status === 'validated') && <button className="btn sm primary" onClick={() => apply((s) => postInvoice(s, i.id), 'Facture comptabilisée')}>{t('post')}</button>}
                     {i.status === 'draft' && <>{' '}<DeleteButton table="sales_invoice" rowId={i.id} label={`Facture brouillon · ${c.name} · ${i.currency} ${fmt(i.netPayable)} · ${i.date}`} entityId={entityId} /></>}
-                    {o && <><button className="btn sm" onClick={() => onPay(i.id)}>Encaisser</button>{' '}<button className="btn sm" onClick={() => { const reason = prompt("Motif de l'avoir ?", 'remise commerciale'); if (reason !== null) apply((s) => createCreditNote(s, i.id, reason, s.today), 'Avoir émis et comptabilisé'); }}>Avoir</button></>}
+                    {o && <><button className="btn sm" onClick={() => onPay(i.id)}>Encaisser</button>{' '}<button className="btn sm" onClick={() => { const reason = prompt("Motif de l'avoir ?", 'remise commerciale'); if (reason === null) return; const number = prompt("N° de l'avoir (vide : automatique)", ''); if (number === null) return; apply((s) => createCreditNote(s, i.id, reason, s.today, undefined, number || undefined), 'Avoir émis et comptabilisé'); }}>Avoir</button></>}
                   </td>
                 </tr>
               );
