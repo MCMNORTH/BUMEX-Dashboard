@@ -4,13 +4,14 @@ import { useStore } from '../../store';
 import { Field, Tabs, Chip, saveFile } from '../common';
 import { History } from '../../one/History'; // [bumex-one] one history: the ERP's audit and BUMEX One's activity
 import { MyAccountPanel } from '../../one/Account'; // [bumex-one]
+import { FxRatesPanel } from '../../one/FxRates'; // [bumex-one] the exchange rates (2026-11-17)
 import { PermissionsPanel } from '../../one/Permissions'; // [bumex-one] who sees which entity, and which parts of it
 import { useSay } from '../../one/say'; // [bumex-one]
 import logoImage from '../../assets/logo.jpg'; // [bumex-one] Next imports images as objects
 const logo = logoImage.src;
 import { Select } from '../Select';
 
-type Tab = 'general' | 'account' | 'access' | 'deletions' | 'history'; // [bumex-one] account
+type Tab = 'general' | 'account' | 'access' | 'rates' | 'deletions' | 'history'; // [bumex-one] account, rates (exchange rates)
 
 const MODULE_LABEL: Record<string, string> = { accounting: 'Comptabilité', bank: 'Trésorerie', clients: 'Clients', suppliers: 'Fournisseurs', missions: 'Missions', assets: 'Immobilisations', hr: 'Ressources humaines', tax: 'Fiscalité', archives: 'Archives', tasks: 'Tâches', reports: 'Rapports', penthouse: 'Holding · consolidé' };
 
@@ -18,7 +19,7 @@ export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
   const { state, ui, t, setUi, setLang, setQuality, reset, openRoom, toast } = useStore();
   const admin = state.session.managesAccess === true; // [bumex-one] the role modifiers (0009)
   const say = useSay(); // [bumex-one]
-  const tabs: { id: Tab; label: string }[] = [{ id: 'general', label: 'Général' }, { id: 'account', label: say('Mon compte', 'My account') }, ...(admin ? [{ id: 'access' as Tab, label: say('Permissions', 'Permissions') }] : []), { id: 'deletions', label: `Demandes de suppression · ${pendingDeletions(state).length}` }, { id: 'history', label: 'Historique' }];
+  const tabs: { id: Tab; label: string }[] = [{ id: 'general', label: 'Général' }, { id: 'account', label: say('Mon compte', 'My account') }, ...(admin ? [{ id: 'access' as Tab, label: say('Permissions', 'Permissions') }] : []), { id: 'rates', label: say('Taux de change', 'Exchange rates') }, { id: 'deletions', label: `Demandes de suppression · ${pendingDeletions(state).length}` }, { id: 'history', label: 'Historique' }];
   const [tab, setTab] = useState<Tab>(initialTab && tabs.some((x) => x.id === initialTab) ? (initialTab as Tab) : 'general');
   useEffect(() => { if (initialTab && tabs.some((x) => x.id === initialTab)) setTab(initialTab as Tab); }, [initialTab]); // [bumex-one] a link to another tab while the room is open
   return (
@@ -28,6 +29,7 @@ export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
         {tab === 'general' && <General />}
         {tab === 'account' && <MyAccountPanel />}{/* [bumex-one] BUMEX One's profile, preferences, security */}
         {tab === 'access' && admin && <PermissionsPanel />}
+        {tab === 'rates' && <FxRatesPanel />}
         {tab === 'deletions' && <Deletions />}
         {tab === 'history' && <History />}
         {tab === 'general' && (

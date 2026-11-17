@@ -39,7 +39,7 @@ export function BankPanel({ entityId, initialTab }: { entityId: Id; initialTab?:
 }
 
 function Accounts({ entityId }: { entityId: Id }) {
-  const { state, apply, t } = useStore();
+  const { state, apply, t, openRoom } = useStore(); // [bumex-one] openRoom: Réglages › Taux de change
   const rows = bankSummary(state, entityId);
   const entity = state.entities.find((e) => e.id === entityId)!;
   const [showInactive, setShowInactive] = useState(false);
@@ -69,7 +69,7 @@ function Accounts({ entityId }: { entityId: Id }) {
                     <td style={{ whiteSpace: 'nowrap' }}>{!r.account.isCash && <button type="button" className="btn sm" style={{ padding: '0 6px', marginRight: 6, color: r.account.favorite ? '#d99a00' : 'var(--muted)', border: 0, background: 'none', fontSize: 16 }} title={r.account.favorite ? 'Favori : retirer' : 'Mettre en favori (proposé en premier, banque par défaut des factures)'} aria-pressed={!!r.account.favorite} onClick={() => star(r.account)}>{r.account.favorite ? '★' : '☆'}</button>}<b>{r.account.name}</b>{r.account.active === false && <Chip kind="off"> désactivé</Chip>}{r.account.showOnInvoices && <div className="small muted">imprimé sur les factures</div>}</td>
                     <td>{r.account.isCash ? <span className="muted">caisse</span> : <>{r.account.bankName}<div className="small muted mono">{r.account.accountNumber ?? r.account.iban ?? '—'}</div></>}</td>
                     <td>{r.account.currency}</td><td className="mono small">{gl ? `${gl.code} ${gl.nameFr}` : '—'}</td><td className="mono small">{j ? `${j.code} · ${j.name}` : '—'}</td>
-                    <td className="num">{r.bookBalance === null ? <span className="muted" title={`Pas de taux ${r.account.currency}/${entity.functionalCurrency} à ce jour : saisissez-le dans les taux de change`}>— · {fmt(r.bookBalanceFunctional)} {entity.functionalCurrency}</span> : fmt(r.bookBalance)}</td><td className="num">{r.account.isCash ? '—' : fmt(r.statementBalance)}</td>
+                    <td className="num">{r.bookBalance === null ? <span className="muted" title={`Pas de taux ${r.account.currency}/${entity.functionalCurrency} à ce jour : saisissez-le dans Réglages › Taux de change`}>— · {fmt(r.bookBalanceFunctional)} {entity.functionalCurrency} <button className="btn sm" onClick={() => openRoom('settings', 'rates')}>Saisir le taux</button></span> : fmt(r.bookBalance)}</td><td className="num">{r.account.isCash ? '—' : fmt(r.statementBalance)}</td>
                     <td>{r.account.isCash ? <Chip kind="dim">comptage</Chip> : r.unmatched ? <Chip kind="warn">{r.unmatched} ligne(s) à traiter</Chip> : <Chip kind="good">à jour</Chip>}</td>
                     <td style={{ whiteSpace: 'nowrap' }}><button className="btn sm" onClick={() => setEditId(r.account.id)}>{t('edit')}</button> {r.account.active === false ? <button className="btn sm" onClick={() => apply((s) => setBankAccountActive(s, r.account.id, true), 'Compte réactivé')}>Réactiver</button> : <button className="btn sm" onClick={() => apply((s) => setBankAccountActive(s, r.account.id, false), 'Compte désactivé')}>Désactiver</button>}</td>
                   </tr>

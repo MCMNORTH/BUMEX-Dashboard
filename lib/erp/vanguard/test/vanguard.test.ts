@@ -286,6 +286,27 @@ describe("the modules", () => {
   let employee: string;
   let engagement: string;
 
+  it("exchange rates (Réglages › Taux de change): entered, imported in one statement, corrected, deleted; a staff member cannot", async () => {
+    const set = await change("awa", (s) => domain.setFxRate(s, { date: "2023-12-29", from: "EUR", to: "MRU", rate: 43.6624696, source: "BCM" }));
+    expect(set.state.fxRates).toContainEqual({ date: "2023-12-29", from: "EUR", to: "MRU", rate: 43.6624696, source: "BCM" });
+    // a year of BCM rates: every working day of 2024, EUR and USD
+    const days: string[] = [];
+    for (let d = new Date(Date.UTC(2024, 0, 2)); d.getUTCFullYear() === 2024; d.setUTCDate(d.getUTCDate() + 1)) if (d.getUTCDay() % 6) days.push(d.toISOString().slice(0, 10));
+    const rows = days.flatMap((date, i) => [{ date, from: "EUR" as const, to: "MRU" as const, rate: 43 - i / 1000 }, { date, from: "USD" as const, to: "MRU" as const, rate: 39.2 + i / 2000 }]);
+    const imported = await change("awa", (s) => domain.importFxRates(s, rows, "BCM"));
+    expect(imported.browser[1]).toMatchObject({ added: rows.length, replaced: 0 });
+    const stored = await asSystem(() => tx.query<{ n: number }>("select count(*)::int as n from erp.fx_rate where rate_date between '2024-01-01' and '2024-12-31'"));
+    expect(stored[0].n).toBe(rows.length);
+    expect(imported.state.fxRates.filter((r) => r.date.startsWith("2024"))).toHaveLength(rows.length);
+    // corrected, then deleted (no entry used it)
+    const fixed = await change("awa", (s) => domain.setFxRate(s, { date: "2024-05-29", from: "EUR", to: "MRU", rate: 40.9, source: "BCM" }));
+    expect(fixed.state.fxRates.find((r) => r.date === "2024-05-29" && r.from === "EUR")!.rate).toBe(40.9);
+    const removed = await change("awa", (s) => domain.deleteFxRate(s, { date: "2024-05-29", from: "USD", to: "MRU" }));
+    expect(removed.state.fxRates.some((r) => r.date === "2024-05-29" && r.from === "USD")).toBe(false);
+    expect(domain.fxRate(removed.state, "USD", "MRU", "2024-05-29")).toBe(removed.state.fxRates.find((r) => r.date === "2024-05-28" && r.from === "USD")!.rate);
+    await expect(change("sidi", (s) => domain.setFxRate(s, { date: "2024-06-03", from: "EUR", to: "MRU", rate: 41 }))).rejects.toThrow();
+  });
+
   it("clients: a customer with its auxiliary account, an invoice validated, numbered and posted, then paid", async () => {
     const created = await change("aicha", (s) => domain.addCustomer(s, { entityId: audit, name: "SNIM", regime: "standard", country: "MR", defaultCurrency: "MRU", paymentTermsDays: 30 }));
     const c = created.state.customers.find((x) => x.name === "SNIM")!;

@@ -44,7 +44,7 @@ export function fxRate(state: State, from: Currency, to: Currency, date: ISODate
     .filter((r) => r.from === to && r.to === from && r.date <= date)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
   if (inverse.length) return 1 / inverse[0].rate;
-  throw new DomainError('fx_missing', `Pas de taux ${from}/${to} au ${date}`);
+  throw new DomainError('fx_missing', `Pas de taux ${from}/${to} au ${date} : à saisir dans Réglages › Taux de change`); // [bumex-one] where
 }
 
 export function entityOf(state: State, entityId: Id) {

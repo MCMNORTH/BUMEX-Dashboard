@@ -3,7 +3,8 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { readErpAccess } from "@/lib/erp/access";
-import type { Account, AccountMapping, DeletionRequest, Entity, FiscalYear, Journal, JournalEntry, Period, State, TaxCode, TaxRule } from "@/lib/erp/engine";
+import type { Account, AccountMapping, DeletionRequest, Entity, FiscalYear, FxRate, Journal, JournalEntry, Period, State, TaxCode, TaxRule } from "@/lib/erp/engine";
+import { fxKey } from "@/lib/erp/engine";
 import type { ErpTransaction } from "@/lib/erp/db";
 import { loadVanguardState, type VanguardPerson } from "@/lib/erp/vanguard/load";
 import { moduleTables, tableWriter } from "@/lib/erp/vanguard/tables";
@@ -50,6 +51,7 @@ function changes<T>(before: T[], after: T[], key: (row: T) => string): Changes<T
 type Writer<T> = {
   key: (row: T) => string;
   add?: (tx: ErpTransaction, row: T, after: State) => Promise<unknown>;
+  addMany?: (tx: ErpTransaction, rows: T[]) => Promise<unknown>; // [bumex-one] many rows in one statement (an import)
   change?: (tx: ErpTransaction, before: T, after: T, state: State) => Promise<unknown>;
   remove?: (tx: ErpTransaction, row: T) => Promise<unknown>;
 };
@@ -134,6 +136,28 @@ const mappings: Writer<AccountMapping> = {
   add: (tx, m) => tx.query("insert into erp.account_mapping (entity_id, key, qualifier, account_id) values ($1, $2, $3, $4)", [m.entityId, m.key, m.qualifier, m.accountId]),
   change: (tx, _, m) => tx.query("update erp.account_mapping set account_id = $4 where entity_id = $1 and key = $2 and qualifier = $3", [m.entityId, m.key, m.qualifier, m.accountId]),
   remove: (tx, m) => tx.query("delete from erp.account_mapping where entity_id = $1 and key = $2 and qualifier = $3", [m.entityId, m.key, m.qualifier]),
+};
+
+// [bumex-one] The exchange rates (Réglages › Taux de change, lib/erp/engine/fx.ts): the group's, one per pair and day.
+const fxRates: Writer<FxRate> = {
+  key: fxKey,
+  add: (tx, r) =>
+    tx.query(
+      `insert into erp.fx_rate (group_id, rate_date, from_currency, to_currency, rate, source)
+       values ((select id from erp.org_group order by created_at limit 1), $1::date, $2, $3, $4::numeric, $5)`,
+      [r.date, r.from, r.to, r.rate, r.source],
+    ),
+  // an import (a year of BCM rates): one statement rather than one per rate
+  addMany: (tx, rows) =>
+    tx.query(
+      `insert into erp.fx_rate (group_id, rate_date, from_currency, to_currency, rate, source)
+       select (select id from erp.org_group order by created_at limit 1), d, f, t, r, s
+         from unnest($1::date[], $2::text[], $3::text[], $4::numeric[], $5::text[]) as x(d, f, t, r, s)`,
+      [rows.map((r) => r.date), rows.map((r) => r.from), rows.map((r) => r.to), rows.map((r) => r.rate), rows.map((r) => r.source)],
+    ),
+  change: (tx, _, r) =>
+    tx.query("update erp.fx_rate set rate = $4::numeric, source = $5 where rate_date = $1::date and from_currency = $2 and to_currency = $3", [r.date, r.from, r.to, r.rate, r.source]),
+  remove: (tx, r) => tx.query("delete from erp.fx_rate where rate_date = $1::date and from_currency = $2 and to_currency = $3", [r.date, r.from, r.to]),
 };
 
 const taxCodes: Writer<TaxCode> = {
@@ -235,6 +259,7 @@ const table = (collection: keyof State) => tableWriter(moduleTables.find((t) => 
 // In the order rows can be written (what a row refers to comes first); removals go the other way.
 const writers = [
     ["entities", entities],
+    ["fxRates", fxRates],
     ["fiscalYears", fiscalYears],
     ["periods", periods],
     ["accounts", accounts],
@@ -268,7 +293,7 @@ const writers = [
   ] as [keyof State, Writer<never>][];
 
 // Kept by the database, derived, or the person's own context: never written from the engine.
-const notWritten = new Set<keyof State>(["group", "session", "today", "seq", "chains", "auditLog", "bankRules", "fxRates"]);
+const notWritten = new Set<keyof State>(["group", "session", "today", "seq", "chains", "auditLog", "bankRules"]);
 
 // The documents' numbers (invoices, receipts, assets, archive boxes) follow the engine's counters; the entries'
 // numbers are given by the database when they are posted.
@@ -314,7 +339,8 @@ export async function saveVanguardChange(tx: ErpTransaction, before: State, afte
   }
   for (const { writer, found } of planned) {
     if (!found) continue;
-    for (const row of found.added) {
+    if (writer.addMany && found.added.length > 1) await writer.addMany(tx, found.added);
+    else for (const row of found.added) {
       if (!writer.add) throw new VanguardSaveError("Cet ajout n'est pas prévu.");
       await writer.add(tx, row, after);
     }

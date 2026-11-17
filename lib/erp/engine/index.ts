@@ -18,3 +18,4 @@ export * from './tasks';
 export * from './archive';
 export * from './seed';
 export * from './letterhead'; // [bumex-one]
+export * from './fx'; // [bumex-one] exchange rates
