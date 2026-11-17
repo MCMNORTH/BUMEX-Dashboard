@@ -29,7 +29,11 @@ describe('the amount in words', () => {
     expect(amountInWords(9850, 'EUR', 'fr')).toBe('neuf mille huit cent cinquante euros');
     expect(amountInWords(1_000_000, 'MRU', 'fr')).toBe("un million d'ouguiyas");
     expect(amountInWords(3_000_000, 'USD', 'fr')).toBe('trois millions de dollars US');
-    expect(amountInWords(1200.05, 'MRU', 'fr')).toBe('mille deux cents ouguiyas et cinq khoums');
+    // ouguiyas: nothing after the comma; the other currencies keep their cents
+    expect(amountInWords(1200.05, 'MRU', 'fr')).toBe('mille deux cents ouguiyas');
+    expect(amountInWords(1_112_903.23, 'MRU', 'fr')).toBe('un million cent douze mille neuf cent trois ouguiyas');
+    expect(amountInWords(1_035_000.99, 'MRU', 'en')).toBe('one million thirty-five thousand Ouguiyas');
+    expect(amountInWords(12.5, 'EUR', 'fr')).toBe('douze euros et cinquante centimes');
   });
 });
 
@@ -64,7 +68,7 @@ describe('the invoice sheet', () => {
   });
   it('in French, with the withholding and no QR code before the invoice has its link', () => {
     const t = text(renderToStaticMarkup(createElement(InvoiceSheet, { data: { ...model, number: undefined, currency: 'MRU', withholdingRate: 0.07, withholdingAmount: 262.5, netPayable: 3487.5, url: undefined }, lang: 'fr' })));
-    for (const s of ['Facture (brouillon)', 'Facturé à', 'Montant en ouguiyas', 'Virement bancaire', '1 500,00', 'Retenue à la source (7 %)', '−262,50', 'NET À PAYER', '3 487,50', 'BANQUE : SOCIETE GENERALE MAURITANIE', 'Capital de 10 000 000 MRU']) {
+    for (const s of ['Facture (brouillon)', 'Facturé à', 'Montant en ouguiyas', 'Virement bancaire', '1 500,00', 'Retenue à la source (7 %)', '−262,50', 'NET À PAYER', '3 487,50', 'Arrêtée la présente facture à la somme de trois mille quatre cent quatre-vingt-sept ouguiyas|', 'BANQUE : SOCIETE GENERALE MAURITANIE', 'Capital de 10 000 000 MRU']) {
       expect(t, s).toContain(s);
     }
     expect(renderToStaticMarkup(createElement(InvoiceSheet, { data: { ...model, url: undefined }, lang: 'fr' }))).not.toContain('ivx-qr"');

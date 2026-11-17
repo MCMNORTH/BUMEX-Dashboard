@@ -83,9 +83,12 @@ export function currencyName(currency: string, lang: InvoiceLang, plural = true)
 }
 
 // "nine thousand eight hundred fifty Euros", "mille deux cents ouguiyas et cinquante khoums"
+// Ouguiyas are written without what follows the comma (no khoums, asked on 2026-11-17); other currencies keep their cents.
+const WHOLE_UNITS_ONLY = new Set(['MRU']);
+
 export function amountInWords(amount: number, currency: string, lang: InvoiceLang): string {
   const total = Math.round(Math.abs(amount) * 100);
-  const units = Math.floor(total / 100), cents = total % 100;
+  const units = Math.floor(total / 100), cents = WHOLE_UNITS_ONLY.has(currency) ? 0 : total % 100;
   const words = lang === 'fr' ? numberToWordsFr : numberToWordsEn;
   const [one, many, cent, centsWord] = CURRENCY[lang][currency] ?? [currency, currency, '/100', '/100'];
   const name = units === 1 ? one : many;

@@ -161,7 +161,7 @@ export function InvoiceSheet({ data, lang }: { data: InvoiceSheetData; lang: Inv
             ))}
           </tbody>
         </table>
-        <div className="ivx-words">{amountSentence(data.totalTtc, data.currency, lang)}</div>
+        <div className="ivx-words">{amountSentence(data.netPayable, data.currency, lang)}</div>{/* the net to pay (asked on 2026-11-17) */}
         {data.legalMention && <div className="ivx-mention">{data.legalMention}</div>}
         <div className="ivx-totals">
           <table>
@@ -242,11 +242,12 @@ const CSS = `
 .ivx .ivx-totals table { width: 100%; border: 1px solid var(--ivx-line); border-radius: 6px; border-collapse: separate; overflow: hidden; }
 .ivx .ivx-totals td { padding: 6px 12px; font-weight: 700; font-size: 13.5px; border-bottom: 1px solid #e6eaef; }
 .ivx .ivx-totals tr:last-child td { border-bottom: 0; }
-.ivx .ivx-totals td:last-child { text-align: right; border-left: 1px solid #e6eaef; width: 42%; white-space: nowrap; }
+.ivx .ivx-totals td:first-child { white-space: nowrap; }
+.ivx .ivx-totals td:last-child { text-align: right; border-left: 1px solid #e6eaef; width: 38%; white-space: nowrap; }
 .ivx .ivx-due { display: flex; margin-top: 12px; background: var(--ivx-due); color: #fff; font-weight: 700; font-size: 14px; }
 .ivx .ivx-due span { padding: 7px 12px; }
 .ivx .ivx-due span:first-child { flex: 1; }
-.ivx .ivx-due span:last-child { width: 42%; text-align: right; border-left: 1px solid rgba(255,255,255,.45); white-space: nowrap; }
+.ivx .ivx-due span:last-child { width: 38%; text-align: right; border-left: 1px solid rgba(255,255,255,.45); white-space: nowrap; }
 .ivx .ivx-fill { flex: 1; min-height: 40px; }
 .ivx .ivx-bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 8px; }
 .ivx .ivx-pay { width: 50%; min-height: 1px; }
