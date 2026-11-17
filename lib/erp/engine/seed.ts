@@ -580,7 +580,7 @@ export function buildDemo(today: string): State {
   for (const e of ctx.s.entities) {
     for (const b of bankSummary(ctx.s, e.id)) {
       const unmatched = ctx.s.bankTransactions.filter((t) => t.bankAccountId === b.account.id && t.status === 'unmatched').reduce((a, t) => a + t.amount, 0);
-      ctx.s = { ...ctx.s, bankAccounts: ctx.s.bankAccounts.map((x) => (x.id === b.account.id ? { ...x, statementBalance: r2(b.bookBalance + unmatched), statementDate: addDays(today, -1) } : x)) };
+      ctx.s = { ...ctx.s, bankAccounts: ctx.s.bankAccounts.map((x) => (x.id === b.account.id ? { ...x, statementBalance: r2((b.bookBalance ?? 0) + unmatched), statementDate: addDays(today, -1) } : x)) };
     }
   }
 

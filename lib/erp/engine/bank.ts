@@ -151,7 +151,7 @@ export function bookTransfer(state: State, txnId: Id, targetBankAccountId: Id): 
 
 export interface BankSummary {
   account: BankAccount;
-  bookBalance: number; // bank currency, from the ledger (functional / rate for foreign accounts)
+  bookBalance: number | null; // bank currency, from the ledger (functional / rate for foreign accounts); null without a rate
   bookBalanceFunctional: number;
   statementBalance: number;
   unmatched: number;
@@ -163,9 +163,20 @@ export function bankSummary(state: State, entityId: Id): BankSummary[] {
     .filter((b) => b.entityId === entityId)
     .map((account) => {
       const functional = accountBalance(state, entityId, account.glAccountId);
-      const rate = fxRate(state, account.currency, entity.functionalCurrency, state.today);
-      return { account, bookBalance: r2(functional / rate), bookBalanceFunctional: functional, statementBalance: account.statementBalance, unmatched: state.bankTransactions.filter((t) => t.bankAccountId === account.id && t.status === 'unmatched').length };
+      // a foreign account without a rate up to today has no balance in its own currency, but its functional balance
+      // stands: a missing rate never stops the cash figures (2026-11-17: no EUR/MRU rate crashed the whole building)
+      const rate = rateOrNull(state, account.currency, entity.functionalCurrency, state.today);
+      return { account, bookBalance: rate ? r2(functional / rate) : null, bookBalanceFunctional: functional, statementBalance: account.statementBalance, unmatched: state.bankTransactions.filter((t) => t.bankAccountId === account.id && t.status === 'unmatched').length };
     });
+}
+
+function rateOrNull(state: State, from: Currency, to: Currency, date: ISODate): number | null {
+  try {
+    return fxRate(state, from, to, date);
+  } catch (e) {
+    if (e instanceof DomainError && e.code === 'fx_missing') return null;
+    throw e;
+  }
 }
 
 export function cashPosition(state: State, entityId: Id): number {

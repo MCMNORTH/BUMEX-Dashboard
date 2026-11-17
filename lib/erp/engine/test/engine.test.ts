@@ -231,7 +231,14 @@ describe('bank', () => {
   it('bank summary: statement minus book equals the unmatched lines', () => {
     const row = bankSummary(base, AUD).find((b) => b.account.id === bank.id)!;
     const unmatched = base.bankTransactions.filter((t) => t.bankAccountId === bank.id && t.status === 'unmatched').reduce((a, t) => a + t.amount, 0);
-    expect(r2(row.statementBalance - row.bookBalance)).toBe(r2(unmatched));
+    expect(r2(row.statementBalance - row.bookBalance!)).toBe(r2(unmatched));
+  });
+  it('a foreign bank account without a rate leaves its own-currency balance empty, never the cash or the signals', () => {
+    const eur: State = { ...base, fxRates: base.fxRates.filter((r) => r.from !== 'EUR' && r.to !== 'EUR'), bankAccounts: base.bankAccounts.map((b) => (b.id === bank.id ? { ...b, currency: 'EUR' } : b)) };
+    const row = bankSummary(eur, AUD).find((b) => b.account.id === bank.id)!;
+    expect(row.bookBalance).toBeNull();
+    expect(row.bookBalanceFunctional).toBe(bankSummary(base, AUD).find((b) => b.account.id === bank.id)!.bookBalanceFunctional);
+    expect(() => floorSignals(eur, AUD)).not.toThrow();
   });
   it('forecasts 13 weeks', () => {
     const f = cashForecast(base, AUD, 13, 900000);
