@@ -14,7 +14,7 @@ export type LinkedInvoice = { data: Omit<InvoiceSheetData, "url">; customerCount
 type InvoiceRow = {
   id: string; entity_id: string; number: string | null; status: string; date: string; due_date: string; currency: string; payment_mode: string;
   total_ht: number; total_tax: number; total_ttc: number; withholding_rate: number; withholding_amount: number; net_payable: number; legal_mention: string | null;
-  bank_account_id: string | null;
+  bank_account_id: string | null; gta_vat: boolean;
   e_name: string; e_country: string; e_address: string | null; e_phone: string | null; e_fax: string | null; e_email: string | null; e_web: string | null;
   e_nif: string | null; e_capital: number | null; e_capital_currency: string | null; e_logo: string | null;
   c_name: string; c_address: string | null; c_nif: string | null; c_country: string | null;
@@ -38,6 +38,7 @@ export async function readInvoiceByLink(tx: ErpTransaction, token: string): Prom
             i.total_ht::float8 as total_ht, i.total_tax::float8 as total_tax, i.total_ttc::float8 as total_ttc,
             coalesce(i.withholding_rate, 0)::float8 as withholding_rate, coalesce(i.withholding_amount, 0)::float8 as withholding_amount,
             coalesce(i.net_payable, i.total_ttc)::float8 as net_payable, i.legal_mention_fr as legal_mention, i.bank_account_id,
+            exists (select 1 from erp.sales_invoice_line l join erp.tax_code t on t.id = l.tax_code_id where l.invoice_id = i.id and t.code = 'GTA-EXO') as gta_vat,
             e.name as e_name, e.country::text as e_country, e.address_lines as e_address, e.phone as e_phone, e.fax as e_fax, e.email as e_email,
             e.web as e_web, e.nif as e_nif, e.capital_amount::float8 as e_capital, e.capital_currency::text as e_capital_currency, e.logo_url as e_logo,
             c.name as c_name, c.nif as c_nif, c.country::text as c_country,
@@ -78,6 +79,7 @@ export async function readInvoiceByLink(tx: ErpTransaction, token: string): Prom
     withholdingAmount: inv.withholding_amount,
     netPayable: inv.net_payable,
     legalMention: opt(inv.legal_mention),
+    gtaVat: inv.gta_vat,
     entity: {
       name: inv.e_name, country: inv.e_country, address: opt(inv.e_address), phone: opt(inv.e_phone), fax: opt(inv.e_fax), email: opt(inv.e_email),
       web: opt(inv.e_web), nif: opt(inv.e_nif), capitalAmount: opt(inv.e_capital), capitalCurrency: opt(inv.e_capital_currency), logoUrl: opt(inv.e_logo),

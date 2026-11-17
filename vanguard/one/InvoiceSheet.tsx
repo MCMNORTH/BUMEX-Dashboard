@@ -26,6 +26,7 @@ export type InvoiceSheetData = {
   withholdingAmount: number;
   netPayable: number;
   legalMention?: string;
+  gtaVat?: boolean; // a line is GTA-EXO: the "VAT not applicable … GTA" note
   entity: {
     name: string; country: string; address?: string; phone?: string; fax?: string; email?: string; web?: string; nif?: string;
     capitalAmount?: number; capitalCurrency?: string; logoUrl?: string;
@@ -46,16 +47,20 @@ const L = {
   en: {
     invoice: 'Invoice', draft: 'Draft', cancelled: 'Cancelled', invoiceDate: 'Invoice date:', dueDate: 'Due date:', paymentMethod: 'Payment method:', paymentTerms: 'Payment Terms:',
     days: (n: number) => `${n} day${n === 1 ? '' : 's'}`, billedTo: 'Billed To', amountIn: (c: string) => `Amount in ${c}`,
-    description: 'DESCRIPTION', qty: 'QTY', up: 'U.P.', vat: 'VAT', total: 'TOTAL', totalNet: 'Total Net', totalTax: 'Total tax', totalTtc: 'Total (inc. tax)',
-    withholding: (r: string) => `Withholding tax (${r})`, totalDue: 'TOTAL DUE', paymentInfo: 'PAYMENT INFORMATION', bank: 'BANK', owner: 'ACCOUNT OWNER NAME',
+    description: 'DESCRIPTION', qty: 'QTY', up: 'U.P.', vat: 'VAT', wht: 'WHT', total: 'TOTAL', totalNet: 'Total Net', totalTax: 'Total VAT', totalTtc: 'Total (inc. tax)',
+    totalWht: 'Total WHT', customerNif: 'VAT ID',
+    whtNote: 'Invoice issued under the specific tax regime of the GTA Project (Mauritania–Senegal). The withholding tax (WHT) is withheld by the Client and remitted to the Joint Unit.',
+    gtaNote: 'VAT not applicable in accordance with the GTA tax regime', totalDue: 'TOTAL DUE', paymentInfo: 'PAYMENT INFORMATION', bank: 'BANK', owner: 'ACCOUNT OWNER NAME',
     iban: 'IBAN', bic: 'BIC/SWIFT', account: 'ACCOUNT NO.', rib: 'RIB', signature: 'Signature', registered: 'Registered office', phone: 'Phone', fax: 'Fax', email: 'Email', web: 'Web',
     capital: 'Capital of', nif: 'NIF', sep: ':',
   },
   fr: {
     invoice: 'Facture', draft: 'brouillon', cancelled: 'annulée', invoiceDate: 'Date de facture :', dueDate: "Date d'échéance :", paymentMethod: 'Mode de paiement :', paymentTerms: 'Conditions de paiement :',
     days: (n: number) => `${n} jour${n === 1 ? '' : 's'}`, billedTo: 'Facturé à', amountIn: (c: string) => `Montant en ${c}`,
-    description: 'DÉSIGNATION', qty: 'QTÉ', up: 'P.U.', vat: 'TVA', total: 'TOTAL', totalNet: 'Total HT', totalTax: 'Total TVA', totalTtc: 'Total TTC',
-    withholding: (r: string) => `Retenue à la source (${r})`, totalDue: 'NET À PAYER', paymentInfo: 'INFORMATIONS DE PAIEMENT', bank: 'BANQUE', owner: 'TITULAIRE DU COMPTE',
+    description: 'DÉSIGNATION', qty: 'QTÉ', up: 'P.U.', vat: 'TVA', wht: 'RAS', total: 'TOTAL', totalNet: 'Total HT', totalTax: 'Total TVA', totalTtc: 'Total TTC',
+    totalWht: 'Total retenue (WHT)', customerNif: 'NIF',
+    whtNote: "Facture émise dans le cadre du régime fiscal spécifique du Projet GTA (Mauritanie–Sénégal). La retenue à la source (WHT) est prélevée par le Client et reversée à l'Unité Conjointe.",
+    gtaNote: 'TVA non applicable conformément au régime fiscal GTA', totalDue: 'NET À PAYER', paymentInfo: 'INFORMATIONS DE PAIEMENT', bank: 'BANQUE', owner: 'TITULAIRE DU COMPTE',
     iban: 'IBAN', bic: 'BIC/SWIFT', account: 'N° DE COMPTE', rib: 'RIB', signature: 'Signature', registered: 'Siège social', phone: 'Tél', fax: 'Fax', email: 'E-mail', web: 'Web',
     capital: 'Capital de', nif: 'NIF', sep: ' :',
   },
@@ -106,6 +111,7 @@ export function InvoiceSheet({ data, lang }: { data: InvoiceSheetData; lang: Inv
   // the registered office in one line: "BUMEX SA - 301, Rue …, Extension … - BP : 7763 Nouakchott, Mauritanie"
   const office = [e.name, address.length > 1 ? address.slice(0, -1).join(', ') : '', `${address[address.length - 1] ?? ''}${country ? `${address.length ? ', ' : ''}${country}` : ''}`].filter(Boolean).join(' - ');
   const footContact = [e.phone && `${t.phone}${t.sep} ${e.phone}`, e.fax && `${t.fax}${t.sep} ${e.fax}`, e.web, e.email].filter(Boolean).join(' - ');
+  const wht = data.withholdingAmount > 0; // WHT at 0 %: nothing of it on the invoice
   const b = data.bank;
   const payRows: [string, string | undefined][] = b
     ? [[t.bank, b.bankName], [t.owner, b.accountHolder || e.name], [t.iban, b.iban], [t.bic, b.bic], ...(!b.iban ? [[t.account, b.accountNumber] as [string, string | undefined], [t.rib, b.rib] as [string, string | undefined]] : [])]
@@ -144,35 +150,42 @@ export function InvoiceSheet({ data, lang }: { data: InvoiceSheetData; lang: Inv
             <div className="ivx-box">
               <div className="ivx-to-name">{data.customer.name}</div>
               {linesOf(data.customer.address).map((l, i) => <div key={i}>{l}</div>)}
-              {data.customer.nif && <div>{t.nif}{t.sep} {data.customer.nif}</div>}
+              {data.customer.nif && <div className="ivx-to-id">{t.customerNif}{t.sep} {data.customer.nif}</div>}
             </div>
           </div>
         </div>
         <div className="ivx-rule" />
         <div className="ivx-amount-in">{t.amountIn(currencyName(data.currency, lang))}</div>
         <table className="ivx-lines">
-          <thead><tr><th>{t.description}</th><th className="ivx-n ivx-qty">{t.qty}</th><th className="ivx-n">{t.up}</th><th className="ivx-vat">{t.vat}</th><th className="ivx-n">{t.total}</th></tr></thead>
+          <thead><tr><th>{t.description}</th><th className="ivx-n ivx-qty">{t.qty}</th><th className="ivx-n">{t.up}</th><th className="ivx-vat">{t.vat}</th>{wht && <th className="ivx-vat">{t.wht}</th>}<th className="ivx-n">{t.total}</th></tr></thead>
           <tbody>
             {data.lines.map((l) => (
               <tr key={l.lineNo}>
                 <td>{l.description}</td><td className="ivx-n ivx-qty">{quantity(l.quantity, lang)}</td><td className="ivx-n">{money(l.unitPrice, lang)}</td>
-                <td className="ivx-vat">{percent(l.taxRateSnapshot ?? 0, lang)}</td><td className="ivx-n">{money(l.lineHt, lang)}</td>
+                <td className="ivx-vat">{percent(l.taxRateSnapshot ?? 0, lang)}</td>{wht && <td className="ivx-vat">{percent(data.withholdingRate, lang)}</td>}<td className="ivx-n">{money(l.lineHt, lang)}</td>
               </tr>
             ))}
           </tbody>
         </table>
         <div className="ivx-words">{amountSentence(data.netPayable, data.currency, lang)}</div>{/* the net to pay (asked on 2026-11-17) */}
-        {data.legalMention && <div className="ivx-mention">{data.legalMention}</div>}
-        <div className="ivx-totals">
-          <table>
-            <tbody>
-              <tr><td>{t.totalNet}</td><td>{money(data.totalHt, lang)}</td></tr>
-              <tr><td>{t.totalTax}</td><td>{money(data.totalTax, lang)}</td></tr>
-              <tr><td>{t.totalTtc}</td><td>{money(data.totalTtc, lang)}</td></tr>
-              {data.withholdingAmount > 0 && <tr><td>{t.withholding(percent(data.withholdingRate, lang))}</td><td>{money(-data.withholdingAmount, lang)}</td></tr>}
-            </tbody>
-          </table>
-          <div className="ivx-due"><span>{t.totalDue}</span><span>{money(data.netPayable, lang)}</span></div>
+        <div className="ivx-sums">
+          {/* the notes, beside the totals (asked on 2026-11-17): the WHT's when it applies, the GTA's when VAT is GTA-exempt,
+              else the tax code's legal mention */}
+          <div className="ivx-notes">
+            {wht && <div className="ivx-note">{t.whtNote}</div>}
+            {data.gtaVat ? <div className="ivx-note">{t.gtaNote}</div> : data.legalMention && <div className="ivx-note">{data.legalMention}</div>}
+          </div>
+          <div className="ivx-totals">
+            <table>
+              <tbody>
+                <tr><td>{t.totalNet}</td><td>{money(data.totalHt, lang)}</td></tr>
+                <tr><td>{t.totalTax}</td><td>{money(data.totalTax, lang)}</td></tr>
+                <tr><td>{t.totalTtc}</td><td>{money(data.totalTtc, lang)}</td></tr>
+              </tbody>
+            </table>
+            {wht && <table className="ivx-wht"><tbody><tr><td>{t.totalWht}</td><td>{money(-data.withholdingAmount, lang)}</td></tr></tbody></table>}
+            <div className={`ivx-due${wht ? ' ivx-due-joined' : ''}`}><span>{t.totalDue}</span><span>{money(data.netPayable, lang)}</span></div>
+          </div>
         </div>
         <div className="ivx-fill" />
         <div className="ivx-bottom">
@@ -237,14 +250,19 @@ const CSS = `
 .ivx .ivx-lines .ivx-vat { text-align: left; width: 70px; white-space: nowrap; padding-left: 26px; }
 .ivx .ivx-lines th.ivx-n:last-child, .ivx .ivx-lines td.ivx-n:last-child { width: 130px; }
 .ivx .ivx-words { font-style: italic; font-size: 14px; color: #3a3f47; margin: 8px 4px 0; padding-top: 0; }
-.ivx .ivx-mention { font-size: 11.5px; color: var(--ivx-muted); margin: 4px 4px 0; }
-.ivx .ivx-totals { width: 44%; margin: 34px 0 0 auto; }
+.ivx .ivx-sums { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-top: 26px; }
+.ivx .ivx-notes { width: 46%; display: flex; flex-direction: column; gap: 10px; }
+.ivx .ivx-note { background: var(--ivx-soft); border: 1px solid var(--ivx-line); border-radius: 8px; padding: 9px 16px; font-size: 12.5px; color: #3a3f47; line-height: 1.4; }
+.ivx .ivx-totals { width: 48%; margin-left: auto; }
+.ivx .ivx-totals .ivx-wht { margin-top: 12px; border-radius: 6px 6px 0 0; border-bottom: 0; }
+.ivx .ivx-to-id { margin-top: 14px; }
 .ivx .ivx-totals table { width: 100%; border: 1px solid var(--ivx-line); border-radius: 6px; border-collapse: separate; overflow: hidden; }
 .ivx .ivx-totals td { padding: 6px 12px; font-weight: 700; font-size: 13.5px; border-bottom: 1px solid #e6eaef; }
 .ivx .ivx-totals tr:last-child td { border-bottom: 0; }
 .ivx .ivx-totals td:first-child { white-space: nowrap; }
 .ivx .ivx-totals td:last-child { text-align: right; border-left: 1px solid #e6eaef; width: 38%; white-space: nowrap; }
 .ivx .ivx-due { display: flex; margin-top: 12px; background: var(--ivx-due); color: #fff; font-weight: 700; font-size: 14px; }
+.ivx .ivx-due.ivx-due-joined { margin-top: 0; }
 .ivx .ivx-due span { padding: 7px 12px; }
 .ivx .ivx-due span:first-child { flex: 1; }
 .ivx .ivx-due span:last-child { width: 38%; text-align: right; border-left: 1px solid rgba(255,255,255,.45); white-space: nowrap; }
@@ -261,6 +279,6 @@ const CSS = `
 @media print {
   .ivx { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .ivx .ivx-page { margin: 0; box-shadow: none !important; }
-  .ivx .ivx-lines tr, .ivx .ivx-totals, .ivx .ivx-bottom { break-inside: avoid; }
+  .ivx .ivx-lines tr, .ivx .ivx-sums, .ivx .ivx-bottom { break-inside: avoid; }
 }
 `;

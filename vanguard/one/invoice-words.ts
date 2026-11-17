@@ -73,8 +73,8 @@ export function numberToWordsFr(n: number): string {
 
 const CURRENCY: Record<InvoiceLang, Record<string, [string, string, string, string]>> = {
   // one, many, cent, cents
-  en: { EUR: ['Euro', 'Euros', 'cent', 'cents'], USD: ['US Dollar', 'US Dollars', 'cent', 'cents'], MRU: ['Ouguiya', 'Ouguiyas', 'khoum', 'khoums'], MAD: ['Dirham', 'Dirhams', 'centime', 'centimes'] },
-  fr: { EUR: ['euro', 'euros', 'centime', 'centimes'], USD: ['dollar US', 'dollars US', 'cent', 'cents'], MRU: ['ouguiya', 'ouguiyas', 'khoum', 'khoums'], MAD: ['dirham', 'dirhams', 'centime', 'centimes'] },
+  en: { EUR: ['Euro', 'Euros', 'cent', 'cents'], USD: ['US Dollar', 'US Dollars', 'cent', 'cents'], MRU: ['Mauritania Ouguiya', 'Mauritania Ouguiya', 'centime', 'centimes'], MAD: ['Dirham', 'Dirhams', 'centime', 'centimes'] },
+  fr: { EUR: ['euro', 'euros', 'centime', 'centimes'], USD: ['dollar US', 'dollars US', 'cent', 'cents'], MRU: ['ouguiya', 'ouguiyas', 'centime', 'centimes'], MAD: ['dirham', 'dirhams', 'centime', 'centimes'] },
 };
 
 export function currencyName(currency: string, lang: InvoiceLang, plural = true): string {
@@ -83,12 +83,9 @@ export function currencyName(currency: string, lang: InvoiceLang, plural = true)
 }
 
 // "nine thousand eight hundred fifty Euros", "mille deux cents ouguiyas et cinquante khoums"
-// Ouguiyas are written without what follows the comma (no khoums, asked on 2026-11-17); other currencies keep their cents.
-const WHOLE_UNITS_ONLY = new Set(['MRU']);
-
 export function amountInWords(amount: number, currency: string, lang: InvoiceLang): string {
   const total = Math.round(Math.abs(amount) * 100);
-  const units = Math.floor(total / 100), cents = WHOLE_UNITS_ONLY.has(currency) ? 0 : total % 100;
+  const units = Math.floor(total / 100), cents = total % 100; // ouguiyas' cents are centimes, not khoums (2026-11-17)
   const words = lang === 'fr' ? numberToWordsFr : numberToWordsEn;
   const [one, many, cent, centsWord] = CURRENCY[lang][currency] ?? [currency, currency, '/100', '/100'];
   const name = units === 1 ? one : many;

@@ -29,10 +29,11 @@ describe('the amount in words', () => {
     expect(amountInWords(9850, 'EUR', 'fr')).toBe('neuf mille huit cent cinquante euros');
     expect(amountInWords(1_000_000, 'MRU', 'fr')).toBe("un million d'ouguiyas");
     expect(amountInWords(3_000_000, 'USD', 'fr')).toBe('trois millions de dollars US');
-    // ouguiyas: nothing after the comma; the other currencies keep their cents
-    expect(amountInWords(1200.05, 'MRU', 'fr')).toBe('mille deux cents ouguiyas');
-    expect(amountInWords(1_112_903.23, 'MRU', 'fr')).toBe('un million cent douze mille neuf cent trois ouguiyas');
-    expect(amountInWords(1_035_000.99, 'MRU', 'en')).toBe('one million thirty-five thousand Ouguiyas');
+    // ouguiyas' cents are centimes (the old invoices: "… Mauritania Ouguiya and ten centimes"), never khoums
+    expect(amountSentence(88_110.1, 'MRU', 'en')).toBe('This invoice amounts to eighty-eight thousand one hundred ten Mauritania Ouguiya and ten centimes');
+    expect(amountInWords(1200.05, 'MRU', 'fr')).toBe('mille deux cents ouguiyas et cinq centimes');
+    expect(amountInWords(1_112_903.23, 'MRU', 'fr')).toBe('un million cent douze mille neuf cent trois ouguiyas et vingt-trois centimes');
+    expect(amountInWords(1_035_000, 'MRU', 'fr')).toBe('un million trente-cinq mille ouguiyas');
     expect(amountInWords(12.5, 'EUR', 'fr')).toBe('douze euros et cinquante centimes');
   });
 });
@@ -49,7 +50,7 @@ const model: InvoiceSheetData = {
   bank: { bankName: 'SOCIETE GENERALE MAURITANIE', accountHolder: 'BUMEX', iban: 'MR1300012000010000034369703', bic: 'BIIMMRMR' },
   url: 'https://app.bumex.mr/i/0b7c6f2e-1111-4444-8888-123456789abc',
 };
-const text = (html: string) => html.replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, '|').replace(/&#x27;/g, "'").replace(/&amp;/g, '&');
+const text = (html: string) => html.replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, '|').replace(/\|+/g, '|').replace(/&#x27;/g, "'").replace(/&amp;/g, '&');
 
 describe('the invoice sheet', () => {
   it('prints the model: letterhead, title block, billed to, lines, totals, payment block, footer, QR code', () => {
@@ -65,10 +66,29 @@ describe('the invoice sheet', () => {
     // the app's print rules hide <header>, <nav> and <aside> (app/globals.css): the letterhead vanished on paper
     expect(html).not.toMatch(/<(header|nav|aside)[\s>]/);
     expect(html).toContain('aria-label="https://app.bumex.mr/i/0b7c6f2e-1111-4444-8888-123456789abc"');
+    // WHT at 0 %: no column, no total, no note
+    for (const s of ['WHT', 'GTA']) expect(t).not.toContain(s);
+  });
+  it('with WHT 7 % (the old invoices): a WHT column, Total WHT apart above TOTAL DUE, the GTA notes beside the totals', () => {
+    const gta = { ...model, currency: 'MRU', lines: [{ lineNo: 1, description: 'Seconded Junior Accountant', quantity: 1, unitPrice: 94_742.04, taxRateSnapshot: 0, lineHt: 94_742.04 }], totalHt: 94_742.04, totalTax: 0, totalTtc: 94_742.04, withholdingRate: 0.07, withholdingAmount: 6_631.94, netPayable: 88_110.1, gtaVat: true, legalMention: 'Prestation exonérée de TVA — régime GTA', customer: { ...model.customer, nif: '00625939' } };
+    const html = renderToStaticMarkup(createElement(InvoiceSheet, { data: gta, lang: 'en' }));
+    const t = text(html);
+    for (const s of ['|VAT|WHT|TOTAL|', '|0%|7%|94,742.04|', 'Amount in Mauritania Ouguiya', 'VAT ID: 00625939', 'Total VAT', 'Total WHT|−6,631.94', 'TOTAL DUE|88,110.10',
+      'This invoice amounts to eighty-eight thousand one hundred ten Mauritania Ouguiya and ten centimes',
+      'Invoice issued under the specific tax regime of the GTA Project (Mauritania–Senegal). The withholding tax (WHT) is withheld by the Client and remitted to the Joint Unit.',
+      'VAT not applicable in accordance with the GTA tax regime']) {
+      expect(t, s).toContain(s);
+    }
+    expect(t).not.toContain('régime GTA|'); // the GTA note stands for the line's French mention
+    // VAT 16 % with WHT 7 %: the WHT note, not the GTA one
+    const both = text(renderToStaticMarkup(createElement(InvoiceSheet, { data: { ...gta, gtaVat: false, legalMention: undefined, totalTax: 15_158.73, totalTtc: 109_900.77, netPayable: 103_268.83 }, lang: 'en' })));
+    expect(both).toContain('The withholding tax (WHT) is withheld by the Client');
+    expect(both).not.toContain('VAT not applicable');
   });
   it('in French, with the withholding and no QR code before the invoice has its link', () => {
     const t = text(renderToStaticMarkup(createElement(InvoiceSheet, { data: { ...model, number: undefined, currency: 'MRU', withholdingRate: 0.07, withholdingAmount: 262.5, netPayable: 3487.5, url: undefined }, lang: 'fr' })));
-    for (const s of ['Facture (brouillon)', 'Facturé à', 'Montant en ouguiyas', 'Virement bancaire', '1 500,00', 'Retenue à la source (7 %)', '−262,50', 'NET À PAYER', '3 487,50', 'Arrêtée la présente facture à la somme de trois mille quatre cent quatre-vingt-sept ouguiyas|', 'BANQUE : SOCIETE GENERALE MAURITANIE', 'Capital de 10 000 000 MRU']) {
+    for (const s of ['Facture (brouillon)', 'Facturé à', 'Montant en ouguiyas', 'Virement bancaire', '1 500,00', '|TVA|RAS|TOTAL|', 'Total retenue (WHT)|−262,50', 'NET À PAYER', '3 487,50', 'Arrêtée la présente facture à la somme de trois mille quatre cent quatre-vingt-sept ouguiyas et cinquante centimes|',
+      "La retenue à la source (WHT) est prélevée par le Client et reversée à l'Unité Conjointe.", 'BANQUE : SOCIETE GENERALE MAURITANIE', 'Capital de 10 000 000 MRU']) {
       expect(t, s).toContain(s);
     }
     expect(renderToStaticMarkup(createElement(InvoiceSheet, { data: { ...model, url: undefined }, lang: 'fr' }))).not.toContain('ivx-qr"');
