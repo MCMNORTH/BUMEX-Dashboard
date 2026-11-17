@@ -68,6 +68,16 @@ export interface AssetInput {
   acquisition?: { credit: 'supplier' | 'bank'; bankAccountId?: Id; vatAmount?: number } | null; // post Dr asset / Cr supplier or bank
 }
 
+// [bumex-one] Land is not depreciated (asked on 2026-11-17): a category coded LAND / TERRAIN(S), named "Terrain(s)…" or
+// "… non amortissable(s)". Its assets have no schedule, no residual value, no service date, duration or method of their
+// own (the form shows N/A); "Agencements de terrains" stay depreciable.
+const fold = (v: string | undefined) => (v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+export function isLandCategory(c: Pick<AssetCategory, 'code' | 'name'> | undefined): boolean {
+  if (!c) return false;
+  const code = fold(c.code), name = fold(c.name);
+  return /^(land|terrains?)$/.test(code) || /^terrains?\b/.test(name) || /\bnon[\s-]?amortissables?\b/.test(name);
+}
+
 function computeDates(start: ISODate, lifeMonths: number): ISODate {
   return addDays(addMonths(start, lifeMonths), -1);
 }
@@ -78,11 +88,12 @@ export function addAsset(state: State, input: AssetInput): [State, Asset] {
   if (!cat) throw new DomainError('category', 'Catégorie inconnue');
   if (!input.name.trim()) throw new DomainError('name', 'La désignation est obligatoire');
   if (!(input.cost > 0)) throw new DomainError('cost', "Valeur d'acquisition positive requise");
-  const lifeMonths = input.lifeMonths ?? cat.lifeMonths;
+  const land = isLandCategory(cat); // [bumex-one] no depreciation inputs: the category's, from the acquisition
+  const lifeMonths = land ? cat.lifeMonths : input.lifeMonths ?? cat.lifeMonths;
   if (!(lifeMonths >= 6 && lifeMonths <= 600)) throw new DomainError('life', 'Durée entre 6 et 600 mois');
-  const residual = r2(input.residual ?? 0);
+  const residual = land ? 0 : r2(input.residual ?? 0);
   if (residual < 0 || residual >= input.cost) throw new DomainError('residual', 'Valeur résiduelle entre 0 et la valeur d\'acquisition');
-  const start = input.startDate ?? input.acquisitionDate;
+  const start = land ? input.acquisitionDate : input.startDate ?? input.acquisitionDate;
   if (start < input.acquisitionDate) throw new DomainError('dates', "Le début d'amortissement ne précède pas l'acquisition");
   if (input.serial && state.assets.some((a) => a.entityId === input.entityId && a.serial && a.serial.toLowerCase() === input.serial!.trim().toLowerCase())) throw new DomainError('serial', 'Ce numéro de série est déjà enregistré');
   let s = state;
@@ -108,7 +119,7 @@ export function addAsset(state: State, input: AssetInput): [State, Asset] {
     residual,
     lifeMonths,
     rate: r2((100 * 12) / lifeMonths),
-    method: input.method ?? cat.method,
+    method: land ? cat.method : input.method ?? cat.method,
     startDate: start,
     endDate: computeDates(start, lifeMonths),
     accumulated: r2(input.accumulated ?? 0),
@@ -168,7 +179,9 @@ export interface ScheduleRow {
 }
 
 // Annual schedule, calendar years, prorata temporis in months (the start month counts in full).
-export function depreciationSchedule(asset: Asset): ScheduleRow[] {
+// [bumex-one] none for land: its category (isLandCategory), else the category's name kept on the asset
+export function depreciationSchedule(asset: Asset, category?: Pick<AssetCategory, 'code' | 'name'>): ScheduleRow[] {
+  if (isLandCategory(category ?? { code: '', name: asset.category })) return [];
   const base = r2(asset.cost - asset.residual);
   const startYear = Number(asset.startDate.slice(0, 4));
   const startMonth = Number(asset.startDate.slice(5, 7));
@@ -218,7 +231,7 @@ export function yearDepreciation(state: State, entityId: Id, fiscalYearId: Id): 
   return state.assets
     .filter((a) => a.entityId === entityId && a.status === 'in_service' && a.startDate <= fy.end)
     .map((asset) => {
-      const row = depreciationSchedule(asset).find((r) => r.year === year);
+      const row = depreciationSchedule(asset, state.assetCategories.find((c) => c.id === asset.categoryId)).find((r) => r.year === year);
       const scheduled = row?.dotation ?? 0;
       const alreadyPosted = sum(runs.flatMap((r) => r.lines.filter((l) => l.assetId === asset.id).map((l) => l.amount)));
       const toPost = r2(Math.max(0, Math.min(scheduled - alreadyPosted, asset.cost - asset.residual - asset.accumulated)));
@@ -265,6 +278,6 @@ export interface RegisterRow {
 export function assetRegister(state: State, entityId: Id, year = Number(state.today.slice(0, 4))): RegisterRow[] {
   return state.assets
     .filter((a) => a.entityId === entityId)
-    .map((asset) => ({ asset, category: state.assetCategories.find((c) => c.id === asset.categoryId), nbv: r2(asset.cost - asset.accumulated), yearDotation: asset.status === 'in_service' ? depreciationSchedule(asset).find((r) => r.year === year)?.dotation ?? 0 : 0, progress: asset.cost - asset.residual > 0 ? Math.min(1, asset.accumulated / (asset.cost - asset.residual)) : 0 }))
+    .map((asset) => ({ asset, category: state.assetCategories.find((c) => c.id === asset.categoryId), nbv: r2(asset.cost - asset.accumulated), yearDotation: asset.status === 'in_service' ? depreciationSchedule(asset, state.assetCategories.find((c) => c.id === asset.categoryId)).find((r) => r.year === year)?.dotation ?? 0 : 0, progress: asset.cost - asset.residual > 0 ? Math.min(1, asset.accumulated / (asset.cost - asset.residual)) : 0 }))
     .sort((a, b) => (a.asset.code < b.asset.code ? -1 : 1));
 }

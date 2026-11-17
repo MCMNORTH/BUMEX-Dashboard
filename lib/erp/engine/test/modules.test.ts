@@ -6,7 +6,7 @@ import {
   createInvoice, postInvoice, recordPayment, withholdingStatement, vatStatement, addTaxCode,
   addSupplier, createSupplierInvoice, approveSupplierInvoice, paySupplierInvoice, supplierPayables,
   addLoan, loanSchedule, payInstalment, loanSummaries,
-  addAsset, depreciationSchedule, yearDepreciation, postDepreciation, assetRegister, updateAsset,
+  addAsset, depreciationSchedule, yearDepreciation, postDepreciation, assetRegister, updateAsset, addAssetCategory, isLandCategory,
   addEmployee, headcount, simulatePayroll, postPayroll, payrollStatement, computePayLine, payrollRulesFor, setPayrollRules,
   assign, planningCalendar, availability, removeAssignment,
   verifyChain, trialBalance, cashPosition,
@@ -240,6 +240,22 @@ describe('fixed assets: sheets, schedules, year-end dotations', () => {
     const [s2, up] = updateAsset(base, depreciated.id, { location: 'Nouveau site' });
     expect(up.location).toBe('Nouveau site');
     void s2;
+  });
+  it('does not depreciate land: no schedule, no residual value, no dotation (asked on 2026-11-17)', () => {
+    expect(isLandCategory({ code: 'LAND', name: 'Foncier' })).toBe(true);
+    expect(isLandCategory({ code: 'TER', name: 'Terrains (non amortissables)' })).toBe(true);
+    expect(isLandCategory({ code: 'X', name: 'Terrain nu' })).toBe(true);
+    expect(isLandCategory({ code: 'X', name: 'Œuvres d’art non amortissables' })).toBe(true);
+    expect(isLandCategory({ code: 'FITTINGS', name: 'Agencements et aménagements de terrains' })).toBe(false);
+    expect(isLandCategory({ code: 'IT', name: 'Matériel informatique' })).toBe(false);
+    const furniture = base.assetCategories.find((c) => c.entityId === AUD && c.code === 'FURNITURE')!;
+    const [s1, land] = addAssetCategory(base, { entityId: AUD, code: 'TERRAIN', name: 'Terrains (non amortissables)', lifeMonths: 600, method: 'linear', assetAccountId: furniture.assetAccountId, accDeprAccountId: furniture.accDeprAccountId });
+    const [s2, plot] = addAsset(s1, { entityId: AUD, name: 'Terrain Tevragh Zeina', categoryId: land.id, acquisitionDate: '2026-02-10', cost: 9_000_000, residual: 500_000, lifeMonths: 120, method: 'declining', startDate: '2026-06-01', location: 'Nouakchott' });
+    expect(plot).toMatchObject({ residual: 0, lifeMonths: 600, method: 'linear', startDate: '2026-02-10' });
+    expect(depreciationSchedule(plot, land)).toEqual([]);
+    const fy = s2.fiscalYears.find((f) => f.entityId === AUD && f.label === '2026')!;
+    expect(yearDepreciation(s2, AUD, fy.id).some((r) => r.asset.id === plot.id)).toBe(false);
+    expect(assetRegister(s2, AUD).find((r) => r.asset.id === plot.id)).toMatchObject({ yearDotation: 0, nbv: 9_000_000 });
   });
 });
 

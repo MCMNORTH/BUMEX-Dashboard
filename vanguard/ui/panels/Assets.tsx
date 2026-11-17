@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  assetRegister, addAsset, updateAsset, depreciationSchedule, yearDepreciation, postDepreciation, addAssetCategory, updateAssetCategory, DECLINING_COEFFICIENT,
+  assetRegister, addAsset, updateAsset, depreciationSchedule, yearDepreciation, postDepreciation, addAssetCategory, updateAssetCategory, DECLINING_COEFFICIENT, isLandCategory,
   fmt, r2, parseAmount, type Id, type Asset, type DepreciationMethod,
   favoritesFirst, // [bumex-one]
 } from '@bumex/domain';
@@ -10,6 +10,7 @@ import { Select } from '../Select';
 
 type Tab = 'register' | 'new' | 'sheet' | 'yearend' | 'categories';
 const METHOD_FR: Record<DepreciationMethod, string> = { linear: 'Linéaire', declining: 'Dégressif' };
+const NA = 'N/A'; // [bumex-one] land: no depreciation (isLandCategory)
 const STATUS: Record<Asset['status'], [string, 'good' | 'warn' | 'dim']> = { in_service: ['En service', 'good'], wip: ['En cours', 'warn'], disposed: ['Cédé · sorti', 'dim'] };
 
 export function AssetsPanel({ entityId, initialTab }: { entityId: Id; initialTab?: string | null }) {
@@ -49,7 +50,7 @@ function Register({ entityId, onOpen }: { entityId: Id; onOpen: (id: Id) => void
   const live = rows.filter((r) => r.asset.status !== 'disposed');
   const cost = r2(live.reduce((a, x) => a + x.asset.cost, 0)), acc = r2(live.reduce((a, x) => a + x.asset.accumulated, 0)), year = r2(live.reduce((a, x) => a + x.yearDotation, 0));
   const byCat = [...new Set(live.map((r) => r.asset.category))].map((c) => ({ c, n: live.filter((r) => r.asset.category === c).length, cost: r2(live.filter((r) => r.asset.category === c).reduce((a, x) => a + x.asset.cost, 0)), nbv: r2(live.filter((r) => r.asset.category === c).reduce((a, x) => a + x.nbv, 0)) }));
-  const exportXlsx = () => downloadXlsx(`immobilisations-${entity.code}-${state.today}.xlsx`, [{ name: 'Registre', rows: [['Code', 'Désignation', 'N° de série', 'Catégorie', 'Acquisition', 'Valeur', 'Résiduelle', 'Durée (mois)', 'Taux %', 'Méthode', 'Début', 'Fin', 'Amort. cumulé', 'VNC', 'Dotation exercice', 'Localisation', 'Statut'], ...rows.map((r) => [r.asset.code, r.asset.name, r.asset.serial ?? '', r.asset.category, r.asset.acquisitionDate, r.asset.cost, r.asset.residual, r.asset.lifeMonths, r.asset.rate, METHOD_FR[r.asset.method], r.asset.startDate, r.asset.endDate, r.asset.accumulated, r.nbv, r.yearDotation, r.asset.location, STATUS[r.asset.status][0]])] }], toast);
+  const exportXlsx = () => downloadXlsx(`immobilisations-${entity.code}-${state.today}.xlsx`, [{ name: 'Registre', rows: [['Code', 'Désignation', 'N° de série', 'Catégorie', 'Acquisition', 'Valeur', 'Résiduelle', 'Durée (mois)', 'Taux %', 'Méthode', 'Début', 'Fin', 'Amort. cumulé', 'VNC', 'Dotation exercice', 'Localisation', 'Statut'], ...rows.map((r) => [r.asset.code, r.asset.name, r.asset.serial ?? '', r.asset.category, r.asset.acquisitionDate, r.asset.cost, ...(isLandCategory(r.category) ? [NA, NA, NA, NA, NA, NA] : [r.asset.residual, r.asset.lifeMonths, r.asset.rate, METHOD_FR[r.asset.method], r.asset.startDate, r.asset.endDate]), r.asset.accumulated, r.nbv, r.yearDotation, r.asset.location, STATUS[r.asset.status][0]])] }], toast);
   return (
     <>
       <div className="grid4">
@@ -68,7 +69,7 @@ function Register({ entityId, onOpen }: { entityId: Id; onOpen: (id: Id) => void
           <tbody>
             {rows.map((r) => (
               <tr key={r.asset.id} onClick={() => onOpen(r.asset.id)} style={{ cursor: 'pointer' }}>
-                <td className="mono">{r.asset.code}</td><td>{r.asset.name}<div className="small muted">{r.asset.serial ? `S/N ${r.asset.serial} · ` : ''}{r.asset.location}</div></td><td>{r.asset.category}</td><td><D iso={r.asset.acquisitionDate} /></td><td className="num">{fmt(r.asset.cost, 0)}</td><td>{r.asset.lifeMonths} mois · {r.asset.rate} %</td><td>{METHOD_FR[r.asset.method]}</td><td className="num">{fmt(r.asset.accumulated, 0)}</td><td className="num">{fmt(r.nbv, 0)}</td><td className="num">{fmt(r.yearDotation, 0)}</td>
+                <td className="mono">{r.asset.code}</td><td>{r.asset.name}<div className="small muted">{r.asset.serial ? `S/N ${r.asset.serial} · ` : ''}{r.asset.location}</div></td><td>{r.asset.category}</td><td><D iso={r.asset.acquisitionDate} /></td><td className="num">{fmt(r.asset.cost, 0)}</td><td>{isLandCategory(r.category) ? NA : `${r.asset.lifeMonths} mois · ${r.asset.rate} %`}</td><td>{isLandCategory(r.category) ? NA : METHOD_FR[r.asset.method]}</td><td className="num">{fmt(r.asset.accumulated, 0)}</td><td className="num">{fmt(r.nbv, 0)}</td><td className="num">{fmt(r.yearDotation, 0)}</td>
                 <td><div className="bar" style={{ width: 90 }}><i style={{ width: `${Math.round(r.progress * 100)}%` }} /></div></td><td><Chip kind={STATUS[r.asset.status][1]}>{STATUS[r.asset.status][0]}</Chip></td>
               </tr>
             ))}
@@ -90,6 +91,7 @@ function NewAsset({ entityId, onDone }: { entityId: Id; onDone: (id: Id) => void
   const cats = state.assetCategories.filter((c) => c.entityId === entityId);
   const [categoryId, setCategoryId] = useState(cats[0]?.id ?? '');
   const cat = cats.find((c) => c.id === categoryId);
+  const land = isLandCategory(cat); // [bumex-one] no service date, residual value, duration or method: N/A
   const [name, setName] = useState('');
   const [serial, setSerial] = useState('');
   const [acq, setAcq] = useState(state.today);
@@ -111,11 +113,11 @@ function NewAsset({ entityId, onDone }: { entityId: Id; onDone: (id: Id) => void
   const preview = useMemo(() => {
     if (!cat || c <= 0) return [];
     const a: Asset = { id: 'x', entityId, code: 'APERÇU', name, categoryId: cat.id, category: cat.name, acquisitionDate: acq, cost: c, residual: parseAmount(residual) ?? 0, lifeMonths, rate: r2(1200 / lifeMonths), method: m, startDate: start || acq, endDate: '', accumulated: 0, location, status: 'in_service' };
-    try { return depreciationSchedule(a); } catch { return []; }
+    try { return depreciationSchedule(a, cat); } catch { return []; }
   }, [cat, c, name, acq, residual, lifeMonths, m, start, location, entityId]);
   const save = () => {
     apply((s) => {
-      const [s1, a] = addAsset(s, { entityId, name, serial: serial || undefined, categoryId, acquisitionDate: acq, cost: c, residual: parseAmount(residual) ?? 0, lifeMonths: Number(life) || undefined, method: method || undefined, startDate: start || undefined, location, supplierId: supplierId || undefined, notes: notes || undefined, acquisition: post === 'none' ? null : { credit: post, bankAccountId: post === 'bank' ? bankId : undefined, vatAmount: parseAmount(vat) ?? 0 } });
+      const [s1, a] = addAsset(s, { entityId, name, serial: serial || undefined, categoryId, acquisitionDate: acq, cost: c, ...(land ? {} : { residual: parseAmount(residual) ?? 0, lifeMonths: Number(life) || undefined, method: method || undefined, startDate: start || undefined }), location, supplierId: supplierId || undefined, notes: notes || undefined, acquisition: post === 'none' ? null : { credit: post, bankAccountId: post === 'bank' ? bankId : undefined, vatAmount: parseAmount(vat) ?? 0 } });
       window.setTimeout(() => onDone(a.id), 0);
       return s1;
     }, post === 'none' ? 'Immobilisation enregistrée' : "Immobilisation enregistrée et écriture d'acquisition comptabilisée");
@@ -127,13 +129,13 @@ function NewAsset({ entityId, onDone }: { entityId: Id; onDone: (id: Id) => void
           <div className="grid3">
             <Field label="Désignation" style={{ gridColumn: 'span 2' }}><input className="in" value={name} onChange={(e) => setName(e.target.value)} placeholder="Serveur de fichiers · Véhicule · Agencement…" /></Field>
             <Field label="N° de série ou référence unique"><input className="in mono" value={serial} onChange={(e) => setSerial(e.target.value)} /></Field>
-            <Field label="Catégorie"><Select className="in" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>{cats.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.lifeMonths} mois · {METHOD_FR[x.method]}</option>)}</Select></Field>
+            <Field label="Catégorie"><Select className="in" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>{cats.map((x) => <option key={x.id} value={x.id}>{x.name} · {isLandCategory(x) ? 'non amortissable' : `${x.lifeMonths} mois · ${METHOD_FR[x.method]}`}</option>)}</Select></Field>
             <Field label="Date d'acquisition"><input className="in mono" type="date" value={acq} onChange={(e) => setAcq(e.target.value)} /></Field>
-            <Field label="Mise en service (début d'amortissement)"><input className="in mono" type="date" value={start} onChange={(e) => setStart(e.target.value)} placeholder={acq} /></Field>
+            <Field label="Mise en service (début d'amortissement)">{land ? <input className="in" value={NA} disabled /> : <input className="in mono" type="date" value={start} onChange={(e) => setStart(e.target.value)} placeholder={acq} />}</Field>
             <Field label="Valeur d'acquisition (HT)"><input className="in num" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0,00" /></Field>
-            <Field label="Valeur résiduelle"><input className="in num" value={residual} onChange={(e) => setResidual(e.target.value)} /></Field>
-            <Field label={`Durée (mois) · taux ${r2(1200 / lifeMonths)} %`}><input className="in num" value={life} onChange={(e) => setLife(e.target.value)} placeholder={String(cat?.lifeMonths ?? 60)} /></Field>
-            <Field label="Méthode"><Select className="in" value={method} onChange={(e) => setMethod(e.target.value as '' | DepreciationMethod)}><option value="">Catégorie · {METHOD_FR[cat?.method ?? 'linear']}</option><option value="linear">Linéaire</option><option value="declining">Dégressif · coefficient {DECLINING_COEFFICIENT(lifeMonths)}</option></Select></Field>
+            <Field label="Valeur résiduelle">{land ? <input className="in num" value={NA} disabled /> : <input className="in num" value={residual} onChange={(e) => setResidual(e.target.value)} />}</Field>
+            <Field label={land ? 'Durée (mois)' : `Durée (mois) · taux ${r2(1200 / lifeMonths)} %`}>{land ? <input className="in num" value={NA} disabled /> : <input className="in num" value={life} onChange={(e) => setLife(e.target.value)} placeholder={String(cat?.lifeMonths ?? 60)} />}</Field>
+            <Field label="Méthode">{land ? <Select className="in" value="" disabled><option value="">{NA}</option></Select> : <Select className="in" value={method} onChange={(e) => setMethod(e.target.value as '' | DepreciationMethod)}><option value="">Catégorie · {METHOD_FR[cat?.method ?? 'linear']}</option><option value="linear">Linéaire</option><option value="declining">Dégressif · coefficient {DECLINING_COEFFICIENT(lifeMonths)}</option></Select>}</Field>
             <Field label="Localisation"><input className="in" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Étage 3 · bureau 12" /></Field>
             <Field label="Fournisseur"><Select recent="suppliers" className="in" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}><option value="">—</option>{state.suppliers.filter((s) => s.entityId === entityId).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field>
             <Field label="Écriture d'acquisition"><Select className="in" value={post} onChange={(e) => setPost(e.target.value as 'none' | 'supplier' | 'bank')}><option value="none">Aucune (déjà comptabilisée)</option><option value="supplier">Immobilisation D · fournisseur C</option><option value="bank">Immobilisation D · banque C</option></Select></Field>
@@ -147,7 +149,7 @@ function NewAsset({ entityId, onDone }: { entityId: Id; onDone: (id: Id) => void
       <aside className="side">
         <div className="card">
           <h2>Plan d'amortissement · aperçu</h2>
-          {preview.length ? (
+          {land ? <div className="small muted">Terrain : non amortissable. Aucune dotation, la valeur nette reste la valeur d'acquisition.</div> : preview.length ? (
             <table><thead><tr><th>Année</th><th className="num">Mois</th><th className="num">Dotation</th><th className="num">VNC fin</th></tr></thead><tbody>{preview.map((r) => <tr key={r.year}><td>{r.year}</td><td className="num">{r.months}</td><td className="num">{fmt(r.dotation, 0)}</td><td className="num">{fmt(r.closing, 0)}</td></tr>)}</tbody></table>
           ) : <div className="small muted">Saisir la valeur et la catégorie pour calculer le plan (prorata temporis au mois, le mois de mise en service compte en entier).</div>}
           <div className="small muted" style={{ marginTop: 8 }}>Comptes : {cat ? `${state.accounts.find((a) => a.id === cat.assetAccountId)?.code} / ${state.accounts.find((a) => a.id === cat.accDeprAccountId)?.code}` : '—'} · dotation annuelle comptabilisée à la clôture.</div>
@@ -173,11 +175,12 @@ function Sheet({ entityId, assetId, onPick }: { entityId: Id; assetId: Id | null
   const [tracked, setTracked] = useState(a?.id);
   if (a && tracked !== a.id) { setTracked(a.id); setName(a.name); setSerial(a.serial ?? ''); setLocation(a.location); setNotes(a.notes ?? ''); setLife(String(a.lifeMonths)); setMethod(a.method); setStart(a.startDate); setStatus(a.status); setEdit(false); }
   if (!a) return <div className="card"><div className="muted">Aucune immobilisation. Utilisez « Nouvelle immobilisation ».</div></div>;
-  const schedule = depreciationSchedule(a);
   const entries = state.entries.filter((e) => e.entityId === entityId && e.lines.some((l) => l.assetId === a.id)).sort((x, y) => (x.date < y.date ? -1 : 1));
   const cat = state.assetCategories.find((c) => c.id === a.categoryId);
+  const land = isLandCategory(cat ?? { code: '', name: a.category }); // [bumex-one] not depreciated: N/A
+  const schedule = depreciationSchedule(a, cat);
   const locked = a.accumulated > 0;
-  const save = () => { if (apply((s) => updateAsset(s, a.id, { name, serial: serial || undefined, location, notes: notes || undefined, status, ...(locked ? {} : { lifeMonths: Number(life) || a.lifeMonths, method, startDate: start }) }), 'Fiche mise à jour')) setEdit(false); };
+  const save = () => { if (apply((s) => updateAsset(s, a.id, { name, serial: serial || undefined, location, notes: notes || undefined, status, ...(locked || land ? {} : { lifeMonths: Number(life) || a.lifeMonths, method, startDate: start }) }), 'Fiche mise à jour')) setEdit(false); };
   return (
     <div className="cols">
       <div className="grow">
@@ -195,9 +198,9 @@ function Sheet({ entityId, assetId, onPick }: { entityId: Id; assetId: Id | null
               <Field label="N° de série"><input className="in mono" value={serial} onChange={(e) => setSerial(e.target.value)} /></Field>
               <Field label="Localisation"><input className="in" value={location} onChange={(e) => setLocation(e.target.value)} /></Field>
               <Field label="Statut"><Select className="in" value={status} onChange={(e) => setStatus(e.target.value as Asset['status'])}><option value="in_service">En service</option><option value="wip">En cours</option><option value="disposed">Cédé · sorti</option></Select></Field>
-              <Field label={`Durée (mois)${locked ? ' · figée (dotations comptabilisées)' : ''}`}><input className="in num" value={life} disabled={locked} onChange={(e) => setLife(e.target.value)} /></Field>
-              <Field label="Méthode"><Select className="in" value={method} disabled={locked} onChange={(e) => setMethod(e.target.value as DepreciationMethod)}><option value="linear">Linéaire</option><option value="declining">Dégressif</option></Select></Field>
-              <Field label="Début d'amortissement"><input className="in mono" type="date" value={start} disabled={locked} onChange={(e) => setStart(e.target.value)} /></Field>
+              <Field label={`Durée (mois)${locked && !land ? ' · figée (dotations comptabilisées)' : ''}`}>{land ? <input className="in num" value={NA} disabled /> : <input className="in num" value={life} disabled={locked} onChange={(e) => setLife(e.target.value)} />}</Field>
+              <Field label="Méthode">{land ? <Select className="in" value="" disabled><option value="">{NA}</option></Select> : <Select className="in" value={method} disabled={locked} onChange={(e) => setMethod(e.target.value as DepreciationMethod)}><option value="linear">Linéaire</option><option value="declining">Dégressif</option></Select>}</Field>
+              <Field label="Début d'amortissement">{land ? <input className="in" value={NA} disabled /> : <input className="in mono" type="date" value={start} disabled={locked} onChange={(e) => setStart(e.target.value)} />}</Field>
               <Field label="Notes" style={{ gridColumn: 'span 3' }}><input className="in" value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
               <div className="actions" style={{ gridColumn: 'span 3' }}><button className="btn" onClick={() => setEdit(false)}>Annuler</button><button className="btn primary" onClick={save}>Enregistrer</button></div>
             </div>
@@ -209,9 +212,9 @@ function Sheet({ entityId, assetId, onPick }: { entityId: Id; assetId: Id | null
               <span className="k">Catégorie</span><span>{a.category} · comptes {state.accounts.find((x) => x.id === cat?.assetAccountId)?.code} / {state.accounts.find((x) => x.id === cat?.accDeprAccountId)?.code}</span>
               <span className="k">Acquisition</span><span><D iso={a.acquisitionDate} />{a.supplierId ? ` · ${state.suppliers.find((s) => s.id === a.supplierId)?.name}` : ''}</span>
               <span className="k">Valeur d'acquisition</span><Money v={a.cost} />
-              <span className="k">Valeur résiduelle</span><Money v={a.residual} />
-              <span className="k">Durée · taux</span><span>{a.lifeMonths} mois · {a.rate} % par an · {METHOD_FR[a.method]}{a.method === 'declining' ? ` × ${DECLINING_COEFFICIENT(a.lifeMonths)}` : ''}</span>
-              <span className="k">Amortissement</span><span>du <D iso={a.startDate} /> au <D iso={a.endDate} /></span>
+              <span className="k">Valeur résiduelle</span>{land ? <span>{NA}</span> : <Money v={a.residual} />}
+              <span className="k">Durée · taux</span>{land ? <span>{NA} · terrain non amortissable</span> : <span>{a.lifeMonths} mois · {a.rate} % par an · {METHOD_FR[a.method]}{a.method === 'declining' ? ` × ${DECLINING_COEFFICIENT(a.lifeMonths)}` : ''}</span>}
+              <span className="k">Amortissement</span>{land ? <span>{NA}</span> : <span>du <D iso={a.startDate} /> au <D iso={a.endDate} /></span>}
               <span className="k">Amortissements cumulés</span><Money v={a.accumulated} />
               <span className="k">Valeur nette comptable</span><Money v={r2(a.cost - a.accumulated)} />
               <span className="k">Localisation</span><span>{a.location}</span>
@@ -222,7 +225,7 @@ function Sheet({ entityId, assetId, onPick }: { entityId: Id; assetId: Id | null
         <div className="card flush">
           <table>
             <thead><tr><th>Plan d'amortissement</th><th className="num">Mois</th><th className="num">VNC début</th><th className="num">Dotation</th><th className="num">Cumul</th><th className="num">VNC fin</th><th>Comptabilisée</th></tr></thead>
-            <tbody>{schedule.map((r) => <tr key={r.year} className={r.year === Number(state.today.slice(0, 4)) ? 'sel' : ''}><td>{r.year}</td><td className="num">{r.months}</td><td className="num">{fmt(r.opening, 0)}</td><td className="num">{fmt(r.dotation, 0)}</td><td className="num">{fmt(r.cumulative, 0)}</td><td className="num">{fmt(r.closing, 0)}</td><td>{r.posted ? <Chip kind="good">oui</Chip> : r.year < Number(state.today.slice(0, 4)) ? <Chip kind="warn">à régulariser</Chip> : <Chip kind="dim">à venir</Chip>}</td></tr>)}</tbody>
+            <tbody>{land && <tr><td colSpan={7} className="muted">Terrain : non amortissable, aucune dotation.</td></tr>}{schedule.map((r) => <tr key={r.year} className={r.year === Number(state.today.slice(0, 4)) ? 'sel' : ''}><td>{r.year}</td><td className="num">{r.months}</td><td className="num">{fmt(r.opening, 0)}</td><td className="num">{fmt(r.dotation, 0)}</td><td className="num">{fmt(r.cumulative, 0)}</td><td className="num">{fmt(r.closing, 0)}</td><td>{r.posted ? <Chip kind="good">oui</Chip> : r.year < Number(state.today.slice(0, 4)) ? <Chip kind="warn">à régulariser</Chip> : <Chip kind="dim">à venir</Chip>}</td></tr>)}</tbody>
           </table>
         </div>
       </div>
@@ -313,7 +316,7 @@ function Categories({ entityId }: { entityId: Id }) {
         <div className="card flush">
           <table>
             <thead><tr><th>Code</th><th>Catégorie</th><th className="num">Durée</th><th className="num">Taux</th><th>Méthode</th><th>Compte d'immobilisation</th><th>Compte d'amortissement</th><th className="num">Biens</th><th></th></tr></thead>
-            <tbody>{cats.map((c) => <tr key={c.id} className={c.id === editId ? 'sel' : ''}><td className="mono">{c.code}</td><td>{c.name}</td><td className="num">{c.lifeMonths} mois</td><td className="num">{r2(1200 / c.lifeMonths)} %</td><td>{METHOD_FR[c.method]}</td><td className="mono small">{state.accounts.find((a) => a.id === c.assetAccountId)?.code} {state.accounts.find((a) => a.id === c.assetAccountId)?.nameFr}</td><td className="mono small">{state.accounts.find((a) => a.id === c.accDeprAccountId)?.code} {state.accounts.find((a) => a.id === c.accDeprAccountId)?.nameFr}</td><td className="num">{state.assets.filter((a) => a.categoryId === c.id).length}</td><td><button className="btn sm" onClick={() => load(c.id)}>Modifier</button></td></tr>)}</tbody>
+            <tbody>{cats.map((c) => <tr key={c.id} className={c.id === editId ? 'sel' : ''}><td className="mono">{c.code}</td><td>{c.name}</td><td className="num">{isLandCategory(c) ? NA : `${c.lifeMonths} mois`}</td><td className="num">{isLandCategory(c) ? NA : `${r2(1200 / c.lifeMonths)} %`}</td><td>{isLandCategory(c) ? <Chip kind="dim">non amortissable</Chip> : METHOD_FR[c.method]}</td><td className="mono small">{state.accounts.find((a) => a.id === c.assetAccountId)?.code} {state.accounts.find((a) => a.id === c.assetAccountId)?.nameFr}</td><td className="mono small">{state.accounts.find((a) => a.id === c.accDeprAccountId)?.code} {state.accounts.find((a) => a.id === c.accDeprAccountId)?.nameFr}</td><td className="num">{state.assets.filter((a) => a.categoryId === c.id).length}</td><td><button className="btn sm" onClick={() => load(c.id)}>Modifier</button></td></tr>)}</tbody>
           </table>
         </div>
       </div>
