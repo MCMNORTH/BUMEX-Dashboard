@@ -123,7 +123,7 @@ export function signInAs(state: State, userId: Id): State {
 
 // ---- deletions -------------------------------------------------------------------------------------------
 
-export const PROTECTED_TABLES = ['customer', 'supplier', 'employee', 'asset', 'engagement', 'loan', 'account', 'app_user', 'task', 'archive', 'assignment'] as const;
+export const PROTECTED_TABLES = ['customer', 'supplier', 'employee', 'asset', 'engagement', 'loan', 'account', 'app_user', 'task', 'archive', 'assignment', 'sales_invoice'] as const; // [bumex-one] sales_invoice: drafts
 export type ProtectedTable = (typeof PROTECTED_TABLES)[number];
 
 export type DeletionExecutor = (state: State, rowId: Id) => State;
@@ -178,6 +178,13 @@ export const DELETION_EXECUTORS: Record<ProtectedTable, DeletionExecutor> = {
     return { ...s, archives: s.archives.filter((x) => x.id !== id), engagements: s.engagements.map((e) => (e.archiveId === id ? { ...e, archiveId: undefined } : e)) };
   },
   assignment: (s, id) => ({ ...s, assignments: s.assignments.filter((a) => a.id !== id) }),
+  // [bumex-one] a draft invoice (asked on 2026-11-17); a validated one is numbered: corrected by a credit note
+  sales_invoice: (s, id) => {
+    const inv = s.salesInvoices.find((x) => x.id === id);
+    if (!inv) throw new DomainError('not_found', 'Facture inconnue');
+    if (inv.status !== 'draft') throw new DomainError('in_use', 'Facture validée : la corriger par un avoir');
+    return { ...s, salesInvoices: s.salesInvoices.filter((x) => x.id !== id) };
+  },
 };
 
 export interface DeletionResult {

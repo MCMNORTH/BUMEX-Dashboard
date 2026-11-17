@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildDemo, entityByCode, createDraft, postEntry, reverseEntry, checkPostable, verifyChain, setPeriodStatus, setFiscalYearClosed,
-  trialBalance, accountByCode, createInvoice, validateInvoice, postInvoice, recordPayment, createCreditNote, aging, openInvoices,
+  trialBalance, accountByCode, createInvoice, updateInvoice, requestDeletion, validateInvoice, postInvoice, recordPayment, createCreditNote, aging, openInvoices,
   importStatement, parseStatementCsv, suggestFor, bookByRule, bookTransfer, bankSummary, cashForecast, floorSignals, groupFigures,
   addAccount, r2, type State, DomainError, resolveTaxCode, computeLines, sha256, entryHash, approveSupplierInvoice,
   taskStats, createTask, completeTask, reopenTask, alerts, recentActivity, archiveRows, rackLayout, archiveEngagement, retrieveArchive, returnArchive, destroyArchive, nextFreeSlot, archiveQueue, RACK_CAPACITY, slotKey,
@@ -163,6 +163,58 @@ describe('sales', () => {
     expect(p).toMatchObject({ status: 'posted', number: v.number });
     expect(s3.entries.find((x) => x.id === p.journalEntryId)!.status).toBe('posted');
     expect(() => postInvoice(s3, inv.id)).toThrow(DomainError);
+  });
+  it('carries VAT 16 % and WHT 7 % together: the client pays TTC − 7 % of HT, the entry balances, a credit note reverses both (2026-11-17)', () => {
+    const customer = cust('standard');
+    const wht = base.taxCodes.find((t) => t.entityId === AUD && t.code === 'RAS-7')!;
+    const [s1, inv] = createInvoice(base, { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU', withholdingCodeId: wht.id, lines: [{ description: 'Audit', quantity: 1, unitPrice: 100000, serviceCategory: 'AUDIT' }] });
+    expect(inv).toMatchObject({ totalHt: 100000, totalTax: 16000, totalTtc: 116000, withholdingRate: 0.07, withholdingAmount: 7000, netPayable: 109000 });
+    const [s2, posted] = postInvoice(s1, inv.id);
+    const e = s2.entries.find((x) => x.id === posted.journalEntryId)!;
+    expect(r2(e.lines.reduce((a, l) => a + l.debit - l.credit, 0))).toBe(0);
+    expect(e.lines.find((l) => l.accountId === wht.deductibleAccountId)!.debit).toBe(7000);
+    const [s3] = createCreditNote(s2, inv.id, 'annulation', TODAY);
+    expect(s3.salesInvoices.find((i) => i.id === inv.id)!.status).toBe('paid');
+    const cn = s3.entries.find((x) => x.sourceType === 'credit_note' && x.lines.some((l) => l.accountId === wht.deductibleAccountId))!;
+    expect(cn.lines.find((l) => l.accountId === wht.deductibleAccountId)!.credit).toBe(7000);
+    expect(r2(trialBalance(s3, AUD).reduce((a, r) => a + r.balance, 0))).toBe(0);
+    // WHT 0 %: none, whatever the card says
+    const [, none] = createInvoice(base, { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU', withholdingCodeId: null, lines: [{ description: 'Audit', quantity: 1, unitPrice: 100000, serviceCategory: 'AUDIT' }] });
+    expect(none).toMatchObject({ withholdingAmount: 0, netPayable: 116000 });
+  });
+  it('edits a draft (lines, WHT) and deletes it; a validated invoice is neither edited nor deleted (2026-11-17)', () => {
+    const customer = cust('gta');
+    const wht = base.taxCodes.find((t) => t.entityId === AUD && t.code === 'RAS-7')!;
+    const input = { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU' as const, withholdingCodeId: wht.id, lines: [{ description: 'Audit', quantity: 1, unitPrice: 50000, serviceCategory: 'AUDIT' }] };
+    const [s1, inv] = createInvoice(base, input);
+    const [s2, edited] = updateInvoice(s1, inv.id, { ...input, withholdingCodeId: null, lines: [{ description: 'Audit', quantity: 2, unitPrice: 50000, serviceCategory: 'AUDIT' }, { description: 'Conseil', quantity: 1, unitPrice: 10000, serviceCategory: 'ADVISORY' }] });
+    expect(edited).toMatchObject({ id: inv.id, status: 'draft', totalHt: 110000, withholdingAmount: 0, netPayable: 110000 });
+    expect(edited.lines).toHaveLength(2);
+    expect(s2.auditLog.some((a) => a.rowId === inv.id && a.action === 'U')).toBe(true);
+    // a partner deletes at once (with a reason); another posting role files a request
+    const deleted = requestDeletion(s2, { table: 'sales_invoice', rowId: inv.id, label: 'brouillon', reason: 'erreur de saisie', entityId: AUD });
+    expect(deleted.executed).toBe(true);
+    expect(deleted.state.salesInvoices.some((i) => i.id === inv.id)).toBe(false);
+    const asAccountant: State = { ...s2, session: { ...s2.session, role: 'accountant' } };
+    const asked = requestDeletion(asAccountant, { table: 'sales_invoice', rowId: inv.id, label: 'brouillon', reason: 'erreur de saisie', entityId: AUD });
+    expect(asked.executed).toBe(false);
+    expect(asked.state.salesInvoices.some((i) => i.id === inv.id)).toBe(true);
+    const asStaff: State = { ...s2, session: { ...s2.session, role: 'staff' } };
+    expect(() => requestDeletion(asStaff, { table: 'sales_invoice', rowId: inv.id, label: 'brouillon', reason: 'erreur de saisie', entityId: AUD })).toThrow(DomainError);
+    const [s3] = validateInvoice(s2, inv.id);
+    expect(() => updateInvoice(s3, inv.id, input)).toThrow(DomainError);
+    expect(() => requestDeletion(s3, { table: 'sales_invoice', rowId: inv.id, label: 'validée', reason: 'erreur de saisie', entityId: AUD })).toThrow(/avoir/);
+  });
+  it('opens an old RSA draft (RAS-7 kept, GTA-EXO lines) and saves it unchanged', () => {
+    const customer = cust('standard');
+    const wht = base.taxCodes.find((t) => t.entityId === AUD && t.code === 'RAS-7')!;
+    const gtaExo = base.taxCodes.find((t) => t.entityId === AUD && t.code === 'GTA-EXO')!;
+    const input = { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU' as const, withholdingCodeId: wht.id, lines: [{ description: 'Audit', quantity: 1, unitPrice: 94742.04, serviceCategory: 'AUDIT', taxCodeId: gtaExo.id }] };
+    const [s1, old] = createInvoice(base, input);
+    // the form loads the stored codes back (explicit tax code and revenue account, the invoice's WHT)
+    const [, again] = updateInvoice(s1, old.id, { ...input, lines: old.lines.map((l) => ({ description: l.description, quantity: l.quantity, unitPrice: l.unitPrice, serviceCategory: l.serviceCategory, taxCodeId: l.taxCodeId, revenueAccountId: l.revenueAccountId })), withholdingCodeId: old.withholdingCodeId });
+    expect(again).toMatchObject({ totalHt: old.totalHt, totalTax: 0, withholdingAmount: 6631.94, netPayable: 88110.1, legalMentionFr: old.legalMentionFr });
+    expect(again.lines[0]).toMatchObject({ taxCodeId: gtaExo.id, revenueAccountId: old.lines[0].revenueAccountId });
   });
   it('posts the export invoice in USD at the day rate with no VAT, on 701712', () => {
     const inv = base.salesInvoices.find((i) => i.number === 'IN2610-0116')!;

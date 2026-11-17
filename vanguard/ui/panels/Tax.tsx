@@ -58,7 +58,7 @@ function Summary({ entityId }: { entityId: Id }) {
           <div className="kpi"><div className="l">TVA collectée · période</div><div className="v">{fmt(vat.collected, 0)}</div></div>
           <div className="kpi"><div className="l">TVA déductible · période</div><div className="v">{fmt(vat.deductible, 0)}</div></div>
           <div className="kpi"><div className="l">TVA nette à décaisser</div><div className="v" style={{ color: vat.net > 0 ? 'var(--warn)' : 'var(--good)' }}>{fmt(vat.net, 0)}</div></div>
-          <div className="kpi"><div className="l">Retenues subies · dues</div><div className="v">{fmt(wht.sufferedTotal, 0)} · {fmt(wht.dueTotal, 0)}</div></div>
+          <div className="kpi"><div className="l">WHT subie · retenues dues</div><div className="v">{fmt(wht.sufferedTotal, 0)} · {fmt(wht.dueTotal, 0)}</div></div>
         </div>
         <div className="card flush">
           <div style={{ display: 'flex', gap: 8, padding: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -67,7 +67,7 @@ function Summary({ entityId }: { entityId: Id }) {
             <button className="btn sm" style={{ marginLeft: 'auto' }} onClick={exportXlsx}>Exporter (Excel)</button>
           </div>
           <table>
-            <thead><tr><th>Mois</th><th className="num">TVA collectée (ventes)</th><th className="num">TVA déductible (achats)</th><th className="num">TVA nette</th><th className="num">Retenues subies</th><th className="num">Retenues dues</th></tr></thead>
+            <thead><tr><th>Mois</th><th className="num">TVA collectée (ventes)</th><th className="num">TVA déductible (achats)</th><th className="num">TVA nette</th><th className="num">WHT subie</th><th className="num">Retenues dues</th></tr></thead>
             <tbody>{vat.byMonth.map((m) => { const w = wht.byMonth.find((x) => x.month === m.month); return <tr key={m.month}><td>{m.month}</td><td className="num">{fmt(m.collected, 0)}</td><td className="num">{fmt(m.deductible, 0)}</td><td className="num">{fmt(r2(m.collected - m.deductible), 0)}</td><td className="num">{fmt(w?.suffered ?? 0, 0)}</td><td className="num">{fmt(w?.due ?? 0, 0)}</td></tr>; })}</tbody>
             <tfoot><tr><td>Total</td><td className="num">{fmt(vat.collected, 0)}</td><td className="num">{fmt(vat.deductible, 0)}</td><td className="num">{fmt(vat.net, 0)}</td><td className="num">{fmt(wht.sufferedTotal, 0)}</td><td className="num">{fmt(wht.dueTotal, 0)}</td></tr></tfoot>
           </table>
@@ -80,7 +80,7 @@ function Summary({ entityId }: { entityId: Id }) {
             <span className="k">TVA collectée {collected ? <span className="mono muted">· {collected.acc.code}</span> : ''}</span><Money v={collected?.balance ?? 0} />
             <span className="k">TVA déductible {deductible ? <span className="mono muted">· {deductible.acc.code}</span> : ''}</span><Money v={deductible?.balance ?? 0} />
             <span className="k">Retenues à reverser {whtPay ? <span className="mono muted">· {whtPay.acc.code}</span> : ''}</span><Money v={whtPay?.balance ?? 0} />
-            <span className="k">Retenues subies à imputer {whtRec ? <span className="mono muted">· {whtRec.acc.code}</span> : ''}</span><Money v={whtRec?.balance ?? 0} />
+            <span className="k">WHT subie à imputer {whtRec ? <span className="mono muted">· {whtRec.acc.code}</span> : ''}</span><Money v={whtRec?.balance ?? 0} />
           </div>
           <div className="small muted" style={{ marginTop: 8 }}>Les soldes viennent du grand livre ; la période ci-contre filtre les factures par date. Retenue ≠ exonération : une facture exonérée ne porte pas de TVA, une facture soumise à retenue garde sa TVA et voit son net réduit.</div>
         </div>
@@ -116,7 +116,7 @@ function Withholding({ entityId }: { entityId: Id }) {
           </div>
         </div>
         <Table title="Retenues dues · que nous retenons sur les fournisseurs" rows={st.due} total={st.dueTotal} who="Fournisseur" />
-        <Table title="Retenues subies · que nos clients retiennent" rows={st.suffered} total={st.sufferedTotal} who="Client" />
+        <Table title="WHT subie · que nos clients retiennent (7 %)" rows={st.suffered} total={st.sufferedTotal} who="Client" />
       </div>
       <aside className="side">
         <div className="card">

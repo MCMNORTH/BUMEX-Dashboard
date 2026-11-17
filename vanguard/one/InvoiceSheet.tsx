@@ -57,8 +57,8 @@ const L = {
   fr: {
     invoice: 'Facture', draft: 'brouillon', cancelled: 'annulée', invoiceDate: 'Date de facture :', dueDate: "Date d'échéance :", paymentMethod: 'Mode de paiement :', paymentTerms: 'Conditions de paiement :',
     days: (n: number) => `${n} jour${n === 1 ? '' : 's'}`, billedTo: 'Facturé à', amountIn: (c: string) => `Montant en ${c}`,
-    description: 'DÉSIGNATION', qty: 'QTÉ', up: 'P.U.', vat: 'TVA', wht: 'RAS', total: 'TOTAL', totalNet: 'Total HT', totalTax: 'Total TVA', totalTtc: 'Total TTC',
-    totalWht: 'Total retenue (WHT)', customerNif: 'NIF',
+    description: 'DÉSIGNATION', qty: 'QTÉ', up: 'P.U.', vat: 'TVA', wht: 'WHT', total: 'TOTAL', totalNet: 'Total HT', totalTax: 'Total TVA', totalTtc: 'Total TTC',
+    totalWht: 'Total WHT', customerNif: 'NIF',
     whtNote: "Facture émise dans le cadre du régime fiscal spécifique du Projet GTA (Mauritanie–Sénégal). La retenue à la source (WHT) est prélevée par le Client et reversée à l'Unité Conjointe.",
     gtaNote: 'TVA non applicable conformément au régime fiscal GTA', totalDue: 'NET À PAYER', paymentInfo: 'INFORMATIONS DE PAIEMENT', bank: 'BANQUE', owner: 'TITULAIRE DU COMPTE',
     iban: 'IBAN', bic: 'BIC/SWIFT', account: 'N° DE COMPTE', rib: 'RIB', signature: 'Signature', registered: 'Siège social', phone: 'Tél', fax: 'Fax', email: 'E-mail', web: 'Web',

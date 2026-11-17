@@ -359,6 +359,19 @@ describe("the modules", () => {
     expect(linked!.data.lines).toMatchObject([{ lineNo: 1, description: "Fiscal", quantity: 1, unitPrice: 80000, lineHt: 80000 }]);
     expect(await asSystem(() => readInvoiceByLink(tx, "00000000-0000-4000-8000-000000000000"))).toBeNull();
     expect(await asSystem(() => readInvoiceByLink(tx, "not-a-token"))).toBeNull();
+
+    // a draft edited (lines rewritten, WHT taken off) and deleted by a partner, through the database (2026-11-17)
+    const ras7 = starred.state.taxCodes.find((t) => t.entityId === audit && t.code === "RAS-7")!.id;
+    const draftInput = { entityId: audit, customerId: customer, date: "2026-05-30", currency: "MRU" as const, withholdingCodeId: ras7, lines: [{ description: "Brouillon", quantity: 1, unitPrice: 100000, serviceCategory: "AUDIT" }] };
+    const drafted = await change("aicha", (s) => domain.createInvoice(s, draftInput));
+    const draftId = drafted.browser[1].id;
+    expect(drafted.state.salesInvoices.find((i) => i.id === draftId)).toMatchObject({ status: "draft", withholdingAmount: 7000 });
+    const edited = await change("aicha", (s) => domain.updateInvoice(s, draftId, { ...draftInput, withholdingCodeId: null, lines: [{ description: "Audit", quantity: 2, unitPrice: 60000, serviceCategory: "AUDIT" }, { description: "Conseil", quantity: 1, unitPrice: 5000, serviceCategory: "ADVISORY" }] }));
+    expect(edited.state.salesInvoices.find((i) => i.id === draftId)).toMatchObject({ status: "draft", totalHt: 125000, withholdingAmount: 0, netPayable: 145000 });
+    expect(edited.state.salesInvoices.find((i) => i.id === draftId)!.lines.map((l) => l.description)).toEqual(["Audit", "Conseil"]);
+    const removed = await change("awa", (s) => domain.requestDeletion(s, { table: "sales_invoice", rowId: draftId, label: "Brouillon", reason: "erreur de saisie", entityId: audit }).state);
+    expect(removed.state.salesInvoices.some((i) => i.id === draftId)).toBe(false);
+    expect(await asSystem(() => tx.query("select 1 from erp.sales_invoice_line where invoice_id = $1", [draftId]))).toHaveLength(0);
   });
 
   it("bank: a statement imported, a fee booked by rule", async () => {

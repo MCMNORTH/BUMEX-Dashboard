@@ -87,7 +87,7 @@ describe('the invoice sheet', () => {
   });
   it('in French, with the withholding and no QR code before the invoice has its link', () => {
     const t = text(renderToStaticMarkup(createElement(InvoiceSheet, { data: { ...model, number: undefined, currency: 'MRU', withholdingRate: 0.07, withholdingAmount: 262.5, netPayable: 3487.5, url: undefined }, lang: 'fr' })));
-    for (const s of ['Facture (brouillon)', 'Facturé à', 'Montant en ouguiyas', 'Virement bancaire', '1 500,00', '|TVA|RAS|TOTAL|', 'Total retenue (WHT)|−262,50', 'NET À PAYER', '3 487,50', 'Arrêtée la présente facture à la somme de trois mille quatre cent quatre-vingt-sept ouguiyas et cinquante centimes|',
+    for (const s of ['Facture (brouillon)', 'Facturé à', 'Montant en ouguiyas', 'Virement bancaire', '1 500,00', '|TVA|WHT|TOTAL|', 'Total WHT|−262,50', 'NET À PAYER', '3 487,50', 'Arrêtée la présente facture à la somme de trois mille quatre cent quatre-vingt-sept ouguiyas et cinquante centimes|',
       "La retenue à la source (WHT) est prélevée par le Client et reversée à l'Unité Conjointe.", 'BANQUE : SOCIETE GENERALE MAURITANIE', 'Capital de 10 000 000 MRU']) {
       expect(t, s).toContain(s);
     }

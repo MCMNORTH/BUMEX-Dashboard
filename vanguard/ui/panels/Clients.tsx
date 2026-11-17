@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  createInvoice, validateInvoice, postInvoice, createCreditNote, recordPayment, openInvoices, aging, dunningQueue, sendDunning, addCustomer, updateCustomer, computeLines, resolveTaxCode, fxRate, mapped, withholdingStatement, nextThirdPartyCode, collectiveFor, accountBalance,
+  createInvoice, updateInvoice, validateInvoice, postInvoice, createCreditNote, recordPayment, openInvoices, aging, dunningQueue, sendDunning, addCustomer, updateCustomer, computeLines, resolveTaxCode, fxRate, mapped, withholdingStatement, nextThirdPartyCode, collectiveFor, accountBalance,
   fmt, r2, parseAmount, type Id, type Currency, type CounterpartyRegime, type SalesInvoice, type TaxCode, DomainError, REVENUE_STATUS_LABEL,
   invoiceBankFor, favoritesFirst, setEntityLetterhead, type State,
 } from '@bumex/domain';
@@ -38,10 +38,14 @@ export function ClientsPanel({ entityId, initialTab }: { entityId: Id; initialTa
   const [tab, setTab] = useState<Tab>((initialTab as Tab) || 'invoices');
   useEffect(() => { if (initialTab) setTab(initialTab as Tab); }, [initialTab]);
   const [payFor, setPayFor] = useState<Id | null>(null);
+  // [bumex-one] a draft opened in the invoice form (asked on 2026-11-17); the "new invoice" tab starts a blank one
+  const [editInvoiceId, setEditInvoiceId] = useState<Id | null>(null);
+  const editing = editInvoiceId ? state.salesInvoices.find((i) => i.id === editInvoiceId && i.status === 'draft') : undefined;
+  const pickTab = (next: Tab) => { if (next !== tab) setEditInvoiceId(null); setTab(next); };
   const ag = aging(state, entityId);
   const tabs = [
-    { id: 'invoices' as Tab, label: t('tab_invoices') }, { id: 'new' as Tab, label: t('tab_new_invoice') }, { id: 'payments' as Tab, label: t('tab_payments') },
-    { id: 'aging' as Tab, label: <>{t('tab_aging')} <Chip kind={ag.overdueCount ? 'crit' : 'good'}>{ag.overdueCount}</Chip></> }, { id: 'dunning' as Tab, label: t('tab_dunning') }, { id: 'withholding' as Tab, label: 'Retenues subies' }, { id: 'customers' as Tab, label: t('tab_customers') },
+    { id: 'invoices' as Tab, label: t('tab_invoices') }, { id: 'new' as Tab, label: editing ? say('Modifier le brouillon', 'Edit draft') : t('tab_new_invoice') }, { id: 'payments' as Tab, label: t('tab_payments') },
+    { id: 'aging' as Tab, label: <>{t('tab_aging')} <Chip kind={ag.overdueCount ? 'crit' : 'good'}>{ag.overdueCount}</Chip></> }, { id: 'dunning' as Tab, label: t('tab_dunning') }, { id: 'withholding' as Tab, label: 'WHT subie' }, { id: 'customers' as Tab, label: t('tab_customers') },
     { id: 'contracts' as Tab, label: say('Contrats', 'Contracts') }, // [bumex-one] BUMEX One's contracts (vanguard/one/Contracts.tsx)
     { id: 'letterhead' as Tab, label: say('Modèle de facture', 'Invoice layout') }, // [bumex-one] the invoice's letterhead (2026-11-17)
   ];
@@ -52,11 +56,11 @@ export function ClientsPanel({ entityId, initialTab }: { entityId: Id; initialTa
     <>
       <div className="sheet-head">
         <h1>{t('room_clients')}</h1>
-        <Tabs tabs={tabs} value={tab} onChange={setTab} />
+        <Tabs tabs={tabs} value={tab} onChange={pickTab} />
       </div>
       <div className="sheet-body">
-        {tab === 'invoices' && <Invoices entityId={entityId} onPay={(id) => { setPayFor(id); setTab('payments'); }} />}
-        {tab === 'new' && <NewInvoice entityId={entityId} onDone={() => setTab('invoices')} />}
+        {tab === 'invoices' && <Invoices entityId={entityId} onPay={(id) => { setPayFor(id); setTab('payments'); }} onEdit={(id) => { setEditInvoiceId(id); setTab('new'); }} />}
+        {tab === 'new' && <NewInvoice key={editing?.id ?? 'new'} entityId={entityId} editing={editing} onDone={() => { setEditInvoiceId(null); setTab('invoices'); }} />}
         {tab === 'payments' && <Payments entityId={entityId} preselect={payFor} />}
         {tab === 'aging' && <AgingView entityId={entityId} />}
         {tab === 'dunning' && <Dunning entityId={entityId} />}
@@ -160,7 +164,7 @@ function Letterhead({ entityId }: { entityId: Id }) {
   );
 }
 
-function Invoices({ entityId, onPay }: { entityId: Id; onPay: (id: Id) => void }) {
+function Invoices({ entityId, onPay, onEdit }: { entityId: Id; onPay: (id: Id) => void; onEdit: (id: Id) => void }) {
   const { state, t, apply } = useStore();
   const [filter, setFilter] = useState<'all' | 'open' | 'overdue' | 'draft' | 'validated'>('all');
   const [doc, setDoc] = useState<SalesInvoice | null>(null);
@@ -189,8 +193,9 @@ function Invoices({ entityId, onPay }: { entityId: Id; onPay: (id: Id) => void }
                   <td><Chip kind={STATUS_KIND[i.status]}>{STATUS_FR[i.status]}{i.dunningLevel ? ` · relance ${i.dunningLevel}` : ''}</Chip></td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     <button className="btn sm" onClick={() => setDoc(i)}>Aperçu</button>{' '}
-                    {i.status === 'draft' && <><button className="btn sm" onClick={() => apply((s) => validateInvoice(s, i.id), 'Facture validée et numérotée')}>{t('validate')}</button>{' '}</>}
+                    {i.status === 'draft' && <><button className="btn sm" onClick={() => onEdit(i.id)}>{t('edit')}</button>{' '}<button className="btn sm" onClick={() => apply((s) => validateInvoice(s, i.id), 'Facture validée et numérotée')}>{t('validate')}</button>{' '}</>}
                     {(i.status === 'draft' || i.status === 'validated') && <button className="btn sm primary" onClick={() => apply((s) => postInvoice(s, i.id), 'Facture comptabilisée')}>{t('post')}</button>}
+                    {i.status === 'draft' && <>{' '}<DeleteButton table="sales_invoice" rowId={i.id} label={`Facture brouillon · ${c.name} · ${i.currency} ${fmt(i.netPayable)} · ${i.date}`} entityId={entityId} /></>}
                     {o && <><button className="btn sm" onClick={() => onPay(i.id)}>Encaisser</button>{' '}<button className="btn sm" onClick={() => { const reason = prompt("Motif de l'avoir ?", 'remise commerciale'); if (reason !== null) apply((s) => createCreditNote(s, i.id, reason, s.today), 'Avoir émis et comptabilisé'); }}>Avoir</button></>}
                   </td>
                 </tr>
@@ -204,25 +209,38 @@ function Invoices({ entityId, onPay }: { entityId: Id; onPay: (id: Id) => void }
   );
 }
 
+const HELP_KEY = 'bumex-vanguard-invoice-help';
+
 interface LineForm { description: string; quantity: string; unitPrice: string; serviceCategory: string; taxCodeId: string; revenueAccountId: string }
 const emptyLine = (): LineForm => ({ description: '', quantity: '1', unitPrice: '', serviceCategory: 'AUDIT', taxCodeId: '', revenueAccountId: '' });
 
-function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) {
+// editing: a draft opened again (asked on 2026-11-17), its fields as saved; saving updates it (updateInvoice)
+function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: SalesInvoice; onDone: () => void }) {
   const { state, t, apply } = useStore();
+  const say = useSay(); // [bumex-one]
   const entity = state.entities.find((e) => e.id === entityId)!;
   const customers = state.customers.filter((c) => c.entityId === entityId);
-  const [customerId, setCustomerId] = useState(customers[0]?.id ?? '');
+  const [customerId, setCustomerId] = useState(editing?.customerId ?? customers[0]?.id ?? '');
   const customer = customers.find((c) => c.id === customerId);
-  const [date, setDate] = useState(state.today);
-  const [currency, setCurrency] = useState<Currency>(customer?.defaultCurrency ?? entity.functionalCurrency);
-  const [rate, setRate] = useState('');
-  const [engagementId, setEngagementId] = useState('');
-  const [lines, setLines] = useState<LineForm[]>([emptyLine()]);
+  const [date, setDate] = useState(editing?.date ?? state.today);
+  const [currency, setCurrency] = useState<Currency>(editing?.currency ?? customer?.defaultCurrency ?? entity.functionalCurrency);
+  const [rate, setRate] = useState(editing && editing.currency !== entity.functionalCurrency ? String(editing.fxRate) : '');
+  const [engagementId, setEngagementId] = useState(editing?.engagementId ?? '');
+  const [lines, setLines] = useState<LineForm[]>(() => editing?.lines.length
+    ? editing.lines.map((l) => ({ description: l.description, quantity: String(l.quantity), unitPrice: String(l.unitPrice), serviceCategory: l.serviceCategory, taxCodeId: l.taxCodeId ?? '', revenueAccountId: l.revenueAccountId ?? '' }))
+    : [emptyLine()]);
+  // the explanations, folded into a "?" (asked on 2026-11-17): the form gets the width; the choice is remembered here
+  const [help, setHelpState] = useState(() => { try { return localStorage.getItem(HELP_KEY) === 'open'; } catch { return false; } });
+  const setHelp = (open: boolean) => { setHelpState(open); try { localStorage.setItem(HELP_KEY, open ? 'open' : 'closed'); } catch { /* private mode */ } };
   const taxCodes = state.taxCodes.filter((x) => x.entityId === entityId && x.kind === 'vat');
   // WHT (asked on 2026-11-17): the client keeps 7 % of the HT, on top of the VAT the lines carry (so both on one invoice);
   // it starts from the customer's card (a withholding there = 7 %), and at 0 % nothing of it is printed.
+  // The WHT is kept as its code: '' (0 %), the 7 % one, or — on an older invoice or card — another withholding code, kept
+  // as it was rather than changed behind the user's back.
   const whtCode = whtCodeFor(state.taxCodes, entityId);
-  const [whtOn, setWhtOn] = useState(() => Boolean(whtCode && customer?.withholdingCodeId));
+  const cardWht = (c: typeof customer) => (c?.withholdingCodeId ? (state.taxCodes.some((x) => x.id === c.withholdingCodeId) ? c.withholdingCodeId : whtCode?.id ?? '') : '');
+  const [whtId, setWhtId] = useState<string>(() => (editing ? editing.withholdingCodeId ?? '' : cardWht(customer)));
+  const whtOther = whtId && whtId !== whtCode?.id ? state.taxCodes.find((x) => x.id === whtId) : undefined;
   // This invoice's regime (asked on 2026-11-02), the customer's card unchanged: Normal (the standard rules: TVA), GTA
   // (GTA-EXO 0 %); "card" keeps another regime of the card (exempt, export, public body) as it is. It only chooses the
   // lines' default VAT; WHT is apart.
@@ -233,7 +251,7 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
   // [bumex-one] the favourite accounts first, and the default (invoiceBankFor: a favourite in the invoice's currency…)
   const banks = favoritesFirst(state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && !b.isCash));
   const bankFor = (c: Currency) => invoiceBankFor(state, entityId, c)?.id ?? '';
-  const [bankId, setBankId] = useState(() => bankFor(currency));
+  const [bankId, setBankId] = useState(() => editing?.bankAccountId ?? bankFor(currency));
   // An invoice in another currency than the floor's (MRU, or MAD at BUMEX Maroc) carries the rate typed on it, never the
   // rate table's (asked on 2026-11-17): it cannot be saved, not even as a draft, until the rate is entered.
   const foreign = currency !== entity.functionalCurrency;
@@ -245,7 +263,7 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
 
   const input = () => ({
     entityId, customerId, date, currency, fxRate: effRate, engagementId: engagementId || undefined, bankAccountId: bankId || undefined,
-    withholdingCodeId: whtOn && whtCode ? whtCode.id : null, regime,
+    withholdingCodeId: whtId || null, regime,
     lines: lines.filter((l) => l.description.trim() && parseAmount(l.unitPrice) !== null).map((l) => ({ description: l.description, quantity: Number(l.quantity.replace(',', '.')) || 1, unitPrice: parseAmount(l.unitPrice) ?? 0, serviceCategory: l.serviceCategory, taxCodeId: l.taxCodeId || undefined, revenueAccountId: l.revenueAccountId || undefined })),
   });
   const preview = useMemo(() => {
@@ -254,7 +272,7 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
       const { lines: computed, mention } = computeLines(state, input());
       const ht = r2(computed.reduce((a, l) => a + l.lineHt, 0)), tax = r2(computed.reduce((a, l) => a + l.taxAmount, 0));
       const ar = customer.groupEntityId ? mapped(state, entityId, 'AR_GROUP') : mapped(state, entityId, 'AR_CONTROL');
-      const wht = whtOn ? whtCode : undefined;
+      const wht = whtId ? state.taxCodes.find((x) => x.id === whtId) : undefined;
       const withholding = wht ? r2(ht * wht.rate) : 0;
       const whtAccount = wht ? state.accounts.find((a) => a.id === wht.deductibleAccountId) : undefined;
       return { computed, mention, ht, tax, ttc: r2(ht + tax), withholding, whtCode: wht, whtAccount, net: r2(ht + tax - withholding), ar, error: null as string | null };
@@ -262,16 +280,16 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
       return { computed: [], mention: undefined, ht: 0, tax: 0, ttc: 0, withholding: 0, whtCode: undefined, whtAccount: undefined, net: 0, ar: null, error: e instanceof DomainError ? e.message : String(e) };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, customerId, date, currency, effRate, engagementId, lines, whtOn, mode]);
+  }, [state, customerId, date, currency, effRate, engagementId, lines, whtId, mode]);
   const resolvedFor = (l: LineForm) => { if (!customer) return null; try { return resolveTaxCode(state, entityId, regime ? { ...customer, regime } : customer, l.serviceCategory, date); } catch { return null; } };
   const setLine = (i: number, patch: Partial<LineForm>) => setLines((ls) => ls.map((l, k) => (k === i ? { ...l, ...patch } : l)));
   // Keep as draft (editable), validate (numbered and locked, not in the books) or post (validated and accounted).
   const save = (step: 'draft' | 'validate' | 'post') => {
     const ok = apply((s) => {
-      const [s1, inv] = createInvoice(s, input());
+      const [s1, inv] = editing ? updateInvoice(s, editing.id, input()) : createInvoice(s, input());
       if (step === 'draft') return s1;
       return (step === 'post' ? postInvoice : validateInvoice)(s1, inv.id)[0];
-    }, step === 'post' ? 'Facture validée, numérotée et comptabilisée' : step === 'validate' ? 'Facture validée et numérotée, à comptabiliser' : 'Facture enregistrée en brouillon');
+    }, step === 'post' ? 'Facture validée, numérotée et comptabilisée' : step === 'validate' ? 'Facture validée et numérotée, à comptabiliser' : editing ? 'Brouillon mis à jour' : 'Facture enregistrée en brouillon');
     if (ok) onDone();
   };
   const ready = !!preview && !preview.error && preview.ttc > 0 && !rateMissing;
@@ -281,7 +299,7 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
       <form className="grow" onSubmit={(e) => e.preventDefault()}>
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="grid4">
-            <Field label={t('customer')}><Select recent="customers" className="in" value={customerId} onChange={(e) => { setCustomerId(e.target.value); const c = customers.find((x) => x.id === e.target.value); if (c) pickCurrency(c.defaultCurrency); setWhtOn(Boolean(whtCode && c?.withholdingCodeId)); setMode(modeOf(c)); }}>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
+            <Field label={t('customer')}><Select recent="customers" className="in" value={customerId} onChange={(e) => { setCustomerId(e.target.value); const c = customers.find((x) => x.id === e.target.value); if (c) pickCurrency(c.defaultCurrency); setWhtId(cardWht(c)); setMode(modeOf(c)); }}>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
             <Field label="Régime du client">
               <Select className="in" value={mode} onChange={(e) => setMode(e.target.value as InvoiceMode)}>
                 {customer && customer.regime !== 'standard' && customer.regime !== 'gta' && <option value="card">Fiche client · {REGIMES.find((r) => r[0] === customer.regime)?.[1]}</option>}
@@ -301,9 +319,10 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
             <Field label="Mission"><Select recent="missions" className="in" value={engagementId} onChange={(e) => setEngagementId(e.target.value)}><option value="">—</option>{state.engagements.filter((x) => x.entityId === entityId && x.customerId === customerId).map((x) => <option key={x.id} value={x.id}>{x.code} · {x.name}</option>)}</Select></Field>
             <Field label="Bloc bancaire imprimé"><Select className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id} data-hint={b.currency}>{b.favorite ? '★ ' : ''}{b.bankName} · {b.name}</option>)}</Select></Field>
             <Field label="WHT">
-              <Select className="in" value={whtOn ? '7' : '0'} disabled={!whtCode} title={whtCode ? undefined : 'Code RAS-7 absent : à créer dans Fiscalité › codes'} onChange={(e) => setWhtOn(e.target.value === '7')}>
-                <option value="0">0 %</option>
-                <option value="7">7 %</option>
+              <Select className="in" value={whtId} disabled={!whtCode && !whtOther} title={whtCode ? undefined : 'Code RAS-7 absent : à créer dans Fiscalité › codes'} onChange={(e) => setWhtId(e.target.value)}>
+                <option value="">0 %</option>
+                {whtCode && <option value={whtCode.id}>7 %</option>}
+                {whtOther && <option value={whtOther.id}>{Math.round(whtOther.rate * 1000) / 10} % · {whtOther.code} (ancien code)</option>}
               </Select>
             </Field>
           </div>
@@ -342,16 +361,26 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
             </table>
           </div>
           <div className="actions">
+            {editing && <button type="button" className="btn" onClick={onDone}>{say('Annuler', 'Cancel')}</button>}
             <button type="button" className="btn" disabled={rateMissing} onClick={() => save('draft')}>{t('keep_draft')}</button>
             <button type="button" className="btn" disabled={!ready} onClick={() => save('validate')}>{t('validate')}</button>
             <button type="button" className="btn primary" disabled={!ready} onClick={() => save('post')}>{t('post')}</button>
           </div>
         </div>
       </form>
-      <aside className="side">
+      {!help && (
+        <div style={{ flex: 'none' }}>
+          <button type="button" className="btn sm" onClick={() => setHelp(true)} aria-label="Afficher l'aide : TVA, WHT, régime" title="Aide : TVA, WHT, régime"
+            style={{ width: 30, height: 30, padding: 0, borderRadius: '50%', justifyContent: 'center', fontWeight: 700 }}>?</button>
+        </div>
+      )}
+      {help && <aside className="side">
         <div className="card">
-          <h2>Résolution de la taxe</h2>
-          <div className="small">Document forcé &gt; règle (régime du client + catégorie) &gt; défaut de l'entité. Le code figé sur la ligne choisit aussi le sous-compte de produit, que vous pouvez remplacer par n'importe quel compte de classe 7, y compris un sous-compte créé dans le plan.</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <h2 style={{ margin: 0 }}>Résolution de la taxe</h2>
+            <button type="button" className="btn sm" onClick={() => setHelp(false)} aria-label="Replier l'aide" title="Replier" style={{ width: 28, height: 28, padding: 0, justifyContent: 'center' }}>×</button>
+          </div>
+          <div className="small" style={{ marginTop: 8 }}>Document forcé &gt; règle (régime du client + catégorie) &gt; défaut de l'entité. Le code figé sur la ligne choisit aussi le sous-compte de produit, que vous pouvez remplacer par n'importe quel compte de classe 7, y compris un sous-compte créé dans le plan.</div>
           <h2 style={{ marginTop: 12 }}>TVA et WHT</h2>
           <div className="small">La <b>TVA</b> se choisit ligne par ligne (exonérée ou à taux zéro : aucune TVA). La <b>WHT</b> (retenue à la source, toujours 7 %) s'applique au document, sur le HT, en plus de la TVA : une facture peut porter les deux. Le client verse le net et reverse la WHT ; nous la suivons en créance ({whtCode ? `${whtCode.code}, compte ${state.accounts.find((a) => a.id === whtCode.deductibleAccountId)?.code ?? '—'}` : 'code RAS-7 absent'}) jusqu'à l'imputation sur notre impôt. À 7 %, la facture porte une colonne WHT, son total et la mention du régime GTA ; à 0 %, rien.</div>
           <h2 style={{ marginTop: 12 }}>Régime de la facture</h2>
@@ -360,7 +389,7 @@ function NewInvoice({ entityId, onDone }: { entityId: Id; onDone: () => void }) 
             {taxCodes.map((x) => <div key={x.id} className="kv" style={{ padding: '3px 0' }}><span className="mono">{x.code}</span><span>{x.nameFr}</span></div>)}
           </div>
         </div>
-      </aside>
+      </aside>}
     </div>
   );
 }
@@ -542,13 +571,13 @@ function WithholdingSuffered({ entityId }: { entityId: Id }) {
   const entity = state.entities.find((e) => e.id === entityId)!;
   const acc = state.taxCodes.find((x) => x.entityId === entityId && x.kind === 'withholding' && x.deductibleAccountId);
   const account = acc ? state.accounts.find((a) => a.id === acc.deductibleAccountId) : undefined;
-  const exportXlsx = () => downloadXlsx(`retenues-subies-${entity.code}-${from}-${to}.xlsx`, [{ name: 'Retenues subies', rows: [['Date', 'Document', 'Client', 'Base HT', 'Taux', 'Retenue', 'Devise', 'Statut'], ...st.suffered.map((r) => [r.date, r.document, r.counterparty, r.base, r.rate, r.amount, r.currency, r.status])] }, { name: 'Par mois', rows: [['Mois', 'Subies', 'Dues'], ...st.byMonth.map((m) => [m.month, m.suffered, m.due])] }], toast);
+  const exportXlsx = () => downloadXlsx(`wht-subie-${entity.code}-${from}-${to}.xlsx`, [{ name: 'WHT subie', rows: [['Date', 'Document', 'Client', 'Base HT', 'Taux', 'WHT', 'Devise', 'Statut'], ...st.suffered.map((r) => [r.date, r.document, r.counterparty, r.base, r.rate, r.amount, r.currency, r.status])] }, { name: 'Par mois', rows: [['Mois', 'Subies', 'Dues'], ...st.byMonth.map((m) => [m.month, m.suffered, m.due])] }], toast);
   return (
     <div className="cols">
       <div className="grow">
         <div className="card flush">
           <table>
-            <thead><tr><th>Date</th><th>Facture</th><th>Client</th><th className="num">Base HT</th><th className="num">Taux</th><th className="num">Retenue</th><th>Statut</th></tr></thead>
+            <thead><tr><th>Date</th><th>Facture</th><th>Client</th><th className="num">Base HT</th><th className="num">Taux</th><th className="num">WHT</th><th>Statut</th></tr></thead>
             <tbody>{st.suffered.map((r, i) => <tr key={i}><td><D iso={r.date} /></td><td className="mono">{r.document}</td><td>{r.counterparty}</td><td className="num">{r.currency} {fmt(r.base)}</td><td className="num">{Math.round(r.rate * 1000) / 10} %</td><td className="num">{fmt(r.amount)}</td><td><Chip kind={r.status === 'réglée' ? 'good' : 'warn'}>{r.status}</Chip></td></tr>)}{st.suffered.length === 0 && <tr><td colSpan={7} className="muted small">Aucune retenue subie sur la période</td></tr>}</tbody>
             <tfoot><tr><td colSpan={5}>Total retenu par les clients (contre-valeur {entity.functionalCurrency})</td><td className="num">{fmt(st.sufferedTotal)}</td><td></td></tr></tfoot>
           </table>
@@ -558,7 +587,7 @@ function WithholdingSuffered({ entityId }: { entityId: Id }) {
         <div className="card">
           <h2>Période</h2>
           <div className="grid2"><Field label="Du"><input className="in mono" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field><Field label="Au"><input className="in mono" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field></div>
-          <div className="kv" style={{ marginTop: 10 }}><span className="k">Retenues subies</span><Money v={st.sufferedTotal} /><span className="k">Compte de suivi</span><span className="mono">{account ? `${account.code} ${account.nameFr}` : '—'}</span><span className="k">Retenues dues (achats)</span><Money v={st.dueTotal} /></div>
+          <div className="kv" style={{ marginTop: 10 }}><span className="k">WHT subie</span><Money v={st.sufferedTotal} /><span className="k">Compte de suivi</span><span className="mono">{account ? `${account.code} ${account.nameFr}` : '—'}</span><span className="k">Retenues dues (achats)</span><Money v={st.dueTotal} /></div>
           <button className="btn" style={{ marginTop: 10, width: '100%', justifyContent: 'center' }} onClick={exportXlsx}>Exporter (Excel)</button>
           <div className="small muted" style={{ marginTop: 8 }}>Les retenues dues sur nos achats (3 % / 15 %) et leur reversement se suivent dans Fiscalité.</div>
         </div>

@@ -70,6 +70,7 @@ export const updateBankAccount = recorded("updateBankAccount", c.updateBankAccou
 export const updateCustomer = recorded("updateCustomer", c.updateCustomer);
 export const updateDraft = recorded("updateDraft", c.updateDraft);
 export const updateEmployee = recorded("updateEmployee", c.updateEmployee);
+export const updateInvoice = recorded("updateInvoice", c.updateInvoice);
 export const updateJournal = recorded("updateJournal", c.updateJournal);
 export const updateLoan = recorded("updateLoan", c.updateLoan);
 export const updateSupplier = recorded("updateSupplier", c.updateSupplier);

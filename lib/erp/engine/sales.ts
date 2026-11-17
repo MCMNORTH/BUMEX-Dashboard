@@ -139,7 +139,8 @@ export function updateInvoice(state: State, invoiceId: Id, input: InvoiceInput):
     netPayable: r2(totalTtc - wh.amount),
     legalMentionFr: mention,
   };
-  return [{ ...state, salesInvoices: state.salesInvoices.map((i) => (i.id === invoiceId ? inv : i)) }, inv];
+  // [bumex-one] in the history, like its creation
+  return [audit({ ...state, salesInvoices: state.salesInvoices.map((i) => (i.id === invoiceId ? inv : i)) }, 'sales_invoice', invoiceId, 'U', `Facture brouillon modifiée ${customer.name}`, inv.entityId), inv];
 }
 
 // An invoice is a draft (editable), then validated (numbered and locked, nothing in the books yet), then posted
