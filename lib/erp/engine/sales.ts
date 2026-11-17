@@ -28,7 +28,17 @@ export interface InvoiceInput {
   bankAccountId?: Id;
   withholdingCodeId?: Id | null; // undefined = the customer's default, null = none
   regime?: CounterpartyRegime; // this invoice's regime for the tax rules; undefined = the customer's
+  number?: string; // [bumex-one] typed by hand (importing the old invoices, 2026-11-17); empty = numbered on validation
   lines: InvoiceLineInput[];
+}
+
+// [bumex-one] A number typed by hand: kept as typed, unique on its entity (the database's unique (entity_id, number)).
+function manualNumber(state: State, entityId: Id, number: string | undefined, selfId?: Id): string | undefined {
+  const n = number?.trim();
+  if (!n) return undefined;
+  if (n.length > 40) throw new DomainError('number', 'Numéro de facture : 40 caractères au plus');
+  if (state.salesInvoices.some((i) => i.entityId === entityId && i.id !== selfId && i.number?.toLowerCase() === n.toLowerCase())) throw new DomainError('number', `Le numéro ${n} existe déjà`);
+  return n;
 }
 
 // [bumex-one] The WHT is set per line (asked on 2026-11-17): the invoice's is its one code, on the HT of the lines
@@ -94,12 +104,14 @@ export function createInvoice(state: State, input: InvoiceInput): [State, SalesI
   const totalHt = sum(lines.map((l) => l.lineHt));
   const totalTtc = sum(lines.map((l) => l.lineTtc));
   const wh = withholdingOf(state, lines);
+  const number = manualNumber(state, input.entityId, input.number);
   const [s1, id] = nextId(state, 'inv');
   const inv: SalesInvoice = {
     id,
     entityId: input.entityId,
     customerId: input.customerId,
     engagementId: input.engagementId,
+    number,
     status: 'draft',
     date: input.date,
     dueDate: addDays(input.date, input.dueDays ?? customer.paymentTermsDays),
@@ -135,6 +147,7 @@ export function updateInvoice(state: State, invoiceId: Id, input: InvoiceInput):
   const wh = withholdingOf(state, lines);
   const inv: SalesInvoice = {
     ...old,
+    number: manualNumber(state, old.entityId, input.number, invoiceId),
     customerId: input.customerId,
     engagementId: input.engagementId,
     date: input.date,
@@ -167,7 +180,8 @@ export function validateInvoice(state: State, invoiceId: Id): [State, SalesInvoi
   if (inv.status !== 'draft') throw new DomainError('state', 'Facture déjà validée');
   if (!inv.lines.length) throw new DomainError('empty', 'Facture sans ligne');
   const customer = customerOf(state, inv.customerId);
-  const [s1, number] = nextNumber(state, inv.entityId, 'sales_invoice', '', inv.date, 'IN{YY}{MM}-{SEQ4}', 'month');
+  // a number typed by hand is kept (checked again: another invoice may have taken it since); else the sequence's
+  const [s1, number] = inv.number ? [state, manualNumber(state, inv.entityId, inv.number, inv.id)!] : nextNumber(state, inv.entityId, 'sales_invoice', '', inv.date, 'IN{YY}{MM}-{SEQ4}', 'month');
   const next: SalesInvoice = { ...inv, number, status: 'validated' };
   return [audit({ ...s1, salesInvoices: s1.salesInvoices.map((i) => (i.id === invoiceId ? next : i)) }, 'sales_invoice', inv.id, 'U', `Validée ${number} ${customer.name}`, inv.entityId), next];
 }

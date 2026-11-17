@@ -216,6 +216,20 @@ describe('sales', () => {
     expect(lineWithholdingRate(inv, older)).toBe(0.07);
     expect(lineWithholdingRate({ withholdingAmount: 0, withholdingRate: 0 }, older)).toBe(0);
   });
+  it('keeps an invoice number typed by hand (old invoices imported); blank: the sequence at validation; no duplicate', () => {
+    const customer = cust('standard');
+    const input = { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU' as const, lines: [{ description: 'Audit', quantity: 1, unitPrice: 1000, serviceCategory: 'AUDIT' }] };
+    const [s1, typed] = createInvoice(base, { ...input, number: ' PROV141 ' });
+    expect(typed.number).toBe('PROV141');
+    const [s2, posted] = postInvoice(s1, typed.id);
+    expect(posted).toMatchObject({ number: 'PROV141', status: 'posted' });
+    expect(() => createInvoice(s2, { ...input, number: 'prov141' })).toThrow(/existe déjà/);
+    const [s3, blank] = createInvoice(s2, { ...input, number: '  ' });
+    expect(blank.number).toBeUndefined();
+    expect(validateInvoice(s3, blank.id)[1].number).toMatch(/^IN\d{4}-\d{4}$/);
+    const [, renamed] = updateInvoice(s3, blank.id, { ...input, number: 'OLD-2025-007' });
+    expect(renamed.number).toBe('OLD-2025-007');
+  });
   it('edits a draft (lines, WHT) and deletes it; a validated invoice is neither edited nor deleted (2026-11-17)', () => {
     const customer = cust('gta');
     const wht = base.taxCodes.find((t) => t.entityId === AUD && t.code === 'RAS-7')!;

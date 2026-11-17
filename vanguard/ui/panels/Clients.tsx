@@ -232,6 +232,8 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
   const [currency, setCurrency] = useState<Currency>(editing?.currency ?? customer?.defaultCurrency ?? entity.functionalCurrency);
   const [rate, setRate] = useState(editing && editing.currency !== entity.functionalCurrency ? String(editing.fxRate) : '');
   const [engagementId, setEngagementId] = useState(editing?.engagementId ?? '');
+  // [bumex-one] a number typed by hand, for the old invoices being imported (2026-11-17); empty: the sequence's at validation
+  const [number, setNumber] = useState(editing?.number ?? '');
   // WHT (asked on 2026-11-17): the client keeps 7 % of a line's HT, chosen on each line beside its VAT (so both on one
   // invoice); a new line starts from the customer's card (a withholding there = 7 %); at 0 % nothing of it is printed.
   // It is kept as its code: '' (0 %), the 7 % one, or — on an older invoice — another withholding code, kept as it was.
@@ -269,7 +271,7 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
 
   const input = () => ({
     entityId, customerId, date, currency, fxRate: effRate, engagementId: engagementId || undefined, bankAccountId: bankId || undefined,
-    withholdingCodeId: null, regime, // the WHT is each line's
+    withholdingCodeId: null, regime, number: number.trim() || undefined, // the WHT is each line's
     lines: lines.filter((l) => l.description.trim() && parseAmount(l.unitPrice) !== null).map((l) => ({ description: l.description, quantity: Number(l.quantity.replace(',', '.')) || 1, unitPrice: parseAmount(l.unitPrice) ?? 0, serviceCategory: l.serviceCategory, taxCodeId: l.taxCodeId || undefined, revenueAccountId: l.revenueAccountId || undefined, withholdingCodeId: l.whtId || null })),
   });
   const preview = useMemo(() => {
@@ -289,7 +291,7 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
       return { computed: [], mention: undefined, notes: [] as { fr?: string; en?: string }[], ht: 0, tax: 0, ttc: 0, withholding: 0, whtBase: 0, whtCode: undefined, whtAccount: undefined, net: 0, ar: null, error: e instanceof DomainError ? e.message : String(e) };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, customerId, date, currency, effRate, engagementId, lines, mode]);
+  }, [state, customerId, date, currency, effRate, engagementId, lines, mode, number]);
   const resolvedFor = (l: LineForm) => { if (!customer) return null; try { return resolveTaxCode(state, entityId, regime ? { ...customer, regime } : customer, l.serviceCategory, date); } catch { return null; } };
   const setLine = (i: number, patch: Partial<LineForm>) => setLines((ls) => ls.map((l, k) => (k === i ? { ...l, ...patch } : l)));
   // Keep as draft (editable), validate (numbered and locked, not in the books) or post (validated and accounted).
@@ -316,6 +318,7 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
                 <option value="gta">GTA · sous-traitant enregistré</option>
               </Select>
             </Field>
+            <Field label={say('N° de facture', 'Invoice number')}><input className="in mono" value={number} onChange={(e) => setNumber(e.target.value)} placeholder={say('Automatique (vide)', 'Automatic (blank)')} title={say('Pour reprendre une ancienne facture ; vide : numéro attribué à la validation', 'To import an old invoice; blank: numbered on validation')} /></Field>
             <Field label={`${t('date')} · échéance ${customer?.paymentTermsDays ?? 30} j`}><input className="in mono" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
             <Field label={foreign ? `${t('currency')} · taux 1 ${currency} = ? ${entity.functionalCurrency} (obligatoire)` : t('currency')}>
               <div style={{ display: 'flex', gap: 6 }}>
