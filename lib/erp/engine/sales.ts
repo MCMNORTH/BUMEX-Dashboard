@@ -13,6 +13,7 @@ export interface InvoiceLineInput {
   serviceCategory: string;
   taxCodeId?: Id; // override
   revenueAccountId?: Id; // override
+  withholdingCodeId?: Id | null; // [bumex-one] the line's WHT: undefined = the document's, null = none
 }
 
 export interface InvoiceInput {
@@ -30,12 +31,18 @@ export interface InvoiceInput {
   lines: InvoiceLineInput[];
 }
 
-function withholdingFor(state: State, customer: Customer, input: InvoiceInput, totalHt: number): { id?: Id; rate: number; amount: number } {
-  const id = input.withholdingCodeId === undefined ? customer.withholdingCodeId : input.withholdingCodeId ?? undefined;
-  if (!id) return { rate: 0, amount: 0 };
-  const tc = state.taxCodes.find((t) => t.id === id);
-  if (!tc || tc.kind !== 'withholding') throw new DomainError('tax_code', 'Code de retenue à la source inconnu');
-  return { id, rate: tc.rate, amount: r2(totalHt * tc.rate) };
+// [bumex-one] The WHT is set per line (asked on 2026-11-17): the invoice's is its one code, on the HT of the lines
+// that bear it (rounded once, as the old invoices did); an invoice carries one WHT code at most.
+function withholdingOf(state: State, lines: SalesInvoiceLine[]): { id?: Id; rate: number; amount: number } {
+  const bearing = lines.filter((l) => l.withholdingCodeId);
+  if (!bearing.length) return { rate: 0, amount: 0 };
+  const tc = state.taxCodes.find((t) => t.id === bearing[0].withholdingCodeId)!;
+  return { id: tc.id, rate: tc.rate, amount: r2(sum(bearing.map((l) => l.lineHt)) * tc.rate) };
+}
+
+// A line's WHT rate: its own, or — a line from before WHT per line — the invoice's.
+export function lineWithholdingRate(inv: Pick<SalesInvoice, 'withholdingAmount' | 'withholdingRate'>, line: Pick<SalesInvoiceLine, 'withholdingRate'>): number {
+  return line.withholdingRate ?? (inv.withholdingAmount > 0 ? inv.withholdingRate : 0);
 }
 
 function customerOf(state: State, id: Id): Customer {
@@ -47,8 +54,12 @@ function customerOf(state: State, id: Id): Customer {
 export function computeLines(state: State, input: InvoiceInput): { lines: SalesInvoiceLine[]; mention?: string } {
   const card = customerOf(state, input.customerId);
   const customer = input.regime ? { ...card, regime: input.regime } : card;
+  const documentWht = input.withholdingCodeId === undefined ? card.withholdingCodeId : input.withholdingCodeId ?? undefined;
   let mention: string | undefined;
   const lines = input.lines.map((l, i) => {
+    const whtId = l.withholdingCodeId === undefined ? documentWht : l.withholdingCodeId ?? undefined;
+    const wtc = whtId ? state.taxCodes.find((t) => t.id === whtId) : undefined;
+    if (whtId && (!wtc || wtc.kind !== 'withholding')) throw new DomainError('tax_code', 'Code de retenue à la source inconnu');
     const tc = l.taxCodeId ? state.taxCodes.find((t) => t.id === l.taxCodeId) : resolveTaxCode(state, input.entityId, customer, l.serviceCategory, input.date);
     if (!tc) throw new DomainError('tax_code', 'Code taxe inconnu');
     if (tc.legalMentionFr) mention = tc.legalMentionFr;
@@ -67,8 +78,11 @@ export function computeLines(state: State, input: InvoiceInput): { lines: SalesI
       lineHt: ht,
       taxAmount: tax,
       lineTtc: r2(ht + tax),
+      withholdingCodeId: wtc?.id,
+      withholdingRate: wtc?.rate ?? 0,
     };
   });
+  if (new Set(lines.map((l) => l.withholdingCodeId).filter(Boolean)).size > 1) throw new DomainError('wht', 'Une seule WHT par facture');
   return { lines, mention };
 }
 
@@ -79,7 +93,7 @@ export function createInvoice(state: State, input: InvoiceInput): [State, SalesI
   const { lines, mention } = computeLines(state, { ...input, fxRate: rate });
   const totalHt = sum(lines.map((l) => l.lineHt));
   const totalTtc = sum(lines.map((l) => l.lineTtc));
-  const wh = withholdingFor(state, customer, input, totalHt);
+  const wh = withholdingOf(state, lines);
   const [s1, id] = nextId(state, 'inv');
   const inv: SalesInvoice = {
     id,
@@ -118,7 +132,7 @@ export function updateInvoice(state: State, invoiceId: Id, input: InvoiceInput):
   const customer = customerOf(state, input.customerId);
   const totalHt = sum(lines.map((l) => l.lineHt));
   const totalTtc = sum(lines.map((l) => l.lineTtc));
-  const wh = withholdingFor(state, customer, input, totalHt);
+  const wh = withholdingOf(state, lines);
   const inv: SalesInvoice = {
     ...old,
     customerId: input.customerId,
@@ -200,8 +214,8 @@ export function createCreditNote(state: State, invoiceId: Id, reason: string, da
   const ar = arAccountFor(state, inv.entityId, customer);
   const journal = state.journals.find((j) => j.entityId === inv.entityId && j.kind === 'sales')!;
   const totalTtc = sum(lines.map((l) => l.lineTtc));
-  const cnHt = sum(lines.map((l) => l.lineHt));
-  const cnWithholding = r2(cnHt * inv.withholdingRate);
+  // [bumex-one] the WHT of the lines credited (each line's own; an older line: the invoice's)
+  const cnWithholding = r2(sum(lines.filter((l) => lineWithholdingRate(inv, l) > 0).map((l) => l.lineHt)) * inv.withholdingRate);
   const dl: DraftLineInput[] = [];
   for (const l of lines) dl.push({ accountId: l.revenueAccountId!, description: l.description, debitTxn: l.lineHt, customerId: inv.customerId, taxCodeId: l.taxCodeId });
   const vat = new Map<Id, number>();

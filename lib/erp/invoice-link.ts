@@ -19,7 +19,7 @@ type InvoiceRow = {
   e_nif: string | null; e_capital: number | null; e_capital_currency: string | null; e_logo: string | null;
   c_name: string; c_address: string | null; c_nif: string | null; c_country: string | null;
 };
-type LineRow = { line_no: number; description: string; quantity: number; unit_price: number; tax_rate: number | null; line_ht: number };
+type LineRow = { line_no: number; description: string; quantity: number; unit_price: number; tax_rate: number | null; line_ht: number; wht_rate: number | null };
 type BankRow = { bank_name: string | null; account_holder: string | null; iban: string | null; bic: string | null; account_number: string | null; rib: string | null };
 
 const opt = <T,>(v: T | null | undefined) => (v === null || v === undefined || v === "" ? undefined : v);
@@ -52,7 +52,8 @@ export async function readInvoiceByLink(tx: ErpTransaction, token: string): Prom
   );
   if (!inv) return null;
   const lines = await tx.query<LineRow>(
-    `select line_no, description, quantity::float8 as quantity, unit_price::float8 as unit_price, tax_rate_snapshot::float8 as tax_rate, line_ht::float8 as line_ht
+    `select line_no, description, quantity::float8 as quantity, unit_price::float8 as unit_price, tax_rate_snapshot::float8 as tax_rate, line_ht::float8 as line_ht,
+            withholding_rate::float8 as wht_rate
        from erp.sales_invoice_line where invoice_id = $1 order by line_no`,
     [inv.id],
   );
@@ -71,7 +72,7 @@ export async function readInvoiceByLink(tx: ErpTransaction, token: string): Prom
     dueDate: inv.due_date,
     currency: inv.currency,
     paymentMode: inv.payment_mode,
-    lines: lines.map((l) => ({ lineNo: l.line_no, description: l.description, quantity: l.quantity, unitPrice: l.unit_price, taxRateSnapshot: l.tax_rate ?? 0, lineHt: l.line_ht })),
+    lines: lines.map((l) => ({ lineNo: l.line_no, description: l.description, quantity: l.quantity, unitPrice: l.unit_price, taxRateSnapshot: l.tax_rate ?? 0, lineHt: l.line_ht, withholdingRate: l.wht_rate ?? undefined })),
     totalHt: inv.total_ht,
     totalTax: inv.total_tax,
     totalTtc: inv.total_ttc,

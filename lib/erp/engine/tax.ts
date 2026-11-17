@@ -90,7 +90,8 @@ export function withholdingStatement(state: State, entityId: Id, from?: ISODate,
   const inRange = (d: ISODate) => (!from || d >= from) && (!to || d <= to);
   const suffered: WithholdingRow[] = state.salesInvoices
     .filter((i) => i.entityId === entityId && (i.status === 'posted' || i.status === 'paid') && i.withholdingAmount > 0 && inRange(i.date))
-    .map((i) => ({ date: i.date, document: i.number ?? '—', counterparty: state.customers.find((c) => c.id === i.customerId)?.name ?? '', base: r2(i.totalHt * i.fxRate), rate: i.withholdingRate, amount: r2(i.withholdingAmount * i.fxRate), status: i.status === 'paid' ? 'réglée' : 'ouverte', currency: i.currency }))
+    // [bumex-one] the base: the HT of the lines bearing the WHT (an older line bears the invoice's)
+    .map((i) => ({ date: i.date, document: i.number ?? '—', counterparty: state.customers.find((c) => c.id === i.customerId)?.name ?? '', base: r2(sum(i.lines.filter((l) => (l.withholdingRate ?? i.withholdingRate) > 0).map((l) => l.lineHt)) * i.fxRate), rate: i.withholdingRate, amount: r2(i.withholdingAmount * i.fxRate), status: i.status === 'paid' ? 'réglée' : 'ouverte', currency: i.currency }))
     .sort((a, b) => (a.date < b.date ? -1 : 1));
   const due: WithholdingRow[] = state.supplierInvoices
     .filter((i) => i.entityId === entityId && (i.status === 'posted' || i.status === 'paid' || i.status === 'approved') && i.withholdingAmount > 0 && inRange(i.date))

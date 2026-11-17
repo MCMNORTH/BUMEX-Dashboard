@@ -18,7 +18,7 @@ export type InvoiceSheetData = {
   dueDate: string;
   currency: string;
   paymentMode: string;
-  lines: { lineNo: number; description: string; quantity: number; unitPrice: number; taxRateSnapshot?: number; lineHt: number }[];
+  lines: { lineNo: number; description: string; quantity: number; unitPrice: number; taxRateSnapshot?: number; lineHt: number; withholdingRate?: number }[]; // withholdingRate absent: the invoice's
   totalHt: number;
   totalTax: number;
   totalTtc: number;
@@ -162,7 +162,7 @@ export function InvoiceSheet({ data, lang }: { data: InvoiceSheetData; lang: Inv
             {data.lines.map((l) => (
               <tr key={l.lineNo}>
                 <td>{l.description}</td><td className="ivx-n ivx-qty">{quantity(l.quantity, lang)}</td><td className="ivx-n">{money(l.unitPrice, lang)}</td>
-                <td className="ivx-vat">{percent(l.taxRateSnapshot ?? 0, lang)}</td>{wht && <td className="ivx-vat">{percent(data.withholdingRate, lang)}</td>}<td className="ivx-n">{money(l.lineHt, lang)}</td>
+                <td className="ivx-vat">{percent(l.taxRateSnapshot ?? 0, lang)}</td>{wht && <td className="ivx-vat">{percent(l.withholdingRate ?? data.withholdingRate, lang)}</td>}<td className="ivx-n">{money(l.lineHt, lang)}</td>
               </tr>
             ))}
           </tbody>

@@ -200,6 +200,7 @@ const documentLines = (table: string, parent: string): Child => ({
   fields: [
     int("lineNo", { column: "line_no" }), text("description"), num("quantity"), num("unitPrice"), serviceCategory,
     uuid("taxCodeId"), num("taxRateSnapshot", { fallback: 0 }), uuid("revenueAccountId"), num("lineHt"), num("taxAmount"), num("lineTtc"),
+    uuid("withholdingCodeId"), num("withholdingRate"), // the line's WHT (0019); both null on an older line
   ],
 });
 

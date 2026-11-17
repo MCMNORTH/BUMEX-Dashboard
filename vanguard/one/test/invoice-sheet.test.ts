@@ -80,6 +80,9 @@ describe('the invoice sheet', () => {
       expect(t, s).toContain(s);
     }
     expect(t).not.toContain('régime GTA|'); // the GTA note stands for the line's French mention
+    // WHT per line: a line at 0 % shows 0 %, an older line (no rate of its own) the invoice's
+    const perLine = text(renderToStaticMarkup(createElement(InvoiceSheet, { data: { ...gta, lines: [{ ...gta.lines[0], withholdingRate: 0.07 }, { lineNo: 2, description: 'Débours', quantity: 1, unitPrice: 10, taxRateSnapshot: 0, lineHt: 10, withholdingRate: 0 }, { lineNo: 3, description: 'Ancienne', quantity: 1, unitPrice: 10, taxRateSnapshot: 0, lineHt: 10 }] }, lang: 'en' })));
+    for (const s of ['|Débours|1|10.00|0%|0%|10.00|', '|Ancienne|1|10.00|0%|7%|10.00|']) expect(perLine, s).toContain(s);
     // VAT 16 % with WHT 7 %: the WHT note, not the GTA one
     const both = text(renderToStaticMarkup(createElement(InvoiceSheet, { data: { ...gta, gtaVat: false, legalMention: undefined, totalTax: 15_158.73, totalTtc: 109_900.77, netPayable: 103_268.83 }, lang: 'en' })));
     expect(both).toContain('The withholding tax (WHT) is withheld by the Client');

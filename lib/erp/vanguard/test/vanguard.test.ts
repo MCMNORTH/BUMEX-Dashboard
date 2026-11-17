@@ -372,6 +372,21 @@ describe("the modules", () => {
     const removed = await change("awa", (s) => domain.requestDeletion(s, { table: "sales_invoice", rowId: draftId, label: "Brouillon", reason: "erreur de saisie", entityId: audit }).state);
     expect(removed.state.salesInvoices.some((i) => i.id === draftId)).toBe(false);
     expect(await asSystem(() => tx.query("select 1 from erp.sales_invoice_line where invoice_id = $1", [draftId]))).toHaveLength(0);
+
+    // the WHT per line (0019): kept on each line, the invoice's the total of the lines bearing it, on its public page too
+    const mixed = await change("aicha", (s) => domain.createInvoice(s, { entityId: audit, customerId: customer, date: "2026-05-31", currency: "MRU", withholdingCodeId: null, lines: [
+      { description: "Mission", quantity: 1, unitPrice: 100000, serviceCategory: "AUDIT", withholdingCodeId: ras7 },
+      { description: "Débours", quantity: 1, unitPrice: 20000, serviceCategory: "AUDIT", withholdingCodeId: null },
+    ] }));
+    const mixedInv = mixed.state.salesInvoices.find((i) => i.id === mixed.browser[1].id)!;
+    expect(mixedInv).toMatchObject({ withholdingAmount: 7000, withholdingCodeId: ras7 });
+    expect(mixedInv.lines.map((l) => [l.withholdingCodeId ?? null, l.withholdingRate])).toEqual([[ras7, 0.07], [null, 0]]);
+    expect((await asSystem(() => readInvoiceByLink(tx, mixedInv.publicToken!)))!.data.lines.map((l) => l.withholdingRate)).toEqual([0.07, 0]);
+    // a line saved before 0019 has neither column: it reads as bearing the invoice's WHT
+    await asSystem(() => tx.query("update erp.sales_invoice_line set withholding_code_id = null, withholding_rate = null where invoice_id = $1", [mixedInv.id]));
+    const reread = (await load("aicha")).state.salesInvoices.find((i) => i.id === mixedInv.id)!;
+    expect(reread.lines.every((l) => l.withholdingRate === undefined && l.withholdingCodeId === undefined)).toBe(true);
+    expect(domain.lineWithholdingRate(reread, reread.lines[1])).toBe(0.07);
   });
 
   it("bank: a statement imported, a fee booked by rule", async () => {

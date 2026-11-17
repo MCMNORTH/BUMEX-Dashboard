@@ -211,8 +211,8 @@ function Invoices({ entityId, onPay, onEdit }: { entityId: Id; onPay: (id: Id) =
 
 const HELP_KEY = 'bumex-vanguard-invoice-help';
 
-interface LineForm { description: string; quantity: string; unitPrice: string; serviceCategory: string; taxCodeId: string; revenueAccountId: string }
-const emptyLine = (): LineForm => ({ description: '', quantity: '1', unitPrice: '', serviceCategory: 'AUDIT', taxCodeId: '', revenueAccountId: '' });
+interface LineForm { description: string; quantity: string; unitPrice: string; serviceCategory: string; taxCodeId: string; revenueAccountId: string; whtId: string } // whtId: '' = WHT 0 %
+const emptyLine = (whtId = ''): LineForm => ({ description: '', quantity: '1', unitPrice: '', serviceCategory: 'AUDIT', taxCodeId: '', revenueAccountId: '', whtId });
 
 // editing: a draft opened again (asked on 2026-11-17), its fields as saved; saving updates it (updateInvoice)
 function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: SalesInvoice; onDone: () => void }) {
@@ -226,21 +226,21 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
   const [currency, setCurrency] = useState<Currency>(editing?.currency ?? customer?.defaultCurrency ?? entity.functionalCurrency);
   const [rate, setRate] = useState(editing && editing.currency !== entity.functionalCurrency ? String(editing.fxRate) : '');
   const [engagementId, setEngagementId] = useState(editing?.engagementId ?? '');
+  // WHT (asked on 2026-11-17): the client keeps 7 % of a line's HT, chosen on each line beside its VAT (so both on one
+  // invoice); a new line starts from the customer's card (a withholding there = 7 %); at 0 % nothing of it is printed.
+  // It is kept as its code: '' (0 %), the 7 % one, or — on an older invoice — another withholding code, kept as it was.
+  const whtCode = whtCodeFor(state.taxCodes, entityId);
+  const cardWht = (c: typeof customer) => (c?.withholdingCodeId ? (state.taxCodes.some((x) => x.id === c.withholdingCodeId) ? c.withholdingCodeId : whtCode?.id ?? '') : '');
+  const olderWht = (id: string) => (id && id !== whtCode?.id ? state.taxCodes.find((x) => x.id === id) : undefined);
   const [lines, setLines] = useState<LineForm[]>(() => editing?.lines.length
-    ? editing.lines.map((l) => ({ description: l.description, quantity: String(l.quantity), unitPrice: String(l.unitPrice), serviceCategory: l.serviceCategory, taxCodeId: l.taxCodeId ?? '', revenueAccountId: l.revenueAccountId ?? '' }))
-    : [emptyLine()]);
+    ? editing.lines.map((l) => ({ description: l.description, quantity: String(l.quantity), unitPrice: String(l.unitPrice), serviceCategory: l.serviceCategory, taxCodeId: l.taxCodeId ?? '', revenueAccountId: l.revenueAccountId ?? '',
+        // a line from before WHT per line bears the invoice's
+        whtId: l.withholdingRate !== undefined ? l.withholdingCodeId ?? '' : editing.withholdingAmount > 0 ? editing.withholdingCodeId ?? '' : '' }))
+    : [emptyLine(cardWht(customer))]);
   // the explanations, folded into a "?" (asked on 2026-11-17): the form gets the width; the choice is remembered here
   const [help, setHelpState] = useState(() => { try { return localStorage.getItem(HELP_KEY) === 'open'; } catch { return false; } });
   const setHelp = (open: boolean) => { setHelpState(open); try { localStorage.setItem(HELP_KEY, open ? 'open' : 'closed'); } catch { /* private mode */ } };
   const taxCodes = state.taxCodes.filter((x) => x.entityId === entityId && x.kind === 'vat');
-  // WHT (asked on 2026-11-17): the client keeps 7 % of the HT, on top of the VAT the lines carry (so both on one invoice);
-  // it starts from the customer's card (a withholding there = 7 %), and at 0 % nothing of it is printed.
-  // The WHT is kept as its code: '' (0 %), the 7 % one, or — on an older invoice or card — another withholding code, kept
-  // as it was rather than changed behind the user's back.
-  const whtCode = whtCodeFor(state.taxCodes, entityId);
-  const cardWht = (c: typeof customer) => (c?.withholdingCodeId ? (state.taxCodes.some((x) => x.id === c.withholdingCodeId) ? c.withholdingCodeId : whtCode?.id ?? '') : '');
-  const [whtId, setWhtId] = useState<string>(() => (editing ? editing.withholdingCodeId ?? '' : cardWht(customer)));
-  const whtOther = whtId && whtId !== whtCode?.id ? state.taxCodes.find((x) => x.id === whtId) : undefined;
   // This invoice's regime (asked on 2026-11-02), the customer's card unchanged: Normal (the standard rules: TVA), GTA
   // (GTA-EXO 0 %); "card" keeps another regime of the card (exempt, export, public body) as it is. It only chooses the
   // lines' default VAT; WHT is apart.
@@ -263,8 +263,8 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
 
   const input = () => ({
     entityId, customerId, date, currency, fxRate: effRate, engagementId: engagementId || undefined, bankAccountId: bankId || undefined,
-    withholdingCodeId: whtId || null, regime,
-    lines: lines.filter((l) => l.description.trim() && parseAmount(l.unitPrice) !== null).map((l) => ({ description: l.description, quantity: Number(l.quantity.replace(',', '.')) || 1, unitPrice: parseAmount(l.unitPrice) ?? 0, serviceCategory: l.serviceCategory, taxCodeId: l.taxCodeId || undefined, revenueAccountId: l.revenueAccountId || undefined })),
+    withholdingCodeId: null, regime, // the WHT is each line's
+    lines: lines.filter((l) => l.description.trim() && parseAmount(l.unitPrice) !== null).map((l) => ({ description: l.description, quantity: Number(l.quantity.replace(',', '.')) || 1, unitPrice: parseAmount(l.unitPrice) ?? 0, serviceCategory: l.serviceCategory, taxCodeId: l.taxCodeId || undefined, revenueAccountId: l.revenueAccountId || undefined, withholdingCodeId: l.whtId || null })),
   });
   const preview = useMemo(() => {
     if (!customer) return null;
@@ -272,15 +272,17 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
       const { lines: computed, mention } = computeLines(state, input());
       const ht = r2(computed.reduce((a, l) => a + l.lineHt, 0)), tax = r2(computed.reduce((a, l) => a + l.taxAmount, 0));
       const ar = customer.groupEntityId ? mapped(state, entityId, 'AR_GROUP') : mapped(state, entityId, 'AR_CONTROL');
-      const wht = whtId ? state.taxCodes.find((x) => x.id === whtId) : undefined;
-      const withholding = wht ? r2(ht * wht.rate) : 0;
+      const bearing = computed.filter((l) => l.withholdingCodeId); // the lines bearing the WHT (one code: computeLines)
+      const wht = bearing.length ? state.taxCodes.find((x) => x.id === bearing[0].withholdingCodeId) : undefined;
+      const whtBase = r2(bearing.reduce((a, l) => a + l.lineHt, 0));
+      const withholding = wht ? r2(whtBase * wht.rate) : 0;
       const whtAccount = wht ? state.accounts.find((a) => a.id === wht.deductibleAccountId) : undefined;
-      return { computed, mention, ht, tax, ttc: r2(ht + tax), withholding, whtCode: wht, whtAccount, net: r2(ht + tax - withholding), ar, error: null as string | null };
+      return { computed, mention, ht, tax, ttc: r2(ht + tax), withholding, whtBase, whtCode: wht, whtAccount, net: r2(ht + tax - withholding), ar, error: null as string | null };
     } catch (e) {
-      return { computed: [], mention: undefined, ht: 0, tax: 0, ttc: 0, withholding: 0, whtCode: undefined, whtAccount: undefined, net: 0, ar: null, error: e instanceof DomainError ? e.message : String(e) };
+      return { computed: [], mention: undefined, ht: 0, tax: 0, ttc: 0, withholding: 0, whtBase: 0, whtCode: undefined, whtAccount: undefined, net: 0, ar: null, error: e instanceof DomainError ? e.message : String(e) };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, customerId, date, currency, effRate, engagementId, lines, whtId, mode]);
+  }, [state, customerId, date, currency, effRate, engagementId, lines, mode]);
   const resolvedFor = (l: LineForm) => { if (!customer) return null; try { return resolveTaxCode(state, entityId, regime ? { ...customer, regime } : customer, l.serviceCategory, date); } catch { return null; } };
   const setLine = (i: number, patch: Partial<LineForm>) => setLines((ls) => ls.map((l, k) => (k === i ? { ...l, ...patch } : l)));
   // Keep as draft (editable), validate (numbered and locked, not in the books) or post (validated and accounted).
@@ -299,7 +301,7 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
       <form className="grow" onSubmit={(e) => e.preventDefault()}>
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="grid4">
-            <Field label={t('customer')}><Select recent="customers" className="in" value={customerId} onChange={(e) => { setCustomerId(e.target.value); const c = customers.find((x) => x.id === e.target.value); if (c) pickCurrency(c.defaultCurrency); setWhtId(cardWht(c)); setMode(modeOf(c)); }}>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
+            <Field label={t('customer')}><Select recent="customers" className="in" value={customerId} onChange={(e) => { setCustomerId(e.target.value); const c = customers.find((x) => x.id === e.target.value); if (c) pickCurrency(c.defaultCurrency); setLines((ls) => ls.map((l) => ({ ...l, whtId: cardWht(c) }))); setMode(modeOf(c)); }}>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
             <Field label="Régime du client">
               <Select className="in" value={mode} onChange={(e) => setMode(e.target.value as InvoiceMode)}>
                 {customer && customer.regime !== 'standard' && customer.regime !== 'gta' && <option value="card">Fiche client · {REGIMES.find((r) => r[0] === customer.regime)?.[1]}</option>}
@@ -318,17 +320,10 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
             </Field>
             <Field label="Mission"><Select recent="missions" className="in" value={engagementId} onChange={(e) => setEngagementId(e.target.value)}><option value="">—</option>{state.engagements.filter((x) => x.entityId === entityId && x.customerId === customerId).map((x) => <option key={x.id} value={x.id}>{x.code} · {x.name}</option>)}</Select></Field>
             <Field label="Bloc bancaire imprimé"><Select className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id} data-hint={b.currency}>{b.favorite ? '★ ' : ''}{b.bankName} · {b.name}</option>)}</Select></Field>
-            <Field label="WHT">
-              <Select className="in" value={whtId} disabled={!whtCode && !whtOther} title={whtCode ? undefined : 'Code RAS-7 absent : à créer dans Fiscalité › codes'} onChange={(e) => setWhtId(e.target.value)}>
-                <option value="">0 %</option>
-                {whtCode && <option value={whtCode.id}>7 %</option>}
-                {whtOther && <option value={whtOther.id}>{Math.round(whtOther.rate * 1000) / 10} % · {whtOther.code} (ancien code)</option>}
-              </Select>
-            </Field>
           </div>
           <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 6 }}>
             <table>
-              <thead><tr><th>#</th><th>Désignation</th><th className="num" style={{ width: 70 }}>Qté</th><th className="num" style={{ width: 120 }}>P.U.</th><th style={{ width: 120 }}>Catégorie</th><th style={{ width: 190 }}>TVA</th><th style={{ width: 230 }}>Compte de produit</th><th className="num" style={{ width: 110 }}>Total HT</th><th></th></tr></thead>
+              <thead><tr><th>#</th><th>Désignation</th><th className="num" style={{ width: 70 }}>Qté</th><th className="num" style={{ width: 120 }}>P.U.</th><th style={{ width: 120 }}>Catégorie</th><th style={{ width: 190 }}>TVA</th><th style={{ width: 100 }}>WHT</th><th style={{ width: 230 }}>Compte de produit</th><th className="num" style={{ width: 110 }}>Total HT</th><th></th></tr></thead>
               <tbody>
                 {lines.map((l, i) => {
                   const auto = resolvedFor(l);
@@ -344,6 +339,13 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
                       <td><input className="in num" value={l.unitPrice} onChange={(e) => setLine(i, { unitPrice: e.target.value })} aria-label={`Prix ${i + 1}`} /></td>
                       <td><Select className="in" value={l.serviceCategory} onChange={(e) => setLine(i, { serviceCategory: e.target.value })} aria-label={`Catégorie ${i + 1}`}>{CATEGORIES.map(([k, n]) => <option key={k} value={k}>{n}</option>)}</Select></td>
                       <td><Select className="in" value={l.taxCodeId} onChange={(e) => setLine(i, { taxCodeId: e.target.value })} aria-label={`TVA ${i + 1}`}><option value="">{auto ? `${auto.code} · ${auto.rate * 100} % (règle)` : '—'}</option>{taxCodes.map((x) => <option key={x.id} value={x.id}>{x.code} · {x.rate * 100} %</option>)}</Select></td>
+                      <td>
+                        <Select className="in" value={l.whtId} disabled={!whtCode && !olderWht(l.whtId)} title={whtCode ? undefined : 'Code RAS-7 absent : à créer dans Fiscalité › codes'} onChange={(e) => setLine(i, { whtId: e.target.value })} aria-label={`WHT ${i + 1}`}>
+                          <option value="">0 %</option>
+                          {whtCode && <option value={whtCode.id}>7 %</option>}
+                          {olderWht(l.whtId) && <option value={l.whtId}>{Math.round((olderWht(l.whtId)?.rate ?? 0) * 1000) / 10} % · {olderWht(l.whtId)?.code}</option>}
+                        </Select>
+                      </td>
                       <td><Select recent="accounts" className="in mono" value={l.revenueAccountId} onChange={(e) => setLine(i, { revenueAccountId: e.target.value })} aria-label={`Compte de produit ${i + 1}`}><option value="">{defaultRevenue ? `${defaultRevenue.code} (défaut · ${REVENUE_STATUS_LABEL[status]})` : '—'}</option>{revenueAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></td>
                       <td className="num">{fmt(ht)}</td>
                       <td><button type="button" className="btn sm" aria-label="Supprimer la ligne" onClick={() => setLines((ls) => (ls.length > 1 ? ls.filter((_, k) => k !== i) : ls))}>×</button></td>
@@ -352,11 +354,11 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
                 })}
               </tbody>
               <tfoot>
-                <tr><td colSpan={6}><button type="button" className="btn sm" onClick={() => setLines((ls) => [...ls, emptyLine()])}>+ ligne</button></td><td className="muted">Total HT</td><td className="num">{fmt(preview?.ht ?? 0)}</td><td></td></tr>
-                <tr><td colSpan={6} className="small muted">{preview?.mention ? `Mention imprimée : « ${preview.mention} »` : ''}</td><td className="muted">TVA</td><td className="num">{fmt(preview?.tax ?? 0)}</td><td></td></tr>
-                <tr><td colSpan={6} className="small muted">{preview?.whtCode ? `WHT ${Math.round(preview.whtCode.rate * 1000) / 10} % sur ${fmt(preview.ht)} HT · compte ${preview.whtAccount?.code ?? ''} (créance sur le Trésor) · la TVA reste due sur le HT` : 'WHT 0 % : rien de retenu, rien d\'imprimé'}</td><td className="muted">Total TTC</td><td className="num">{fmt(preview?.ttc ?? 0)}</td><td></td></tr>
-                {preview && preview.withholding > 0 && <tr><td colSpan={6}></td><td className="muted">WHT {Math.round((preview.whtCode?.rate ?? 0) * 1000) / 10} %</td><td className="num">−{fmt(preview.withholding)}</td><td></td></tr>}
-                <tr><td colSpan={6} className="small">{rateMissing ? <span style={{ color: 'var(--crit)' }}>Saisissez le taux 1 {currency} = ? {entity.functionalCurrency} pour enregistrer cette facture.</span> : preview?.ar && preview.ttc > 0 ? `Écriture prévue : ${preview.ar.code} D ${fmt(r2(preview.net * effRate))}${preview.withholding ? ` · ${preview.whtAccount?.code ?? 'WHT'} D ${fmt(r2(preview.withholding * effRate))}` : ''} ${entity.functionalCurrency} · ${preview.computed.map((l) => `${state.accounts.find((a) => a.id === l.revenueAccountId)?.code} C ${fmt(r2(l.lineHt * effRate))}`).join(' · ')}${preview.tax ? ` · TVA C ${fmt(r2(preview.tax * effRate))}` : ' · aucune ligne de TVA'}` : preview?.error ?? ''}</td><td><b>Net à payer</b></td><td className="num"><b>{currency} {fmt(preview?.net ?? 0)}</b></td><td></td></tr>
+                <tr><td colSpan={7}><button type="button" className="btn sm" onClick={() => setLines((ls) => [...ls, emptyLine(cardWht(customer))])}>+ ligne</button></td><td className="muted">Total HT</td><td className="num">{fmt(preview?.ht ?? 0)}</td><td></td></tr>
+                <tr><td colSpan={7} className="small muted">{preview?.mention ? `Mention imprimée : « ${preview.mention} »` : ''}</td><td className="muted">TVA</td><td className="num">{fmt(preview?.tax ?? 0)}</td><td></td></tr>
+                <tr><td colSpan={7} className="small muted">{preview?.whtCode ? `WHT ${Math.round(preview.whtCode.rate * 1000) / 10} % sur ${fmt(preview.whtBase)} HT · compte ${preview.whtAccount?.code ?? ''} (créance sur le Trésor) · la TVA reste due sur le HT` : 'WHT 0 % : rien de retenu, rien d\'imprimé'}</td><td className="muted">Total TTC</td><td className="num">{fmt(preview?.ttc ?? 0)}</td><td></td></tr>
+                {preview && preview.withholding > 0 && <tr><td colSpan={7}></td><td className="muted">WHT {Math.round((preview.whtCode?.rate ?? 0) * 1000) / 10} %</td><td className="num">−{fmt(preview.withholding)}</td><td></td></tr>}
+                <tr><td colSpan={7} className="small">{rateMissing ? <span style={{ color: 'var(--crit)' }}>Saisissez le taux 1 {currency} = ? {entity.functionalCurrency} pour enregistrer cette facture.</span> : preview?.ar && preview.ttc > 0 ? `Écriture prévue : ${preview.ar.code} D ${fmt(r2(preview.net * effRate))}${preview.withholding ? ` · ${preview.whtAccount?.code ?? 'WHT'} D ${fmt(r2(preview.withholding * effRate))}` : ''} ${entity.functionalCurrency} · ${preview.computed.map((l) => `${state.accounts.find((a) => a.id === l.revenueAccountId)?.code} C ${fmt(r2(l.lineHt * effRate))}`).join(' · ')}${preview.tax ? ` · TVA C ${fmt(r2(preview.tax * effRate))}` : ' · aucune ligne de TVA'}` : preview?.error ?? ''}</td><td><b>Net à payer</b></td><td className="num"><b>{currency} {fmt(preview?.net ?? 0)}</b></td><td></td></tr>
               </tfoot>
             </table>
           </div>
@@ -382,7 +384,7 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
           </div>
           <div className="small" style={{ marginTop: 8 }}>Document forcé &gt; règle (régime du client + catégorie) &gt; défaut de l'entité. Le code figé sur la ligne choisit aussi le sous-compte de produit, que vous pouvez remplacer par n'importe quel compte de classe 7, y compris un sous-compte créé dans le plan.</div>
           <h2 style={{ marginTop: 12 }}>TVA et WHT</h2>
-          <div className="small">La <b>TVA</b> se choisit ligne par ligne (exonérée ou à taux zéro : aucune TVA). La <b>WHT</b> (retenue à la source, toujours 7 %) s'applique au document, sur le HT, en plus de la TVA : une facture peut porter les deux. Le client verse le net et reverse la WHT ; nous la suivons en créance ({whtCode ? `${whtCode.code}, compte ${state.accounts.find((a) => a.id === whtCode.deductibleAccountId)?.code ?? '—'}` : 'code RAS-7 absent'}) jusqu'à l'imputation sur notre impôt. À 7 %, la facture porte une colonne WHT, son total et la mention du régime GTA ; à 0 %, rien.</div>
+          <div className="small">La <b>TVA</b> se choisit ligne par ligne (exonérée ou à taux zéro : aucune TVA). La <b>WHT</b> (retenue à la source, toujours 7 %) se choisit aussi ligne par ligne, sur le HT, en plus de la TVA : une facture peut porter les deux. Le client verse le net et reverse la WHT ; nous la suivons en créance ({whtCode ? `${whtCode.code}, compte ${state.accounts.find((a) => a.id === whtCode.deductibleAccountId)?.code ?? '—'}` : 'code RAS-7 absent'}) jusqu'à l'imputation sur notre impôt. À 7 %, la facture porte une colonne WHT, son total et la mention du régime GTA ; à 0 %, rien.</div>
           <h2 style={{ marginTop: 12 }}>Régime de la facture</h2>
           <div className="small">Il part de la fiche client et ne vaut que pour cette facture ; il choisit la TVA proposée sur les lignes. <b>Normal</b> : règles de l'entité (TVA). <b>GTA</b> : GTA-EXO 0 %, avec la mention « TVA non applicable » sur la facture.</div>
           <div style={{ marginTop: 10 }} className="small">

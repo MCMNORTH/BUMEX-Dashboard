@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildDemo, entityByCode, createDraft, postEntry, reverseEntry, checkPostable, verifyChain, setPeriodStatus, setFiscalYearClosed,
-  trialBalance, accountByCode, createInvoice, updateInvoice, requestDeletion, validateInvoice, postInvoice, recordPayment, createCreditNote, aging, openInvoices,
+  trialBalance, accountByCode, createInvoice, updateInvoice, requestDeletion, lineWithholdingRate, withholdingStatement, validateInvoice, postInvoice, recordPayment, createCreditNote, aging, openInvoices,
   importStatement, parseStatementCsv, suggestFor, bookByRule, bookTransfer, bankSummary, cashForecast, floorSignals, groupFigures,
   addAccount, r2, type State, DomainError, resolveTaxCode, computeLines, sha256, entryHash, approveSupplierInvoice,
   taskStats, createTask, completeTask, reopenTask, alerts, recentActivity, archiveRows, rackLayout, archiveEngagement, retrieveArchive, returnArchive, destroyArchive, nextFreeSlot, archiveQueue, RACK_CAPACITY, slotKey,
@@ -181,6 +181,40 @@ describe('sales', () => {
     // WHT 0 %: none, whatever the card says
     const [, none] = createInvoice(base, { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU', withholdingCodeId: null, lines: [{ description: 'Audit', quantity: 1, unitPrice: 100000, serviceCategory: 'AUDIT' }] });
     expect(none).toMatchObject({ withholdingAmount: 0, netPayable: 116000 });
+  });
+  it('sets the WHT per line: only the lines bearing it are withheld, in the entry, the credit notes and the statement (2026-11-17)', () => {
+    const customer = cust('standard');
+    const wht = base.taxCodes.find((t) => t.entityId === AUD && t.code === 'RAS-7')!;
+    const [s1, inv] = createInvoice(base, { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU', withholdingCodeId: null, lines: [
+      { description: 'Mission GTA', quantity: 1, unitPrice: 100000, serviceCategory: 'AUDIT', withholdingCodeId: wht.id },
+      { description: 'Débours', quantity: 1, unitPrice: 20000, serviceCategory: 'AUDIT', withholdingCodeId: null },
+    ] });
+    expect(inv.lines.map((l) => [l.withholdingCodeId, l.withholdingRate])).toEqual([[wht.id, 0.07], [undefined, 0]]);
+    expect(inv).toMatchObject({ totalHt: 120000, totalTax: 19200, withholdingCodeId: wht.id, withholdingRate: 0.07, withholdingAmount: 7000, netPayable: 132200 });
+    expect(lineWithholdingRate(inv, inv.lines[1])).toBe(0);
+    const [s2, posted] = postInvoice(s1, inv.id);
+    const e = s2.entries.find((x) => x.id === posted.journalEntryId)!;
+    expect(r2(e.lines.reduce((a, l) => a + l.debit - l.credit, 0))).toBe(0);
+    expect(e.lines.find((l) => l.accountId === wht.deductibleAccountId)!.debit).toBe(7000);
+    expect(withholdingStatement(s2, AUD).suffered.find((r) => r.document === posted.number)).toMatchObject({ base: 100000, amount: 7000 });
+    // a credit note on the 0 % line reverses no WHT; on the WHT line, its 7 %
+    const [s3] = createCreditNote(s2, inv.id, 'débours', TODAY, [2]);
+    const cn0 = s3.entries.find((x) => x.sourceType === 'credit_note' && x.date === TODAY && x.lines.some((l) => l.description.includes('Débours')))!;
+    expect(cn0.lines.some((l) => l.accountId === wht.deductibleAccountId)).toBe(false);
+    const [s4] = createCreditNote(s3, inv.id, 'mission', TODAY, [1]);
+    expect(s4.entries.filter((x) => x.sourceType === 'credit_note').flatMap((x) => x.lines).filter((l) => l.accountId === wht.deductibleAccountId).reduce((a, l) => a + l.credit, 0)).toBe(7000);
+    expect(s4.salesInvoices.find((i) => i.id === inv.id)!.status).toBe('paid');
+    // one WHT code per invoice
+    const other = { ...wht, id: 'tc_other', code: 'RAS-3', rate: 0.03 };
+    const withOther: State = { ...base, taxCodes: [...base.taxCodes, other] };
+    expect(() => createInvoice(withOther, { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU', lines: [
+      { description: 'a', quantity: 1, unitPrice: 1, serviceCategory: 'AUDIT', withholdingCodeId: wht.id },
+      { description: 'b', quantity: 1, unitPrice: 1, serviceCategory: 'AUDIT', withholdingCodeId: other.id },
+    ] })).toThrow(/Une seule WHT/);
+    // a line from before WHT per line (no rate of its own) bears the invoice's
+    const older = { ...inv.lines[1], withholdingCodeId: undefined, withholdingRate: undefined };
+    expect(lineWithholdingRate(inv, older)).toBe(0.07);
+    expect(lineWithholdingRate({ withholdingAmount: 0, withholdingRate: 0 }, older)).toBe(0);
   });
   it('edits a draft (lines, WHT) and deletes it; a validated invoice is neither edited nor deleted (2026-11-17)', () => {
     const customer = cust('gta');

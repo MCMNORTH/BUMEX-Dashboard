@@ -281,6 +281,10 @@ export interface SalesInvoiceLine {
   lineHt: number;
   taxAmount: number;
   lineTtc: number;
+  // [bumex-one] the line's WHT (asked on 2026-11-17): its code and rate (0 = none); both absent on an older line, which
+  // bears the invoice's WHT (withholdingCodeId / withholdingRate on the invoice)
+  withholdingCodeId?: Id;
+  withholdingRate?: number;
 }
 
 export interface SalesInvoice {
