@@ -297,7 +297,7 @@ describe("the modules", () => {
 
     const invoiced = await change("aicha", (s) => {
       const [s1, inv] = domain.createInvoice(s, { entityId: audit, customerId: customer, date: "2026-05-12", currency: "MRU", lines: [{ description: "Audit légal 2025", quantity: 1, unitPrice: 450000, serviceCategory: "AUDIT" }] });
-      return domain.validateInvoice(s1, inv.id);
+      return domain.postInvoice(s1, inv.id);
     });
     const invoice = invoiced.state.salesInvoices.find((i) => i.customerId === customer)!;
     expect(invoice).toMatchObject({ number: "IN2605-0001", totalHt: 450000 });
@@ -314,13 +314,26 @@ describe("the modules", () => {
     // the next invoice takes the next number: the counter is kept in the database
     const second = await change("aicha", (s) => {
       const [s1, inv] = domain.createInvoice(s, { entityId: audit, customerId: customer, date: "2026-05-28", currency: "MRU", lines: [{ description: "Conseil", quantity: 2, unitPrice: 50000, serviceCategory: "ADVISORY" }] });
-      return domain.validateInvoice(s1, inv.id);
+      return domain.postInvoice(s1, inv.id);
     });
     expect(second.state.salesInvoices.map((i) => i.number).sort()).toEqual(["IN2605-0001", "IN2605-0002"]);
 
     const credited = await change("aicha", (s) => domain.createCreditNote(s, second.browser[1].id, "remise commerciale", "2026-05-30"));
     expect(credited.state.creditNotes[0]).toMatchObject({ number: "AV2605-0001", status: "posted" });
     expect(credited.state.creditNotes[0].lines[0].serviceCategory).toBe("ADVISORY");
+
+    // validating numbers and locks the invoice without an entry; posting it later books it under that number
+    const validated = await change("aicha", (s) => {
+      const [s1, inv] = domain.createInvoice(s, { entityId: audit, customerId: customer, date: "2026-05-29", currency: "MRU", lines: [{ description: "Fiscal", quantity: 1, unitPrice: 80000, serviceCategory: "TAX" }] });
+      return domain.validateInvoice(s1, inv.id);
+    });
+    const third = validated.state.salesInvoices.find((i) => i.id === validated.browser[1].id)!;
+    expect(third).toMatchObject({ status: "validated", number: "IN2605-0003" });
+    expect(third.journalEntryId).toBeUndefined();
+    const booked = await change("aicha", (s) => domain.postInvoice(s, third.id));
+    const thirdPosted = booked.state.salesInvoices.find((i) => i.id === third.id)!;
+    expect(thirdPosted).toMatchObject({ status: "posted", number: "IN2605-0003" });
+    expect(booked.state.entries.find((e) => e.id === thirdPosted.journalEntryId)).toMatchObject({ status: "posted", sourceType: "sales_invoice" });
   });
 
   it("bank: a statement imported, a fee booked by rule", async () => {

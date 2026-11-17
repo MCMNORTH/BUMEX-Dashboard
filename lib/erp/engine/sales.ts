@@ -142,15 +142,31 @@ export function updateInvoice(state: State, invoiceId: Id, input: InvoiceInput):
   return [{ ...state, salesInvoices: state.salesInvoices.map((i) => (i.id === invoiceId ? inv : i)) }, inv];
 }
 
-// sales_invoice.v2 — Dr AR (net payable) + Dr withholding receivable (RAS suffered) / Cr revenue per line (HT) / Cr VAT per rate
+// An invoice is a draft (editable), then validated (numbered and locked, nothing in the books yet), then posted
+// (its journal entry). Validating and posting are two steps (asked on 2026-11-17): only posting accounts the invoice.
+export const invoiceAccounted = (i: Pick<SalesInvoice, 'status'>) => i.status === 'posted' || i.status === 'paid';
+
 export function validateInvoice(state: State, invoiceId: Id): [State, SalesInvoice] {
-  requirePost(state);
   const inv = state.salesInvoices.find((i) => i.id === invoiceId);
   if (!inv) throw new DomainError('not_found', 'Facture inconnue');
   if (inv.status !== 'draft') throw new DomainError('state', 'Facture déjà validée');
   if (!inv.lines.length) throw new DomainError('empty', 'Facture sans ligne');
   const customer = customerOf(state, inv.customerId);
   const [s1, number] = nextNumber(state, inv.entityId, 'sales_invoice', '', inv.date, 'IN{YY}{MM}-{SEQ4}', 'month');
+  const next: SalesInvoice = { ...inv, number, status: 'validated' };
+  return [audit({ ...s1, salesInvoices: s1.salesInvoices.map((i) => (i.id === invoiceId ? next : i)) }, 'sales_invoice', inv.id, 'U', `Validée ${number} ${customer.name}`, inv.entityId), next];
+}
+
+// sales_invoice.v2 — Dr AR (net payable) + Dr withholding receivable (RAS suffered) / Cr revenue per line (HT) / Cr VAT per rate.
+// A draft is validated on the way.
+export function postInvoice(state: State, invoiceId: Id): [State, SalesInvoice] {
+  requirePost(state);
+  const found = state.salesInvoices.find((i) => i.id === invoiceId);
+  if (!found) throw new DomainError('not_found', 'Facture inconnue');
+  if (found.status !== 'draft' && found.status !== 'validated') throw new DomainError('state', 'Facture déjà comptabilisée');
+  const [s1, inv] = found.status === 'draft' ? validateInvoice(state, invoiceId) : [state, found];
+  const number = inv.number!;
+  const customer = customerOf(s1, inv.customerId);
   const ar = arAccountFor(state, inv.entityId, customer);
   const journal = state.journals.find((j) => j.entityId === inv.entityId && j.kind === 'sales')!;
   const lines: DraftLineInput[] = [{ accountId: ar.id, description: `Facture ${number} ${customer.name}`, debitTxn: inv.netPayable, customerId: inv.customerId }];
@@ -167,15 +183,15 @@ export function validateInvoice(state: State, invoiceId: Id): [State, SalesInvoi
   }
   const [s2, draft] = createDraft(s1, { entityId: inv.entityId, journalId: journal.id, date: inv.date, description: `Facture ${number} ${customer.name}`, currency: inv.currency, fxRate: inv.fxRate, sourceType: 'sales_invoice', sourceId: inv.id, postingRule: inv.withholdingAmount > 0 ? 'sales_invoice.v2' : 'sales_invoice.v1', lines });
   const [s3, posted] = postEntry(s2, draft.id);
-  const next: SalesInvoice = { ...inv, number, status: 'posted', journalEntryId: posted.id };
-  return [audit({ ...s3, salesInvoices: s3.salesInvoices.map((i) => (i.id === invoiceId ? next : i)) }, 'sales_invoice', inv.id, 'U', `Validée ${number}`, inv.entityId), next];
+  const next: SalesInvoice = { ...inv, status: 'posted', journalEntryId: posted.id };
+  return [audit({ ...s3, salesInvoices: s3.salesInvoices.map((i) => (i.id === invoiceId ? next : i)) }, 'sales_invoice', inv.id, 'U', `Comptabilisée ${number}`, inv.entityId), next];
 }
 
 // credit_note.v1 — mirror of the invoice entry
 export function createCreditNote(state: State, invoiceId: Id, reason: string, date: ISODate, lineNos?: number[]): [State, CreditNote] {
   requirePost(state);
   const inv = state.salesInvoices.find((i) => i.id === invoiceId);
-  if (!inv || inv.status === 'draft') throw new DomainError('state', 'Avoir possible sur une facture validée uniquement');
+  if (!inv || !invoiceAccounted(inv)) throw new DomainError('state', 'Avoir possible sur une facture comptabilisée uniquement');
   const customer = customerOf(state, inv.customerId);
   const lines = inv.lines.filter((l) => !lineNos || lineNos.includes(l.lineNo)).map((l, i) => ({ ...l, lineNo: i + 1 }));
   const [s1, id] = nextId(state, 'cn');
@@ -242,6 +258,7 @@ export function allocate(state: State, paymentId: Id, invoiceId: Id, amountTxn: 
   const pay = state.customerPayments.find((p) => p.id === paymentId);
   const inv = state.salesInvoices.find((i) => i.id === invoiceId);
   if (!pay || !inv) throw new DomainError('not_found', 'Paiement ou facture inconnu');
+  if (!invoiceAccounted(inv)) throw new DomainError('state', 'Lettrage possible sur une facture comptabilisée uniquement');
   if (inv.currency !== pay.currency) throw new DomainError('currency', 'Devises différentes entre la facture et le paiement');
   const open = r2(inv.netPayable - inv.amountPaidTxn);
   const amt = r2(Math.min(amountTxn, open));

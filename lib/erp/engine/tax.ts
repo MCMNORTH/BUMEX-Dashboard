@@ -89,7 +89,7 @@ export interface WithholdingStatement {
 export function withholdingStatement(state: State, entityId: Id, from?: ISODate, to?: ISODate): WithholdingStatement {
   const inRange = (d: ISODate) => (!from || d >= from) && (!to || d <= to);
   const suffered: WithholdingRow[] = state.salesInvoices
-    .filter((i) => i.entityId === entityId && i.status !== 'draft' && i.withholdingAmount > 0 && inRange(i.date))
+    .filter((i) => i.entityId === entityId && (i.status === 'posted' || i.status === 'paid') && i.withholdingAmount > 0 && inRange(i.date))
     .map((i) => ({ date: i.date, document: i.number ?? '—', counterparty: state.customers.find((c) => c.id === i.customerId)?.name ?? '', base: r2(i.totalHt * i.fxRate), rate: i.withholdingRate, amount: r2(i.withholdingAmount * i.fxRate), status: i.status === 'paid' ? 'réglée' : 'ouverte', currency: i.currency }))
     .sort((a, b) => (a.date < b.date ? -1 : 1));
   const due: WithholdingRow[] = state.supplierInvoices
@@ -115,7 +115,7 @@ export interface VatStatement {
 
 export function vatStatement(state: State, entityId: Id, from?: ISODate, to?: ISODate): VatStatement {
   const inRange = (d: ISODate) => (!from || d >= from) && (!to || d <= to);
-  const sales = state.salesInvoices.filter((i) => i.entityId === entityId && i.status !== 'draft' && inRange(i.date));
+  const sales = state.salesInvoices.filter((i) => i.entityId === entityId && (i.status === 'posted' || i.status === 'paid') && inRange(i.date)); // validated but not posted: not in the books yet
   const purchases = state.supplierInvoices.filter((i) => i.entityId === entityId && (i.status === 'posted' || i.status === 'paid') && inRange(i.date));
   const months = [...new Set([...sales.map((i) => i.date.slice(0, 7)), ...purchases.map((i) => i.date.slice(0, 7))])].sort();
   const collected = sum(sales.map((i) => r2(i.totalTax * i.fxRate)));

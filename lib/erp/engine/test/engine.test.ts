@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildDemo, entityByCode, createDraft, postEntry, reverseEntry, checkPostable, verifyChain, setPeriodStatus, setFiscalYearClosed,
-  trialBalance, accountByCode, createInvoice, validateInvoice, recordPayment, createCreditNote, aging, openInvoices,
+  trialBalance, accountByCode, createInvoice, validateInvoice, postInvoice, recordPayment, createCreditNote, aging, openInvoices,
   importStatement, parseStatementCsv, suggestFor, bookByRule, bookTransfer, bankSummary, cashForecast, floorSignals, groupFigures,
   addAccount, r2, type State, DomainError, resolveTaxCode, computeLines, sha256, entryHash, approveSupplierInvoice,
   taskStats, createTask, completeTask, reopenTask, alerts, recentActivity, archiveRows, rackLayout, archiveEngagement, retrieveArchive, returnArchive, destroyArchive, nextFreeSlot, archiveQueue, RACK_CAPACITY, slotKey,
@@ -136,7 +136,7 @@ describe('sales', () => {
   it('posts a standard invoice: AR 522 000 / revenue 450 000 / VAT 72 000', () => {
     const customer = cust('standard');
     const [s1, inv] = createInvoice(base, { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU', lines: [{ description: 'Audit', quantity: 1, unitPrice: 450000, serviceCategory: 'AUDIT' }] });
-    const [s2, v] = validateInvoice(s1, inv.id);
+    const [s2, v] = postInvoice(s1, inv.id);
     const e = s2.entries.find((x) => x.id === v.journalEntryId)!;
     const by = (code: string) => e.lines.filter((l) => accountByCode(s2, AUD, code).id === l.accountId);
     // the receivable goes to the customer's auxiliary account, attached to the collective 410000
@@ -148,6 +148,22 @@ describe('sales', () => {
     expect(by('4357')[0].credit).toBe(72000);
     expect(v.number).toMatch(/^IN\d{4}-\d{4}$/);
   });
+  it('validating numbers and locks an invoice without accounting it; posting books it under the same number', () => {
+    const customer = cust('standard');
+    const [s1, inv] = createInvoice(base, { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU', lines: [{ description: 'Audit', quantity: 1, unitPrice: 1000, serviceCategory: 'AUDIT' }] });
+    const [s2, v] = validateInvoice(s1, inv.id);
+    expect(v.status).toBe('validated');
+    expect(v.number).toMatch(/^IN\d{4}-\d{4}$/);
+    expect(v.journalEntryId).toBeUndefined();
+    expect(s2.entries).toHaveLength(s1.entries.length);
+    expect(openInvoices(s2, AUD).some((o) => o.invoice.id === inv.id)).toBe(false);
+    expect(() => createCreditNote(s2, inv.id, 'x', TODAY)).toThrow(DomainError);
+    expect(() => validateInvoice(s2, inv.id)).toThrow(DomainError);
+    const [s3, p] = postInvoice(s2, inv.id);
+    expect(p).toMatchObject({ status: 'posted', number: v.number });
+    expect(s3.entries.find((x) => x.id === p.journalEntryId)!.status).toBe('posted');
+    expect(() => postInvoice(s3, inv.id)).toThrow(DomainError);
+  });
   it('posts the export invoice in USD at the day rate with no VAT, on 701712', () => {
     const inv = base.salesInvoices.find((i) => i.number === 'IN2610-0116')!;
     const e = base.entries.find((x) => x.id === inv.journalEntryId)!;
@@ -158,7 +174,7 @@ describe('sales', () => {
   it('honours a revenue account override on a line', () => {
     const [s0, custom] = addAccount(base, AUD, '7017121', 'Audit export', 'income');
     const [s1, inv] = createInvoice(s0, { entityId: AUD, customerId: cust('non_resident').id, date: TODAY, currency: 'USD', lines: [{ description: 'Audit', quantity: 1, unitPrice: 1000, serviceCategory: 'AUDIT', revenueAccountId: custom.id }] });
-    const [s2, v] = validateInvoice(s1, inv.id);
+    const [s2, v] = postInvoice(s1, inv.id);
     const e = s2.entries.find((x) => x.id === v.journalEntryId)!;
     expect(e.lines[1].accountId).toBe(custom.id);
   });

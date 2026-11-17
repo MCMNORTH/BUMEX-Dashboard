@@ -12,7 +12,7 @@ import {
   createSupplierInvoice,
   recordPayment,
   seedChart,
-  validateInvoice,
+  postInvoice,
   withIdSource,
   type Id,
   type State,
@@ -52,10 +52,10 @@ export function testFloorBooks(state: State, entityId: Id): State {
     return draft;
   };
   let first = invoice(customers[0], "Audit des comptes (test)", 450000);
-  [s, first] = validateInvoice(s, first.id);
+  [s, first] = postInvoice(s, first.id);
   [s] = recordPayment(s, { entityId, customerId: customers[0], date, currency: "MRU", amountTxn: 200000, bankAccountId: bank.id, invoiceId: first.id, reference: first.number });
   let second = invoice(customers[1], "Mission de conseil (test)", 300000);
-  [s, second] = validateInvoice(s, second.id);
+  [s, second] = postInvoice(s, second.id);
   invoice(customers[2], "Devis à valider (brouillon de test)", 120000);
   const [withSupplier, supplier] = addSupplier(s, { entityId, name: "Fournisseur Test", regime: "standard", expenseAccountId: accountByCode(s, entityId, "6200").id });
   s = withSupplier;

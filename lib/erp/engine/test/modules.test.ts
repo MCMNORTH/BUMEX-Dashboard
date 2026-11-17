@@ -3,7 +3,7 @@ import {
   buildDemo, entityByCode, accountByCode, r2, type State, DomainError,
   createUser, activateInvite, updateUserAccess, signInAs, requestDeletion, decideDeletion, pendingDeletions, canOpenRoom, canUseModule,
   validateChartImport, applyChartImport, exportChartRows, applyChartTemplate, CHART_TEMPLATES,
-  createInvoice, validateInvoice, recordPayment, withholdingStatement, vatStatement, addTaxCode,
+  createInvoice, postInvoice, recordPayment, withholdingStatement, vatStatement, addTaxCode,
   addSupplier, createSupplierInvoice, approveSupplierInvoice, paySupplierInvoice, supplierPayables,
   addLoan, loanSchedule, payInstalment, loanSummaries,
   addAsset, depreciationSchedule, yearDepreciation, postDepreciation, assetRegister, updateAsset,
@@ -110,7 +110,7 @@ describe('clients: withholding at source (RAS 7 %)', () => {
     expect(inv.withholdingRate).toBe(0.07);
     expect(inv.withholdingAmount).toBe(70000);
     expect(inv.netPayable).toBe(1090000);
-    const [s2, posted] = validateInvoice(s1, inv.id);
+    const [s2, posted] = postInvoice(s1, inv.id);
     const e = s2.entries.find((x) => x.id === posted.journalEntryId)!;
     expect(e.postingRule).toBe('sales_invoice.v2');
     expect(e.lines.find((l) => l.accountId === bank.arAccountId)!.debit).toBe(1090000);

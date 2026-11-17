@@ -104,7 +104,7 @@ export function PenthousePanel() {
   const { state, t, goFloor, openRoom } = useStore();
   const g = groupFigures(state);
   const [tab, setTab] = useState<'board' | 'ic'>('board');
-  const ic = state.salesInvoices.filter((i) => i.status !== 'draft' && state.customers.find((c) => c.id === i.customerId)?.groupEntityId);
+  const ic = state.salesInvoices.filter((i) => (i.status === 'posted' || i.status === 'paid') && state.customers.find((c) => c.id === i.customerId)?.groupEntityId);
   return (
     <>
       <div className="sheet-head" style={{ background: '#0b5753', color: '#fff', borderColor: '#9bd9d4' }}>

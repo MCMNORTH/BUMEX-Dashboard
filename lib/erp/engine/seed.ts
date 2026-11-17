@@ -3,7 +3,7 @@ import { r2, addDays, addMonths, yearOf, monthOf } from './money';
 import { nextId, mapped, accountByCode } from './core';
 import { seedChart } from './chart';
 import { createFiscalYear, createDraft, postEntry, setPeriodStatus, type DraftLineInput } from './ledger';
-import { addCustomer, createInvoice, validateInvoice, recordPayment, sendDunning } from './sales';
+import { addCustomer, createInvoice, postInvoice, recordPayment, sendDunning } from './sales';
 import { sha256 } from './sha256';
 import { bankSummary } from './bank';
 import { archiveEngagement } from './archive';
@@ -75,7 +75,7 @@ function bankAccount(ctx: Ctx, entityId: Id, name: string, bankName: string, cur
 
 function invoice(ctx: Ctx, entityId: Id, customerId: Id, date: string, currency: Currency, lines: { description: string; amount: number; category?: string }[], opts: { dueDays?: number; bankAccountId?: Id; engagementId?: Id; revenueAccountId?: Id } = {}) {
   const [s1, inv] = createInvoice(ctx.s, { entityId, customerId, date, currency, dueDays: opts.dueDays, bankAccountId: opts.bankAccountId, engagementId: opts.engagementId, lines: lines.map((l) => ({ description: l.description, quantity: 1, unitPrice: l.amount, serviceCategory: l.category ?? 'AUDIT', revenueAccountId: opts.revenueAccountId })) });
-  const [s2, posted] = validateInvoice(s1, inv.id);
+  const [s2, posted] = postInvoice(s1, inv.id);
   ctx.s = s2;
   return posted;
 }

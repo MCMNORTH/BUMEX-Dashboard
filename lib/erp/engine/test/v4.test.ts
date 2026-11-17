@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildDemo, accountByCode, findAccountByCode, addJournal, updateJournal, deleteJournal, journalUsage, chartView, addBankAccount, updateBankAccount, setBankAccountActive, recordPayment,
-  addAccount, addLoan, setLoanSchedule, payInstalment, loanSchedule, parseScheduleRows, addCustomer, updateCustomer, addSupplier, nextThirdPartyCode, setThirdPartyRules, createInvoice, validateInvoice, trialBalance, accountBalance,
+  addAccount, addLoan, setLoanSchedule, payInstalment, loanSchedule, parseScheduleRows, addCustomer, updateCustomer, addSupplier, nextThirdPartyCode, setThirdPartyRules, createInvoice, postInvoice, trialBalance, accountBalance,
   computePayLine, payrollRulesFor, setPayrollRules, simulatePayroll, postPayroll, effectiveExemptions, createSupplierInvoice, approveSupplierInvoice, signInAs,
 } from '..';
 
@@ -142,7 +142,7 @@ describe('third parties: codes and auxiliary accounts', () => {
   it('postings go to the auxiliary; the trial balance folds them into the collective unless asked otherwise', () => {
     const cust = base.customers.find((c) => c.entityId === AUD && c.name === 'Banque C')!;
     const [s1, inv] = createInvoice(base, { entityId: AUD, customerId: cust.id, date: TODAY, currency: 'MRU', lines: [{ description: 'Audit', quantity: 1, unitPrice: 100000, serviceCategory: 'AUDIT' }] });
-    const [s2] = validateInvoice(s1, inv.id);
+    const [s2] = postInvoice(s1, inv.id);
     const collective = accountByCode(s2, AUD, '4100');
     const folded = trialBalance(s2, AUD);
     expect(folded.some((r) => r.accountId === cust.arAccountId)).toBe(false);
