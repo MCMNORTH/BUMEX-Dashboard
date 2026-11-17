@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildDemo, entityByCode, fxRate, setFxRate, importFxRates, deleteFxRate, fxRateUsed, createInvoice, postInvoice, recordPayment, mapped, accountByCode,
+  fxRevaluation, postFxRevaluation, createFiscalYear, trialBalance, r2, arAccountFor,
   DomainError, type State, type Currency,
 } from '..';
 
@@ -72,4 +73,68 @@ describe('exchange rates', () => {
     const s5 = deleteFxRate(s4, { date: '2026-10-07', from: 'EUR', to: 'MRU' });
     expect(s5.fxRates.some((r) => r.date === '2026-10-07')).toBe(false);
   });
+
 });
+
+describe('year-end revaluation', () => {
+  // an EUR invoice of 10 000 € at 41.0, 4 000 € received at 40.9; the 31/12 rate 42.0; the next year exists
+  const setup = () => {
+    let s = createFiscalYear(base, AUD, 2027);
+    [s] = importFxRates(s, [{ date: '2026-10-05', from: 'EUR', to: 'MRU', rate: 41 }, { date: '2026-10-09', from: 'EUR', to: 'MRU', rate: 40.9 }, { date: '2026-12-31', from: 'EUR', to: 'MRU', rate: 42 }, { date: '2026-12-31', from: 'USD', to: 'MRU', rate: 40 }], 'BCM');
+    const customer = s.customers.find((c) => c.entityId === AUD && c.regime === 'non_resident')!;
+    const eur = s.bankAccounts.find((b) => b.entityId === AUD && b.currency === 'EUR' && !b.isCash)!;
+    const [s1, inv] = createInvoice(s, { entityId: AUD, customerId: customer.id, date: '2026-10-05', currency: 'EUR', fxRate: 41, withholdingCodeId: null, lines: [{ description: 'Mission', quantity: 1, unitPrice: 10000, serviceCategory: 'AUDIT' }] });
+    const [s2] = postInvoice(s1, inv.id);
+    const [s3] = recordPayment(s2, { entityId: AUD, customerId: customer.id, date: '2026-10-09', currency: 'EUR', amountTxn: 4000, bankAccountId: eur.id, invoiceId: inv.id });
+    return { s: s3, inv, customer, eur, fy: s3.fiscalYears.find((f) => f.entityId === AUD && f.label === '2026')! };
+  };
+
+  it('values the open invoices and the foreign-currency accounts at the 31/12 rate (a preview, nothing posted)', () => {
+    const { s, inv, eur, fy } = setup();
+    const rv = fxRevaluation(s, AUD, fy.id);
+    expect(rv).toMatchObject({ date: '2026-12-31', reversalDate: '2027-01-01', method: 'conversion_accounts', missing: [], done: false });
+    expect(rv.rows.find((r) => r.kind === 'receivable' && r.label.startsWith(s.salesInvoices.find((i) => i.id === inv.id)!.number!))).toMatchObject({ currency: 'EUR', amountTxn: 6000, rate: 42, book: 246000, revalued: 252000, diff: 6000 });
+    const bank = rv.rows.find((r) => r.kind === 'bank' && r.accountId === eur.glAccountId)!;
+    expect(bank.rate).toBe(42);
+    expect(bank.diff).toBe(r2(bank.amountTxn * 42 - bank.book));
+    for (const r of rv.rows) expect(r.diff).toBe(r2(r.revalued - r.book));
+  });
+
+  it('posts the bank differences to 778 / 678, the open invoices’ to 484 / 485 reversed on 1 January; once', () => {
+    const { s, inv, customer, fy } = setup();
+    const before = fxRevaluation(s, AUD, fy.id);
+    const [s1, after] = postFxRevaluation(s, AUD, fy.id);
+    expect(after.done).toBe(true);
+    const mine = s1.entries.filter((e) => e.sourceType === 'fx_revaluation' && e.sourceId === fy.id);
+    const bankEntry = mine.find((e) => e.postingRule === 'fx_revaluation.v1')!;
+    const banks = before.rows.filter((r) => r.kind === 'bank' && r.diff);
+    const net = (e: typeof bankEntry, code: string) => r2(e.lines.filter((l) => l.accountId === accountByCode(s1, AUD, code).id).reduce((a, l) => a + l.credit - l.debit, 0));
+    // credit − debit on 778 and 678 together = the accounts' differences (a gain credited to 778, a loss debited to 678)
+    expect(r2(net(bankEntry, '778') + net(bankEntry, '678'))).toBe(r2(banks.reduce((a, r) => a + r.diff, 0)));
+    for (const r of banks) expect(bankEntry.lines.some((l) => l.accountId === accountByCode(s1, AUD, r.diff > 0 ? '778' : '678').id)).toBe(true);
+    const [translation, reversal] = mine.filter((e) => e.postingRule === 'fx_translation.v1').sort((a, b) => (a.date < b.date ? -1 : 1));
+    expect(translation.date).toBe('2026-12-31');
+    const ar = arAccountFor(s1, AUD, customer).id;
+    expect(translation.lines.find((l) => l.accountId === ar && l.customerId === customer.id && l.description.includes(s1.salesInvoices.find((i) => i.id === inv.id)!.number!))!.debit).toBe(6000);
+    expect(translation.lines.some((l) => l.accountId === mapped(s1, AUD, 'FX_CONV_LIAB').id && l.credit > 0)).toBe(true);
+    expect(reversal.date).toBe('2027-01-01');
+    expect(reversal.lines.map((l) => [l.accountId, l.debit, l.credit])).toEqual(translation.lines.map((l) => [l.accountId, l.credit, l.debit]));
+    expect(r2(trialBalance(s1, AUD).reduce((a, r) => a + r.balance, 0))).toBe(0);
+    expect(() => postFxRevaluation(s1, AUD, fy.id)).toThrow(/déjà comptabilisée/);
+  });
+
+  it('refuses without a closing rate, or without the next year to reverse into; direct_to_income goes to 778 / 678', () => {
+    const { s, fy } = setup();
+    const noEur: State = { ...s, fxRates: s.fxRates.filter((r) => r.from !== 'EUR') };
+    expect(fxRevaluation(noEur, AUD, fy.id).missing).toEqual(['EUR']);
+    expect(() => postFxRevaluation(noEur, AUD, fy.id)).toThrow(/Pas de taux EUR/);
+    const noNext: State = { ...s, fiscalYears: s.fiscalYears.filter((f) => !(f.entityId === AUD && f.label === '2027')) };
+    expect(() => postFxRevaluation(noNext, AUD, fy.id)).toThrow(/exercice suivant/);
+    const direct: State = { ...s, entities: s.entities.map((e) => (e.id === AUD ? { ...e, fxMethod: 'direct_to_income' as const } : e)) };
+    const [s1] = postFxRevaluation(direct, AUD, fy.id);
+    const tr = s1.entries.filter((e) => e.sourceType === 'fx_revaluation' && e.postingRule === 'fx_translation.v1');
+    expect(tr).toHaveLength(1); // not reversed
+    expect(tr[0].lines.some((l) => l.accountId === accountByCode(s1, AUD, '778').id)).toBe(true);
+  });
+});
+

@@ -6,6 +6,7 @@ import {
   fxRate, parseAmount, fmt, r2, type State, type Id, type JournalEntry, type Currency, type Account, type DraftInput, type CoaTemplate, type ChartImportReport, type JournalKind, DomainError,
 } from '@bumex/domain';
 import { useStore } from '../../store';
+import { FxRevaluationCard } from '../../one/FxRevaluation'; // [bumex-one] foreign currencies revalued at year end
 import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, saveFile, downloadXlsx, readXlsx, DeleteButton } from '../common';
 import { Select, Suggest } from '../Select';
 import { WideNote } from '../../one/WideNote'; // [mobile]
@@ -423,6 +424,7 @@ function Closing({ entityId }: { entityId: Id }) {
                   );
                 })}
               </div>
+              <FxRevaluationCard entityId={entityId} fiscalYearId={fy.id} />{/* [bumex-one] the year-end revaluation */}
             </div>
           );
         })}

@@ -44,6 +44,7 @@ export const payInstalment = recorded("payInstalment", c.payInstalment);
 export const paySupplierInvoice = recorded("paySupplierInvoice", c.paySupplierInvoice);
 export const postDepreciation = recorded("postDepreciation", c.postDepreciation);
 export const postEntry = recorded("postEntry", c.postEntry);
+export const postFxRevaluation = recorded("postFxRevaluation", c.postFxRevaluation);
 export const postInvoice = recorded("postInvoice", c.postInvoice);
 export const postPayroll = recorded("postPayroll", c.postPayroll);
 export const recordPayment = recorded("recordPayment", c.recordPayment);

@@ -42,6 +42,7 @@ export const vanguardCommands = {
   paySupplierInvoice: engine.paySupplierInvoice,
   postDepreciation: engine.postDepreciation,
   postEntry: engine.postEntry,
+  postFxRevaluation: engine.postFxRevaluation,
   postInvoice: engine.postInvoice,
   postPayroll: engine.postPayroll,
   recordPayment: engine.recordPayment,
@@ -87,7 +88,7 @@ export const commandModules: Record<VanguardCommand, engine.ModuleKey | null> = 
   addAccount: "accounting", updateAccount: "accounting", addJournal: "accounting", updateJournal: "accounting", deleteJournal: "accounting",
   applyChartImport: "accounting", applyChartTemplate: "accounting", createDraft: "accounting", updateDraft: "accounting", deleteDraft: "accounting",
   postEntry: "accounting", reverseEntry: "accounting", createFiscalYear: "accounting", setFiscalYearClosed: "accounting", setPeriodStatus: "accounting",
-  setThirdPartyRules: "accounting", setFxRate: "accounting", importFxRates: "accounting", deleteFxRate: "accounting", // the exchange rates (Réglages › Taux de change)
+  setThirdPartyRules: "accounting", setFxRate: "accounting", importFxRates: "accounting", deleteFxRate: "accounting", postFxRevaluation: "accounting", // the exchange rates (Réglages › Taux de change)
   addTaxCode: "tax", updateTaxCode: "tax", setTaxRule: "tax",
   addCustomer: "clients", updateCustomer: "clients", createInvoice: "clients", updateInvoice: "clients", validateInvoice: "clients", postInvoice: "clients", setEntityLetterhead: "clients", createCreditNote: "clients",
   recordPayment: "clients", sendDunning: "clients",

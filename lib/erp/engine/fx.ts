@@ -1,9 +1,12 @@
 // [bumex-one] Exchange rates (asked on 2026-11-17): set by hand or imported (the BCM's daily reference rates), deleted
 // while no posted entry used them. Ours, beside the engine as delivered: the lookup stays fxRate() in core.ts (the latest
 // rate on or before the date, a pair read inverted when only the other way is known). The rates are the group's.
-import type { State, ISODate, Currency, FxRate } from './types';
+import type { State, ISODate, Currency, FxRate, Id, FxMethod, JournalEntry } from './types';
 import { DomainError } from './types';
-import { audit, requireRole, PARTNER_ROLES } from './core';
+import { r2, sum } from './money';
+import { audit, requireRole, PARTNER_ROLES, fxRate, mapped, requirePost, arAccountFor, apAccountFor } from './core';
+import { postedLines, accountFamily, createDraft, postEntry, type DraftLineInput } from './ledger';
+import { invoiceAccounted, lineWithholdingRate } from './sales';
 
 export const FX_CURRENCIES: Currency[] = ['MRU', 'EUR', 'USD', 'MAD'];
 const FX_ROLES = [...PARTNER_ROLES, 'accountant' as const, 'manager' as const];
@@ -106,4 +109,142 @@ export function deleteFxRate(state: State, key: FxKey): State {
   if (!r) throw new DomainError('not_found', `Pas de taux ${key.from}/${key.to} le ${key.date}`);
   if (fxRateUsed(state, r)) throw new DomainError('in_use', `Le taux ${r.from}/${r.to} du ${r.date} a servi à une écriture comptabilisée : il ne se supprime plus (une correction se saisit comme nouveau taux du jour)`);
   return audit({ ...state, fxRates: state.fxRates.filter((x) => x !== r) }, 'fx_rate', fxKey(r), 'D', `Taux ${r.from}/${r.to} du ${r.date} supprimé (${r.rate})`);
+}
+
+// ---- year-end revaluation (asked on 2026-11-17) --------------------------------------------------------------------
+// At the fiscal year's last day, what is held or owed in a foreign currency is valued at that day's rate:
+//  - a foreign-currency bank account: its balance in its currency (its posted lines in that currency) × the rate, against
+//    its book value; the difference to the exchange gain (778) or loss (678) — the accountant's rule; not reversed;
+//  - an invoice still open on that day (customer or supplier; receipts, payments, credit notes dated after it do not
+//    count): its open amount × the rate against its book value; the difference to the translation accounts
+//    (FX_CONV_ASSET / FX_CONV_LIAB, 484 / 485), reversed on the next fiscal year's first day — or, for an entity whose
+//    method is direct_to_income, to 778 / 678 and not reversed.
+// Once per fiscal year and entity: to run it again, reverse its entries first.
+
+export interface FxRevaluationRow {
+  kind: 'bank' | 'receivable' | 'payable';
+  label: string;
+  currency: Currency;
+  amountTxn: number; // the balance or the open amount, in its currency
+  rate: number; // the closing rate (0 when missing)
+  book: number; // its value in the books (a payable: what is owed, positive)
+  revalued: number;
+  diff: number; // revalued − book: an asset worth more (gain) or a debt grown (loss)
+  accountId: Id;
+  customerId?: Id;
+  supplierId?: Id;
+}
+
+export interface FxRevaluation {
+  fiscalYearId: Id;
+  date: ISODate;
+  reversalDate?: ISODate;
+  method: FxMethod;
+  rows: FxRevaluationRow[];
+  missing: Currency[]; // currencies without a rate on or before the date
+  done: boolean;
+  entryIds: Id[];
+}
+
+const SOURCE = 'fx_revaluation';
+
+export function fxRevaluation(state: State, entityId: Id, fiscalYearId: Id): FxRevaluation {
+  const fy = state.fiscalYears.find((f) => f.id === fiscalYearId && f.entityId === entityId);
+  if (!fy) throw new DomainError('not_found', 'Exercice inconnu');
+  const entity = state.entities.find((e) => e.id === entityId)!;
+  const func = entity.functionalCurrency;
+  const date = fy.end;
+  const next = state.fiscalYears.filter((f) => f.entityId === entityId && f.start > fy.end).sort((a, b) => (a.start < b.start ? -1 : 1))[0];
+  const missing = new Set<Currency>();
+  const rateOf = (c: Currency) => { try { return fxRate(state, c, func, date); } catch (e) { if (e instanceof DomainError && e.code === 'fx_missing') { missing.add(c); return 0; } throw e; } };
+  const rows: FxRevaluationRow[] = [];
+  const row = (r: Omit<FxRevaluationRow, 'revalued' | 'diff'>) => {
+    const revalued = r.rate ? r2(r.amountTxn * r.rate) : r.book;
+    rows.push({ ...r, revalued, diff: r2(revalued - r.book) });
+  };
+  const lines = postedLines(state, entityId, { to: date });
+
+  for (const bank of state.bankAccounts.filter((b) => b.entityId === entityId && b.currency !== func)) {
+    const family = accountFamily(state, bank.glAccountId);
+    const shared = state.bankAccounts.some((b) => b.id !== bank.id && b.glAccountId === bank.glAccountId);
+    const mine = lines.filter(({ line }) => family.has(line.accountId) && (line.bankAccountId === bank.id || (!line.bankAccountId && !shared)));
+    const amountTxn = r2(sum(mine.filter(({ line }) => line.currency === bank.currency).map(({ line }) => line.debitTxn - line.creditTxn)));
+    const book = r2(sum(mine.map(({ line }) => line.debit - line.credit)));
+    if (!amountTxn && !book) continue;
+    row({ kind: 'bank', label: `${bank.bankName} · ${bank.name}`, currency: bank.currency, amountTxn, rate: rateOf(bank.currency), book, accountId: bank.glAccountId });
+  }
+
+  for (const inv of state.salesInvoices.filter((i) => i.entityId === entityId && i.currency !== func && invoiceAccounted(i) && i.date <= date)) {
+    const paid = sum(state.allocations.filter((a) => a.invoiceId === inv.id && (state.customerPayments.find((p) => p.id === a.paymentId)?.date ?? '9999') <= date).map((a) => a.amountTxn));
+    const credited = sum(state.creditNotes.filter((c) => c.originalInvoiceId === inv.id && c.date <= date).map((c) => r2(c.totalTtc - r2(sum(c.lines.filter((l) => lineWithholdingRate(inv, l) > 0).map((l) => l.lineHt)) * inv.withholdingRate))));
+    const open = r2(inv.netPayable - paid - credited);
+    if (open <= 0.004) continue;
+    const customer = state.customers.find((c) => c.id === inv.customerId)!;
+    row({ kind: 'receivable', label: `${inv.number ?? '—'} · ${customer.name}`, currency: inv.currency, amountTxn: open, rate: rateOf(inv.currency), book: r2(open * inv.fxRate), accountId: arAccountFor(state, entityId, customer).id, customerId: customer.id });
+  }
+
+  for (const si of state.supplierInvoices.filter((i) => i.entityId === entityId && i.currency !== func && (i.status === 'posted' || i.status === 'paid') && i.date <= date)) {
+    const payments = state.supplierPayments.filter((p) => p.invoiceId === si.id && p.date <= date);
+    const open = r2(si.netPayable - sum(payments.map((p) => p.amount)));
+    if (open <= 0.004) continue;
+    const payRate = (p: (typeof payments)[number]) => state.entries.find((e) => e.id === p.journalEntryId)?.fxRate ?? si.fxRate;
+    const book = r2(r2(si.netPayable * si.fxRate) - sum(payments.map((p) => r2(p.amount * payRate(p)))));
+    const supplier = state.suppliers.find((s) => s.id === si.supplierId)!;
+    row({ kind: 'payable', label: `${si.number ?? si.supplierRef} · ${supplier.name}`, currency: si.currency, amountTxn: open, rate: rateOf(si.currency), book, accountId: apAccountFor(state, entityId, supplier).id, supplierId: supplier.id });
+  }
+
+  const mineDone = state.entries.filter((e: JournalEntry) => e.entityId === entityId && e.sourceType === SOURCE && e.sourceId === fy.id && e.status === 'posted');
+  return { fiscalYearId: fy.id, date, reversalDate: next?.start, method: entity.fxMethod, rows, missing: [...missing], done: mineDone.length > 0, entryIds: mineDone.map((e) => e.id) };
+}
+
+// fx_revaluation.v1 (bank accounts) and fx_translation.v1 (open invoices, and their reversal on the next first day)
+export function postFxRevaluation(state: State, entityId: Id, fiscalYearId: Id): [State, FxRevaluation] {
+  requirePost(state);
+  const rv = fxRevaluation(state, entityId, fiscalYearId);
+  if (rv.done) throw new DomainError('state', `Réévaluation au ${rv.date} déjà comptabilisée : extourner ses écritures pour la refaire`);
+  if (rv.missing.length) throw new DomainError('fx_missing', `Pas de taux ${rv.missing.join(', ')} au ${rv.date} : à saisir dans Réglages › Taux de change`);
+  const rows = rv.rows.filter((r) => r.diff !== 0);
+  if (!rows.length) throw new DomainError('nothing', `Rien à réévaluer au ${rv.date}`);
+  const conversion = rv.method === 'conversion_accounts';
+  if (rows.some((r) => r.kind !== 'bank') && conversion && !rv.reversalDate) throw new DomainError('fy_missing', `Créer l'exercice suivant : les écarts de conversion s'y contre-passent au premier jour`);
+  const entity = state.entities.find((e) => e.id === entityId)!;
+  const journal = state.journals.find((j) => j.entityId === entityId && j.kind === 'misc');
+  if (!journal) throw new DomainError('journal', 'Pas de journal des opérations diverses');
+  const gain = mapped(state, entityId, 'FX_GAIN').id, loss = mapped(state, entityId, 'FX_LOSS').id;
+  const post = (s: State, date: ISODate, description: string, rule: string, lines: DraftLineInput[]): State => {
+    const [s1, draft] = createDraft(s, { entityId, journalId: journal.id, date, description, currency: entity.functionalCurrency, fxRate: 1, sourceType: SOURCE, sourceId: fiscalYearId, postingRule: rule, lines });
+    return postEntry(s1, draft.id)[0];
+  };
+  const counterpart = (lines: DraftLineInput[], up: Id, down: Id, label: string) => {
+    // the other side of each line, summed per account: a value going up is credited to `up`, going down debited to `down`
+    const ups = r2(sum(lines.map((l) => l.debitTxn ?? 0))), downs = r2(sum(lines.map((l) => l.creditTxn ?? 0)));
+    if (ups) lines.push({ accountId: up, description: label, creditTxn: ups });
+    if (downs) lines.push({ accountId: down, description: label, debitTxn: downs });
+    return lines;
+  };
+  let s = state;
+  const bank = rows.filter((r) => r.kind === 'bank');
+  if (bank.length) {
+    const lines: DraftLineInput[] = bank.map((r) => ({ accountId: r.accountId, description: `Réévaluation ${r.label} · ${r.amountTxn} ${r.currency} × ${r.rate}`, ...(r.diff > 0 ? { debitTxn: r.diff } : { creditTxn: -r.diff }) }));
+    s = post(s, rv.date, `Réévaluation des comptes en devises au ${rv.date}`, 'fx_revaluation.v1', counterpart(lines, gain, loss, `Écart de change · comptes en devises au ${rv.date}`));
+  }
+  const open = rows.filter((r) => r.kind !== 'bank');
+  if (open.length) {
+    const upAcc = conversion ? mapped(state, entityId, 'FX_CONV_LIAB').id : gain; // 485: a latent gain
+    const downAcc = conversion ? mapped(state, entityId, 'FX_CONV_ASSET').id : loss; // 484: a latent loss
+    // a receivable worth more: debit it; a debt grown: credit it (its diff counts as a loss)
+    const lines: DraftLineInput[] = open.map((r) => {
+      const third = { accountId: r.accountId, customerId: r.customerId, supplierId: r.supplierId, description: `Écart de conversion ${r.label} · ${r.amountTxn} ${r.currency} × ${r.rate}` };
+      const assetUp = r.kind === 'receivable' ? r.diff > 0 : r.diff < 0;
+      return { ...third, ...(assetUp ? { debitTxn: Math.abs(r.diff) } : { creditTxn: Math.abs(r.diff) }) };
+    });
+    const withCounterpart = counterpart(lines, upAcc, downAcc, `Écarts de conversion au ${rv.date}`);
+    s = post(s, rv.date, `Écarts de conversion · créances et dettes en devises au ${rv.date}`, 'fx_translation.v1', withCounterpart);
+    if (conversion) {
+      const reversed = withCounterpart.map((l) => ({ ...l, description: `Contre-passation · ${l.description}`, debitTxn: l.creditTxn, creditTxn: l.debitTxn }));
+      s = post(s, rv.reversalDate!, `Contre-passation des écarts de conversion du ${rv.date}`, 'fx_translation.v1', reversed);
+    }
+  }
+  const after = fxRevaluation(s, entityId, fiscalYearId);
+  return [audit(s, 'fiscal_year', fiscalYearId, 'U', `Réévaluation des devises au ${rv.date} · ${rows.length} élément(s)`, entityId), after];
 }
