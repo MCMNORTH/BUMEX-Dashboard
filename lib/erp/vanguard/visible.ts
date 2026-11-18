@@ -30,6 +30,7 @@ const READERS: Partial<Record<Collection, ErpModuleKey[]>> = {
   supplierPayments: ["suppliers"],
   bankAccounts: ["bank", "clients", "suppliers", "assets", "accounting"],
   bankTransactions: ["bank"],
+  bankRules: ["bank"], // [bumex-one] 0020
   loans: ["bank", "accounting"],
   loanPayments: ["bank", "accounting"],
   assetCategories: ["assets"],
@@ -58,6 +59,7 @@ const TABLE_MODULE: Record<string, ErpModuleKey> = {
   bank_account: "bank",
   bank_statement: "bank",
   bank_transaction: "bank",
+  bank_rule: "bank", // [bumex-one] 0020
   reconciliation_match: "bank",
   loan: "bank",
   loan_payment: "bank",

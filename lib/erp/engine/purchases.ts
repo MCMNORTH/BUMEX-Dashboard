@@ -165,7 +165,7 @@ export function rejectSupplierInvoice(state: State, id: Id, reason: string): Sta
 }
 
 // supplier_payment.v1 — Dr AP / Cr bank, in the invoice currency
-export function paySupplierInvoice(state: State, input: { invoiceId: Id; date: ISODate; bankAccountId: Id; amount?: number; reference?: string }): [State, SupplierPayment] {
+export function paySupplierInvoice(state: State, input: { invoiceId: Id; date: ISODate; bankAccountId: Id; amount?: number; reference?: string; bankTransactionId?: Id /* [bumex-one] paid from a statement line: the line is matched */ }): [State, SupplierPayment] {
   requirePost(state);
   const si = state.supplierInvoices.find((s) => s.id === input.invoiceId);
   if (!si) throw new DomainError('not_found', 'Facture fournisseur inconnue');
@@ -175,6 +175,10 @@ export function paySupplierInvoice(state: State, input: { invoiceId: Id; date: I
   if (bank.currency !== si.currency) throw new DomainError('currency', `Le compte ${bank.name} est en ${bank.currency}`);
   const open = r2(si.netPayable - si.amountPaid);
   const amount = r2(input.amount ?? open);
+  if (input.bankTransactionId) { // [bumex-one]
+    const t = state.bankTransactions.find((x) => x.id === input.bankTransactionId);
+    if (!t || t.bankAccountId !== bank.id || t.status !== 'unmatched' || t.amount >= 0) throw new DomainError('state', 'Ligne de relevé inconnue, déjà traitée ou qui n\'est pas une sortie de ce compte');
+  }
   if (amount <= 0 || amount > open + 0.004) throw new DomainError('amount', `Montant entre 0 et ${open}`);
   const supplier = state.suppliers.find((x) => x.id === si.supplierId)!;
   const entity = state.entities.find((e) => e.id === si.entityId)!;
@@ -191,7 +195,8 @@ export function paySupplierInvoice(state: State, input: { invoiceId: Id; date: I
   const paid = r2(si.amountPaid + amount);
   const payment: SupplierPayment = { id, entityId: si.entityId, supplierId: supplier.id, invoiceId: si.id, number, date: input.date, amount, bankAccountId: bank.id, reference: input.reference, journalEntryId: posted.id };
   const next: SupplierInvoice = { ...si, amountPaid: paid, status: paid >= si.netPayable - 0.004 ? 'paid' : 'posted', paidAt: paid >= si.netPayable - 0.004 ? input.date : si.paidAt };
-  return [audit({ ...s4, supplierPayments: [...s4.supplierPayments, payment], supplierInvoices: s4.supplierInvoices.map((x) => (x.id === si.id ? next : x)) }, 'supplier_payment', id, 'I', `Règlement ${number} · ${supplier.name} · ${amount} ${si.currency}`, si.entityId), payment];
+  const txns = input.bankTransactionId ? s4.bankTransactions.map((t) => (t.id === input.bankTransactionId ? { ...t, status: 'matched' as const, journalEntryId: posted.id } : t)) : s4.bankTransactions; // [bumex-one]
+  return [audit({ ...s4, bankTransactions: txns, supplierPayments: [...s4.supplierPayments, payment], supplierInvoices: s4.supplierInvoices.map((x) => (x.id === si.id ? next : x)) }, 'supplier_payment', id, 'I', `Règlement ${number} · ${supplier.name} · ${amount} ${si.currency}`, si.entityId), payment];
 }
 
 export interface PayableRow {

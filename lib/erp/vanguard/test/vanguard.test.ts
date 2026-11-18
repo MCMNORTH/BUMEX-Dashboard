@@ -429,6 +429,33 @@ describe("the modules", () => {
     expect(booked.state.entries.find((e) => e.id === t.journalEntryId)).toMatchObject({ status: "posted" });
   });
 
+  it("bank (0020): a rule on the label stored, a line split over two accounts, the rules applied at once", async () => {
+    const fees = (s: State) => domain.mapped(s, audit, "BANK_FEES").id;
+    const ruled = await change("aicha", (s) => domain.addBankRule(s, { entityId: audit, pattern: "CERTIFICATION CHEQUE", accountId: fees(s), label: "Certifications" }));
+    const rule = ruled.state.bankRules.find((r) => !r.builtIn)!;
+    expect(rule).toMatchObject({ entityId: audit, pattern: "CERTIFICATION CHEQUE", label: "Certifications", accountId: fees(ruled.state) });
+    expect(ruled.state.bankRules.filter((r) => r.builtIn && r.entityId === audit).map((r) => r.mappingKey)).toEqual(["BANK_FEES", "BANK_INTEREST_EXPENSE", "BANK_INTEREST_INCOME", "TRANSFER"]);
+    const imported = await change("aicha", (s) => domain.importStatement(s, bank, [
+      { date: "2026-06-02", amount: -1200, description: "Certification chèque 0042" },
+      { date: "2026-06-02", amount: -30000, description: "VIREMENT MULTIPLE" },
+    ]));
+    const cert = imported.state.bankTransactions.find((t) => t.amount === -1200)!;
+    const multi = imported.state.bankTransactions.find((t) => t.amount === -30000)!;
+    const applied = await change("aicha", (s) => domain.applyBankRules(s, bank));
+    const certBooked = applied.state.bankTransactions.find((t) => t.id === cert.id)!;
+    expect(certBooked.status).toBe("booked");
+    expect(applied.state.entries.find((e) => e.id === certBooked.journalEntryId)).toMatchObject({ status: "posted", postingRule: "bank_assignment.v1" });
+    expect(applied.state.bankTransactions.find((t) => t.id === multi.id)!.status).toBe("unmatched");
+    const split = await change("aicha", (s) => domain.assignStatementLine(s, multi.id, [{ accountId: fees(s), amount: 10000 }, { accountId: account(s, "620000"), amount: 20000 }]));
+    const t = split.state.bankTransactions.find((x) => x.id === multi.id)!;
+    expect(t.status).toBe("booked");
+    expect(split.state.entries.find((e) => e.id === t.journalEntryId)!.lines.map((l) => [l.debit, l.credit])).toEqual([[10000, 0], [20000, 0], [0, 30000]]);
+    const changed = await change("aicha", (s) => domain.updateBankRule(s, rule.id!, { pattern: "CERTIF CHQ|CERTIFICATION CHEQUE", accountId: fees(s), bankAccountId: bank }));
+    expect(changed.state.bankRules.find((r) => r.id === rule.id)).toMatchObject({ pattern: "CERTIF CHQ|CERTIFICATION CHEQUE", bankAccountId: bank });
+    const gone = await change("aicha", (s) => domain.deleteBankRule(s, rule.id!));
+    expect(gone.state.bankRules.some((r) => r.id === rule.id)).toBe(false);
+  });
+
   it("suppliers: a supplier, an invoice approved by a partner, then paid", async () => {
     const made = await change("aicha", (s) => domain.addSupplier(s, { entityId: audit, name: "Mauritel", regime: "standard" }));
     const supplier = made.state.suppliers[0];

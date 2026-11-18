@@ -367,6 +367,15 @@ export const moduleTables: TableSpec[] = [
     ],
     order: "t.txn_date, t.id",
   },
+  // [bumex-one] the statement-line rules people make (0020); the chart's own are added by load.ts, never written
+  {
+    collection: "bankRules",
+    table: "bank_rule",
+    fields: [
+      id, entityId, text("pattern"), text("label"), uuid("accountId"), uuid("customerId"), uuid("supplierId"), uuid("employeeId"), uuid("bankAccountId"),
+    ],
+    order: "t.created_at, t.id",
+  },
   {
     collection: "customerPayments",
     table: "customer_payment",

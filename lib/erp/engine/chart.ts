@@ -1,4 +1,4 @@
-import type { State, Id, Account, AccountKind, AccountMapping, TaxCode, TaxRule, Journal, JournalKind, CoaTemplate, ThirdPartyRules, Customer, Supplier } from './types';
+import type { State, Id, Account, AccountKind, AccountMapping, TaxCode, TaxRule, Journal, JournalKind, CoaTemplate, ThirdPartyRules, Customer, Supplier, BankRule } from './types';
 import { DomainError } from './types';
 import { nextId, audit, requireRole, PARTNER_ROLES, normalizeCode, codeLength, mapped } from './core';
 
@@ -203,8 +203,19 @@ export function seedChart(state: State, entityId: Id, template: CoaTemplate): St
     journals.push({ id, entityId, code, name, kind });
   }
   s = { ...s, journals: [...s.journals, ...journals] };
-  s = { ...s, bankRules: [...s.bankRules, { entityId, pattern: 'FRAIS|COMMISSION|TENUE DE COMPTE', mappingKey: 'BANK_FEES', label: 'Règle : services bancaires' }, { entityId, pattern: 'AGIOS|INTERETS DEB', mappingKey: 'BANK_INTEREST_EXPENSE', label: 'Règle : intérêts bancaires' }, { entityId, pattern: 'INTERETS CRED|REMUNERATION DEPOT', mappingKey: 'BANK_INTEREST_INCOME', label: 'Règle : produits financiers' }, { entityId, pattern: 'VIR INTERNE|VIREMENT INTERNE', mappingKey: 'TRANSFER', label: 'Virement interne' }] };
+  s = { ...s, bankRules: [...s.bankRules, ...chartBankRules(entityId)] };
   return s;
+}
+
+// The statement-line rules that come with every chart. [bumex-one] Marked builtIn, with an id of their own (never
+// stored: lib/erp/vanguard/load.ts gives every entity the same), beside the rules people make (bank.ts addBankRule).
+export function chartBankRules(entityId: Id): BankRule[] {
+  return ([
+    ['FRAIS|COMMISSION|TENUE DE COMPTE', 'BANK_FEES', 'Règle : services bancaires'],
+    ['AGIOS|INTERETS DEB', 'BANK_INTEREST_EXPENSE', 'Règle : intérêts bancaires'],
+    ['INTERETS CRED|REMUNERATION DEPOT', 'BANK_INTEREST_INCOME', 'Règle : produits financiers'],
+    ['VIR INTERNE|VIREMENT INTERNE', 'TRANSFER', 'Virement interne'],
+  ] as const).map(([pattern, mappingKey, label]) => ({ id: `rule:${entityId}:${mappingKey}`, entityId, pattern, mappingKey, label, builtIn: true }));
 }
 
 export function addAccount(state: State, entityId: Id, code: string, nameFr: string, kind: AccountKind): [State, Account] {

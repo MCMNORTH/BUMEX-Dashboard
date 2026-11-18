@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { AccountMapping, AppUser, AuditRow, BankRule, DeletionRequest, Entity, FxRate, JournalEntry, ModuleKey, OrgGroup, Session, State, TaxRule } from "@/lib/erp/engine";
+import { chartBankRules } from "@/lib/erp/engine";
 import { resolveErpModules } from "@/lib/erp/config";
 import type { ErpTransaction } from "@/lib/erp/db";
 import { moduleTables, readTable } from "@/lib/erp/vanguard/tables";
@@ -45,13 +46,9 @@ export const roomOf: Record<ErpModuleKey, ModuleKey> = {
   consolidation: "penthouse",
 };
 
-// The bank rules come with the chart (engine seedChart) and are the same for every entity: not stored.
-const bankRules = (entityId: string): BankRule[] => [
-  { entityId, pattern: "FRAIS|COMMISSION|TENUE DE COMPTE", mappingKey: "BANK_FEES", label: "Règle : services bancaires" },
-  { entityId, pattern: "AGIOS|INTERETS DEB", mappingKey: "BANK_INTEREST_EXPENSE", label: "Règle : intérêts bancaires" },
-  { entityId, pattern: "INTERETS CRED|REMUNERATION DEPOT", mappingKey: "BANK_INTEREST_INCOME", label: "Règle : produits financiers" },
-  { entityId, pattern: "VIR INTERNE|VIREMENT INTERNE", mappingKey: "TRANSFER", label: "Virement interne" },
-];
+// The chart's bank rules (engine seedChart) are the same for every entity: not stored. [bumex-one] Those people make
+// are (0020, tables.ts): read with the modules' tables, after the chart's.
+const bankRules = (entityId: string): BankRule[] => chartBankRules(entityId);
 
 // Every change of the database leaves a row in the audit log, or moves the work's counter (people, mission members:
 // 0008): together they tell a screen whether to read again.
@@ -275,6 +272,7 @@ export async function loadVanguardState(
   for (const spec of moduleTables) {
     Object.assign(modules, { [spec.collection]: await readTable(tx, spec) });
   }
+  modules.bankRules = [...entities.filter((e) => accounts.some((a) => a.entityId === e.id)).flatMap((e) => bankRules(e.id)), ...((modules.bankRules ?? []) as BankRule[])];
   modules.tasks = ticketTasks(await listTickets(tx), (modules.engagements ?? []) as Parameters<typeof ticketTasks>[1], names);
 
   const chainBreaks = checkChains

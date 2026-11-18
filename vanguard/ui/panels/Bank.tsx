@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  bankSummary, suggestFor, matchToPayment, recordPayment, bookByRule, bookToSuspense, bookTransfer, importStatement, parseStatementCsv, cashForecast, loanSummaries, loanSchedule, addLoan, payInstalment, headcount,
+  bankSummary, suggestFor, matchToPayment, recordPayment, bookByRule, bookToSuspense, bookTransfer, assignStatementLine, applyBankRules, suspenseSummary, splitOf, importStatement, parseStatementCsv, cashForecast, loanSummaries, loanSchedule, addLoan, payInstalment, headcount,
   addBankAccount, updateBankAccount, setBankAccountActive, favoritesFirst, setLoanSchedule, updateLoan, parseScheduleRows, checkManualSchedule,
   fmt, r2, addDays, parseAmount, type Id, type BankTransaction, type Currency, type Loan, type ManualInstalment, type BankAccount,
 } from '@bumex/domain';
@@ -8,8 +8,9 @@ import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, DeleteButton, downloadXlsx, readXlsx, entryRef } from '../common';
 import { Select } from '../Select';
 import { WideNote } from '../../one/WideNote'; // [mobile]
+import { AssignLine, BankRules, propositionOf } from '../../one/BankAssign'; // [bumex-one] a line to any account, rules on the label
 
-type Tab = 'accounts' | 'recon' | 'import' | 'forecast' | 'loans';
+type Tab = 'accounts' | 'recon' | 'rules' | 'import' | 'forecast' | 'loans';
 
 export function BankPanel({ entityId, initialTab }: { entityId: Id; initialTab?: string | null }) {
   const { state, t } = useStore();
@@ -18,7 +19,7 @@ export function BankPanel({ entityId, initialTab }: { entityId: Id; initialTab?:
   const unmatched = state.bankTransactions.filter((x) => x.status === 'unmatched' && state.bankAccounts.find((b) => b.id === x.bankAccountId)?.entityId === entityId).length;
   const lateInstalments = loanSummaries(state, entityId).reduce((n, l) => n + l.overdue.length, 0);
   const tabs = [
-    { id: 'accounts' as Tab, label: t('tab_accounts') }, { id: 'recon' as Tab, label: <>{t('tab_recon')} <Chip kind={unmatched ? 'warn' : 'good'}>{unmatched}</Chip></> }, { id: 'import' as Tab, label: t('tab_import') }, { id: 'forecast' as Tab, label: t('tab_forecast') },
+    { id: 'accounts' as Tab, label: t('tab_accounts') }, { id: 'recon' as Tab, label: <>{t('tab_recon')} <Chip kind={unmatched ? 'warn' : 'good'}>{unmatched}</Chip></> }, { id: 'rules' as Tab, label: 'Règles' }, { id: 'import' as Tab, label: t('tab_import') }, { id: 'forecast' as Tab, label: t('tab_forecast') },
     { id: 'loans' as Tab, label: <>{t('tab_loans')} {lateInstalments ? <Chip kind="warn">{lateInstalments}</Chip> : null}</> },
   ];
   return (
@@ -30,6 +31,7 @@ export function BankPanel({ entityId, initialTab }: { entityId: Id; initialTab?:
       <div className="sheet-body">
         {tab === 'accounts' && <Accounts entityId={entityId} />}
         {tab === 'recon' && <Recon entityId={entityId} />}
+        {tab === 'rules' && <BankRules entityId={entityId} />}
         {tab === 'import' && <Import entityId={entityId} />}
         {tab === 'forecast' && <Forecast entityId={entityId} />}
         {tab === 'loans' && <Loans entityId={entityId} />}
@@ -144,38 +146,73 @@ function BankAccountForm({ entityId, id, onClose }: { entityId: Id; id: Id | nul
 }
 
 function Recon({ entityId }: { entityId: Id }) {
-  const { state, apply } = useStore();
+  const { state, apply, toast } = useStore();
   const banks = favoritesFirst(state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && !b.isCash)); // [bumex-one] favourites first
   const [bankId, setBankId] = useState(banks[0]?.id ?? '');
+  // [bumex-one] the lines to explain, or those put into the suspense account (asked by Sidaty on 2026-11-18, one/BankAssign.tsx)
+  const [view, setView] = useState<'todo' | 'parked'>('todo');
+  const [open, setOpen] = useState<Id | null>(null);
   const rows = state.bankTransactions.filter((x) => x.bankAccountId === bankId && x.status === 'unmatched').sort((a, b) => (a.date < b.date ? 1 : -1));
+  const suspense = useMemo(() => suspenseSummary(state, entityId), [state, entityId]);
+  const parked = suspense.pending.filter((p) => p.txn.bankAccountId === bankId).map((p) => p.txn).sort((a, b) => (a.date < b.date ? 1 : -1));
+  const suspenseAccount = suspense.accountId ? state.accounts.find((a) => a.id === suspense.accountId) : undefined;
+  const pendingTotal = r2(suspense.pending.reduce((a, p) => a + p.amount, 0));
+  const byRule = rows.filter((t) => { const k = suggestFor(state, t).kind; return k === 'assign' || k === 'rule'; }).length;
   const bank = banks.find((b) => b.id === bankId);
+  // [bumex-one] an internal transfer goes to any other account of the entity, the cash desks too
+  const targets = favoritesFirst(state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && b.id !== bankId));
+  const runRules = () => {
+    let done = { booked: 0, skipped: 0 };
+    const ok = apply((s) => { const [s1, r] = applyBankRules(s, bankId); done = r; return s1; });
+    if (ok) toast('ok', `${done.booked} ligne(s) comptabilisée(s) par les règles${done.skipped ? ` · ${done.skipped} refusée(s) (période verrouillée…) : à affecter une à une` : ''}`);
+  };
   const act = (txn: BankTransaction) => {
+    if (view === 'parked') {
+      return <td style={{ whiteSpace: 'nowrap' }}><button className="btn sm primary" onClick={() => setOpen(open === txn.id ? null : txn.id)}>Reclasser…</button></td>;
+    }
     const s = suggestFor(state, txn);
-    const others = banks.filter((b) => b.id !== bankId);
     return (
       <td style={{ whiteSpace: 'nowrap' }}>
         {s.kind === 'payment' && <button className="btn sm primary" onClick={() => apply((st) => matchToPayment(st, txn.id, s.payment.id), 'Ligne rapprochée')}>Rapprocher</button>}
         {s.kind === 'invoice' && <button className="btn sm primary" onClick={() => apply((st) => recordPayment(st, { entityId, customerId: s.invoice.customerId, date: txn.date, currency: bank!.currency, amountTxn: txn.amount, bankAccountId: bankId, invoiceId: s.invoice.id, bankTransactionId: txn.id, reference: txn.reference ?? s.invoice.number }), 'Encaissement comptabilisé, facture lettrée, ligne rapprochée')}>Encaisser et rapprocher</button>}
+        {s.kind === 'assign' && <button className="btn sm primary" onClick={() => apply((st) => assignStatementLine(st, txn.id, [splitOf(s.rule, Math.abs(txn.amount))], s.rule.label), 'Comptabilisée par règle')}>Comptabiliser</button>}
         {s.kind === 'rule' && <button className="btn sm primary" onClick={() => apply((st) => bookByRule(st, txn.id, s.mappingKey), 'Comptabilisée par règle')}>Comptabiliser</button>}
-        {s.kind === 'transfer' && others.map((o) => <button key={o.id} className="btn sm primary" style={{ marginRight: 4 }} onClick={() => apply((st) => bookTransfer(st, txn.id, o.id), 'Virement interne comptabilisé, les deux lignes rapprochées')}>Virement vers {o.name}</button>)}
-        {' '}<button className="btn sm" onClick={() => apply((st) => bookToSuspense(st, txn.id), 'Mise en attente (488)')}>Mettre en attente</button>
+        {s.kind === 'transfer' && targets.map((o) => <button key={o.id} className="btn sm primary" style={{ marginRight: 4 }} onClick={() => apply((st) => bookTransfer(st, txn.id, o.id), 'Virement interne comptabilisé, les deux lignes rapprochées')}>Virement vers {o.name}</button>)}
+        {' '}<button className={`btn sm ${s.kind === 'none' ? 'primary' : ''}`} onClick={() => setOpen(open === txn.id ? null : txn.id)}>Affecter…</button>
+        {' '}<button className="btn sm" onClick={() => apply((st) => bookToSuspense(st, txn.id), `Mise en attente (${suspenseAccount?.code ?? '488'})`)}>Mettre en attente</button>
       </td>
     );
   };
+  const list = view === 'todo' ? rows : parked;
   return (
     <div className="card flush">
       <WideNote />{/* [mobile] */}
       <div style={{ display: 'flex', gap: 8, padding: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <Select className="in" style={{ width: 300 }} value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.favorite ? '★ ' : ''}{b.bankName} · {b.name} ({b.currency})</option>)}</Select>
-        <span className="muted small">{rows.length} ligne(s) non expliquée(s) · une ligne mise en attente compte comme écriture non comptabilisée sur la façade</span>
+        <Select className="in" style={{ width: 300 }} value={bankId} onChange={(e) => { setBankId(e.target.value); setOpen(null); }}>{banks.map((b) => <option key={b.id} value={b.id}>{b.favorite ? '★ ' : ''}{b.bankName} · {b.name} ({b.currency})</option>)}</Select>
+        <button className={`btn sm ${view === 'todo' ? 'on' : ''}`} onClick={() => { setView('todo'); setOpen(null); }}>À traiter · {rows.length}</button>
+        <button className={`btn sm ${view === 'parked' ? 'on' : ''}`} onClick={() => { setView('parked'); setOpen(null); }}>En attente{suspenseAccount ? ` (${suspenseAccount.code})` : ''} · {parked.length}</button>
+        {view === 'todo' && byRule > 0 && <button className="btn sm primary" onClick={runRules}>Comptabiliser par les règles · {byRule}</button>}
+        <span className="muted small">{view === 'todo' ? 'une ligne mise en attente compte comme écriture non comptabilisée sur la façade' : 'reclassées par une écriture d\'OD, le compte bancaire inchangé'}</span>
       </div>
+      {view === 'parked' && suspenseAccount && (
+        <div className={`banner ${Math.abs(pendingTotal - suspense.balance) > 0.004 ? 'warn' : ''}`} style={{ margin: '0 10px 10px' }}>
+          Solde du {suspenseAccount.code} : {fmt(suspense.balance)} · lignes en attente (tous comptes) : {fmt(pendingTotal)}
+          {suspense.explainedByHand ? ` · ${suspense.explainedByHand} ligne(s) déjà reclassée(s) à la main (même montant sorti de l'attente) ne sont pas listées` : ''}
+          {Math.abs(pendingTotal - suspense.balance) > 0.004 && ' · les deux ne concordent pas : un reclassement manuel groupé ou une autre écriture sur ce compte, à vérifier avant de reclasser.'}
+        </div>
+      )}
       <table>
         <thead><tr><th>Date</th><th>Libellé relevé</th><th className="num">Montant</th><th>Proposition</th><th>Action</th></tr></thead>
         <tbody>
-          {rows.length === 0 && <tr><td colSpan={5} className="muted">Tout est rapproché sur ce compte.</td></tr>}
-          {rows.map((txn) => {
-            const s = suggestFor(state, txn);
-            return <tr key={txn.id}><td><D iso={txn.date} /></td><td>{txn.description}</td><td className="num" style={{ color: txn.amount < 0 ? 'var(--crit)' : undefined }}>{fmt(txn.amount)}</td><td><Chip kind={s.kind === 'none' ? 'warn' : 'good'}>{s.label}</Chip></td>{act(txn)}</tr>;
+          {list.length === 0 && <tr><td colSpan={5} className="muted">{view === 'todo' ? 'Tout est rapproché sur ce compte.' : 'Aucune ligne de ce compte en attente.'}</td></tr>}
+          {list.map((txn) => {
+            const p = propositionOf(state, txn, view === 'parked');
+            return (
+              <Fragment key={txn.id}>
+                <tr><td><D iso={txn.date} /></td><td>{txn.description}</td><td className="num" style={{ color: txn.amount < 0 ? 'var(--crit)' : undefined }}>{fmt(txn.amount)}</td><td><Chip kind={p.kind}>{p.label}</Chip></td>{act(txn)}</tr>
+                {open === txn.id && <tr><td colSpan={5} style={{ background: 'var(--paper, transparent)' }}><AssignLine entityId={entityId} txn={txn} parked={view === 'parked'} onDone={() => setOpen(null)} /></td></tr>}
+              </Fragment>
+            );
           })}
         </tbody>
       </table>

@@ -507,10 +507,17 @@ export interface BankTransaction {
 }
 
 export interface BankRule {
+  id?: Id; // [bumex-one] a rule someone made (erp.bank_rule, 0020); the chart's own rules have builtIn instead
   entityId: Id;
-  pattern: string; // regex, case-insensitive, on the description
-  mappingKey: string; // e.g. BANK_FEES, BANK_INTEREST
+  pattern: string; // the chart's: a regex, case-insensitive; someone's: the words the label contains ("|" between alternatives)
+  mappingKey?: string; // the chart's: e.g. BANK_FEES, BANK_INTEREST, TRANSFER
   label: string;
+  builtIn?: boolean; // [bumex-one] the chart's (not stored, not editable)
+  accountId?: Id; // [bumex-one] someone's: the account the line goes to, with its third party if any
+  customerId?: Id;
+  supplierId?: Id;
+  employeeId?: Id;
+  bankAccountId?: Id; // [bumex-one] only this account's lines (none: every account of the entity)
 }
 
 export type EngagementStatus = 'planned' | 'active' | 'on_hold' | 'completed';

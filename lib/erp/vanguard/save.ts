@@ -3,7 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { readErpAccess } from "@/lib/erp/access";
-import type { Account, AccountMapping, DeletionRequest, Entity, FiscalYear, FxRate, Journal, JournalEntry, Period, State, TaxCode, TaxRule } from "@/lib/erp/engine";
+import type { Account, AccountMapping, BankRule, DeletionRequest, Entity, FiscalYear, FxRate, Journal, JournalEntry, Period, State, TaxCode, TaxRule } from "@/lib/erp/engine";
 import { fxKey } from "@/lib/erp/engine";
 import type { ErpTransaction } from "@/lib/erp/db";
 import { loadVanguardState, type VanguardPerson } from "@/lib/erp/vanguard/load";
@@ -256,6 +256,16 @@ const deletionRequests: Writer<DeletionRequest> = {
 
 const table = (collection: keyof State) => tableWriter(moduleTables.find((t) => t.collection === collection)!) as unknown as Writer<never>;
 
+// [bumex-one] The statement-line rules (0020): those people make. The chart's own come with every state (load.ts) and
+// the engine changes none of them (bank.ts updateBankRule refuses).
+const ownBankRules = table("bankRules");
+const bankRules: Writer<BankRule> = {
+  key: (r) => r.id ?? `builtin|${r.entityId}|${r.mappingKey}`,
+  add: (tx, r, after) => (r.builtIn ? Promise.resolve() : ownBankRules.add!(tx, r as never, after)),
+  change: (tx, before, r, after) => (r.builtIn ? Promise.resolve() : ownBankRules.change!(tx, before as never, r as never, after)),
+  remove: (tx, r) => (r.builtIn ? Promise.resolve() : ownBankRules.remove!(tx, r as never)),
+};
+
 // In the order rows can be written (what a row refers to comes first); removals go the other way.
 const writers = [
     ["entities", entities],
@@ -278,6 +288,7 @@ const writers = [
     ["salesInvoices", table("salesInvoices")],
     ["creditNotes", table("creditNotes")],
     ["bankTransactions", table("bankTransactions")],
+    ["bankRules", bankRules],
     ["customerPayments", table("customerPayments")],
     ["allocations", table("allocations")],
     ["supplierInvoices", table("supplierInvoices")],
@@ -293,7 +304,7 @@ const writers = [
   ] as [keyof State, Writer<never>][];
 
 // Kept by the database, derived, or the person's own context: never written from the engine.
-const notWritten = new Set<keyof State>(["group", "session", "today", "seq", "chains", "auditLog", "bankRules"]);
+const notWritten = new Set<keyof State>(["group", "session", "today", "seq", "chains", "auditLog"]);
 
 // The documents' numbers (invoices, receipts, assets, archive boxes) follow the engine's counters; the entries'
 // numbers are given by the database when they are posted.
