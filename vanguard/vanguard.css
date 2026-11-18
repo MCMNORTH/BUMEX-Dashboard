@@ -93,6 +93,8 @@
 .vanguard .chip:not(:where(.bumex-page, .bumex-page *)) { display: inline-flex; align-items: center; gap: 4px; height: 21px; padding: 0 8px; border-radius: 11px; font-size: 11.5px; font-weight: 600; white-space: nowrap; letter-spacing: .01em; }
 .vanguard .chip.good:not(:where(.bumex-page, .bumex-page *)) { background: var(--good-bg); color: #1f5d39; } .vanguard .chip.warn:not(:where(.bumex-page, .bumex-page *)) { background: var(--warn-bg); color: #7a4f0e; } .vanguard .chip.crit:not(:where(.bumex-page, .bumex-page *)) { background: var(--crit-bg); color: #8a1a21; } .vanguard .chip.dim:not(:where(.bumex-page, .bumex-page *)) { background: var(--dim-bg); color: #4a5262; }
 .vanguard .chip.off:not(:where(.bumex-page, .bumex-page *)) { background: rgba(255,255,255,.1); color: var(--dark-muted); }
+/* [bumex-one] the invoices' statuses (one/invoice-status.ts): bright, to catch the eye (asked by Sidaty on 2026-11-18) */
+.vanguard .chip.flash-good:not(:where(.bumex-page, .bumex-page *)) { background: #16a34a; color: #fff; } .vanguard .chip.flash-warn:not(:where(.bumex-page, .bumex-page *)) { background: #f97316; color: #fff; }
 .vanguard .lamp:not(:where(.bumex-page, .bumex-page *)) { width: 16px; height: 16px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; }
 .vanguard .lamp.good:not(:where(.bumex-page, .bumex-page *)) { background: #3e9a62; } .vanguard .lamp.warn:not(:where(.bumex-page, .bumex-page *)) { background: var(--gold); } .vanguard .lamp.crit:not(:where(.bumex-page, .bumex-page *)) { background: #d23a44; } .vanguard .lamp.off:not(:where(.bumex-page, .bumex-page *)) { background: rgba(255,255,255,.14); color: var(--dark-muted); }
 

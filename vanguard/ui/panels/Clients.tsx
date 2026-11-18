@@ -9,7 +9,8 @@ import { ClientRelations } from '../../one/Clients'; // [bumex-one] one client, 
 import { ClientPanel } from '../../one/ClientPage'; // [bumex-one] a client's page
 import { ContractPanel, ContractsTab } from '../../one/Contracts'; // [bumex-one] BUMEX One's contracts
 import { useSay } from '../../one/say'; // [bumex-one]
-import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, DeleteButton, downloadXlsx } from '../common';
+import { Tabs, Field, Chip, D, Money, DeleteButton, downloadXlsx } from '../common';
+import { accountingStatus, paymentStatus } from '../../one/invoice-status'; // [bumex-one] two statuses: in the books, paid
 import { Select } from '../Select';
 import { WideNote } from '../../one/WideNote'; // [mobile]
 import { InvoiceSheet, defaultInvoiceLang, type InvoiceLang, type InvoiceSheetData } from '../../one/InvoiceSheet'; // [bumex-one] the invoice as printed
@@ -172,22 +173,22 @@ function Letterhead({ entityId }: { entityId: Id }) {
 
 function Invoices({ entityId, onPay, onEdit }: { entityId: Id; onPay: (id: Id) => void; onEdit: (id: Id) => void }) {
   const { state, t, apply } = useStore();
-  const [filter, setFilter] = useState<'all' | 'open' | 'overdue' | 'draft' | 'validated'>('all');
+  const [filter, setFilter] = useState<'all' | 'open' | 'overdue' | 'draft' | 'validated' | 'paid'>('all');
   const [doc, setDoc] = useState<SalesInvoice | null>(null);
   const open = openInvoices(state, entityId);
   const all = state.salesInvoices.filter((i) => i.entityId === entityId).sort((a, b) => (a.date < b.date ? 1 : -1));
-  const rows = all.filter((i) => (filter === 'all' ? true : filter === 'draft' ? i.status === 'draft' : filter === 'validated' ? i.status === 'validated' : filter === 'open' ? open.some((o) => o.invoice.id === i.id) : open.some((o) => o.invoice.id === i.id && o.daysOverdue > 0)));
+  const rows = all.filter((i) => (filter === 'all' ? true : filter === 'draft' ? i.status === 'draft' : filter === 'validated' ? i.status === 'validated' : filter === 'paid' ? i.status === 'paid' : filter === 'open' ? open.some((o) => o.invoice.id === i.id) : open.some((o) => o.invoice.id === i.id && o.daysOverdue > 0)));
   return (
     <>
       <div className="card flush">
         <div style={{ display: 'flex', gap: 4, padding: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          {([['all', `Toutes · ${all.length}`], ['open', `Ouvertes · ${open.length}`], ['overdue', `En retard · ${open.filter((o) => o.daysOverdue > 0).length}`], ['draft', `Brouillons · ${all.filter((i) => i.status === 'draft').length}`], ['validated', `À comptabiliser · ${all.filter((i) => i.status === 'validated').length}`]] as const).map(([k, l]) => (
+          {([['all', `Toutes · ${all.length}`], ['open', `Ouvertes · ${open.length}`], ['overdue', `En retard · ${open.filter((o) => o.daysOverdue > 0).length}`], ['draft', `Brouillons · ${all.filter((i) => i.status === 'draft').length}`], ['validated', `Non comptabilisées · ${all.filter((i) => i.status === 'validated').length}`], ['paid', `Payées · ${all.filter((i) => i.status === 'paid').length}`]] as const).map(([k, l]) => (
             <button key={k} className={`btn sm ${filter === k ? 'on' : ''}`} onClick={() => setFilter(k)}>{l}</button>
           ))}
-          <span className="muted small" style={{ marginLeft: 'auto' }}>Validée = numérotée et figée · Comptabilisée = écriture passée ; correction uniquement par avoir</span>
+          <span className="muted small" style={{ marginLeft: 'auto' }}>Comptabilité : écriture passée ou non (orange : validée, numérotée, mais pas encore dans les livres) · Paiement : orange vif une fois échue · correction uniquement par avoir</span>
         </div>
         <table>
-          <thead><tr><th>N°</th><th>{t('customer')}</th><th>Régime</th><th>{t('date')}</th><th>{t('due')}</th><th className="num">{t('currency')}</th><th className="num">HT</th><th className="num">TVA</th><th className="num">WHT</th><th className="num">Net à payer</th><th className="num">{t('open_amount')}</th><th>Retard</th><th>{t('status')}</th><th></th></tr></thead>
+          <thead><tr><th>N°</th><th>{t('customer')}</th><th>Régime</th><th>{t('date')}</th><th>{t('due')}</th><th className="num">{t('currency')}</th><th className="num">HT</th><th className="num">TVA</th><th className="num">WHT</th><th className="num">Net à payer</th><th className="num">{t('open_amount')}</th><th>Retard</th><th>Comptabilité</th><th>Paiement</th><th></th></tr></thead>
           <tbody>
             {rows.map((i) => {
               const c = state.customers.find((x) => x.id === i.customerId)!;
@@ -196,7 +197,7 @@ function Invoices({ entityId, onPay, onEdit }: { entityId: Id; onPay: (id: Id) =
                 <tr key={i.id}>
                   <td className="mono">{i.number ?? '—'}</td><td>{c.name}</td><td className="small">{REGIMES.find((r) => r[0] === c.regime)?.[1].split(' ·')[0]}{i.withholdingAmount > 0 ? <Chip kind="warn">WHT {Math.round(i.withholdingRate * 100)} %</Chip> : null}</td><td><D iso={i.date} /></td><td><D iso={i.dueDate} /></td><td className="num">{i.currency}</td><td className="num">{fmt(i.totalHt)}</td><td className="num">{fmt(i.totalTax)}</td><td className="num">{i.withholdingAmount ? fmt(i.withholdingAmount) : '—'}</td><td className="num">{fmt(i.netPayable)}</td><td className="num">{o ? fmt(o.openTxn) : i.status === 'draft' || i.status === 'validated' ? '—' : '0,00'}</td>
                   <td>{o && o.daysOverdue > 0 ? <Chip kind={o.daysOverdue > 90 ? 'crit' : o.daysOverdue > 30 ? 'crit' : 'warn'}>{o.daysOverdue} j</Chip> : '—'}</td>
-                  <td><Chip kind={STATUS_KIND[i.status]}>{STATUS_FR[i.status]}{i.dunningLevel ? ` · relance ${i.dunningLevel}` : ''}</Chip></td>
+                  {(() => { const acc = accountingStatus(i), pay = paymentStatus(i, state.today, state.allocations, state.creditNotes); return <><td><span className={`chip ${acc.tone}`} title={acc.title}>{acc.label}</span></td><td><span className={`chip ${pay.tone}`} title={pay.title}>{pay.label}</span></td></>; })()}
                   <td style={{ whiteSpace: 'nowrap' }}>
                     <button className="btn sm" onClick={() => setDoc(i)}>Aperçu</button>{' '}
                     {i.status === 'draft' && <><button className="btn sm" onClick={() => onEdit(i.id)}>{t('edit')}</button>{' '}<button className="btn sm" onClick={() => apply((s) => validateInvoice(s, i.id), 'Facture validée et numérotée')}>{t('validate')}</button>{' '}</>}
