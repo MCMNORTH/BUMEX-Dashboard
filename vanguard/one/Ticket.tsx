@@ -110,6 +110,7 @@ export function TicketPanel({ id, onClose, backLabel }: { id: string; onClose: (
             </details>
           )}
           <Description view={view} busy={busy} say={say} onSave={(text) => setField('description', text)} />
+          <SourceEmail view={view} say={say} />
           <Attachments view={view} busy={busy} say={say} run={run} onAdd={() => fileRef.current?.click()} />
           <Subtasks view={view} busy={busy} run={run} say={say} open={adding === 'subtask'} onOpened={() => setAdding(null)} />
           <Links view={view} busy={busy} run={run} say={say} open={adding === 'link'} onOpened={() => setAdding(null)} />
@@ -236,6 +237,32 @@ function Description({ view, busy, say, onSave }: { view: TicketView; busy: bool
             <button className="btn sm primary" disabled={busy} onClick={async () => { if (await onSave(draft)) setDraft(null); }}>{say('Enregistrer', 'Save')}</button>
           </div>
         </div>
+      )}
+    </Section>
+  );
+}
+
+// the e-mail the ticket was made from (lib/mail): who wrote it, when, its text; Outlook's link for its inbox's person
+function SourceEmail({ view, say }: { view: TicketView; say: Say }) {
+  const email = view.email;
+  if (!email) return null;
+  const when = email.receivedAt ? new Date(email.receivedAt).toLocaleString(say('fr-FR', 'en-GB'), { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  return (
+    <Section title={say('E-mail d’origine', 'Source e-mail')}
+      extra={email.webLink ? <a className="btn sm ghost" href={email.webLink} target="_blank" rel="noreferrer">{say('Ouvrir dans Outlook', 'Open in Outlook')}</a> : undefined}>
+      <div className="kv small">
+        <span className="k">{say('De', 'From')}</span><span>{email.fromName && email.fromName !== email.fromAddress ? `${email.fromName} · ` : ''}{email.fromAddress}</span>
+        <span className="k">{say('Reçu', 'Received')}</span><span>{when}{email.inboxOf ? say(` · boîte de ${email.inboxOf}`, ` · ${email.inboxOf}'s inbox`) : ''}</span>
+        {email.subject && <><span className="k">{say('Objet', 'Subject')}</span><span>{email.subject}</span></>}
+      </div>
+      {email.notImported.length > 0 && (
+        <p className="small muted" style={{ margin: '6px 0 0' }}>{say('Non importés (trop lourds ou non pris en charge) : ', 'Not imported (too large or not supported): ')}{email.notImported.join(', ')}</p>
+      )}
+      {email.body && (
+        <details style={{ marginTop: 6 }}>
+          <summary className="small">{say('Texte de l’e-mail', 'E-mail text')}</summary>
+          <div className="small" style={{ whiteSpace: 'pre-wrap', marginTop: 6, maxHeight: 360, overflow: 'auto' }}>{email.body}</div>
+        </details>
       )}
     </Section>
   );

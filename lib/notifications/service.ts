@@ -6,7 +6,7 @@ import { after } from "next/server";
 import { dispatchNotificationEmails, sweepNotificationEmails } from "@/lib/notifications/email-delivery";
 import { requireAuthenticatedUser } from "@/lib/auth/server";
 import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
-import { asPerson, select } from "@/lib/work/db";
+import { asPerson, select, type Tx } from "@/lib/work/db";
 import type { CommentEntityType, CommentRecord } from "@/types/comment";
 import type {
   MentionCandidate,
@@ -53,37 +53,47 @@ export function parseMentions(body: string, candidates: MentionCandidate[]) {
   return uniqueById(matches);
 }
 
-async function createNotifications(
-  notifications: Array<{
-    user_id: string;
-    type: NotificationType;
-    title: string;
-    body: string;
-    entity_type: NotificationEntityType;
-    entity_id: string;
-    /** In-app only: the outbox trigger queues no email for it. */
-    skip_email?: true;
-  }>,
-) {
+export type NewNotification = {
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  entity_type: NotificationEntityType;
+  entity_id: string;
+  /** In-app only: the outbox trigger queues no email for it. */
+  skip_email?: true;
+};
+
+/**
+ * Notifications, in a transaction the caller holds; their ids, for dispatchNotificationEmails once it commits (the
+ * e-mail job's system session writes its own this way: lib/mail).
+ */
+export async function insertNotifications(tx: Tx, notifications: NewNotification[]) {
+  if (!notifications.length) {
+    return [];
+  }
+
+  const rows = notifications.map((notification) => ({ id: randomUUID(), ...notification }));
+  await tx.query(
+    `insert into work.notification (id, user_id, type, title, body, subject_type, subject_id, skip_email)
+     select n.id, n.user_id, n.type, n.title, n.body, n.entity_type, n.entity_id, coalesce(n.skip_email, false)
+       from jsonb_to_recordset($1::jsonb) as n(id uuid, user_id text, type text, title text, body text, entity_type text, entity_id text, skip_email boolean)`,
+    [JSON.stringify(rows)],
+  );
+  return rows.map(({ id }) => id);
+}
+
+async function createNotifications(notifications: NewNotification[]) {
   if (!notifications.length) {
     return;
   }
 
-  const rows = notifications.map((notification) => ({ id: randomUUID(), ...notification }));
-
-  await asPerson((tx) =>
-    tx.query(
-      `insert into work.notification (id, user_id, type, title, body, subject_type, subject_id, skip_email)
-       select n.id, n.user_id, n.type, n.title, n.body, n.entity_type, n.entity_id, coalesce(n.skip_email, false)
-         from jsonb_to_recordset($1::jsonb) as n(id uuid, user_id text, type text, title text, body text, entity_type text, entity_id text, skip_email boolean)`,
-      [JSON.stringify(rows)],
-    ),
-  );
+  const ids = await asPerson((tx) => insertNotifications(tx, notifications));
 
   try {
     after(async () => {
       try {
-        await dispatchNotificationEmails(rows.map(({ id }) => id));
+        await dispatchNotificationEmails(ids);
         await sweepNotificationEmails();
       } catch (dispatchError) {
         console.error(
@@ -233,17 +243,20 @@ export async function createStatusChangeNotification({
   });
 }
 
-export async function getNotificationRecipientsForProject(projectId: string) {
-  return asPerson((tx) =>
-    select<MentionCandidate>(
-      tx,
-      `${CANDIDATE_SQL}
-        where p.id in (select owner_id from erp.engagement where id = $1::uuid
-                       union select user_id from erp.engagement_staff where engagement_id = $1::uuid)
-        order by p.full_name`,
-      [projectId],
-    ),
+/** A mission's owner and team, in a transaction the caller holds. */
+export function selectProjectRecipients(tx: Tx, projectId: string) {
+  return select<MentionCandidate>(
+    tx,
+    `${CANDIDATE_SQL}
+      where p.id in (select owner_id from erp.engagement where id = $1::uuid
+                     union select user_id from erp.engagement_staff where engagement_id = $1::uuid)
+      order by p.full_name`,
+    [projectId],
   );
+}
+
+export async function getNotificationRecipientsForProject(projectId: string) {
+  return asPerson((tx) => selectProjectRecipients(tx, projectId));
 }
 
 // The person's own notification, changed; the rules let nobody else's be.

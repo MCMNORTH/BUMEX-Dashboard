@@ -70,3 +70,40 @@ env:
     secret: erp-database-password
     availability:
       - RUNTIME
+
+  # The scheduler's calls (/api/cron/notifications, /api/cron/mail: Authorization: Bearer <CRON_SECRET>, lib/cron/auth.ts).
+  #   firebase apphosting:secrets:set cron-secret --project bumex-one          (openssl rand -hex 32)
+  - variable: CRON_SECRET
+    secret: cron-secret
+    availability:
+      - RUNTIME
+
+  # E-mails to tickets (lib/mail, migration 0017): the Entra app "BUMEX Vanguard – Mail to tickets" (single tenant,
+  # delegated offline_access User.Read Mail.Read, admin consent; redirect https://one.bumex.mr/api/mail/microsoft/callback),
+  # the key that seals the people's refresh tokens, and Claude's API key. Create the secrets before deploying:
+  #   firebase apphosting:secrets:set outlook-client-id --project bumex-one       (the app's Application (client) ID)
+  #   firebase apphosting:secrets:set outlook-client-secret --project bumex-one   (its client secret's value)
+  #   firebase apphosting:secrets:set mail-token-key --project bumex-one          (openssl rand -base64 32)
+  #   firebase apphosting:secrets:set anthropic-api-key --project bumex-one
+  - variable: MAIL_INTAKE_ENABLED
+    value: "1"
+  - variable: OUTLOOK_TENANT_ID
+    value: d5ae50ce-ba72-40bf-90a4-844c2c57aa0a
+  - variable: OUTLOOK_CLIENT_ID
+    secret: outlook-client-id
+    availability:
+      - RUNTIME
+  - variable: OUTLOOK_CLIENT_SECRET
+    secret: outlook-client-secret
+    availability:
+      - RUNTIME
+  - variable: MAIL_TOKEN_KEY
+    secret: mail-token-key
+    availability:
+      - RUNTIME
+  - variable: ANTHROPIC_API_KEY
+    secret: anthropic-api-key
+    availability:
+      - RUNTIME
+  - variable: MAIL_AI_MODEL
+    value: claude-haiku-5-5

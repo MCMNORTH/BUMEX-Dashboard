@@ -13,6 +13,7 @@ import { NavigationProgress } from "@/components/layout/navigation-progress";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { VanguardLoading } from "@/components/vanguard/vanguard-loading";
 import { ROOM_KEYS, type Room } from "@/vanguard/i18n";
+import { mailOutcomeMessage } from "@/vanguard/one/mail-outcome";
 import { MODULE_ONLY, MODULE_ROOM, useStore } from "@/vanguard/store";
 
 // Vanguard reads the browser (WebGL, storage, the URL) as it loads: it only ever renders in the browser.
@@ -28,17 +29,21 @@ function RoomLink() {
   const loaded = useStore((s) => s.loadedAt > 0);
   const room = pathname === "/vanguard" ? params.get("room") : null;
   const tab = params.get("tab");
+  const mail = params.get("mail");
 
   useEffect(() => {
     if (!loaded || !room) return;
-    const { ui, setUi, openRoom } = useStore.getState();
+    const { ui, setUi, openRoom, toast } = useStore.getState();
     window.history.replaceState(null, "", "/vanguard");
+    // back from connecting Outlook (lib/mail): what came of it
+    const outcome = mail ? mailOutcomeMessage(mail, (fr, en) => (ui.lang === "fr" ? fr : en)) : null;
+    if (outcome) toast(outcome.kind, outcome.text);
     if (!ROOMS.includes(room)) return;
     const target = room as Room;
     // the person's own panels open over the building; a module takes you onto the floor first
     if (target === "myday" || target === "mywork" || target === "time" || target === "inbox" || ui.view !== "tower") openRoom(target, tab);
     else setUi({ view: "floor", transition: "to-floor", focusRoom: MODULE_ROOM[target] ?? target, room: target, tab, rackFocus: false });
-  }, [loaded, room, tab]);
+  }, [loaded, room, tab, mail]);
   return null;
 }
 

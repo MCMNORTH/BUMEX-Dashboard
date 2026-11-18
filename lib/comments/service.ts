@@ -7,9 +7,10 @@ import type { AppRole } from "@/types/auth";
 import type { CommentActionState, CommentEntityType, CommentFormValues, CommentRecord } from "@/types/comment";
 
 // Comments: work.comment (0008), seen by whoever may see their subject (a shareholder never an internal one). They have
-// no attachments (BUMEX One never wrote any).
+// no attachments (BUMEX One never wrote any). One made from an e-mail reply (lib/mail) names its writer.
 const COMMENT_SQL = `
   select c.id, c.subject_type as entity_type, c.subject_id as entity_id, c.author_id, c.body, c.is_internal, c.created_at, c.updated_at, c.deleted_at,
+         c.email_from_name, c.email_from_address,
          (select jsonb_build_object('id', p.id, 'full_name', p.full_name, 'email', p.email, 'avatar_url', p.avatar_url, 'role', work.person_role(p.id))
             from work.person p where p.id = c.author_id) as author,
          '[]'::jsonb as attachments

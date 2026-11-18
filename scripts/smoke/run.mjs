@@ -147,6 +147,13 @@ try {
     SMTP_PASS: "smoke",
     SMTP_FROM: "BUMEX <smoke@bumex.mr>",
     CRON_SECRET: cronSecret,
+    // e-mails to tickets (lib/mail) switched on, with nobody connected: neither Microsoft nor Anthropic is called
+    MAIL_INTAKE_ENABLED: "1",
+    OUTLOOK_TENANT_ID: "smoke-tenant",
+    OUTLOOK_CLIENT_ID: "smoke-client",
+    OUTLOOK_CLIENT_SECRET: "smoke-secret",
+    MAIL_TOKEN_KEY: randomBytes(32).toString("base64"),
+    ANTHROPIC_API_KEY: "smoke-anthropic-key",
   };
 
   step("PostgreSQL: a new cluster, the migrations by a non-superuser owner");

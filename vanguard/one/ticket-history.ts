@@ -87,6 +87,8 @@ export function describeHistory(action: string, metadata: Record<string, unknown
         : { verb: say('a ajouté un lien', 'added a link'), to: { text: `${relation} ${str(metadata.other_key) ?? ''}`.trim(), tone: 'plain' } };
     }
   }
+  // made from an e-mail (lib/mail): the sender as the note
+  if (metadata.kind === 'create' && metadata.source === 'email') return { verb: say('a créé le ticket depuis un e-mail', 'created the ticket from an e-mail'), note: str(metadata.from) ?? undefined };
   if (metadata.kind === 'create') return { verb: say('a créé le ticket', 'created the ticket') };
   // the sub-tasks' lines (lib/tickets/subtasks.ts), said in the person's language
   const sub = /^(Added|Completed|Reopened|Removed) sub-task (.+)$/.exec(action);

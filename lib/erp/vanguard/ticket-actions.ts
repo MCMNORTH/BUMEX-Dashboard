@@ -34,6 +34,17 @@ export type TicketAttachment = { id: string; title: string; fileName: string | n
 export type TicketWorklog = { id: string; userId: string; who: string; date: string; minutes: number; note: string | null; at: string };
 export type TicketHistory = { id: string; at: string; userId: string | null; who: string; action: string; metadata: Record<string, unknown> };
 export type TicketPersonLoad = Pick<Load, "weekHours" | "capacityHours" | "percent" | "level">;
+// the e-mail a ticket came from (lib/mail, 0017); its Outlook link opens only in its person's mailbox
+export type TicketEmail = {
+  fromName: string | null;
+  fromAddress: string | null;
+  subject: string | null;
+  receivedAt: string | null;
+  body: string | null;
+  webLink: string | null;
+  notImported: string[];
+  inboxOf: string | null;
+};
 
 export type TicketView = {
   ticket: Omit<TicketRecord, "activity" | "assignee" | "reporter" | "project"> & {
@@ -51,6 +62,7 @@ export type TicketView = {
   comments: CommentRecord[];
   links: TicketLink[];
   attachments: TicketAttachment[];
+  email: TicketEmail | null;
   worklog: TicketWorklog[];
   people: { id: string; name: string }[];
   loads: Record<string, TicketPersonLoad>;
@@ -102,6 +114,15 @@ export async function ticketViewAction(id: string): Promise<TicketView | null> {
            from work.document d
           where d.related_type = 'task' and d.related_id = $1::uuid and not d.is_archived
           order by d.created_at desc`,
+        [ticket.id],
+      ),
+      // a shareholder reads no e-mail (0017's rule, as for internal comments)
+      email: shareholder ? null : await selectOne<TicketEmail & { personId: string }>(
+        tx,
+        `select m.from_name as "fromName", m.from_address as "fromAddress", m.subject, m.received_at as "receivedAt", m.body_text as body,
+                m.web_link as "webLink", m.skipped_files as "notImported", m.person_id as "personId",
+                (select p.full_name from work.person p where p.id = m.person_id) as "inboxOf"
+           from work.mail_message m where m.ticket_id = $1::uuid and m.status = 'ticket' limit 1`,
         [ticket.id],
       ),
       worklog: shareholder ? [] : await select<TicketWorklog>(
@@ -157,6 +178,16 @@ export async function ticketViewAction(id: string): Promise<TicketView | null> {
     comments: comments.filter((c) => canViewComment(c, role)),
     links: more.links,
     attachments: more.attachments,
+    email: more.email && {
+      fromName: more.email.fromName,
+      fromAddress: more.email.fromAddress,
+      subject: more.email.subject,
+      receivedAt: more.email.receivedAt,
+      body: more.email.body,
+      webLink: more.email.personId === auth.profile.id ? more.email.webLink : null,
+      notImported: more.email.notImported ?? [],
+      inboxOf: more.email.inboxOf,
+    },
     worklog: more.worklog,
     people: filterData.assignees.map((p) => ({ id: p.id, name: p.full_name || p.email })),
     loads: Object.fromEntries(workload.map((w) => [w.id, { weekHours: w.load.weekHours, capacityHours: w.load.capacityHours, percent: w.load.percent, level: w.load.level }])),

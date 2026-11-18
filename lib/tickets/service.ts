@@ -332,23 +332,26 @@ const payloadParams = (p: ReturnType<typeof parseTicketPayload>) => [
   p.estimated_hours, p.actual_hours, p.github_issue_url, p.labels,
 ];
 
+/** The ticket's row, in a transaction the caller holds (the person's, or the e-mail job's system session: lib/mail). */
+export function insertTicket(tx: Tx, values: TicketFormValues) {
+  return selectOne<{ id: string }>(
+    tx,
+    `insert into erp.task (engagement_id, title, notes, assignee_id, reporter_id, status, completed_at, stage_id, priority, type, due_date,
+                           estimated_hours, actual_hours, github_issue_url, labels)
+     values ($1::uuid, $2, $3, $4, $5, $6, case when $6 = 'done' then current_date end, $7, $8, $9, $10::date, $11::numeric, $12::numeric, $13,
+             coalesce($14::text[], '{}'))
+     returning id`,
+    payloadParams(parseTicketPayload(values)),
+  );
+}
+
 export async function createTicket(
   values: TicketFormValues,
   actorUserId: string,
   options: { emailAssignee?: boolean } = {},
 ) {
   const payload = parseTicketPayload(values);
-  const data = await asPerson((tx) =>
-    selectOne<{ id: string }>(
-      tx,
-      `insert into erp.task (engagement_id, title, notes, assignee_id, reporter_id, status, completed_at, stage_id, priority, type, due_date,
-                             estimated_hours, actual_hours, github_issue_url, labels)
-       values ($1::uuid, $2, $3, $4, $5, $6, case when $6 = 'done' then current_date end, $7, $8, $9, $10::date, $11::numeric, $12::numeric, $13,
-               coalesce($14::text[], '{}'))
-       returning id`,
-      payloadParams(payload),
-    ),
-  );
+  const data = await asPerson((tx) => insertTicket(tx, values));
 
   if (!data) {
     throw new Error("Ticket creation did not return an id.");

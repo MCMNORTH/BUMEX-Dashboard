@@ -2,7 +2,7 @@ import "server-only";
 
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { getLegacyWorkflow, type WorkflowDraft } from "@/lib/tickets/workflow";
-import { asPerson, asSystem, select } from "@/lib/work/db";
+import { asPerson, asSystem, select, type Tx } from "@/lib/work/db";
 import type { BoardWorkflow, WorkflowStage } from "@/types/workflow";
 
 // The boards are the floors' (0014, asked on 2026-10-28): work.floor_board, one per entity, which every mission of the
@@ -56,12 +56,15 @@ export async function getConfiguredWorkflows(projectIds: string[]): Promise<Map<
     return new Map();
   }
 
-  const rows = await asPerson((tx) =>
-    select<FloorRow & { project_id: string }>(
-      tx,
-      `select g.id::text as project_id, ${FLOOR_COLUMNS} from erp.engagement g join work.floor_board f on f.entity_id = g.entity_id where g.id = any($1::uuid[])`,
-      [ids],
-    ),
+  return asPerson((tx) => readConfiguredWorkflows(tx, ids));
+}
+
+/** The same, in a transaction the caller holds (the e-mail job's system session: lib/mail). */
+export async function readConfiguredWorkflows(tx: Tx, projectIds: string[]): Promise<Map<string, BoardWorkflow>> {
+  const rows = await select<FloorRow & { project_id: string }>(
+    tx,
+    `select g.id::text as project_id, ${FLOOR_COLUMNS} from erp.engagement g join work.floor_board f on f.entity_id = g.entity_id where g.id = any($1::uuid[])`,
+    [projectIds],
   );
   return new Map(rows.map((row) => [row.project_id, mapWorkflow(row, row.project_id)]));
 }

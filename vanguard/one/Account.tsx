@@ -7,6 +7,7 @@ import { myAccountAction, setDefaultEntityAction, type MyAccount } from '@/lib/e
 import { useStore } from '../store';
 import { Field } from '../ui/common';
 import { reload } from './Tasks';
+import { MailIntakeCard } from './MailIntake';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
 
@@ -84,6 +85,7 @@ export function MyAccountPanel() {
           </div>
           <div className="actions"><button className="btn sm primary" disabled={busy || profile.full_name.trim().length < 3} onClick={saveProfile}>{say('Enregistrer le profil', 'Save the profile')}</button></div>
         </div>
+        <MailIntakeCard />
       </div>
       <div className="side">
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

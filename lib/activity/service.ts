@@ -6,7 +6,7 @@ import { getClients } from "@/lib/clients/service";
 import { getContractsDueForRenewal } from "@/lib/contracts/service";
 import { SHAREHOLDER_NOTES_ENTITY_ID } from "@/lib/notes/constants";
 import { getNotesForEntity } from "@/lib/notes/service";
-import { asPerson, select } from "@/lib/work/db";
+import { asPerson, select, type Tx } from "@/lib/work/db";
 import type { AppRole } from "@/types/auth";
 import type { ActivityEntityType, ActivityLogRecord, ActivityMetadata } from "@/types/activity";
 
@@ -18,20 +18,25 @@ const ACTIVITY_SQL = `
             from work.person p where p.id = a.user_id) as "user"
     from work.activity a`;
 
-export async function logActivity(params: {
+type ActivityEntry = {
   userId: string | null;
   action: string;
   entityType: ActivityEntityType;
   entityId: string;
   metadata?: ActivityMetadata;
-}) {
-  await asPerson((tx) =>
-    tx.query(
-      `insert into work.activity (user_id, action, subject_type, subject_id, metadata, entity_code)
-       values ($1, $2, $3, $4, $5::jsonb, (select entity_code from work.person where id = erp.actor_id()))`,
-      [params.userId, params.action, params.entityType, params.entityId, JSON.stringify(params.metadata ?? {})],
-    ),
+};
+
+/** A history line, in a transaction the caller holds (the e-mail job's system session writes its own: lib/mail). */
+export async function insertActivity(tx: Tx, params: ActivityEntry) {
+  await tx.query(
+    `insert into work.activity (user_id, action, subject_type, subject_id, metadata, entity_code)
+     values ($1, $2, $3, $4, $5::jsonb, (select entity_code from work.person where id = erp.actor_id()))`,
+    [params.userId, params.action, params.entityType, params.entityId, JSON.stringify(params.metadata ?? {})],
   );
+}
+
+export async function logActivity(params: ActivityEntry) {
+  await asPerson((tx) => insertActivity(tx, params));
 }
 
 async function queryActivityLogs(limit = 40) {

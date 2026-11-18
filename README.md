@@ -7,6 +7,7 @@ This repository is the current Next.js application. BUMEX One's former pages wer
 ## Features
 
 - **Daily work:** personal overview, My Work, mission boards and lists, tickets with keys, subtasks, comments, attachments, history, and time logs.
+- **E-mails to tickets:** each person can connect their Outlook inbox; Claude turns new e-mails that ask for work into tickets assigned to them, with their attachments, and replies in the same thread into comments.
 - **Missions and teams:** clients, contracts, milestones, calendars, planning, workload, and weekly timesheets with manager review.
 - **ERP:** accounting, sales, purchases, banking, loans, fixed assets, tax, payroll, reports, and physical archives. Earlier BUMEX One finance records remain available as a read-only archive.
 - **Administration:** invitations, password recovery, roles, entity and module permissions, notifications, and audit history.
@@ -23,7 +24,8 @@ This repository is the current Next.js application. BUMEX One's former pages wer
 | Authentication | Firebase Auth, verified server-side through an HTTP-only session cookie |
 | Business data | PostgreSQL, using the `erp` and `work` schemas |
 | File storage | Firebase Storage; document metadata lives in PostgreSQL |
-| Email | Resend, Microsoft Graph, or SMTP through Nodemailer |
+| Email | Resend, Microsoft Graph, or SMTP through Nodemailer; inboxes read through Microsoft Graph (delegated `Mail.Read`) |
+| AI | Claude through the Anthropic API (`@anthropic-ai/sdk`), for e-mails to tickets |
 | Documents and exports | pdf-lib, SheetJS, CSV exports |
 | Hosting configuration | Firebase App Hosting and Google Cloud SQL |
 | Tests | Vitest, PGlite database tests, isolated browser smoke tests |
@@ -47,7 +49,8 @@ Supabase is no longer the application's backend. Firestore is also no longer rea
 | `lib/erp/vanguard/` | State loading, command recording/replay, persistence, and room-specific actions |
 | `lib/work/`, other `lib/*/service.ts` files | Shared PostgreSQL helpers and work-feature services |
 | `lib/firebase/` | Firebase Auth and Storage integration |
-| `db/erp/migrations/` | Ordered PostgreSQL migrations, currently `0001`–`0016` |
+| `lib/mail/` | E-mails to tickets: Outlook sign-in and inbox reads (Graph), the free rules, Claude's step, the cron's pipeline |
+| `db/erp/migrations/` | Ordered PostgreSQL migrations, currently `0001`–`0017` |
 | `db/erp/test/`, `lib/**/test/`, `vanguard/**/test/` | Database guarantees, domain, integration, and UI-helper tests |
 | `scripts/smoke/` | Isolated end-to-end checks and desktop/tablet/phone screenshots |
 | `messages/`, `lib/i18n/`, `vanguard/i18n.ts` | French and English translations |
@@ -106,7 +109,8 @@ Use [.env.example](.env.example) as the starting template. Its `FIREBASE_DATABAS
 | `NEXT_PUBLIC_ENABLE_SELF_SIGNUP`, `ENABLE_SELF_SIGNUP` | Signup UI and server controls; both are `0` in the supplied configuration |
 | `ENABLE_ENTITY_SCOPING` | Compatibility flag for BUMEX One entity navigation; PostgreSQL access rules still apply |
 | `ENABLE_LOCAL_PREVIEW_AUTH` | Development-only preview authentication; keep `0` for normal use; it does not replace the database |
-| `CRON_SECRET` | Bearer secret protecting `/api/cron/notifications` |
+| `CRON_SECRET` | Bearer secret protecting `/api/cron/notifications` and `/api/cron/mail` |
+| `MAIL_INTAKE_ENABLED`, `OUTLOOK_TENANT_ID`, `OUTLOOK_CLIENT_ID`, `OUTLOOK_CLIENT_SECRET`, `MAIL_TOKEN_KEY`, `ANTHROPIC_API_KEY`, `MAIL_AI_MODEL` | E-mails to tickets (below); `MAIL_TOKEN_KEY` is 32 random bytes in base64; `MAIL_AI_MODEL` defaults to `claude-haiku-5-5` |
 | `BUMEX_BILLING_*` | Company, contact, tax, bank, and footer metadata for the legacy invoice PDF service; fields are listed in `.env.example` |
 
 ### Email and scheduled notifications
@@ -118,6 +122,37 @@ Application email uses the first configured provider in this order:
 3. **SMTP:** `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and sender configuration (`NOTIFICATION_EMAIL_FROM` for application mail; `SMTP_FROM` for direct SMTP callers).
 
 The notification outbox and timesheet reminder logic live in PostgreSQL. A scheduler calls `GET /api/cron/notifications` with `Authorization: Bearer <CRON_SECRET>` to queue eligible reminders and dispatch pending emails. The retained `vercel.json` defines a daily 09:00 UTC schedule for Vercel. The Firebase App Hosting configuration does not define a scheduler; configure one separately for that deployment.
+
+### E-mails to tickets
+
+Each person connects their own Outlook inbox from Settings → My account. Vanguard then reads only the Inbox, only mail received after connecting, and never sends, moves or deletes anything. Every 2 minutes a scheduler calls `GET /api/cron/mail` with `Authorization: Bearer <CRON_SECRET>`. Each run:
+
+1. Fetches each connected inbox's new e-mails through Microsoft Graph delta queries.
+2. Skips, without AI, auto-replies, newsletters, bounces, invitations, e-mails sent only to a group and the app's own notifications.
+3. Adds a reply in a ticket's thread to that ticket as a comment.
+4. Sends every other e-mail to Claude, which decides whether it asks for work. A task becomes a ticket assigned to, and reported by, the person who received it, on one of their missions. When none fits, it goes to their floor's "Demandes par e-mail" mission, created on first use; an administrator gives that mission a lead and team so they can move its tickets. Attachments up to 10 MB are copied to the ticket.
+
+Skipped e-mails keep only their sender, subject and reason, for 30 days, and the person can still turn one into a ticket from the card. Refresh tokens are sealed with `MAIL_TOKEN_KEY` in a table only the server session reads.
+
+Setup, once:
+
+1. In Entra ID (tenant `d5ae50ce-ba72-40bf-90a4-844c2c57aa0a`, shared by bumex.mr and bumex.ma), register a single-tenant Web app.
+   - Redirect URIs: `https://one.bumex.mr/api/mail/microsoft/callback`, plus `http://localhost:3000/api/mail/microsoft/callback` for development.
+   - Delegated permissions `offline_access`, `User.Read` and `Mail.Read`, with admin consent granted for the tenant.
+   - A client secret.
+2. Create the secrets listed in `apphosting.yaml` (`cron-secret`, `outlook-client-id`, `outlook-client-secret`, `mail-token-key`, `anthropic-api-key`) **before** the next deployment; a missing one makes the rollout fail.
+3. Create the Cloud Scheduler jobs, for example:
+
+   ```bash
+   gcloud scheduler jobs create http vanguard-mail-sync --project bumex-one --location europe-west1 \
+     --schedule "*/2 * * * *" --http-method GET --uri https://one.bumex.mr/api/cron/mail \
+     --headers "Authorization=Bearer <CRON_SECRET>" --attempt-deadline 120s
+   gcloud scheduler jobs create http vanguard-notifications --project bumex-one --location europe-west1 \
+     --schedule "0 9 * * *" --time-zone UTC --http-method GET --uri https://one.bumex.mr/api/cron/notifications \
+     --headers "Authorization=Bearer <CRON_SECRET>"
+   ```
+
+The variables' names are `OUTLOOK_*` rather than `MICROSOFT_*` because setting the latter switches the app's own outgoing mail to Graph.
 
 ## Commands and verification
 

@@ -588,6 +588,34 @@ await test('0016: a mission with tickets is at its share done, whatever its manu
 });
 
 // ---------------------------------------------------------------------------
+await test('0017: an inbox and its e-mails are its person\'s, its token the server\'s; a ticket\'s readers see its e-mail, a shareholder not; one e-mail mission per floor', async () => {
+  await office();
+  await asSystem(async () => {
+    await db.query("insert into work.mail_connection (person_id, ms_email) values ('emp', 'emp@bumex.mr'), ('emp2', 'emp2@bumex.mr')");
+    await db.query("insert into work.mail_token (person_id, refresh_token_enc) values ('emp', 'v1.sealed')");
+    await db.query("insert into work.mail_message (internet_message_id, person_id, graph_id, status, ticket_id, body_text) values ('<a@x>', 'emp', 'g1', 'ticket', $1, 'Bonjour'), ('<b@x>', 'emp2', 'g2', 'skipped', null, null)", [ids.T1]);
+  });
+  const view = (uid) => as(uid, async () => ({
+    connections: (await all('select person_id from work.mail_connection order by 1')).map((r) => r.person_id),
+    messages: (await all('select graph_id from work.mail_message order by 1')).map((r) => r.graph_id),
+    tokens: (await one('select count(*)::int n from work.mail_token')).n,
+  }));
+  same(await view('emp'), { connections: ['emp'], messages: ['g1'], tokens: 0 }, 'emp');
+  same(await view('mgr'), { connections: [], messages: ['g1'], tokens: 0 }, 'mgr, who reads T1');
+  same(await view('adm'), { connections: ['emp', 'emp2'], messages: ['g1'], tokens: 0 }, 'adm');
+  same(await view('sh'), { connections: [], messages: [], tokens: 0 }, 'the shareholder reads T1, not its e-mail');
+  same((await asSystem(() => one('select count(*)::int n from work.mail_token'))).n, 1, 'the server reads the token');
+  await expectError(() => as('emp', () => db.query("insert into work.mail_message (internet_message_id, person_id, graph_id) values ('<c@x>', 'emp', 'g3')")), /row-level security/);
+  same((await as('emp', () => all("update work.mail_connection set status = 'paused' returning 1"))).length, 0, 'emp changes no connection itself');
+  await expectError(() => asSystem(() => db.query("insert into work.mail_message (internet_message_id, person_id, graph_id) values ('<a@x>', 'emp2', 'g9')")), /duplicate key/);
+  await asSystem(() => db.query(`insert into erp.engagement (entity_id, name, project_kind, status, is_email_intake) values ($1, 'Demandes par e-mail', 'internal_tool', 'active', true)`, [ids.bumex_audit]));
+  await expectError(() => asSystem(() => db.query(`insert into erp.engagement (entity_id, name, project_kind, status, is_email_intake) values ($1, 'Bis', 'internal_tool', 'active', true)`, [ids.bumex_audit])), /duplicate key/);
+  await asSystem(() => db.query("delete from work.mail_connection where person_id = 'emp'"));
+  same((await asSystem(() => one('select count(*)::int n from work.mail_token'))).n, 0, 'disconnecting removes the token');
+  return 'own inbox; mgr and adm read T1\'s e-mail, sh not; tokens server-only; one e-mail per inbox set; one intake mission per entity';
+});
+
+// ---------------------------------------------------------------------------
 let failed = 0;
 for (const r of results) {
   if (!r.ok) failed += 1;

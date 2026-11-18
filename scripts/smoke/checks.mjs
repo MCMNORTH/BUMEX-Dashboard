@@ -422,6 +422,15 @@ export async function runChecks({ act, db, base, authPort, cookies, openBrowser,
     res = await fetch(`${base}/api/cron/notifications`, { headers: { authorization: "Bearer wrong" } });
     check("…and refuses a caller without the secret", res.status === 401, { status: res.status });
 
+    // ---- e-mails to tickets: the job runs with nobody connected, and refuses a caller without the secret ------------
+    res = await fetch(`${base}/api/cron/mail`, { headers: { authorization: `Bearer ${cronSecret}` } });
+    const mailRun = await res.json().catch(() => ({}));
+    check("the e-mail job runs, with no inbox connected", res.status === 200 && mailRun.ok === true && mailRun.inboxes === 0, { status: res.status, mailRun });
+    res = await fetch(`${base}/api/cron/mail`, { headers: { authorization: "Bearer wrong" } });
+    check("…and refuses a caller without the secret", res.status === 401, { status: res.status });
+    res = await fetch(`${base}/api/mail/microsoft/connect`, { redirect: "manual" });
+    check("…connecting Outlook asks for the Vanguard sign-in first", res.status >= 300 && res.status < 400 && (res.headers.get("location") ?? "").includes("/login"), { status: res.status, location: res.headers.get("location") });
+
     // ---- the building in 3D for whoever has it, then every room and tab, in Chrome, with no error ----------------------
     await tab.signIn(cookies["ahmed.ba"]);
     await tab.go("/vanguard");

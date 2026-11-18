@@ -62,7 +62,7 @@ export function Comments({ entityType, entityId, comments, people, role, me, can
         return (
           <div key={c.id} style={{ borderTop: '1px solid var(--line)', paddingTop: 7 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }} className="small">
-              <span><b>{c.author?.full_name ?? '—'}</b>{c.is_internal && <> <Chip kind="dim">{say('interne', 'internal')}</Chip></>}</span>
+              <span><b>{c.email_from_address ? `✉ ${c.email_from_name || c.email_from_address}` : c.author?.full_name ?? '—'}</b>{c.is_internal && <> <Chip kind="dim">{say('interne', 'internal')}</Chip></>}</span>
               <span className="muted mono">{when(c.created_at)}</span>
             </div>
             {editing?.id === c.id ? (

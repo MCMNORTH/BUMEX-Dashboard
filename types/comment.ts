@@ -32,6 +32,9 @@ export type CommentRecord = {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  /** A comment made from an e-mail reply (lib/mail): its writer; the author is the person whose inbox received it. */
+  email_from_name?: string | null;
+  email_from_address?: string | null;
   author: CommentAuthor | null;
   attachments: CommentAttachmentRecord[];
 };

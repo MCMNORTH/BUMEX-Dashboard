@@ -122,7 +122,8 @@ export function TicketActivity({ view, busy, run, say }: { view: TicketView; bus
     for (const c of view.comments) {
       const mine = view.role === 'admin' || c.author_id === view.me;
       list.push({
-        id: `c${c.id}`, at: c.created_at, who: c.author?.full_name ?? '—', kind: 'comment',
+        // a reply received by e-mail (lib/mail) is its writer's, through its person's inbox
+        id: `c${c.id}`, at: c.created_at, who: c.email_from_address ? `✉ ${c.email_from_name || c.email_from_address}` : c.author?.full_name ?? '—', kind: 'comment',
         node: editing?.id === c.id ? (
           <div className="tk-compose">
             <textarea className="in" rows={3} value={editing.body} onChange={(e) => setEditing({ id: c.id, body: e.target.value })} autoFocus onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setEditing(null); } }} />
@@ -145,7 +146,7 @@ export function TicketActivity({ view, busy, run, say }: { view: TicketView; bus
         ),
       });
       if (c.is_internal) list[list.length - 1].who += '\u0000internal';
-      list[list.length - 1].who += `\u0001${say('a ajouté un commentaire', 'added a comment')}`;
+      list[list.length - 1].who += `\u0001${c.email_from_address ? say('a répondu par e-mail', 'replied by e-mail') : say('a ajouté un commentaire', 'added a comment')}`;
     }
     for (const h of view.history) {
       const line = describeHistory(h.action, h.metadata, ctx);

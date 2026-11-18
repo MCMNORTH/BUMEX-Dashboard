@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { getSubjectsActivity, logActivity } from "@/lib/activity/service";
 import { storage } from "@/lib/firebase/storage";
 import { matchesSearchTerms, searchTerms } from "@/lib/search/text";
-import { asPerson, select, selectOne } from "@/lib/work/db";
+import { asPerson, select, selectOne, type Tx } from "@/lib/work/db";
 import type { AppRole } from "@/types/auth";
 import type { ActivityLogRecord } from "@/types/activity";
 import type {
@@ -23,7 +23,7 @@ import type {
   DocumentUploader,
 } from "@/types/document";
 
-const MAX_DOCUMENT_FILE_SIZE = 10 * 1024 * 1024;
+export const MAX_DOCUMENT_FILE_SIZE = 10 * 1024 * 1024;
 
 type DocumentRow = {
   id: string;
@@ -43,7 +43,7 @@ type DocumentRow = {
   updated_at: string;
 };
 
-function sanitizeFileName(name: string) {
+export function sanitizeFileName(name: string) {
   return name
     .normalize("NFKD")
     .replace(/[^\w.\- ]+/g, "")
@@ -52,7 +52,7 @@ function sanitizeFileName(name: string) {
     .toLowerCase();
 }
 
-function getStoragePath(fileName: string, actorUserId: string) {
+export function getStoragePath(fileName: string, actorUserId: string) {
   const now = new Date();
   const month = `${now.getUTCMonth() + 1}`.padStart(2, "0");
   const safeName = sanitizeFileName(fileName) || "document";
@@ -273,6 +273,25 @@ function validateFile(file: File) {
   }
 }
 
+/**
+ * A stored file's row, in a transaction the caller holds (the e-mail job attaches an e-mail's files under the system
+ * session: lib/mail). `path` is the file's place under the "documents" folder (getStoragePath).
+ */
+export function insertDocument(
+  tx: Tx,
+  row: ReturnType<typeof parseDocumentPayload> & { path: string; fileName: string; fileSize: number; mimeType: string | null; uploadedBy: string },
+) {
+  return selectOne<{ id: string }>(
+    tx,
+    `insert into work.document (title, description, document_type, related_type, related_id, visibility, file_url, file_name, file_size, mime_type,
+                                uploaded_by, entity_code)
+     values ($1, $2, $3, $4, $5::uuid, $6, $7, $8, $9, $10, $11, (select entity_code from work.person where id = erp.actor_id()))
+     returning id`,
+    [row.title, row.description, row.document_type, row.related_type, row.related_id, row.visibility, row.path, row.fileName, row.fileSize,
+      row.mimeType, row.uploadedBy],
+  );
+}
+
 export async function createDocument(values: DocumentFormValues, file: File, actorUserId: string) {
   validateFile(file);
   const payload = parseDocumentPayload(values);
@@ -290,15 +309,7 @@ export async function createDocument(values: DocumentFormValues, file: File, act
   let data: { id: string } | null;
   try {
     data = await asPerson((tx) =>
-      selectOne<{ id: string }>(
-        tx,
-        `insert into work.document (title, description, document_type, related_type, related_id, visibility, file_url, file_name, file_size, mime_type,
-                                    uploaded_by, entity_code)
-         values ($1, $2, $3, $4, $5::uuid, $6, $7, $8, $9, $10, $11, (select entity_code from work.person where id = erp.actor_id()))
-         returning id`,
-        [payload.title, payload.description, payload.document_type, payload.related_type, payload.related_id, payload.visibility, path, file.name, file.size,
-          file.type || null, actorUserId],
-      ),
+      insertDocument(tx, { ...payload, path, fileName: file.name, fileSize: file.size, mimeType: file.type || null, uploadedBy: actorUserId }),
     );
   } catch (error) {
     await storage.from("documents").remove([path]);
