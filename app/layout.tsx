@@ -4,6 +4,7 @@ import "@/app/globals.css";
 import { AppProviders } from "@/components/layout/app-providers";
 import { getAuthContext } from "@/lib/auth/server";
 import { getCurrentLocale } from "@/lib/i18n/server";
+import { THEME_SCRIPT } from "@/lib/theme-script";
 
 export const metadata: Metadata = {
   title: "BUMEX Vanguard",
@@ -15,7 +16,11 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#131d33",
+  // Fluent's frame, light or dark (lib/theme-script.ts)
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f3f3f3" },
+    { media: "(prefers-color-scheme: dark)", color: "#1a1a1a" },
+  ],
 };
 
 export default async function RootLayout({
@@ -27,7 +32,11 @@ export default async function RootLayout({
   const locale = await getCurrentLocale();
 
   return (
-    <html lang={locale}>
+    // suppressHydrationWarning: THEME_SCRIPT sets the theme on <html> before React (lib/theme-script.ts)
+    <html lang={locale} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         <AppProviders
           initialUser={authContext.user}

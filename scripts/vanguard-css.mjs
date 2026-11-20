@@ -1,6 +1,7 @@
-// Builds vanguard/vanguard.css from vanguard/styles.css (the ERP team's stylesheet, kept as delivered).
+// Builds vanguard/vanguard.css from vanguard/styles.css (the ERP team's stylesheet; redrawn in Fluent on 2026-11-19, VENDOR.md).
 // Vanguard was written as a page of its own; inside BUMEX One its rules must stay inside the .vanguard container:
 // - page rules (:root, html, body, #root) apply to the container; every other selector is prefixed with it;
+// - the page's theme stays on the page: `:root[data-theme="dark"] x` → `:root[data-theme="dark"] .vanguard x` (lib/theme.ts);
 // - keyframes get a vg- prefix so they cannot collide with the app's;
 // - BUMEX One's base reset (Tailwind preflight) is undone inside the container, as Vanguard was designed on the
 //   browser's defaults;
@@ -41,6 +42,9 @@ root.walkDecls(/^animation(-name)?$/, (decl) => {
 const scope = (selector) => {
   const s = selector.trim();
   if ([":root", "html", "body", "#root"].includes(s)) return SCOPE;
+  // the page's theme (lib/theme.ts): `:root[data-theme="dark"] x` → `:root[data-theme="dark"] .vanguard x`
+  const themed = s.match(/^:root((?:\[[^\]]+\]|\.[\w-]+)+)(.*)$/);
+  if (themed) return themed[2].trim() ? `:root${themed[1]} ${outsidePages(`${SCOPE} ${themed[2].trim()}`)}` : `:root${themed[1]} ${SCOPE}`;
   if (s === "*") return outsidePages(`${SCOPE} *`);
   if (/^(html|body)\b/.test(s)) return s.replace(/^(html|body)/, SCOPE);
   return outsidePages(`${SCOPE} ${s}`);
@@ -69,8 +73,8 @@ ${SCOPE} :where(textarea) { resize: revert; }
 ${SCOPE} :where(hr) { height: revert; color: revert; border-top-width: revert; }
 ${SCOPE} :where(summary) { display: revert; }
 ${SCOPE} ::placeholder { opacity: revert; color: revert; }
-/* The container covers the window, like the page Vanguard was. It keeps the browser's light form controls and text
-   rendering whatever theme BUMEX One puts on the page. */
+/* The container covers the window, like the page Vanguard was: light form controls and text rendering, dark ones in
+   the dark theme (styles.css, :root[data-theme="dark"]). */
 ${SCOPE} { position: fixed; inset: 0; text-rendering: auto; color-scheme: light; }
 `;
 

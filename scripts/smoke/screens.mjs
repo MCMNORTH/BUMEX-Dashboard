@@ -4,6 +4,7 @@
 //   npm run smoke -- --screens                    the checks, then the screens at every size
 //   npm run smoke -- --screens-only               the screens only (no other check)
 //   … --sizes=pc,phone  --label=before            some sizes only; pictures in <tmp>/bumex-smoke/screens/<label>/<size>
+//   … --theme=dark                                in the dark theme (lib/theme.ts; light by default, as a new browser)
 //
 // On a phone or a tablet nothing may scroll the page sideways: a wide table scrolls inside its card. Until the phone
 // layout is built (plan step 5) that is reported, not checked; --strict makes it a check.
@@ -84,12 +85,17 @@ const MEASURE = `(() => {
   return { out, roomOverflow };
 })()`;
 
-export async function runScreens({ openBrowser, cookies, check, dir, sizes = Object.keys(SIZES), strict = false, who = "mohamed.cheikh" }) {
+export async function runScreens({ openBrowser, cookies, check, dir, sizes = Object.keys(SIZES), strict = false, who = "mohamed.cheikh", theme }) {
   const tab = await openBrowser();
   const report = {};
   try {
     await tab.webgl(false); // the flat rooms; a phone never draws the building (plan step 2)
     await tab.signIn(cookies[who]);
+    if (theme) {
+      // the person's choice, as the account menu keeps it (lib/theme.ts); every page reads it before its first paint
+      await tab.go("/vanguard");
+      await tab.evaluate(`localStorage.setItem("bumex-theme", ${JSON.stringify(theme)}), true`);
+    }
     for (const size of sizes) {
       const s = SIZES[size];
       if (!s) throw new Error(`unknown size ${size} (${Object.keys(SIZES).join(", ")})`);

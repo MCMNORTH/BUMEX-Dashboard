@@ -6,7 +6,7 @@
 //   npm run smoke -- --no-build    reuse the last build (nothing changed since)
 //   npm run smoke -- --keep        leave everything running afterwards, to look around; then npm run smoke -- --stop
 //   npm run smoke -- --screens     then every screen at a PC's, a tablet's and a phone's size (screens.mjs; --screens-only,
-//                                  --sizes=pc,phone, --label=before, --strict)
+//                                  --sizes=pc,phone, --label=before, --strict, --theme=dark)
 //
 // Needs PostgreSQL 16 or later (initdb and pg_ctl on the PATH), the Firebase CLI and Google Chrome (CHROME=<path> for
 // another). Works in <tmp>/bumex-smoke on a copy of the files git would commit: the repository's .env files are never
@@ -231,6 +231,7 @@ try {
         dir: join(work, "screens", option("label") ?? "latest"),
         sizes: option("sizes")?.split(","),
         strict: args.includes("--strict"),
+        theme: option("theme"),
       });
     }
   } finally {
