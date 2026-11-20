@@ -19,6 +19,7 @@ import { EstimateAsk, parseEstimate } from './EstimateAsk';
 import { DEFAULT_ESTIMATE_HOURS } from '@/lib/tickets/workflow';
 import type { ListChange } from './TicketList';
 import type { Say } from './ticket-history';
+import { useDragScroll } from './drag-scroll';
 import { Loading, SkBoard } from './skeleton';
 
 // The board, as Jira draws it (asked on 2026-10-27), shared by the Tasks room (MissionBoard: the floor's board, 0014,
@@ -146,6 +147,7 @@ export function TicketBoard<T extends WorkTicket>({ columns, tickets, columnOf, 
   // [mobile] a phone shows one column at a time: chips above it jump to a stage, the current one lit as it scrolls
   const phone = useMedia(PHONE);
   const boardRef = useRef<HTMLDivElement>(null);
+  useDragScroll(boardRef); // the mouse slides it, as a finger does (drag-scroll.ts)
   const [current, setCurrent] = useState<string | null>(null);
   const jump = (id: string) => boardRef.current?.querySelector<HTMLElement>(`[data-col="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
   const onScroll = () => {

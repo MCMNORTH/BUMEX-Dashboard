@@ -1058,3 +1058,9 @@
 .vanguard .sk-scene > .sk { position: absolute; inset: 0; width: auto !important; height: auto !important; border-radius: 0; --sk: var(--sk-soft); --sk-hi: var(--canvas); }
 .vanguard .sk-scene-cap { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 16px; font-size: 13px; color: var(--graphite); background: var(--paper); border: 1px solid var(--stroke); border-radius: var(--r); box-shadow: var(--shadow-8); }
 .vanguard .sk-scene-cap img { width: 20px; height: 20px; border-radius: 50%; }
+
+/* A board slides under the mouse as under a finger (one/drag-scroll.ts): the hand shows where it can */
+@media (pointer: fine) {
+  .vanguard .wk-board.slidable, .vanguard .kanban.slidable { cursor: grab; }
+}
+.vanguard .wk-board.sliding, .vanguard .kanban.sliding, .vanguard .wk-board.sliding *, .vanguard .kanban.sliding * { cursor: grabbing !important; user-select: none; }

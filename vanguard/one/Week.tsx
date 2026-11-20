@@ -12,6 +12,7 @@ import { Select } from '../ui/Select';
 import { useScreen } from './screen'; // [mobile]
 import { useBackLayer } from './back'; // [mobile]
 import { useModal } from './modal';
+import { useDragScroll } from './drag-scroll';
 
 // The Missions room's "Semaine" tab: BUMEX One's weekly planning on the floor's tickets (lib/erp/vanguard/tickets.ts),
 // day by day, with what is late, what has no date and each person's load. A task dropped on another day is
@@ -33,6 +34,8 @@ export function WeekView({ entityId }: { entityId: Id }) {
   const [monday, setMonday] = useState(() => mondayOf(state.today));
   const [who, setWho] = useState<string>(TEAM_ROLES.includes(state.session.role) ? 'all' : me);
   const [dragged, setDragged] = useState<string | null>(null);
+  const week = useRef<HTMLDivElement>(null);
+  useDragScroll(week); // the mouse slides the week, as a finger does (drag-scroll.ts)
   const [busy, setBusy] = useState<string | null>(null);
   const { touch } = useScreen(); // [mobile]
   const [moving, setMoving] = useState<TicketTask | null>(null); // [mobile] the task being moved, on a touch screen
@@ -130,7 +133,7 @@ export function WeekView({ entityId }: { entityId: Id }) {
         <div className="kpi"><div className="l">{say('Sans échéance', 'No due date')}</div><div className="v">{undated.length}</div></div>
       </div>
 
-      <div className="kanban wk-week">
+      <div className="kanban wk-week" ref={week}>
         {days.map((day) => {
           const list = scoped.filter((x) => x.dueDate === day);
           return (
