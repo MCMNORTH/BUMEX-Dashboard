@@ -7,6 +7,7 @@ import { Chip, Field, Icon } from '../ui/common';
 import { type Say, when } from './Conversation';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
+import { confirmAsk } from './ask';
 
 // The Archives room's "Documents" tab: BUMEX One's documents (the files; the room's boxes are the paper). Upload,
 // describe, link to a client, mission, contract or ticket, archive, restore, delete; download through BUMEX One's
@@ -86,7 +87,7 @@ export function DocumentsTab() {
   const s = q.trim().toLowerCase();
   const rows = data.documents.filter((d) => d.is_archived === archived && (!type || d.document_type === type) && (!s || `${d.title} ${d.description ?? ''} ${d.file_name} ${d.relatedLabel}`.toLowerCase().includes(s)));
   const change = async (d: DocumentRow, what: 'archive' | 'restore' | 'delete') => {
-    if (what === 'delete' && !window.confirm(say(`Supprimer « ${d.title} » ?`, `Delete "${d.title}"?`))) return;
+    if (what === 'delete' && !(await confirmAsk({ title: say(`Supprimer « ${d.title} » ?`, `Delete "${d.title}"?`), confirm: say('Supprimer', 'Delete'), danger: true }))) return;
     setBusy(true);
     try {
       const result = await changeDocumentAction(d.id, what);

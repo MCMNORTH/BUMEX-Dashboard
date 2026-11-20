@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { fmt, fmtDate, requestDeletion, canDecideDeletions, type ProtectedTable } from '@bumex/domain';
 import { useStore } from '../store';
 import { FLUENT_ICONS } from './fluent-icons'; // [bumex-one] the Fluent redesign (2026-11-19)
+import { useModal } from '../one/modal'; // [bumex-one] Escape, Tab and the focus, as every dialog (2026-11-20)
 
 export function Money({ v, cur, sign = false }: { v: number; cur?: string; sign?: boolean }) {
   return (
@@ -146,9 +147,14 @@ export function DeleteDialog() {
   const { ui, state, t, askDeletion, apply, toast } = useStore();
   const [reason, setReason] = useState('');
   const d = ui.deletion;
+  const close = () => { askDeletion(null); setReason(''); };
+  // [bumex-one] Escape cancels (not the room behind), Tab stays in the dialog, the focus goes back to the button (2026-11-20)
+  const box = useRef<HTMLDivElement>(null);
+  const note = useRef<HTMLTextAreaElement>(null);
+  useModal(box, close, { active: Boolean(d) });
+  useEffect(() => { if (d) note.current?.focus(); }, [d]);
   if (!d) return null;
   const direct = canDecideDeletions(state);
-  const close = () => { askDeletion(null); setReason(''); };
   const go = () => {
     const ok = apply((s) => {
       const r = requestDeletion(s, { table: d.table as ProtectedTable, rowId: d.rowId, label: d.label, reason, entityId: d.entityId });
@@ -158,17 +164,18 @@ export function DeleteDialog() {
     if (ok) close();
   };
   return (
-    <div className="modal-back" onClick={close}>
-      <div className="modal" role="dialog" aria-label={t('delete_confirm')} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-back" onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); close(); } }}>
+      <div ref={box} className="modal" role="dialog" aria-modal="true" aria-label={t('delete_confirm')} onClick={(e) => e.stopPropagation()}>
         <h2>{t('delete_confirm')}</h2>
         <p style={{ margin: '6px 0 10px' }}><b>{d.label}</b></p>
         <div className={`banner ${direct ? 'warn' : 'info'}`}>{direct ? t('delete_note_partner') : t('delete_note_other')}</div>
         <Field label={t('delete_reason')} style={{ marginTop: 10 }}>
-          <textarea className="in" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} autoFocus placeholder="Doublon, erreur de saisie, fin de relation…" />
+          <textarea ref={note} className="in" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Doublon, erreur de saisie, fin de relation…" />
         </Field>
         <div className="actions" style={{ marginTop: 12 }}>
-          <button className="btn" onClick={close}>{t('close')}</button>
-          <button className={`btn ${direct ? 'danger' : 'primary'}`} disabled={reason.trim().length < 4} onClick={go}>{direct ? t('delete_now') : t('delete_request')}</button>
+          {/* [bumex-one] as every question (one/ask.tsx): Cancel, then the answer, red when it deletes at once (2026-11-20) */}
+          <button className="btn" onClick={close}>{ui.lang === 'en' ? 'Cancel' : 'Annuler'}</button>
+          <button className={`btn primary ${direct ? 'danger' : ''}`} disabled={reason.trim().length < 4} onClick={go}>{direct ? t('delete_now') : t('delete_request')}</button>
         </div>
       </div>
     </div>

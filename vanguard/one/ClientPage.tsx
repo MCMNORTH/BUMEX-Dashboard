@@ -8,6 +8,7 @@ import { Comments, Notes, type Result, type Say, when } from './Conversation';
 import { reload } from './Tasks';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
+import { confirmAsk } from './ask';
 
 // A client's page in the Clients room, as BUMEX One's client page had it: the relationship (contact details, prospect
 // stage and next follow-up, account manager), its customer accounts in the entities (the accounting side), what it
@@ -126,7 +127,7 @@ export function ClientPanel({ clientId, onClose }: { clientId: string; onClose: 
   const health = HEALTH[summary.relationshipHealth] ?? HEALTH.healthy;
   const accounts = state.customers.filter((c) => (c as { clientId?: string }).clientId === client.id);
   const archive = async () => {
-    if (!window.confirm(say(`Archiver le client « ${client.name} » ?`, `Archive the client "${client.name}"?`))) return;
+    if (!(await confirmAsk({ title: say(`Archiver le client « ${client.name} » ?`, `Archive the client "${client.name}"?`), confirm: say('Archiver', 'Archive') }))) return;
     if (await run(() => shelveClientAction(client.id), say('Client archivé', 'Client archived'))) onClose();
   };
   const tabs = [

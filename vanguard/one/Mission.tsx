@@ -15,6 +15,7 @@ import { reload, type TicketTask } from './Tasks';
 import { useSay } from './say';
 import { Avatar, Lozenge, PriorityIcon, TypeIcon, hoursText, statusTone } from './work-ui';
 import { Select } from '../ui/Select';
+import { confirmAsk } from './ask';
 
 // A mission's page in the Missions room (redrawn on 2026-10-28, laid out as a ticket's page): its name and state on top,
 // then its figures, description, tickets and milestones, with its details and alerts on the side; its team, notes,
@@ -85,7 +86,7 @@ export function MissionPanel({ projectId, initialTab, onClose }: { projectId: st
   const [statusLabel, missionTone] = missionStatus(project.status === 'draft' ? 'planned' : project.status, say);
   const priority = missionPriority(project.priority);
   const remove = async () => {
-    if (!window.confirm(say(`Supprimer la mission « ${project.name} » et ses tickets ?`, `Delete the mission "${project.name}" and its tickets?`))) return;
+    if (!(await confirmAsk({ title: say(`Supprimer la mission « ${project.name} » ?`, `Delete the mission "${project.name}"?`), message: say('Ses tickets sont supprimés avec elle.', 'Its tickets are deleted with it.'), confirm: say('Supprimer', 'Delete'), danger: true }))) return;
     if (await run(() => removeProjectAction(project.id), say('Mission supprimée', 'Mission deleted'))) onClose();
   };
   const tabs = [

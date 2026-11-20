@@ -9,6 +9,7 @@ import { dueIn } from './Missions';
 import { useSay } from './say';
 import { Avatar, Dialog, Lozenge, type Tone } from './work-ui';
 import { Select } from '../ui/Select';
+import { confirmAsk } from './ask';
 
 // The Missions room's "Jalons" tab: BUMEX One's Roadmap page (redrawn on 2026-10-28: the missions' names were cut).
 // Each mission as a lane over 3, 6 or 12 months, its full name beside it, with its milestones; then the milestones
@@ -172,7 +173,7 @@ export function MilestonesView({ entityId }: { entityId: Id }) {
                     <span className="rm-item-acts">
                       <button className="btn sm ghost" onClick={() => edit(l, m)}>{say('Modifier', 'Edit')}</button>
                       <button className="btn sm ghost" disabled={busy} aria-label={say('Supprimer', 'Delete')} title={say('Supprimer', 'Delete')}
-                        onClick={() => { if (window.confirm(say(`Supprimer le jalon « ${m.title} » ?`, `Delete the milestone "${m.title}"?`))) void run(() => changeMilestoneAction(m.id, l.id, 'delete'), say('Jalon supprimé', 'Milestone deleted')); }}><Icon name="close" size={13} /></button>
+                        onClick={() => { void confirmAsk({ title: say(`Supprimer le jalon « ${m.title} » ?`, `Delete the milestone "${m.title}"?`), confirm: say('Supprimer', 'Delete'), danger: true }).then((ok) => { if (ok) void run(() => changeMilestoneAction(m.id, l.id, 'delete'), say('Jalon supprimé', 'Milestone deleted')); }); }}><Icon name="close" size={13} /></button>
                     </span>
                   )}
                 </div>

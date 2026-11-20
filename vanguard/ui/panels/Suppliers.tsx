@@ -6,6 +6,7 @@ import {
 } from '@bumex/domain';
 import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, DeleteButton, downloadXlsx, entryRef } from '../common';
+import { textAsk } from '../../one/ask'; // [bumex-one] Fluent's dialog, not the browser's (2026-11-20)
 import { Select } from '../Select';
 
 type Tab = 'invoices' | 'new' | 'payments' | 'payables' | 'suppliers';
@@ -74,7 +75,7 @@ function Invoices({ entityId, onPay }: { entityId: Id; onPay: (id: Id) => void }
                     <td className="num">{si.currency !== 'MRU' ? si.currency + ' ' : ''}{fmt(si.totalHt)}</td><td className="num">{fmt(si.totalTax)}</td><td className="num">{si.withholdingAmount ? fmt(si.withholdingAmount) : '—'}</td><td className="num">{fmt(si.netPayable)}</td><td className="num">{fmt(si.amountPaid)}</td>
                     <td><Chip kind={STATUS_KIND[si.status]}>{STATUS_FR[si.status]}</Chip>{si.status === 'pending_approval' && <div className="small muted">{approverLabel(si)}</div>}</td>
                     <td style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
-                      {si.status === 'pending_approval' && <><button className="btn sm primary" onClick={() => apply((s) => approveSupplierInvoice(s, si.id), 'Approuvée et comptabilisée')}>Approuver</button>{' '}<button className="btn sm" onClick={() => { const reason = prompt('Motif du rejet ?'); if (reason) apply((s) => rejectSupplierInvoice(s, si.id, reason), 'Facture rejetée'); }}>Rejeter</button></>}
+                      {si.status === 'pending_approval' && <><button className="btn sm primary" onClick={() => apply((s) => approveSupplierInvoice(s, si.id), 'Approuvée et comptabilisée')}>Approuver</button>{' '}<button className="btn sm" onClick={() => { void textAsk({ title: 'Rejeter la facture', label: 'Motif du rejet', required: true, confirm: 'Rejeter', danger: true }).then((reason) => { if (reason) apply((s) => rejectSupplierInvoice(s, si.id, reason), 'Facture rejetée'); }); }}>Rejeter</button></>}
                       {si.status === 'posted' && <button className="btn sm primary" onClick={() => onPay(si.id)}>Régler</button>}
                     </td>
                   </tr>

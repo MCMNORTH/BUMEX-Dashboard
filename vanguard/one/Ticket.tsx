@@ -19,6 +19,7 @@ import { SHORT_REASONS, StageLozenge } from './stages';
 import { RichText } from './RichText';
 import { QuickLogButton } from './QuickLog';
 import { useMedia } from './screen'; // [mobile]
+import { confirmAsk, textAsk } from './ask';
 
 // A ticket in the Tasks room, laid out as Jira's (asked on 2026-10-27): its key and place in the breadcrumb; on the
 // left its description, attachments, sub-tasks, linked tickets and activity (comments, history, work log); on the
@@ -143,7 +144,7 @@ function TopBar({ view, busy, say, onClose, run, onAdd, backLabel }: { view: Tic
   };
   const remove = async () => {
     setMenu(null);
-    if (!window.confirm(say(`Supprimer le ticket « ${ticket.title} » ?`, `Delete the ticket "${ticket.title}"?`))) return;
+    if (!(await confirmAsk({ title: say(`Supprimer le ticket « ${ticket.title} » ?`, `Delete the ticket "${ticket.title}"?`), confirm: say('Supprimer', 'Delete'), danger: true }))) return;
     if (await run(() => removeTicketAction(ticket.id), say('Ticket supprimé', 'Ticket deleted'))) onClose();
   };
   const canAdd = view.canUpdate || view.canAttach || view.canLink;
@@ -291,7 +292,7 @@ function Attachments({ view, busy, say, run, onAdd }: { view: TicketView; busy: 
                 <td><a className="tk-file" href={`/api/documents/${a.id}/download`} target="_blank" rel="noreferrer"><span className={`ficon ${isImage(a.mime) ? 'img' : ''}`} aria-hidden="true" />{a.fileName ?? a.title}</a>{a.by && <span className="small muted"> · {a.by}</span>}</td>
                 <td className="small">{date(a.at)}</td>
                 <td className="num small">{sizeText(a.size, say)}</td>
-                <td className="num">{view.canAttach && <button className="btn sm ghost" disabled={busy} onClick={() => { if (window.confirm(say(`Supprimer « ${a.fileName ?? a.title} » ?`, `Delete "${a.fileName ?? a.title}"?`))) void run(() => changeDocumentAction(a.id, 'delete'), say('Pièce jointe supprimée', 'Attachment deleted')); }} aria-label={say('Supprimer', 'Delete')}><Icon name="close" size={13} /></button>}</td>
+                <td className="num">{view.canAttach && <button className="btn sm ghost" disabled={busy} onClick={() => { void confirmAsk({ title: say(`Supprimer « ${a.fileName ?? a.title} » ?`, `Delete "${a.fileName ?? a.title}"?`), confirm: say('Supprimer', 'Delete'), danger: true }).then((ok) => { if (ok) void run(() => changeDocumentAction(a.id, 'delete'), say('Pièce jointe supprimée', 'Attachment deleted')); }); }} aria-label={say('Supprimer', 'Delete')}><Icon name="close" size={13} /></button>}</td>
               </tr>
             ))}
           </tbody>
@@ -627,14 +628,14 @@ function Details({ view, busy, say, setField, onLogged }: { view: TicketView; bu
         <dt>{say('Mission', 'Mission')}</dt>
         <dd>
           {canManage
-            ? <Select recent="missions" className="in tk-fieldsel" value={ticket.project_id} disabled={busy} onChange={(e) => { if (window.confirm(say('Déplacer le ticket vers cette mission ? Il reprend à la première étape de son tableau.', "Move the ticket to this mission? It restarts at its board's first stage."))) void setField('project_id', e.target.value); }} aria-label={say('Mission', 'Mission')}>{view.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select>
+            ? <Select recent="missions" className="in tk-fieldsel" value={ticket.project_id} disabled={busy} onChange={(e) => { const projectId = e.target.value; void confirmAsk({ title: say('Déplacer le ticket vers cette mission ?', 'Move the ticket to this mission?'), message: say('Il reprend à la première étape de son tableau.', "It restarts at its board's first stage."), confirm: say('Déplacer', 'Move') }).then((ok) => { if (ok) void setField('project_id', projectId); }); }} aria-label={say('Mission', 'Mission')}>{view.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select>
             : <button className="linkish" onClick={() => openRoom('missions', `mission:${ticket.project_id}`)}>{ticket.projectName ?? '—'}</button>}
         </dd>
         {ticket.clientName && <><dt>{say('Client', 'Client')}</dt><dd>{ticket.clientName}</dd></>}
         {(ticket.github_issue_url || canUpdate) && <>
           <dt>GitHub</dt>
           <dd>{ticket.github_issue_url ? <a href={ticket.github_issue_url} target="_blank" rel="noreferrer">{say("Ouvrir l'incident", 'Open the issue')}</a> : null}
-            {canUpdate && <button className="linkish small" style={{ marginLeft: ticket.github_issue_url ? 8 : 0 }} onClick={() => { const url = window.prompt(say("Adresse de l'incident GitHub (vide pour retirer)", 'GitHub issue address (empty to remove)'), ticket.github_issue_url ?? ''); if (url !== null) void setField('github_issue_url', url.trim()); }}>{ticket.github_issue_url ? say('Modifier', 'Edit') : say('Ajouter un lien', 'Add a link')}</button>}
+            {canUpdate && <button className="linkish small" style={{ marginLeft: ticket.github_issue_url ? 8 : 0 }} onClick={() => { void textAsk({ title: say('Lien GitHub', 'GitHub link'), message: say('Vide pour retirer le lien.', 'Empty to remove the link.'), label: say("Adresse de l'incident GitHub", 'GitHub issue address'), value: ticket.github_issue_url ?? '', placeholder: 'https://github.com/…', confirm: say('Enregistrer', 'Save') }).then((url) => { if (url !== null) void setField('github_issue_url', url.trim()); }); }}>{ticket.github_issue_url ? say('Modifier', 'Edit') : say('Ajouter un lien', 'Add a link')}</button>}
           </dd>
         </>}
       </dl>

@@ -415,6 +415,13 @@ kbd { font-family: var(--font); font-size: 11px; padding: 0 5px; border: 1px sol
 .modal-back { position: fixed; inset: 0; background: var(--overlay); z-index: 90; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .modal { width: min(520px, 100%); background: var(--paper); border: 1px solid var(--stroke); border-radius: var(--r); box-shadow: var(--shadow-64); padding: 20px 24px; color: var(--ink); }
 .modal h2 { margin: 0; font-size: 18px; }
+/* [bumex-one] a question (one/ask.tsx): its title, what it does, its fields, Cancel and the answer; over every panel */
+.modal-back.ask-back { z-index: 200; }
+.modal.ask { width: min(460px, 100%); }
+.modal.ask h2 { line-height: 24px; overflow-wrap: anywhere; }
+.ask-text { margin: 8px 0 0; color: var(--graphite); font-size: 14px; line-height: 20px; }
+.ask-field { margin-top: 14px; }
+.ask-actions { margin-top: 22px; }
 .gantt { display: grid; font-size: 12px; }
 .gantt .cell { height: 30px; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); position: relative; }
 .gantt .cell.today { background: var(--brand-tint); }

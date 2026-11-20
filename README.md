@@ -195,6 +195,8 @@ Ensure the referenced secrets, application URLs, email provider, and notificatio
 - Preserve database session context and permission checks when adding services or actions; use the shared database helpers.
 - Read [vanguard/VENDOR.md](vanguard/VENDOR.md) before modifying the imported ERP interface or engine. Integration changes are marked `[bumex-one]`; `vanguard/one/` holds the rebuilt work features.
 - Use Vanguard's `Select` and `Suggest` controls instead of native `<select>` and `<datalist>` elements. Lint and tests enforce this convention.
+- Ask a question with `vanguard/one/ask.tsx` (`confirmAsk`, `textAsk`, `fieldsAsk`: Fluent's dialog, red for a destructive answer) instead of the browser's `confirm()`, `prompt()` or `alert()`. A test enforces this convention.
+- Draw a dialog over the page with `useModal` (`vanguard/one/modal.ts`): Escape closes it and not the room behind, Tab stays inside, and the focus returns where it was. Page-level key listeners check `modalOpen()` first.
 - Regenerate `vanguard/vanguard.css` with `node scripts/vanguard-css.mjs` after editing the source `vanguard/styles.css`. Work-screen and responsive additions live in `vanguard/work.css` and `vanguard/responsive.css`.
 - Style with the tokens in `vanguard/styles.css` (light values in `:root`, dark ones in `:root[data-theme="dark"]`) rather than literal colours, so both themes work; keep the 2 px corners (`var(--r)`) and sentence-case labels. Icons come from `vanguard/ui/fluent-icons.ts` (Fluent System Icons, MIT) through `Icon`.
 - Update both French and English text, and verify affected layouts at desktop, tablet, and phone widths.

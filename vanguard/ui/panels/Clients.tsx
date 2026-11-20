@@ -10,6 +10,7 @@ import { ClientPanel } from '../../one/ClientPage'; // [bumex-one] a client's pa
 import { ContractPanel, ContractsTab } from '../../one/Contracts'; // [bumex-one] BUMEX One's contracts
 import { useSay } from '../../one/say'; // [bumex-one]
 import { Tabs, Field, Chip, D, Money, DeleteButton, downloadXlsx } from '../common';
+import { fieldsAsk } from '../../one/ask'; // [bumex-one] Fluent's dialog, not the browser's (2026-11-20)
 import { accountingStatus, paymentStatus } from '../../one/invoice-status'; // [bumex-one] two statuses: in the books, paid
 import { Select } from '../Select';
 import { WideNote } from '../../one/WideNote'; // [mobile]
@@ -203,7 +204,7 @@ function Invoices({ entityId, onPay, onEdit }: { entityId: Id; onPay: (id: Id) =
                     {i.status === 'draft' && <><button className="btn sm" onClick={() => onEdit(i.id)}>{t('edit')}</button>{' '}<button className="btn sm" onClick={() => apply((s) => validateInvoice(s, i.id), 'Facture validée et numérotée')}>{t('validate')}</button>{' '}</>}
                     {(i.status === 'draft' || i.status === 'validated') && <button className="btn sm primary" onClick={() => apply((s) => postInvoice(s, i.id), 'Facture comptabilisée')}>{t('post')}</button>}
                     {i.status === 'draft' && <>{' '}<DeleteButton table="sales_invoice" rowId={i.id} label={`Facture brouillon · ${c.name} · ${i.currency} ${fmt(i.netPayable)} · ${i.date}`} entityId={entityId} /></>}
-                    {o && <><button className="btn sm" onClick={() => onPay(i.id)}>Encaisser</button>{' '}<button className="btn sm" onClick={() => { const reason = prompt("Motif de l'avoir ?", 'remise commerciale'); if (reason === null) return; const number = prompt("N° de l'avoir (vide : automatique)", ''); if (number === null) return; apply((s) => createCreditNote(s, i.id, reason, s.today, undefined, number || undefined), 'Avoir émis et comptabilisé'); }}>Avoir</button></>}
+                    {o && <><button className="btn sm" onClick={() => onPay(i.id)}>Encaisser</button>{' '}<button className="btn sm" onClick={() => { void fieldsAsk({ title: 'Émettre un avoir', message: "L'avoir est comptabilisé dès son émission.", fields: [{ label: "Motif de l'avoir", value: 'remise commerciale' }, { label: "N° de l'avoir", placeholder: 'vide : automatique' }], confirm: "Émettre l'avoir" }).then((values) => { if (!values) return; const [reason, number] = values; apply((s) => createCreditNote(s, i.id, reason, s.today, undefined, number || undefined), 'Avoir émis et comptabilisé'); }); }}>Avoir</button></>}
                   </td>
                 </tr>
               );

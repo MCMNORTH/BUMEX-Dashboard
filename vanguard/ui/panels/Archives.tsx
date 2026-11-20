@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'; // [bumex-one] useEffect
 import { archiveRows, archiveQueue, rackLayout, archiveEngagement, retrieveArchive, returnArchive, destroyArchive, fmtDate, fmt, RACK_CAPACITY, type Id, type ArchiveStatus, type ArchiveKind } from '@bumex/domain';
 import { useStore } from '../../store';
 import { Chip, Icon, Tabs } from '../common'; // [bumex-one] Tabs
+import { confirmAsk } from '../../one/ask'; // [bumex-one] Fluent's dialog, not the browser's (2026-11-20)
 import { DocumentsTab } from '../../one/Documents'; // [bumex-one] BUMEX One's documents
 import { useSay } from '../../one/say'; // [bumex-one]
 
@@ -121,7 +122,7 @@ export function ArchivesPanel({ entityId, compact = false, initialTab }: { entit
                   <button className="btn sm" onClick={() => openEngagement(sel.engagement.id)}>{t('arc_open_eng')}</button>
                   {(sel.record.status === 'archived' || sel.record.status === 'pending_destruction') && <button className="btn sm" onClick={() => apply((s) => retrieveArchive(s, sel.record.id), `${t('arc_retrieved')} · ${sel.record.reference}`)}>{t('arc_retrieve')}</button>}
                   {sel.record.status === 'retrieved' && <button className="btn sm primary" onClick={() => apply((s) => returnArchive(s, sel.record.id), `${t('arc_archived')} · ${sel.record.reference}`)}>{t('arc_return')}</button>}
-                  {sel.record.status === 'pending_destruction' && isPartner && <button className="btn sm danger" onClick={() => { if (confirm(`${t('arc_destroy')} ${sel.record.reference} ?`)) apply((s) => destroyArchive(s, sel.record.id), `${t('arc_destroyed')} · ${sel.record.reference}`); }}>{t('arc_destroy')}</button>}
+                  {sel.record.status === 'pending_destruction' && isPartner && <button className="btn sm danger" onClick={() => { const { id, reference } = sel.record; void confirmAsk({ title: `${t('arc_destroy')} ${reference} ?`, confirm: t('arc_destroy'), danger: true }).then((ok) => { if (ok) apply((s) => destroyArchive(s, id), `${t('arc_destroyed')} · ${reference}`); }); }}>{t('arc_destroy')}</button>}
                 </div>
               </div>
             ) : (

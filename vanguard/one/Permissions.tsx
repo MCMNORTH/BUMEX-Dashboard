@@ -10,6 +10,7 @@ import { reload } from './Tasks';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
 import { WideNote } from './WideNote'; // [mobile]
+import { confirmAsk } from './ask';
 
 // The Settings room's Permissions tab, for the administrators who manage access (the "role modifiers"): who sees which
 // entity, and which parts of each. A role gives its standard parts; each person's can be tweaked per entity (a tweaked
@@ -212,8 +213,8 @@ function Editor({ person, data, onSaved }: { person: PermissionPerson; data: Per
       }
     };
     const save = () => run(() => savePermissionsAction(person.id, draft), person.access ? say('Accès enregistrés', 'Access saved') : say(`Accès ouvert · ${person.name}`, `Access opened · ${person.name}`));
-    const remove = () => {
-      if (!window.confirm(say(`Retirer l'accès de ${person.name} ? Cette personne ne pourra plus ouvrir Vanguard.`, `Remove ${person.name}'s access? They will no longer open Vanguard.`))) return;
+    const remove = async () => {
+      if (!(await confirmAsk({ title: say(`Retirer l'accès de ${person.name} ?`, `Remove ${person.name}'s access?`), message: say('Cette personne ne pourra plus ouvrir Vanguard.', 'They will no longer open Vanguard.'), confirm: say("Retirer l'accès", 'Remove access'), danger: true }))) return;
       run(() => removeAccessAction(person.id), say('Accès retiré', 'Access removed'));
     };
     const resend = async () => {
@@ -374,7 +375,7 @@ function PasswordRow({ person, self }: { person: PermissionPerson; self: boolean
     const [password, setPassword] = useState('');
     const [busy, setBusy] = useState(false);
     const set = async () => {
-      if (!window.confirm(self ? say('Changer votre mot de passe ?', 'Change your password?') : say(`Définir ce mot de passe pour ${person.name} ? Ses sessions ouvertes se fermeront.`, `Set this password for ${person.name}? Their open sessions will end.`))) return;
+      if (!(await confirmAsk(self ? { title: say('Changer votre mot de passe ?', 'Change your password?'), confirm: say('Changer', 'Change') } : { title: say(`Définir ce mot de passe pour ${person.name} ?`, `Set this password for ${person.name}?`), message: say('Ses sessions ouvertes se fermeront.', 'Their open sessions will end.'), confirm: say('Définir le mot de passe', 'Set the password') }))) return;
       setBusy(true);
       const result = await setPasswordAction(person.id, password).catch(() => ({ error: 'unavailable' as const }));
       setBusy(false);

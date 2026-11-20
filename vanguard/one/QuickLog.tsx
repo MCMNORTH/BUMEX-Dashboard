@@ -9,6 +9,7 @@ import { useStore } from '../store';
 import { Icon } from '../ui/common';
 import { Select } from '../ui/Select';
 import { useSay } from './say';
+import { useModal } from './modal';
 import type { Say } from './ticket-history';
 import { isTouch } from './screen'; // [mobile]
 
@@ -166,6 +167,8 @@ export function QuickLogDialog({ ticketId, onClose, onSaved }: { ticketId?: stri
   const say = useSay();
   const test = useStore((s) => s.state.session.testMode === true);
   const [data, setData] = useState<MyTime | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  useModal(box, onClose, { ownKeys: true }); // Tab stays in it, the focus goes back (modal.ts)
   useEffect(() => {
     let live = true;
     myTimeAction(null, test).then((d) => live && setData(d)).catch(() => live && setData(null));
@@ -173,9 +176,9 @@ export function QuickLogDialog({ ticketId, onClose, onSaved }: { ticketId?: stri
   }, [test]);
   // drawn over the page (a card or a row never cuts it), and its clicks stay its own (React bubbles them through)
   return createPortal(
-    <div className="ts-modal-back" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) onClose(); }} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') onClose(); }}>
-      <div className="ts-modal ql-modal" role="dialog" aria-modal="true" aria-label={say('Enregistrer du temps', 'Log time')}>
-        <div className="ts-modal-h"><h2>{say('Enregistrer du temps', 'Log time')}</h2><button className="btn sm ghost" onClick={onClose} aria-label="×"><Icon name="close" size={14} /></button></div>
+    <div className="ts-modal-back" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) { e.preventDefault(); onClose(); } }} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') onClose(); }}>
+      <div ref={box} className="ts-modal ql-modal" role="dialog" aria-modal="true" aria-label={say('Enregistrer du temps', 'Log time')}>
+        <div className="ts-modal-h"><h2>{say('Enregistrer du temps', 'Log time')}</h2><button className="btn sm ghost" onClick={onClose} aria-label={say('Fermer', 'Close')} title={say('Fermer', 'Close')}><Icon name="close" size={14} /></button></div>
         {data ? <QuickLog data={data} ticketId={ticketId} compact say={say} onSaved={() => { onSaved?.(); onClose(); }} /> : <span className="muted">{say('Chargement…', 'Loading…')}</span>}
         <div className="small muted" style={{ marginTop: 8 }}>
           <button className="linkish" onClick={() => { onClose(); useStore.getState().openRoom('time'); }}>{say('Voir ma semaine', 'See my week')} →</button>

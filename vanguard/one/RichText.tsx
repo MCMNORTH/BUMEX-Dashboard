@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from '../ui/common';
 import { useSay } from './say';
+import { textAsk } from './ask';
 
 // [bumex-one] A description typed as in a word processor (asked on 2026-10-28): bold, italic, a heading, bullet and
 // numbered lists, check boxes and links, seen as they will read, with the usual shortcuts (Ctrl/⌘ B, I). What it keeps
@@ -163,9 +164,18 @@ export function RichText({ value, onChange, onSubmit, placeholder, autoFocus, la
     if (!document.queryCommandState('insertUnorderedList')) run('insertUnorderedList');
     run('insertText', BOX);
   });
-  const link = () => {
-    const url = window.prompt(say('Adresse du lien (https://…)', 'Link address (https://…)'), 'https://');
-    if (url && SAFE_URL.test(url)) act(() => run('createLink', url));
+  // the address asked in Fluent's dialog (2026-11-20): the dialog takes the focus, and the editor, focused again, puts
+  // its caret anywhere; the words picked before are put back as they were, then linked
+  const link = async () => {
+    const picked = kept.current?.cloneRange() ?? null;
+    const url = await textAsk({ title: say('Insérer un lien', 'Insert a link'), label: say('Adresse du lien', 'Link address'), value: 'https://', placeholder: 'https://…', confirm: say('Insérer', 'Insert') });
+    if (!url || !SAFE_URL.test(url)) return;
+    const el = ref.current;
+    el?.focus();
+    const sel = window.getSelection();
+    if (el && sel && picked && el.contains(picked.commonAncestorContainer)) { sel.removeAllRanges(); sel.addRange(picked); }
+    run('createLink', url);
+    changed();
   };
   const key = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); onSubmit?.(); return; }

@@ -437,6 +437,13 @@
 .vanguard .modal-back:not(:where(.bumex-page, .bumex-page *)) { position: fixed; inset: 0; background: var(--overlay); z-index: 90; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .vanguard .modal:not(:where(.bumex-page, .bumex-page *)) { width: min(520px, 100%); background: var(--paper); border: 1px solid var(--stroke); border-radius: var(--r); box-shadow: var(--shadow-64); padding: 20px 24px; color: var(--ink); }
 .vanguard .modal h2:not(:where(.bumex-page, .bumex-page *)) { margin: 0; font-size: 18px; }
+/* [bumex-one] a question (one/ask.tsx): its title, what it does, its fields, Cancel and the answer; over every panel */
+.vanguard .modal-back.ask-back:not(:where(.bumex-page, .bumex-page *)) { z-index: 200; }
+.vanguard .modal.ask:not(:where(.bumex-page, .bumex-page *)) { width: min(460px, 100%); }
+.vanguard .modal.ask h2:not(:where(.bumex-page, .bumex-page *)) { line-height: 24px; overflow-wrap: anywhere; }
+.vanguard .ask-text:not(:where(.bumex-page, .bumex-page *)) { margin: 8px 0 0; color: var(--graphite); font-size: 14px; line-height: 20px; }
+.vanguard .ask-field:not(:where(.bumex-page, .bumex-page *)) { margin-top: 14px; }
+.vanguard .ask-actions:not(:where(.bumex-page, .bumex-page *)) { margin-top: 22px; }
 .vanguard .gantt:not(:where(.bumex-page, .bumex-page *)) { display: grid; font-size: 12px; }
 .vanguard .gantt .cell:not(:where(.bumex-page, .bumex-page *)) { height: 30px; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); position: relative; }
 .vanguard .gantt .cell.today:not(:where(.bumex-page, .bumex-page *)) { background: var(--brand-tint); }

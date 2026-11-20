@@ -1,4 +1,4 @@
-import { useMemo, useState, type DragEvent } from 'react';
+import { useMemo, useRef, useState, type DragEvent } from 'react';
 import { addDays, daysBetween, type Id, type Task } from '@bumex/domain';
 import type { TaskTicket } from '@/lib/erp/vanguard/tickets';
 import { updateTaskDueDateAction } from '@/app/(app)/planning/actions';
@@ -11,6 +11,7 @@ import { hoursText } from './work-ui';
 import { Select } from '../ui/Select';
 import { useScreen } from './screen'; // [mobile]
 import { useBackLayer } from './back'; // [mobile]
+import { useModal } from './modal';
 
 // The Missions room's "Semaine" tab: BUMEX One's weekly planning on the floor's tickets (lib/erp/vanguard/tickets.ts),
 // day by day, with what is late, what has no date and each person's load. A task dropped on another day is
@@ -192,9 +193,11 @@ function MoveSheet({ task, days, dayLabel, onPick, onClose }: { task: TicketTask
   const say = useSay();
   const [other, setOther] = useState('');
   useBackLayer(true, onClose);
+  const box = useRef<HTMLDivElement>(null);
+  useModal(box, onClose); // Escape, Tab, the focus (modal.ts)
   return (
     <div className="modal-back" onClick={onClose}>
-      <div className="modal" role="dialog" aria-label={say('Déplacer', 'Move')} onClick={(e) => e.stopPropagation()}>
+      <div ref={box} className="modal" role="dialog" aria-modal="true" aria-label={say('Déplacer', 'Move')} onClick={(e) => e.stopPropagation()}>
         <h2>{say('Déplacer', 'Move')} · {task.title}</h2>
         <div className="pill-list" style={{ margin: '14px 0' }}>
           {days.map((day) => <button key={day} className={`pill ${task.dueDate === day ? 'on' : ''}`} onClick={() => onPick(day)}>{dayLabel(day)}</button>)}

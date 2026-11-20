@@ -6,6 +6,7 @@ import type { CommentEntityType, CommentRecord } from '@/types/comment';
 import { canCreateNoteByRole, getAllowedNoteVisibilities, type InternalNoteEntityType, type InternalNoteRecord, type NoteVisibility } from '@/types/note';
 import { Chip, Field } from '../ui/common';
 import { Select } from '../ui/Select';
+import { confirmAsk } from './ask';
 
 // The conversation that travels with a ticket, a mission, a client or a contract, as BUMEX One had it: comments
 // (mentions with @Full Name, which BUMEX One notifies; internal ones hidden from shareholders) and internal notes
@@ -80,7 +81,7 @@ export function Comments({ entityType, entityId, comments, people, role, me, can
             {mine && editing?.id !== c.id && (
               <div className="actions" style={{ justifyContent: 'flex-start', marginTop: 3 }}>
                 <button className="btn sm ghost" onClick={() => setEditing({ id: c.id, body: c.body })}>{say('Modifier', 'Edit')}</button>
-                <button className="btn sm ghost" disabled={busy} onClick={() => { if (window.confirm(say('Supprimer ce commentaire ?', 'Delete this comment?'))) void run(() => deleteCommentAction(form({ comment_id: c.id, return_path: '' })), say('Commentaire supprimé', 'Comment deleted')); }}>{say('Supprimer', 'Delete')}</button>
+                <button className="btn sm ghost" disabled={busy} onClick={() => { void confirmAsk({ title: say('Supprimer ce commentaire ?', 'Delete this comment?'), confirm: say('Supprimer', 'Delete'), danger: true }).then((ok) => { if (ok) void run(() => deleteCommentAction(form({ comment_id: c.id, return_path: '' })), say('Commentaire supprimé', 'Comment deleted')); }); }}>{say('Supprimer', 'Delete')}</button>
               </div>
             )}
           </div>
@@ -156,7 +157,7 @@ export function Notes({ entityType, entityId, notes, role, me, busy, run, say }:
               <div className="actions" style={{ justifyContent: 'flex-start', marginTop: 3 }}>
                 <button className="btn sm ghost" onClick={() => setDraft({ id: n.id, title: n.title, body: n.body, visibility: n.visibility, pinned: n.pinned })}>{say('Modifier', 'Edit')}</button>
                 <button className="btn sm ghost" disabled={busy} onClick={() => run(() => togglePinnedNoteAction(form({ note_id: n.id, pinned: n.pinned ? '' : 'on', return_path: '' })))}>{n.pinned ? say('Désépingler', 'Unpin') : say('Épingler', 'Pin')}</button>
-                <button className="btn sm ghost" disabled={busy} onClick={() => { if (window.confirm(say('Archiver cette note ?', 'Archive this note?'))) void run(() => archiveNoteAction(form({ note_id: n.id, return_path: '' })), say('Note archivée', 'Note archived')); }}>{say('Archiver', 'Archive')}</button>
+                <button className="btn sm ghost" disabled={busy} onClick={() => { void confirmAsk({ title: say('Archiver cette note ?', 'Archive this note?'), confirm: say('Archiver', 'Archive') }).then((ok) => { if (ok) void run(() => archiveNoteAction(form({ note_id: n.id, return_path: '' })), say('Note archivée', 'Note archived')); }); }}>{say('Archiver', 'Archive')}</button>
               </div>
             )}
           </div>

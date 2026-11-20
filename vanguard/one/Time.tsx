@@ -4,6 +4,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { myTimeAction, reviewTicketsAction, teamTimeAction, type MyTime, type RecentTicket, type ReviewTicket, type TeamTime } from '@/lib/erp/vanguard/time-actions';
 import { TicketPanel } from './Ticket';
 import { useBackLayer } from './back';
+import { modalOpen, useModal } from './modal';
 import { floorCode } from '@/lib/erp/vanguard/floors';
 import { addDays } from '@/lib/timesheet/validation';
 import { groupWeeklyEntries, missionKey } from '@/lib/timesheet/weekly';
@@ -48,10 +49,13 @@ function useDayLabel() {
 }
 
 function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+  const close = useStore((st) => (st.ui.lang === 'en' ? 'Close' : 'Fermer'));
+  const box = useRef<HTMLDivElement>(null);
+  useModal(box, onClose, { ownKeys: true }); // Tab stays in it, the focus goes back (modal.ts)
   return (
-    <div className="ts-modal-back" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}>
-      <div className={`ts-modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
-        <div className="ts-modal-h"><h2>{title}</h2><button className="btn sm ghost" onClick={onClose} aria-label="×"><Icon name="close" size={14} /></button></div>
+    <div className="ts-modal-back" onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); onClose(); } }} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}>
+      <div ref={box} className={`ts-modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+        <div className="ts-modal-h"><h2>{title}</h2><button className="btn sm ghost" onClick={onClose} aria-label={close} title={close}><Icon name="close" size={14} /></button></div>
         {children}
       </div>
     </div>
@@ -646,8 +650,8 @@ function TeamSheet({ initialWeek }: { initialWeek?: string | null }) {
   useBackLayer(Boolean(ticketOpen), closeTicket);
   useEffect(() => {
     if (!ticketOpen) return;
-    // Escape closes the panel, not the room (vanguard/ui/Header.tsx listens on the window too)
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setTicketOpen(null); } };
+    // Escape closes the panel, not the room (vanguard/ui/Header.tsx listens on the window too); a dialog over it first
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !modalOpen()) { e.stopPropagation(); setTicketOpen(null); } };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [ticketOpen]);

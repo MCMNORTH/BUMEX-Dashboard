@@ -7,6 +7,7 @@ import { Icon } from '../ui/common';
 import type { Run, Say } from './Conversation';
 import { ago, describeHistory, type HistoryValue } from './ticket-history';
 import { Avatar, Lozenge, hoursText, stageTone } from './work-ui';
+import { confirmAsk } from './ask';
 
 // [bumex-one] A ticket's activity as Jira shows it (vanguard/one/Ticket.tsx): all of it, the comments, the history,
 // the work log; newest or oldest first. Comments mention people with @Full Name (BUMEX One's format: they are
@@ -139,7 +140,7 @@ export function TicketActivity({ view, busy, run, say }: { view: TicketView; bus
             {mine && (
               <div className="tk-cacts">
                 <button className="linkish small" onClick={() => setEditing({ id: c.id, body: c.body })}>{say('Modifier', 'Edit')}</button>
-                <button className="linkish small" disabled={busy} onClick={() => { if (window.confirm(say('Supprimer ce commentaire ?', 'Delete this comment?'))) void run(() => deleteCommentAction(form({ comment_id: c.id, return_path: '' })), say('Commentaire supprimé', 'Comment deleted')); }}>{say('Supprimer', 'Delete')}</button>
+                <button className="linkish small" disabled={busy} onClick={() => { void confirmAsk({ title: say('Supprimer ce commentaire ?', 'Delete this comment?'), confirm: say('Supprimer', 'Delete'), danger: true }).then((ok) => { if (ok) void run(() => deleteCommentAction(form({ comment_id: c.id, return_path: '' })), say('Commentaire supprimé', 'Comment deleted')); }); }}>{say('Supprimer', 'Delete')}</button>
               </div>
             )}
           </>

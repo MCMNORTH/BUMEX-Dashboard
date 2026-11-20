@@ -6,6 +6,7 @@ import {
 } from '@bumex/domain';
 import { useStore } from '../store';
 import { Chip, Field } from '../ui/common';
+import { confirmAsk } from './ask';
 import { Select, Suggest } from '../ui/Select';
 
 // [bumex-one] Banque › Rapprochement and Banque › Règles (asked by Sidaty on 2026-11-18, lib/erp/engine/bank.ts): a
@@ -256,7 +257,7 @@ export function BankRules({ entityId }: { entityId: Id }) {
                     <td className="num">{n ? <Chip kind="warn">{n}</Chip> : '—'}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       <button className="btn sm" onClick={() => load(r)}>Modifier</button>{' '}
-                      <button className="btn sm" onClick={() => { if (confirm(`Supprimer la règle « ${r.pattern} » ? Les lignes déjà comptabilisées ne changent pas.`)) apply((s) => deleteBankRule(s, r.id!), 'Règle supprimée'); }}>Supprimer</button>
+                      <button className="btn sm" onClick={() => { const id = r.id!; void confirmAsk({ title: `Supprimer la règle « ${r.pattern} » ?`, message: 'Les lignes déjà comptabilisées ne changent pas.', confirm: 'Supprimer', danger: true }).then((ok) => { if (ok) apply((s) => deleteBankRule(s, id), 'Règle supprimée'); }); }}>Supprimer</button>
                     </td>
                   </tr>
                 );

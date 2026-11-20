@@ -7,6 +7,7 @@ import { TowerHud, FloorHud } from './ui/Hud';
 import { RackHud } from './ui/RackHud';
 import { Sheet, FlatLayout } from './ui/Rooms';
 import { DeleteDialog } from './ui/common';
+import { AskHost } from './one/ask'; // [bumex-one] the questions in Fluent's dialog, not the browser's (2026-11-20)
 import { useRoomHistory } from './one/back'; // [mobile] Back goes back one screen
 import { PhoneNav } from './one/PhoneNav'; // [mobile]
 import { useScreen } from './one/screen'; // [mobile]
@@ -82,6 +83,7 @@ export function App() {
       </div>
       {phone && <PhoneNav />}
       <DeleteDialog />
+      <AskHost />
       <ModeSwitch />
       <Toast />
     </div>

@@ -8,6 +8,7 @@ import { Select } from './Select';
 import { Icon } from './common';
 import { useScreen } from '../one/screen'; // [mobile]
 import { goBack, useCanGoBack } from '../one/back'; // [mobile]
+import { modalOpen } from '../one/modal'; // [bumex-one] a dialog's keys are its own (2026-11-20)
 import { setThemePref, useTheme } from '@/lib/theme'; // [bumex-one] light or dark (2026-11-19)
 
 export function Header() {
@@ -24,6 +25,7 @@ export function Header() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (modalOpen()) return; // [bumex-one] under a dialog, the page hears no key: Escape closes the dialog, not the room
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         inputRef.current?.focus();

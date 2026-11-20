@@ -1,7 +1,9 @@
-import { type CSSProperties, type ReactNode } from 'react';
+import { useStore } from '../store';
+import { useRef, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { LOAD_PRIORITIES, type Load } from '@/lib/work/load';
 import { Icon } from '../ui/common';
+import { useModal } from './modal';
 import type { Say } from './ticket-history';
 
 // [bumex-one] The small pieces the tickets are drawn with, as Jira draws them (the ticket page, the board, the list,
@@ -92,10 +94,13 @@ export function LoadBar({ load, say, compact }: { load: Load; say: Say; compact?
 
 /** A form over the page (the mission's, a milestone's): drawn in Vanguard's container so no card cuts it, its clicks its own. */
 export function Dialog({ title, onClose, wide, children }: { title: string; onClose: () => void; wide?: boolean; children: ReactNode }) {
+  const close = useStore((s) => (s.ui.lang === 'en' ? 'Close' : 'Fermer'));
+  const box = useRef<HTMLDivElement>(null);
+  useModal(box, onClose, { ownKeys: true }); // Tab stays in it, the focus goes back (modal.ts)
   return createPortal(
-    <div className="ts-modal-back" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) onClose(); }} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') onClose(); }}>
-      <div className={`ts-modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
-        <div className="ts-modal-h"><h2>{title}</h2><button className="btn sm ghost" onClick={onClose} aria-label="×"><Icon name="close" size={14} /></button></div>
+    <div className="ts-modal-back" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) { e.preventDefault(); onClose(); } }} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') onClose(); }}>
+      <div ref={box} className={`ts-modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+        <div className="ts-modal-h"><h2>{title}</h2><button className="btn sm ghost" onClick={onClose} aria-label={close} title={close}><Icon name="close" size={14} /></button></div>
         {children}
       </div>
     </div>,

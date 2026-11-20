@@ -5,6 +5,7 @@ import { PRIORITY, TYPES, label } from './Tasks';
 import { stageLabel } from './stages';
 import { NO_FILTERS, activeFilterCount, isFiltered, stageFilterKey, type DueFilter, type GroupBy, type WorkFilters, type WorkTicket } from './work-filters';
 import { Avatar, PriorityIcon, TypeIcon } from './work-ui';
+import { modalOpen } from './modal';
 import type { Say } from './ticket-history';
 
 // The toolbar above the board and the list, as Jira's (asked on 2026-10-27), shared by the Tasks room and My work
@@ -37,7 +38,7 @@ export function WorkToolbar<T extends WorkTicket>({ tickets, filters, setFilters
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+      if (e.key !== 'Escape' || modalOpen()) return; // a dialog over them closes first
       e.stopPropagation();
       setOpen(false);
       toggleRef.current?.focus();

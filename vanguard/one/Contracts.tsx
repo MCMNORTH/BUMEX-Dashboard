@@ -8,6 +8,7 @@ import { Chip, D, Field, Icon } from '../ui/common';
 import { Comments, Notes, type Result, type Say, when } from './Conversation';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
+import { confirmAsk } from './ask';
 
 // The Clients room's "Contrats" tab: BUMEX One's contracts, with what renews soon, and each contract's page (details,
 // edit form, archive, notes, conversation, history). Saved by BUMEX One's contract actions, under their rules.
@@ -188,7 +189,7 @@ export function ContractPanel({ contractId, onClose }: { contractId: string; onC
           {c.renewalState === 'renewing_soon' && <Chip kind="warn">{say('à renouveler', 'renewing soon')}</Chip>}
           <div className="actions" style={{ marginLeft: 'auto' }}>
             {canEdit && <button className="btn sm" onClick={edit}>{editing ? say('Fermer le formulaire', 'Close the form') : say('Modifier', 'Edit')}</button>}
-            {canEdit && c.status !== 'archived' && <button className="btn sm danger" disabled={busy} onClick={async () => { if (window.confirm(say(`Archiver « ${c.title} » ?`, `Archive "${c.title}"?`)) && (await run(() => shelveContractAction(c.id), say('Contrat archivé', 'Contract archived')))) onClose(); }}>{say('Archiver', 'Archive')}</button>}
+            {canEdit && c.status !== 'archived' && <button className="btn sm danger" disabled={busy} onClick={async () => { if ((await confirmAsk({ title: say(`Archiver « ${c.title} » ?`, `Archive "${c.title}"?`), confirm: say('Archiver', 'Archive') })) && (await run(() => shelveContractAction(c.id), say('Contrat archivé', 'Contract archived')))) onClose(); }}>{say('Archiver', 'Archive')}</button>}
           </div>
         </div>
         <div role="tablist" className="tabs" style={{ display: 'flex', gap: 4 }}>

@@ -8,6 +8,7 @@ import {
 import { useStore } from '../../store';
 import { FxRevaluationCard } from '../../one/FxRevaluation'; // [bumex-one] foreign currencies revalued at year end
 import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, saveFile, downloadXlsx, readXlsx, DeleteButton } from '../common';
+import { confirmAsk, textAsk } from '../../one/ask'; // [bumex-one] Fluent's dialog, not the browser's (2026-11-20)
 import { Select, Suggest } from '../Select';
 import { WideNote } from '../../one/WideNote'; // [mobile]
 
@@ -301,7 +302,7 @@ function EntryRow({ e, expanded, onToggle }: { e: JournalEntry; expanded: boolea
             </table>
             <div className="actions" style={{ marginTop: 8 }}>
               <span className="small muted" style={{ marginRight: 'auto' }}>{e.postedAt ? `Comptabilisée le ${e.postedAt.slice(0, 16).replace('T', ' ')} par ${e.postedBy} · hash ${e.hash?.slice(0, 12)}…` : 'Brouillon'}</span>
-              {e.status === 'posted' && <button className="btn sm" onClick={() => { const reason = prompt('Motif de l\'extourne ?', 'erreur de saisie'); if (reason !== null) apply((s) => reverseEntry(s, e.id, s.today, reason), 'Extournée'); }}>{t('reverse')}</button>}
+              {e.status === 'posted' && <button className="btn sm" onClick={() => { void textAsk({ title: 'Extourner l\'écriture', message: 'Une écriture inverse est passée à la date du jour.', label: 'Motif de l\'extourne', value: 'erreur de saisie', confirm: t('reverse') }).then((reason) => { if (reason !== null) apply((s) => reverseEntry(s, e.id, s.today, reason), 'Extournée'); }); }}>{t('reverse')}</button>}
             </div>
           </td>
         </tr>
@@ -510,7 +511,7 @@ function Chart({ entityId }: { entityId: Id }) {
             <span style={{ marginLeft: 'auto' }} />
             <Select className="in" style={{ width: 300 }} value={template} onChange={(e) => setTemplate(e.target.value as CoaTemplate)}>{CHART_TEMPLATES.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.country} · {x.accounts} comptes</option>)}</Select>
             <button className="btn sm" onClick={() => apply((s) => applyChartTemplate(s, entityId, template, 'merge'), `Plan complété avec ${template}`)}>Compléter avec ce plan</button>
-            <button className="btn sm danger" disabled={hasEntries} title={hasEntries ? 'Des écritures existent : remplacement impossible' : ''} onClick={() => { if (confirm(`Remplacer le plan de ${entity.name} par ${template} ? Les comptes, codes taxe et clés de paramétrage sont réinitialisés.`)) apply((s) => applyChartTemplate(s, entityId, template, 'replace'), `Plan ${template} activé`); }}>Remplacer (entité vierge)</button>
+            <button className="btn sm danger" disabled={hasEntries} title={hasEntries ? 'Des écritures existent : remplacement impossible' : ''} onClick={() => { void confirmAsk({ title: `Remplacer le plan de ${entity.name} par ${template} ?`, message: 'Les comptes, codes taxe et clés de paramétrage sont réinitialisés.', confirm: 'Remplacer', danger: true }).then((ok) => { if (ok) apply((s) => applyChartTemplate(s, entityId, template, 'replace'), `Plan ${template} activé`); }); }}>Remplacer (entité vierge)</button>
           </div>
           <div className="actions" style={{ justifyContent: 'flex-start', marginTop: 10, flexWrap: 'wrap' }}>
             <button className="btn sm" onClick={exportXlsx}>Exporter le plan (Excel)</button>
@@ -599,7 +600,7 @@ function Setup({ entityId }: { entityId: Id }) {
         </div>
         <table>
           <thead><tr><th>Code</th><th>Intitulé</th><th>Type</th><th className="num">Écritures</th><th>Utilisation</th><th></th></tr></thead>
-          <tbody>{journals.map((j) => { const u = journalUsage(state, j.id); return <tr key={j.id} className={j.id === editId ? 'sel' : ''}><td className="mono">{j.code}</td><td>{j.name}</td><td>{JOURNAL_KINDS.find((k) => k.id === j.kind)?.name}</td><td className="num">{u.posted}{u.drafts ? ` (+${u.drafts} brouillon)` : ''}</td><td className="small muted">{[u.banks ? `${u.banks} compte(s) bancaire(s)` : '', u.loans ? `${u.loans} emprunt(s)` : ''].filter(Boolean).join(' · ') || '—'}</td><td style={{ whiteSpace: 'nowrap' }}><button className="btn sm" onClick={() => load(j.id)}>{t('edit')}</button> {u.posted === 0 && u.drafts === 0 && u.banks === 0 && u.loans === 0 && <button className="btn sm danger" onClick={() => { if (confirm(`Supprimer le journal ${j.code} ?`)) apply((s) => deleteJournal(s, j.id), 'Journal supprimé'); }}>{t('delete')}</button>}</td></tr>; })}</tbody>
+          <tbody>{journals.map((j) => { const u = journalUsage(state, j.id); return <tr key={j.id} className={j.id === editId ? 'sel' : ''}><td className="mono">{j.code}</td><td>{j.name}</td><td>{JOURNAL_KINDS.find((k) => k.id === j.kind)?.name}</td><td className="num">{u.posted}{u.drafts ? ` (+${u.drafts} brouillon)` : ''}</td><td className="small muted">{[u.banks ? `${u.banks} compte(s) bancaire(s)` : '', u.loans ? `${u.loans} emprunt(s)` : ''].filter(Boolean).join(' · ') || '—'}</td><td style={{ whiteSpace: 'nowrap' }}><button className="btn sm" onClick={() => load(j.id)}>{t('edit')}</button> {u.posted === 0 && u.drafts === 0 && u.banks === 0 && u.loans === 0 && <button className="btn sm danger" onClick={() => { void confirmAsk({ title: `Supprimer le journal ${j.code} ?`, confirm: t('delete'), danger: true }).then((ok) => { if (ok) apply((s) => deleteJournal(s, j.id), 'Journal supprimé'); }); }}>{t('delete')}</button>}</td></tr>; })}</tbody>
         </table>
         <div className="card" style={{ margin: 10 }}>
           <h2>{editing ? `Journal ${editing.code}` : 'Nouveau journal'}</h2>
