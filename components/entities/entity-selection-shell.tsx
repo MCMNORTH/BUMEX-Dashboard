@@ -25,7 +25,6 @@ export function EntitySelectionShell({ error = "" }: { error?: string }) {
 
   return (
     <main className="relative min-h-dvh overflow-hidden bg-muted/50 px-4 py-5 sm:px-6 lg:px-8">
-      <div className="absolute inset-0 bg-slate-950/18 dark:bg-slate-950/38" />
 
       {selectedCode ? (
         <div className="pointer-events-none fixed left-6 top-6 z-50 animate-[entityFly_720ms_cubic-bezier(0.18,0.89,0.32,1.28)_forwards]">
@@ -36,7 +35,7 @@ export function EntitySelectionShell({ error = "" }: { error?: string }) {
       <div className="relative flex min-h-full items-center justify-center">
         <div className="w-full max-w-3xl rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-elevated)] sm:p-6">
           <div className="max-w-md">
-              <h1 className="text-2xl font-semibold tracking-tight">
+              <h1 className="text-2xl font-semibold">
                 {locale === "fr" ? "Choisissez votre entité active." : "Choose your active entity."}
               </h1>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -47,7 +46,7 @@ export function EntitySelectionShell({ error = "" }: { error?: string }) {
           </div>
 
           {error ? (
-            <div className="mt-6 rounded-[24px] border border-danger/25 bg-danger/10 px-5 py-4 text-sm text-danger dark:border-danger/20 dark:bg-danger/12">
+            <div className="mt-6 rounded-lg border border-danger/25 bg-danger/10 px-5 py-4 text-sm text-danger dark:border-danger/20 dark:bg-danger/12">
               {error}
             </div>
           ) : null}
@@ -88,7 +87,7 @@ export function EntitySelectionShell({ error = "" }: { error?: string }) {
                       <div
                         className={cn(
                           "flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground transition-colors",
-                          entity.available && "group-hover:translate-x-1 group-hover:bg-slate-950 group-hover:text-white dark:group-hover:bg-primary/16 dark:group-hover:text-primary",
+                          entity.available && "group-hover:bg-primary group-hover:text-primary-foreground",
                         )}
                       >
                         <ArrowRight className="size-4" />

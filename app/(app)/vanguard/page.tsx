@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { requireErpAccess } from "@/lib/erp/server";
 
 export const metadata: Metadata = {
-  title: "BUMEX VANGUARD",
+  title: "BUMEX Vanguard",
   description: "BUMEX VANGUARD — ERP multi-entités du groupe BUMEX, exploré comme un immeuble de bureaux en 3D.",
 };
 

@@ -120,7 +120,7 @@ function InvoiceDoc({ inv, onClose }: { inv: SalesInvoice; onClose: () => void }
           <button className="btn" disabled={!page} title={page ? undefined : 'Le lien de la facture arrive avec son enregistrement'} onClick={() => page && window.open(`${page}&print=1`, '_blank', 'noopener')}>Imprimer / PDF</button>
           <button className="btn primary" onClick={onClose}>Fermer</button>
         </div>
-        <InvoiceFit><div style={{ boxShadow: '0 2px 18px rgba(15, 35, 60, .25)' }}><InvoiceSheet data={data} lang={lang} /></div></InvoiceFit>
+        <InvoiceFit><div style={{ boxShadow: 'var(--shadow-16)' }}><InvoiceSheet data={data} lang={lang} /></div></InvoiceFit>
       </div>
     </div>
   );
@@ -165,7 +165,7 @@ function Letterhead({ entityId }: { entityId: Id }) {
       </aside>
       <div className="grow">
         <div className="pill-list" style={{ marginBottom: 8 }}>{(['en', 'fr'] as const).map((l) => <button key={l} className={`pill ${lang === l ? 'on' : ''}`} onClick={() => setLang(l)}>{l === 'en' ? 'English' : 'Français'}</button>)}<span className="small muted" style={{ alignSelf: 'center' }}>{latest ? `Aperçu sur ${latest.number ?? 'le dernier brouillon'}` : 'Aperçu sur un exemple'}</span></div>
-        <InvoiceFit><div style={{ boxShadow: '0 2px 14px rgba(15, 35, 60, .18)' }}><InvoiceSheet data={data} lang={lang} /></div></InvoiceFit>
+        <InvoiceFit><div style={{ boxShadow: 'var(--shadow-8)' }}><InvoiceSheet data={data} lang={lang} /></div></InvoiceFit>
       </div>
     </div>
   );
@@ -332,7 +332,7 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
             <Field label="Mission"><Select recent="missions" className="in" value={engagementId} onChange={(e) => setEngagementId(e.target.value)}><option value="">—</option>{state.engagements.filter((x) => x.entityId === entityId && x.customerId === customerId).map((x) => <option key={x.id} value={x.id}>{x.code} · {x.name}</option>)}</Select></Field>
             <Field label="Bloc bancaire imprimé"><Select className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id} data-hint={b.currency}>{b.favorite ? '★ ' : ''}{b.bankName} · {b.name}</option>)}</Select></Field>
           </div>
-          <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 6 }}>
+          <div style={{ overflowX: 'auto', border: '1px solid var(--stroke)', borderRadius: 2 }}>
             <table>
               <thead><tr><th>#</th><th>Désignation</th><th className="num" style={{ width: 70 }}>Qté</th><th className="num" style={{ width: 120 }}>P.U.</th><th style={{ width: 120 }}>Catégorie</th><th style={{ width: 190 }}>TVA</th><th style={{ width: 100 }}>WHT</th><th style={{ width: 230 }}>Compte de produit</th><th className="num" style={{ width: 110 }}>Total HT</th><th></th></tr></thead>
               <tbody>
@@ -384,7 +384,7 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
       {!help && (
         <div style={{ flex: 'none' }}>
           <button type="button" className="btn sm" onClick={() => setHelp(true)} aria-label="Afficher l'aide : TVA, WHT, régime" title="Aide : TVA, WHT, régime"
-            style={{ width: 30, height: 30, padding: 0, borderRadius: '50%', justifyContent: 'center', fontWeight: 700 }}>?</button>
+            style={{ width: 28, height: 28, padding: 0, justifyContent: 'center', fontWeight: 700 }}>?</button>
         </div>
       )}
       {help && <aside className="side">
@@ -476,7 +476,7 @@ function AgingView({ entityId }: { entityId: Id }) {
             {ag.current > 0 && <div style={{ flex: pct(ag.current), background: 'var(--good)' }}>Non échu</div>}
             {ag.d1to30 > 0 && <div style={{ flex: pct(ag.d1to30), background: 'var(--warn)' }}>1–30</div>}
             {ag.d31to90 > 0 && <div style={{ flex: pct(ag.d31to90), background: 'var(--crit)' }}>31–90</div>}
-            {ag.d90plus > 0 && <div style={{ flex: pct(ag.d90plus), background: '#7a1118' }}>90+</div>}
+            {ag.d90plus > 0 && <div style={{ flex: pct(ag.d90plus), background: 'var(--crit-fg)' }}>90+</div>}
           </div>
           <div className="kv" style={{ marginTop: 10 }}>
             <span className="k">En retard</span><Money v={ag.overdue} /><span className="k">Factures en retard</span><span className="mono">{ag.overdueCount}</span><span className="k">Au-delà de 90 jours</span><span className="mono">{ag.over90Count}</span>

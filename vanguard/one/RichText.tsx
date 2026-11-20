@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Icon } from '../ui/common';
 import { useSay } from './say';
 
 // [bumex-one] A description typed as in a word processor (asked on 2026-10-28): bold, italic, a heading, bullet and
@@ -106,7 +107,7 @@ export function toText(root: HTMLElement): string {
 const run = (command: string, value?: string) => document.execCommand(command, false, value);
 
 // a button of the bar: pressed without taking the focus (the text keeps its selection)
-function Tool({ label, title, onPress, className = '' }: { label: string; title: string; onPress: () => void; className?: string }) {
+function Tool({ label, title, onPress, className = '' }: { label: ReactNode; title: string; onPress: () => void; className?: string }) {
   return <button type="button" className={`rt-tool ${className}`} title={title} aria-label={title} onMouseDown={(e) => { e.preventDefault(); onPress(); }}>{label}</button>;
 }
 
@@ -200,7 +201,7 @@ export function RichText({ value, onChange, onSubmit, placeholder, autoFocus, la
         <Tool label="1." title={say('Liste numérotée', 'Numbered list')} onPress={() => act(() => run('insertOrderedList'))} />
         <Tool label="☐" title={say('Liste de cases à cocher', 'Check list')} onPress={checklist} />
         <span className="rt-sep" />
-        <Tool label="🔗" title={say('Lien', 'Link')} onPress={link} />
+        <Tool label={<Icon name="link" size={16} />} title={say('Lien', 'Link')} onPress={link} />
       </div>
       <div ref={ref} className={`rt-area md ${empty ? 'empty' : ''}`} contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label={label ?? 'Description'}
         data-placeholder={placeholder ?? say('Décrivez ce qu’il faut faire…', 'Describe what to do…')} style={{ minHeight }}

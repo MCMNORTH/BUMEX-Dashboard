@@ -68,7 +68,7 @@ function Accounts({ entityId }: { entityId: Id }) {
                 const j = state.journals.find((x) => x.id === r.account.journalId) ?? state.journals.find((x) => x.entityId === entityId && x.kind === (r.account.isCash ? 'cash' : 'bank'));
                 return (
                   <tr key={r.account.id} className={r.account.id === editId ? 'sel' : ''} style={{ opacity: r.account.active === false ? 0.55 : 1 }}>
-                    <td style={{ whiteSpace: 'nowrap' }}>{!r.account.isCash && <button type="button" className="btn sm" style={{ padding: '0 6px', marginRight: 6, color: r.account.favorite ? '#d99a00' : 'var(--muted)', border: 0, background: 'none', fontSize: 16 }} title={r.account.favorite ? 'Favori : retirer' : 'Mettre en favori (proposé en premier, banque par défaut des factures)'} aria-pressed={!!r.account.favorite} onClick={() => star(r.account)}>{r.account.favorite ? '★' : '☆'}</button>}<b>{r.account.name}</b>{r.account.active === false && <Chip kind="off"> désactivé</Chip>}{r.account.showOnInvoices && <div className="small muted">imprimé sur les factures</div>}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{!r.account.isCash && <button type="button" className="btn sm" style={{ padding: '0 6px', marginRight: 6, color: r.account.favorite ? 'var(--c-amber)' : 'var(--muted)', border: 0, background: 'none', fontSize: 16 }} title={r.account.favorite ? 'Favori : retirer' : 'Mettre en favori (proposé en premier, banque par défaut des factures)'} aria-pressed={!!r.account.favorite} onClick={() => star(r.account)}>{r.account.favorite ? '★' : '☆'}</button>}<b>{r.account.name}</b>{r.account.active === false && <Chip kind="off"> désactivé</Chip>}{r.account.showOnInvoices && <div className="small muted">imprimé sur les factures</div>}</td>
                     <td>{r.account.isCash ? <span className="muted">caisse</span> : <>{r.account.bankName}<div className="small muted mono">{r.account.accountNumber ?? r.account.iban ?? '—'}</div></>}</td>
                     <td>{r.account.currency}</td><td className="mono small">{gl ? `${gl.code} ${gl.nameFr}` : '—'}</td><td className="mono small">{j ? `${j.code} · ${j.name}` : '—'}</td>
                     <td className="num">{r.bookBalance === null ? <span className="muted" title={`Pas de taux ${r.account.currency}/${entity.functionalCurrency} à ce jour : saisissez-le dans Réglages › Taux de change`}>— · {fmt(r.bookBalanceFunctional)} {entity.functionalCurrency} <button className="btn sm" onClick={() => openRoom('settings', 'rates')}>Saisir le taux</button></span> : fmt(r.bookBalance)}</td><td className="num">{r.account.isCash ? '—' : fmt(r.statementBalance)}</td>
@@ -271,17 +271,17 @@ function Forecast({ entityId }: { entityId: Id }) {
         <div className="card">
           <h2>Trésorerie prévisionnelle · 13 semaines · {entity.functionalCurrency}</h2>
           <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Solde prévisionnel par semaine" style={{ width: '100%', height: 'auto', fontFamily: 'var(--mono)', fontSize: 11 }}>
-            <line x1={pad} x2={W - pad} y1={y(entity.cashThreshold)} y2={y(entity.cashThreshold)} stroke="#a35a00" strokeDasharray="4 4" />
-            <text x={W - pad} y={y(entity.cashThreshold) - 4} textAnchor="end" fill="#a35a00">seuil {fmt(entity.cashThreshold, 0)}</text>
-            <line x1={pad} x2={W - pad} y1={y(0)} y2={y(0)} stroke="#cbd2da" />
+            <line x1={pad} x2={W - pad} y1={y(entity.cashThreshold)} y2={y(entity.cashThreshold)} style={{ stroke: 'var(--warn)' }} strokeDasharray="4 4" />
+            <text x={W - pad} y={y(entity.cashThreshold) - 4} textAnchor="end" style={{ fill: 'var(--warn)' }}>seuil {fmt(entity.cashThreshold, 0)}</text>
+            <line x1={pad} x2={W - pad} y1={y(0)} y2={y(0)} style={{ stroke: 'var(--border)' }} />
             {weeks.map((w, i) => {
               const x = pad + i * bw + 4;
               const top = Math.min(y(w.balance), y(0));
               const h = Math.abs(y(w.balance) - y(0));
               return (
                 <g key={w.weekStart}>
-                  <rect x={x} y={top} width={bw - 8} height={Math.max(2, h)} fill={w.balance < entity.cashThreshold ? '#a35a00' : '#0e6e6a'} rx="3" />
-                  <text x={x + (bw - 8) / 2} y={H - pad + 14} textAnchor="middle" fill="#5e6773">{w.label}</text>
+                  <rect x={x} y={top} width={bw - 8} height={Math.max(2, h)} style={{ fill: w.balance < entity.cashThreshold ? 'var(--warn)' : 'var(--brand-fg)' }} rx="2" />
+                  <text x={x + (bw - 8) / 2} y={H - pad + 14} textAnchor="middle" style={{ fill: 'var(--muted)' }}>{w.label}</text>
                 </g>
               );
             })}

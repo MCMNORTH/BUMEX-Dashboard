@@ -8,6 +8,7 @@ import { Select } from './Select';
 import { Icon } from './common';
 import { useScreen } from '../one/screen'; // [mobile]
 import { goBack, useCanGoBack } from '../one/back'; // [mobile]
+import { setThemePref, useTheme } from '@/lib/theme'; // [bumex-one] light or dark (2026-11-19)
 
 export function Header() {
   const { ui, state, t, setUi, goTower, goHome, goFloor, openRoom, setLang, focusRoom, openArchive } = useStore();
@@ -69,15 +70,20 @@ export function Header() {
       {phone && canBack && <button className="h-back" onClick={goBack} aria-label={ui.lang === 'fr' ? 'Retour' : 'Back'}><Icon name="back" size={20} /></button>}
       {phone && <span className="h-title">{roomLabel(ui.room ?? 'myday')}</span>}
       {phone && <button className="h-search" onClick={() => { setSearching(true); setTimeout(() => inputRef.current?.focus(), 0); }} aria-label={t('search_ph')}><Icon name="search" size={20} /></button>}
+      {/* [bumex-one] Fluent's title bar (2026-11-19): the button that folds the navigation, the app's name, where one is */}
+      {!phone && (
+        <button className="h-menu" onClick={() => setUi({ sidebarOpen: !ui.sidebarOpen })} aria-label={ui.sidebarOpen ? t('collapse') : t('expand')} aria-expanded={ui.sidebarOpen} title={ui.sidebarOpen ? t('collapse') : t('expand')}>
+          <Icon name="menu" size={20} />
+        </button>
+      )}
       <div className="brand" onClick={goHome} style={{ cursor: 'pointer' }} title={t('nav_overview')}>
         <img src={emblem} alt="" />
-        <span><b>BUMEX</b> <span>VANGUARD</span></span>
+        <span><b>BUMEX</b> <span>Vanguard</span></span>
       </div>
       <nav className="crumbs" aria-label="Fil d'Ariane">
         {ui.view === 'flat' ? (
           <>
-            {ui.scene3d && <span className="cur">{t('flat')}</span>}{/* [bumex-one] no "Flat" without the building (0010) */}
-            {entity && (<>{ui.scene3d && <span aria-hidden="true">›</span>}<span className="cur">{entity.name}</span></>)}
+            {entity && <span className="cur">{entity.name}</span>}
           </>
         ) : (
           <>
@@ -91,7 +97,7 @@ export function Header() {
             {ui.view === 'floor' && ui.focusRoom && !ui.room && (
               <>
                 <span aria-hidden="true">›</span>
-                <span className="cur">{t(`room_${ui.focusRoom}`)}</span>
+                <span className="cur">{roomLabel(ui.focusRoom as Room)}</span>{/* [bumex-one] a work room (My work…) has a nav_ label, not a room_ one */}
               </>
             )}
             {ui.room && (
@@ -140,10 +146,23 @@ export function Header() {
         <button className="btn dark" onClick={() => setLang(ui.lang === 'fr' ? 'en' : 'fr')} aria-label="Langue">
           {t('lang')}
         </button>
+        <ThemeButton fr={ui.lang === 'fr'} />
         {/* [bumex-one] the person's chip is the account menu now (components/layout/account-menu.tsx) */}
         {/* [bumex-one] room for BUMEX One's controls (refresh, notifications, theme, account: vanguard-shell.tsx) */}
         <span aria-hidden="true" style={{ flex: 'none', width: 'var(--bumex-tools, 132px)' }} />
       </div>
     </header>
+  );
+}
+
+// [bumex-one] Light or dark, one click from the title bar (the system's choice: Settings › Display, or the account menu)
+function ThemeButton({ fr }: { fr: boolean }) {
+  const theme = useTheme();
+  const next = theme === 'dark' ? 'light' : 'dark';
+  const label = next === 'dark' ? (fr ? 'Thème sombre' : 'Dark theme') : (fr ? 'Thème clair' : 'Light theme');
+  return (
+    <button className="btn dark h-theme" onClick={() => setThemePref(next)} aria-label={label} title={label}>
+      <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} />
+    </button>
   );
 }

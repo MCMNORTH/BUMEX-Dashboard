@@ -30,7 +30,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-slate-950/50 dark:bg-slate-950/70",
+        "fixed inset-0 z-50 bg-black/40 dark:bg-black/60",
         className,
       )}
       {...props}
@@ -75,7 +75,7 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
 function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
-      className={cn("text-lg font-semibold tracking-tight", className)}
+      className={cn("text-lg font-semibold", className)}
       {...props}
     />
   );

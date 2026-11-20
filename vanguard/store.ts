@@ -95,16 +95,20 @@ function webglAvailable(): boolean {
   }
 }
 
+// [bumex-one] NAV: the navigation is Fluent's drawer since 2026-11-19, open with its labels on a PC; a choice saved before
+// (the slim rail, folded by default) is not kept, the person's next one is
+const NAV = 2;
+
 function loadPrefs(): { quality: Quality; sidebarOpen: boolean; barOpen: boolean; flat: boolean } {
-  const def = { quality: { shadows: true, ao: true, people: true }, sidebarOpen: false, barOpen: false, flat: false };
+  const def = { quality: { shadows: true, ao: true, people: true }, sidebarOpen: typeof window !== 'undefined' && !isPhoneOrTablet(), barOpen: false, flat: false };
   // ?q=low (or #q=low) starts in the light rendering mode: tablets, laptops without a GPU, automated tests
   const q = typeof location !== 'undefined' ? new URLSearchParams(location.search + '&' + location.hash.replace('#', '')).get('q') : null;
   if (q === 'low') return { ...def, quality: { shadows: false, ao: false, people: false } };
   try {
     const raw = localStorage.getItem(PREFS_KEY);
     if (!raw) return def;
-    const p = JSON.parse(raw) as Partial<typeof def>;
-    return { quality: { ...def.quality, ...(p.quality ?? {}) }, sidebarOpen: !!p.sidebarOpen, barOpen: !!p.barOpen, flat: !!p.flat };
+    const p = JSON.parse(raw) as Partial<typeof def> & { nav?: number };
+    return { quality: { ...def.quality, ...(p.quality ?? {}) }, sidebarOpen: p.nav === NAV ? !!p.sidebarOpen : def.sidebarOpen, barOpen: !!p.barOpen, flat: !!p.flat };
   } catch {
     return def;
   }
@@ -115,7 +119,7 @@ function savePrefs(ui: UI) {
   // building drawn) changes it, not the flat pages forced without it
   if (ui.webgl) prefs.flat = ui.view === 'flat';
   try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify({ quality: ui.quality, sidebarOpen: ui.sidebarOpen, barOpen: ui.barOpen, flat: prefs.flat }));
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ quality: ui.quality, sidebarOpen: ui.sidebarOpen, barOpen: ui.barOpen, flat: prefs.flat, nav: NAV }));
   } catch {
     /* ignore */
   }

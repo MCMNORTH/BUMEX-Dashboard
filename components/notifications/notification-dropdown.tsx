@@ -17,7 +17,7 @@ export function NotificationDropdown() {
   const { locale } = useI18n();
   const isFr = locale === "fr";
   const { stored, alerts, unreadCount, loading, markAllAsRead, markAsRead } = useNotifications(6);
-  const sectionTitle = "px-1 pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground";
+  const sectionTitle = "px-1 pb-2 text-xs font-semibold text-muted-foreground";
 
   return (
     <DropdownMenuContent align="end" className="w-[24rem]">

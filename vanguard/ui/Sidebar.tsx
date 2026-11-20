@@ -90,31 +90,36 @@ export function FloorList({ onPick }: { onPick: () => void }) {
 }
 
 export function Sidebar() {
-  const { ui, t, setUi, goTower, openRoom } = useStore();
+  const { ui, t, setUi, goTower, openRoom, state } = useStore();
   const { entity, atOverview, modules, work, reports, settings, open } = useNavItems();
   const { tablet } = useScreen(); // [mobile] on a tablet the opened rail floats over the page (responsive.css)
   const Btn = ({ item, on }: { item: Item; on: boolean }) => (
     <button className={`sb-item ${on ? 'on' : ''} ${item.off ? 'off' : ''}`} onClick={() => open(item)} aria-label={item.label} aria-current={on ? 'page' : undefined} disabled={item.off}>
-      <Icon name={item.icon} />
+      <Icon name={item.icon} filled={on} />
       <span className="lbl">{item.label}</span>
       {item.badge ? <span className="badge">{item.badge}</span> : null}
       <span className="tip">{item.label}{item.off ? ' · accès non autorisé' : ''}{item.kbd ? <kbd>{item.kbd}</kbd> : null}</span>
     </button>
   );
+  // [bumex-one] Fluent's nav drawer (2026-11-19): the floor at the top (its square, its name, the floors in a menu), then
+  // the floor's overview, the person's work and the modules under their names; folded by the title bar's button
+  const floorNo = entity.isTest ? '−1' : String(state.entities.filter((e) => !e.isTest).length - entity.floorOrder);
+  const where = entity.isHolding ? t('penthouse') : entity.isTest ? (ui.lang === 'fr' ? 'Sous-sol · test' : 'Basement · test') : `${t('floor')} ${floorNo}`;
   return (
     <>
     {tablet && ui.sidebarOpen && <div className="rail-back" onClick={() => setUi({ sidebarOpen: false })} />}
     <nav className={`rail ${ui.sidebarOpen ? 'open' : ''}`} aria-label="Navigation">
       <div className="grp">
+        <button className={`sb-item sb-entity ${(ui.view === 'floor' && !ui.room) || ui.flyout === 'floors' ? 'on' : ''}`} onClick={() => setUi({ flyout: ui.flyout === 'floors' ? null : 'floors' })} aria-label={t('nav_floors')} aria-haspopup="menu" aria-expanded={ui.flyout === 'floors'}>
+          <span className="ent-logo" aria-hidden="true">{entity.code.slice(0, 3)}</span>
+          <span className="lbl"><b>{entity.name}</b><small>{where}</small></span>
+          <span className="chev" aria-hidden="true"><Icon name="chevronDown" size={16} /></span>
+          <span className="tip">{t('nav_floors')} · {entity.name}</span>
+        </button>
         <button className={`sb-item ${atOverview ? 'on' : ''}`} onClick={() => { if (ui.view === 'flat') openRoom('overview'); else goTower(); }} aria-label={t('nav_overview')}>
-          <Icon name="overview" />
+          <Icon name="overview" filled={atOverview} />
           <span className="lbl">{t('nav_overview')}</span>
           <span className="tip">{t('nav_overview')}<kbd>Échap</kbd></span>
-        </button>
-        <button className={`sb-item ${(ui.view === 'floor' && !ui.room) || ui.flyout === 'floors' ? 'on' : ''}`} onClick={() => setUi({ flyout: ui.flyout === 'floors' ? null : 'floors' })} aria-label={t('nav_floors')} aria-haspopup="menu" aria-expanded={ui.flyout === 'floors'}>
-          <Icon name="floors" />
-          <span className="lbl">{entity.name}</span>
-          <span className="tip">{t('nav_floors')} · {entity.name}</span>
         </button>
       </div>
       {ui.flyout === 'floors' && (
@@ -139,11 +144,6 @@ export function Sidebar() {
       <div className="grow" />
       <div className="grp">
         <Btn item={settings} on={ui.room === 'settings'} />
-        <button className="sb-item" onClick={() => setUi({ sidebarOpen: !ui.sidebarOpen })} aria-label={ui.sidebarOpen ? t('collapse') : t('expand')} aria-expanded={ui.sidebarOpen}>
-          <Icon name={ui.sidebarOpen ? 'chevronLeft' : 'chevronRight'} />
-          <span className="lbl">{t('collapse')}</span>
-          <span className="tip">{t('expand')}</span>
-        </button>
       </div>
     </nav>
     </>

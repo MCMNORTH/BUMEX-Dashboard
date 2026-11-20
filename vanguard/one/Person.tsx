@@ -98,7 +98,7 @@ export function PersonPanel({ personId, onClose }: { personId: string; onClose: 
     <>
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <button className="btn sm ghost" onClick={onClose} aria-label={say('Retour', 'Back')}><Icon name="back" size={14} /></button>
-        {m.avatarUrl ? <span role="img" aria-label={m.name} style={{ width: 44, height: 44, borderRadius: '50%', background: `center / cover url("${m.avatarUrl}")` }} /> : null}
+        {m.avatarUrl ? <span role="img" aria-label={m.name} style={{ width: 44, height: 44, borderRadius: 2, background: `center / cover url("${m.avatarUrl}")` }} /> : null}
         <div><h2 style={{ margin: 0 }}>{m.name}</h2><div className="small muted">{m.jobTitle ?? '—'}{m.department ? ` · ${m.department}` : ''} · {floor?.name ?? m.floor ?? '—'}</div></div>
         <Chip kind={availability[2]}>{say(availability[0], availability[1])}</Chip>
         <div className="actions" style={{ marginLeft: 'auto' }}>{view.canEdit && <button className="btn sm" onClick={() => (editing ? setEditing(false) : startEdit())}>{editing ? say('Fermer le formulaire', 'Close the form') : say('Modifier', 'Edit')}</button>}</div>

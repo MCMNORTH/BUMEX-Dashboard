@@ -55,9 +55,10 @@ export function Sheet() {
     <>
       <div className="sheet-back" onClick={() => openRoom(null)} />
       <section className="sheet" role="dialog" aria-label={t(`room_${ui.room}`) === `room_${ui.room}` ? t(`nav_${ui.room}`) : t(`room_${ui.room}`)}>
+        {/* [bumex-one] Fluent's drawer corner (2026-11-19): flat pages, close; the room's header keeps their room (styles.css) */}
         <div className="sheet-tools">
-          <button className="btn sm" onClick={() => setUi({ view: 'flat' })}>{t('flat')}</button>
-          <button className="btn sm" onClick={() => openRoom(null)} aria-label={t('close')} title={t('close')}><Icon name="close" size={15} /> {t('close')}</button>
+          <button className="btn sm ghost" onClick={() => setUi({ view: 'flat' })}>{t('flat')}</button>
+          <button className="btn sm ghost sheet-close" onClick={() => openRoom(null)} aria-label={t('close')} title={t('close')}><Icon name="close" size={16} /></button>
         </div>
         <TestFloorBanner entityId={ui.entityId} />
         <RoomContent room={ui.room} entityId={ui.entityId} tab={ui.tab} />

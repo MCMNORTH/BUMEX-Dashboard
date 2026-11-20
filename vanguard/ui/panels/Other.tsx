@@ -107,10 +107,10 @@ export function PenthousePanel() {
   const ic = state.salesInvoices.filter((i) => (i.status === 'posted' || i.status === 'paid') && state.customers.find((c) => c.id === i.customerId)?.groupEntityId);
   return (
     <>
-      <div className="sheet-head" style={{ background: '#0b5753', color: '#fff', borderColor: '#9bd9d4' }}>
+      <div className="sheet-head">{/* [bumex-one] Fluent's page header, as every room's (2026-11-19) */}
         <h1>{t('room_penthouse')}</h1>
-        <button className={`tab ${tab === 'board' ? 'on' : ''}`} style={{ color: tab === 'board' ? '#fff' : '#cdefec', borderBottomColor: tab === 'board' ? '#9bd9d4' : 'transparent' }} onClick={() => setTab('board')}>Tableau de bord</button>
-        <button className={`tab ${tab === 'ic' ? 'on' : ''}`} style={{ color: tab === 'ic' ? '#fff' : '#cdefec', borderBottomColor: tab === 'ic' ? '#9bd9d4' : 'transparent' }} onClick={() => setTab('ic')}>Intercos · {ic.length}</button>
+        <button className={`tab ${tab === 'board' ? 'on' : ''}`} onClick={() => setTab('board')}>Tableau de bord</button>
+        <button className={`tab ${tab === 'ic' ? 'on' : ''}`} onClick={() => setTab('ic')}>Intercos · {ic.length}</button>
       </div>
       <div className="sheet-body">
         {tab === 'board' ? (
@@ -134,7 +134,7 @@ export function PenthousePanel() {
                 <tfoot>
                   <tr><td colSpan={3}>Somme des étages</td><td className="num">{fmt(g.sumRevenue, 0)}</td><td className="num">{fmt(g.result, 0)}</td><td className="num">{fmt(g.cash, 0)}</td><td className="num">{fmt(g.overdue, 0)}</td><td colSpan={4}></td></tr>
                   <tr><td colSpan={3}>Éliminations intercos (frais de gestion, refacturations)</td><td className="num" style={{ color: 'var(--crit)' }}>−{fmt(g.intercompanyRevenue, 0)}</td><td colSpan={7}></td></tr>
-                  <tr style={{ background: '#e6f2f1' }}><td colSpan={3}>Consolidé · MRU · plan groupe</td><td className="num">{fmt(g.consolidatedRevenue, 0)}</td><td className="num">{fmt(g.result, 0)}</td><td className="num">{fmt(g.cash, 0)}</td><td className="num">{fmt(g.overdue, 0)}</td><td colSpan={4}></td></tr>
+                  <tr style={{ background: 'var(--brand-tint)' }}><td colSpan={3}>Consolidé · MRU · plan groupe</td><td className="num">{fmt(g.consolidatedRevenue, 0)}</td><td className="num">{fmt(g.result, 0)}</td><td className="num">{fmt(g.cash, 0)}</td><td className="num">{fmt(g.overdue, 0)}</td><td colSpan={4}></td></tr>
                 </tfoot>
               </table>
             </div>

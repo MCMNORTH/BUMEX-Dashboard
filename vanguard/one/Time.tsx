@@ -30,7 +30,7 @@ const STATUS: Record<string, [string, string, Tone]> = {
   approved: ['Validée', 'Approved', 'done'],
   returned: ['À corriger', 'Needs changes', 'blocked'],
 };
-const STRIPES = ['#2b3f66', '#6b8dc1', '#2e7d4f', '#b07a1e', '#b4232c', '#7a5cc7'];
+const STRIPES = ['var(--brand-fg)', 'var(--c-blue)', 'var(--c-green)', 'var(--c-amber)', 'var(--c-red)', 'var(--c-purple)']; // Fluent's shared colours, lit in the dark (2026-11-19)
 const duration = (m: number) => `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
 // the quick durations (asked on 2026-11-02: whole hours, 1 h to a full day); a day holds 24 h at most, 8 h fill its bar
 const QUICK = [60, 120, 240, 480];

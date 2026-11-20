@@ -12,6 +12,7 @@ This repository is the current Next.js application. BUMEX One's former pages wer
 - **ERP:** accounting, sales, purchases, banking, loans, fixed assets, tax, payroll, reports, and physical archives. Earlier BUMEX One finance records remain available as a read-only archive.
 - **Administration:** invitations, password recovery, roles, entity and module permissions, notifications, and audit history.
 - **Navigation:** flat pages by default; an optional 3D office building represents entities as floors and modules as rooms. Phones and tablets use the flat interface, with responsive navigation and home-screen installation support.
+- **Interface:** Fluent 2 (as in Microsoft 365 and Dynamics 365) with the BUMEX navy as the brand colour, 2 px corners and compact controls, in light and dark themes; each person picks light, dark, or their system's theme (Settings, the account menu, or the title bar).
 - **Test floor:** a separately granted testing entity. Entering it switches the database session into test mode; real and test records stay apart, and test activity does not send email.
 
 ## Stack and architecture
@@ -195,5 +196,6 @@ Ensure the referenced secrets, application URLs, email provider, and notificatio
 - Read [vanguard/VENDOR.md](vanguard/VENDOR.md) before modifying the imported ERP interface or engine. Integration changes are marked `[bumex-one]`; `vanguard/one/` holds the rebuilt work features.
 - Use Vanguard's `Select` and `Suggest` controls instead of native `<select>` and `<datalist>` elements. Lint and tests enforce this convention.
 - Regenerate `vanguard/vanguard.css` with `node scripts/vanguard-css.mjs` after editing the source `vanguard/styles.css`. Work-screen and responsive additions live in `vanguard/work.css` and `vanguard/responsive.css`.
+- Style with the tokens in `vanguard/styles.css` (light values in `:root`, dark ones in `:root[data-theme="dark"]`) rather than literal colours, so both themes work; keep the 2 px corners (`var(--r)`) and sentence-case labels. Icons come from `vanguard/ui/fluent-icons.ts` (Fluent System Icons, MIT) through `Icon`.
 - Update both French and English text, and verify affected layouts at desktop, tablet, and phone widths.
 - Treat `docs/plans/` as design history rather than a guaranteed description of current behavior. For example, workload now counts estimated hours across all open assigned tickets, irrespective of due date; the older weighted-week calculation has been replaced.

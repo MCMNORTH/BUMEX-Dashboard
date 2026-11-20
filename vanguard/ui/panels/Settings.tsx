@@ -10,6 +10,7 @@ import { useSay } from '../../one/say'; // [bumex-one]
 import logoImage from '../../assets/logo.jpg'; // [bumex-one] Next imports images as objects
 const logo = logoImage.src;
 import { Select } from '../Select';
+import { setThemePref, useThemePref, type ThemePref } from '@/lib/theme'; // [bumex-one] light or dark (2026-11-19)
 
 type Tab = 'general' | 'account' | 'access' | 'rates' | 'deletions' | 'history'; // [bumex-one] account, rates (exchange rates)
 
@@ -34,10 +35,10 @@ export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
         {tab === 'history' && <History />}
         {tab === 'general' && (
           <div className="card" style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <img src={logo} alt="BUMEX" style={{ width: 72, height: 'auto', borderRadius: 8 }} />
+            <img src={logo} alt="BUMEX" style={{ width: 72, height: 'auto', borderRadius: 2 }} />
             <div>
-              <div style={{ fontWeight: 600, letterSpacing: '.08em' }}>BUMEX VANGUARD</div>
-              <div className="small muted">{state.group.name} · Nouakchott · Casablanca Finance City · Aptos / Aptos Narrow</div>
+              <div style={{ fontSize: 16 }}><b style={{ fontWeight: 600 }}>BUMEX</b> Vanguard</div>
+              <div className="small muted">{state.group.name} · Nouakchott · Casablanca Finance City · Fluent 2, Segoe UI</div>
             </div>
           </div>
         )}
@@ -67,6 +68,7 @@ export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
           <div className="grid2">
             <Field label={t('set_lang')}><Select className="in" value={ui.lang} onChange={(e) => setLang(e.target.value as 'fr' | 'en')}><option value="fr">Français</option><option value="en">English</option></Select></Field>
             <Field label={t('fiscal_year')}><Select className="in" value={ui.fiscalYearLabel} onChange={(e) => setUi({ fiscalYearLabel: e.target.value })}>{fys.map((f) => <option key={f} value={f}>{f}</option>)}</Select></Field>
+            <ThemeField fr={ui.lang === 'fr'} />{/* [bumex-one] light, dark or the system's (lib/theme.ts) */}
             <Field label={t('set_entity')}><Select className="in" value={ui.entityId ?? ''} onChange={(e) => setUi({ entityId: e.target.value, room: e.target.value === state.entities.find((x) => x.isHolding)?.id ? 'penthouse' : ui.room === 'penthouse' ? 'settings' : ui.room })}>{entities.filter((e) => state.session.entityIds === '*' || state.session.entityIds.includes(e.id)).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</Select></Field>
           </div>
           {/* [bumex-one] no demo sign-in: the person is the one signed in to BUMEX One */}
@@ -144,3 +146,17 @@ function Deletions() {
   );
 }
 
+
+// [bumex-one] The theme (the Fluent redesign, 2026-11-19): light, dark, or the system's
+function ThemeField({ fr }: { fr: boolean }) {
+  const pref = useThemePref();
+  return (
+    <Field label={fr ? 'Thème' : 'Theme'}>
+      <Select className="in" value={pref} onChange={(e) => setThemePref(e.target.value as ThemePref)}>
+        <option value="system">{fr ? 'Celui du système' : "The system's"}</option>
+        <option value="light">{fr ? 'Clair' : 'Light'}</option>
+        <option value="dark">{fr ? 'Sombre' : 'Dark'}</option>
+      </Select>
+    </Field>
+  );
+}

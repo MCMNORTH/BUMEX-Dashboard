@@ -38,7 +38,7 @@ export function ErrorState({
         icon={AlertTriangle}
         actions={
           retry ? (
-            <Button type="button" className="rounded-full px-5" onClick={() => retry()}>
+            <Button type="button" className="rounded-sm px-5" onClick={() => retry()}>
               <RotateCcw className="size-4" />
               {retryLabel}
             </Button>

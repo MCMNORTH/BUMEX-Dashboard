@@ -71,11 +71,10 @@ export function VanguardShell({ children }: { children: React.ReactNode }) {
       <div ref={frame} className="vanguard">
         <VanguardApp />
         {children}
-        <div className="dark">
-          <div ref={tools} className="bumex-page bumex-tools text-foreground">
-            <NotificationBell />
-            <AccountMenu />
-          </div>
+        {/* the theme is the page's (lib/theme.ts): <html class="dark"> in the dark, as for the menus these open */}
+        <div ref={tools} className="bumex-page bumex-tools text-foreground">
+          <NotificationBell />
+          <AccountMenu />
         </div>
       </div>
     </>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff, LogIn, UserPlus } from "lucide-react";
 import { useFormStatus } from "react-dom";
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import emblemImage from "@/vanguard/assets/emblem.png";
 
 const initialState: AuthActionState = {};
 
@@ -49,9 +51,16 @@ export function AuthForm() {
 
   return (
     <Card className="login-panel relative overflow-hidden shadow-[var(--shadow-elevated)]">
-      <CardHeader className="space-y-5 p-5 sm:p-6">
+      <CardHeader className="space-y-5 p-6 sm:p-10 sm:pb-6">
+        {/* Fluent's sign-in: the app's name first, as Microsoft's own */}
+        <div className="flex items-center gap-2.5">
+          <Image src={emblemImage} alt="" width={28} height={28} className="rounded-full" />
+          <span className="text-[15px]">
+            <b className="font-semibold">BUMEX</b> <span className="text-muted-foreground">Vanguard</span>
+          </span>
+        </div>
         {selfSignupEnabled ? (
-          <div role="tablist" className="grid w-full grid-cols-2 rounded-lg border border-border bg-muted p-1">
+          <div role="tablist" className="grid w-full grid-cols-2 rounded-sm border border-border bg-muted p-0.5">
             {(["signin", "signup"] as const).map((tab) => (
               <button
                 key={tab}
@@ -60,7 +69,7 @@ export function AuthForm() {
                 aria-selected={mode === tab}
                 onClick={() => setMode(tab)}
                 className={cn(
-                  "rounded-md px-4 py-2 text-sm font-medium transition-colors",
+                  "rounded-sm px-4 py-1.5 text-sm font-semibold transition-colors",
                   mode === tab ? "bg-card text-foreground shadow-[var(--shadow-soft)]" : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -81,7 +90,7 @@ export function AuthForm() {
           </CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="px-5 pb-5 sm:px-6 sm:pb-6">
+      <CardContent className="px-6 pb-6 sm:px-10 sm:pb-10">
         <form action={mode === "signin" ? signInFormAction : signUpFormAction} className="space-y-4">
           {mode === "signup" ? (
             <div className="space-y-2">

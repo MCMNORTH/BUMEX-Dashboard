@@ -27,10 +27,10 @@ export function EmptyState({
           <Icon className="size-6 text-primary" />
         </div>
         <div className="space-y-3">
-          <Badge variant="outline" className="w-fit rounded-full border-border bg-muted px-3 py-1 text-foreground">
+          <Badge variant="outline" className="w-fit rounded-sm border-border bg-muted px-3 py-1 text-foreground">
             {label}
           </Badge>
-          <h2 className="text-2xl font-semibold tracking-[-0.03em] text-foreground sm:text-[2rem]">{title}</h2>
+          <h2 className="text-2xl font-semibold text-foreground">{title}</h2>
           <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
             {description}
           </p>

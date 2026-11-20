@@ -6,6 +6,7 @@ import { Select } from '../ui/Select';
 import { FloorList, useNavItems, type Item } from '../ui/Sidebar';
 import { useBackLayer } from './back';
 import { useSay } from './say';
+import { setThemePref, useThemePref } from '@/lib/theme'; // light or dark (2026-11-19)
 
 // A phone's navigation (docs/plans/mobile-tablet.md, step 3): the rail is hidden, a bar at the bottom carries the
 // person's work, and "Plus" opens a sheet with everything else (the floors, the modules, the settings, the language
@@ -49,6 +50,7 @@ export function PhoneNav() {
 function PhoneMore({ onClose }: { onClose: () => void }) {
   const { state, ui, t, setUi, setLang, openRoom } = useStore();
   const say = useSay();
+  const theme = useThemePref();
   const { entity, modules, work, reports, settings, open } = useNavItems();
   useBackLayer(true, onClose); // the phone's Back closes the sheet
   const fys = useMemo(() => [...new Set(state.fiscalYears.map((f) => f.label))].sort().reverse(), [state.fiscalYears]);
@@ -83,6 +85,12 @@ function PhoneMore({ onClose }: { onClose: () => void }) {
           <div className="seg" role="group">
             <button className={`btn ${ui.lang === 'fr' ? 'primary' : ''}`} onClick={() => setLang('fr')}>Français</button>
             <button className={`btn ${ui.lang === 'en' ? 'primary' : ''}`} onClick={() => setLang('en')}>English</button>
+          </div>
+          <label>{say('Thème', 'Theme')}</label>
+          <div className="seg" role="group">
+            <button className={`btn ${theme === 'light' ? 'primary' : ''}`} onClick={() => setThemePref('light')}>{say('Clair', 'Light')}</button>
+            <button className={`btn ${theme === 'dark' ? 'primary' : ''}`} onClick={() => setThemePref('dark')}>{say('Sombre', 'Dark')}</button>
+            <button className={`btn ${theme === 'system' ? 'primary' : ''}`} onClick={() => setThemePref('system')}>{say('Système', 'System')}</button>
           </div>
           <label>{t('fiscal_year')}</label>
           <Select className="in" aria-label={t('fiscal_year')} value={ui.fiscalYearLabel} onChange={(e) => setUi({ fiscalYearLabel: e.target.value })}>

@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { fmt, fmtDate, requestDeletion, canDecideDeletions, type ProtectedTable } from '@bumex/domain';
 import { useStore } from '../store';
+import { FLUENT_ICONS } from './fluent-icons'; // [bumex-one] the Fluent redesign (2026-11-19)
 
 export function Money({ v, cur, sign = false }: { v: number; cur?: string; sign?: boolean }) {
   return (
@@ -121,9 +122,19 @@ export const ICONS: Record<string, ReactNode> = {
   more: <><circle cx="5" cy="12" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="19" cy="12" r="1.4" /></>, // [mobile]
 };
 
-export function Icon({ name, size = 20 }: { name: string; size?: number }) {
+// [bumex-one] Fluent System Icons where one exists (ui/fluent-icons.ts; filled for a selected item, as Fluent does), the
+// outline above otherwise. The fill is inline so that no rule written for the outline icons (fill: none) hides them.
+export function Icon({ name, size = 20, filled = false }: { name: string; size?: number; filled?: boolean }) {
+  const fluent = FLUENT_ICONS[name];
+  if (fluent) {
+    return (
+      <svg className="ic ic-fl" width={size} height={size} viewBox="0 0 20 20" style={{ fill: 'currentColor', stroke: 'none' }} aria-hidden="true">
+        {(filled ? fluent.f : fluent.r).map((d, i) => <path key={i} d={d} />)}
+      </svg>
+    );
+  }
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg className="ic" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {ICONS[name]}
     </svg>
   );

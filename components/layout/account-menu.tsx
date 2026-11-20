@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, Clock, Languages, ListChecks, LogOut, Settings, ShieldCheck, Sun, UserRound } from "lucide-react";
+import { Bell, Clock, Languages, ListChecks, LogOut, Moon, Settings, ShieldCheck, Sun, SunMoon, UserRound } from "lucide-react";
 
 import { signOutAction } from "@/app/login/actions";
 import { useNotifications } from "@/hooks/use-notifications";
 import { useUser } from "@/hooks/use-user";
 import { siteConfig } from "@/lib/site";
+import { setThemePref, useThemePref, type ThemePref } from "@/lib/theme";
 import type { Room } from "@/vanguard/i18n";
 import { useStore } from "@/vanguard/store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -44,6 +45,10 @@ export function AccountMenu() {
   const openRoom = useStore((s) => s.openRoom);
   const setLang = useStore((s) => s.setLang);
   const fr = lang !== "en";
+  const theme = useThemePref();
+  const THEMES: Record<ThemePref, [string, string]> = { light: ["Clair", "Light"], dark: ["Sombre", "Dark"], system: ["Système", "System"] };
+  const nextTheme: ThemePref = theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
+  const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : SunMoon;
   const say = (french: string, english: string) => (fr ? french : english);
   const name = profile?.full_name ?? session?.actorName ?? siteConfig.user.name;
   const initials =
@@ -59,8 +64,8 @@ export function AccountMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-9 shrink-0 gap-2 border border-border bg-card px-1.5 pr-2.5" aria-label={say("Mon profil", "My profile")}>
-            <Avatar className="size-7">
+          <Button variant="ghost" className="h-9 shrink-0 gap-2 border-transparent bg-transparent px-1.5 pr-2 shadow-none hover:bg-black/5 dark:hover:bg-white/10" aria-label={say("Mon profil", "My profile")}>
+            <Avatar className="size-8">
               {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={name} /> : null}
               <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
@@ -99,7 +104,7 @@ export function AccountMenu() {
             </DropdownMenuItem>
             <DropdownMenuItem disabled={!loaded} onSelect={() => go("inbox")}>
               <Bell className="size-4 text-muted-foreground" /> {say("Notifications", "Notifications")}
-              {unreadCount ? <DropdownMenuShortcut className="rounded-full bg-primary px-1.5 text-[10px] font-semibold tracking-normal text-primary-foreground">{unreadCount > 99 ? "99+" : unreadCount}</DropdownMenuShortcut> : null}
+              {unreadCount ? <DropdownMenuShortcut className="rounded-sm bg-primary px-1.5 text-[10px] font-semibold tracking-normal text-primary-foreground">{unreadCount > 99 ? "99+" : unreadCount}</DropdownMenuShortcut> : null}
             </DropdownMenuItem>
             <DropdownMenuItem disabled={!loaded} onSelect={() => go("settings", "account")}>
               <UserRound className="size-4 text-muted-foreground" /> {say("Mon compte", "My account")}
@@ -119,6 +124,10 @@ export function AccountMenu() {
             <DropdownMenuItem onSelect={(event) => { event.preventDefault(); setLang(fr ? "en" : "fr"); }}>
               <Languages className="size-4 text-muted-foreground" /> {say("Langue", "Language")}
               <DropdownMenuShortcut className="normal-case tracking-normal">{fr ? "Français → English" : "English → Français"}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={(event) => { event.preventDefault(); setThemePref(nextTheme); }}>
+              <ThemeIcon className="size-4 text-muted-foreground" /> {say("Thème", "Theme")}
+              <DropdownMenuShortcut className="normal-case tracking-normal">{say(...THEMES[theme])}</DropdownMenuShortcut>
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />

@@ -8,7 +8,7 @@ export function VanguardLoading({ failed = false }: { failed?: boolean }) {
     <div className="loading">
       {/* eslint-disable-next-line @next/next/no-img-element -- Vanguard's own markup (vanguard/App.tsx) */}
       <img src={emblemImage.src} alt="" />
-      <div className="t">BUMEX VANGUARD</div>
+      <div className="t"><b>BUMEX</b> Vanguard</div>
       {failed ? (
         <div className="s">
           Base ERP injoignable ·{" "}

@@ -53,7 +53,7 @@ function ArchiveBox({ row, selected, hovered }: { row: ArchiveRow; selected: boo
       <group position={[RACK_POS.x, y, z]} {...handlers}>
         <mesh position={[-0.1, 0.09, 0]} rotation={[0, -Math.PI / 2, 0]}>
           <planeGeometry args={[0.16, 0.12]} />
-          <meshStandardMaterial ref={mat} color="#f7f5ef" emissive="#d9a13e" emissiveIntensity={0} side={THREE.DoubleSide} />
+          <meshStandardMaterial ref={mat} color="#f7f5ef" emissive="#2f6fd1" emissiveIntensity={0} side={THREE.DoubleSide} />
         </mesh>
         <Box p={[-0.1, 0.012, 0]} s={[0.06, 0.024, 0.12]} m={M().chrome} shadow={false} />
         <mesh position={[0, 0.14, 0]} visible={false}>
@@ -68,14 +68,14 @@ function ArchiveBox({ row, selected, hovered }: { row: ArchiveRow; selected: boo
       {record.kind === 'box' ? (
         <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
           <boxGeometry args={[depth, h, w]} />
-          <meshStandardMaterial ref={mat} color={record.status === 'pending_destruction' ? '#a88a62' : '#b8955f'} emissive="#6b8dc1" emissiveIntensity={0} roughness={0.95} />
+          <meshStandardMaterial ref={mat} color={record.status === 'pending_destruction' ? '#a88a62' : '#b8955f'} emissive="#2f6fd1" emissiveIntensity={0} roughness={0.95} />
         </mesh>
       ) : (
         <>
           {[0, 1, 2].map((i) => (
             <mesh key={i} position={[0, h / 2, -w / 2 + 0.04 + i * 0.085]} castShadow receiveShadow>
               <boxGeometry args={[depth, h, 0.075]} />
-              <meshStandardMaterial ref={i === 0 ? mat : undefined} color={['#2b3f66', '#3b5a8f', '#2b3f66'][i]} emissive="#6b8dc1" emissiveIntensity={0} roughness={0.7} />
+              <meshStandardMaterial ref={i === 0 ? mat : undefined} color={['#2b3f66', '#3b5a8f', '#2b3f66'][i]} emissive="#2f6fd1" emissiveIntensity={0} roughness={0.7} />
             </mesh>
           ))}
         </>
@@ -87,7 +87,7 @@ function ArchiveBox({ row, selected, hovered }: { row: ArchiveRow; selected: boo
       {selected && (
         <mesh position={[-depth / 2 - 0.01, h / 2, 0]} rotation={[0, -Math.PI / 2, 0]}>
           <ringGeometry args={[0.1, 0.115, 32]} />
-          <meshBasicMaterial color="#d9a13e" transparent opacity={0.9} />
+          <meshBasicMaterial color="#2f6fd1" transparent opacity={0.9} />{/* [bumex-one] Fluent's blue for the box picked (2026-11-19) */}
         </mesh>
       )}
     </group>

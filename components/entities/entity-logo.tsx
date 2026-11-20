@@ -30,7 +30,7 @@ export function EntityLogo({
       <div
         className={cn(
           "relative flex items-center justify-center border border-slate-200/80 shadow-[0_14px_35px_rgba(15,23,42,0.08)] dark:border-white/10 dark:shadow-none",
-          forceWhiteBackground ? "bg-white dark:bg-white" : "bg-slate-100 dark:bg-slate-900/80",
+          forceWhiteBackground ? "bg-white dark:bg-white" : "bg-muted",
           boxClassName,
           className,
         )}
@@ -43,7 +43,7 @@ export function EntityLogo({
           }}
         />
         <span
-          className="relative text-center font-semibold tracking-[-0.04em]"
+          className="relative text-center font-semibold"
           style={{
             color: entity.primaryColor,
             fontSize: size === "xl" ? "1.35rem" : size === "lg" ? "1rem" : "0.8rem",
@@ -59,7 +59,7 @@ export function EntityLogo({
     <div
       className={cn(
         "relative flex items-center justify-center overflow-hidden border border-slate-200/80 shadow-[0_14px_35px_rgba(15,23,42,0.08)] dark:border-white/10 dark:shadow-none",
-        forceWhiteBackground ? "bg-white dark:bg-white" : "bg-slate-100 dark:bg-slate-900/80",
+        forceWhiteBackground ? "bg-white dark:bg-white" : "bg-muted",
         boxClassName,
         className,
       )}

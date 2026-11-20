@@ -17,7 +17,7 @@ export const initials = (name: string) => name.split(/\s+/).filter(Boolean).map(
 export function Avatar({ name, size = 24, title }: { name: string | null | undefined; size?: number; title?: string }) {
   if (!name) return <span className="av none" style={{ width: size, height: size }} title={title ?? '—'} aria-hidden="true" />;
   const h = hue(name);
-  const style: CSSProperties = { width: size, height: size, fontSize: Math.round(size * 0.42), background: `hsl(${h} 45% 88%)`, color: `hsl(${h} 45% 28%)` };
+  const style: CSSProperties = { width: size, height: size, fontSize: Math.round(size * 0.42), background: `hsl(${h} 45% var(--av-bg-l, 88%))`, color: `hsl(${h} 45% var(--av-fg-l, 28%))` };
   return <span className="av" style={style} title={title ?? name} aria-hidden="true">{initials(name)}</span>;
 }
 

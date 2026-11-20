@@ -127,7 +127,7 @@ export function NotificationItem({
           <p className="text-sm leading-6 text-muted-foreground">{notification.body}</p>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button asChild variant="secondary" className="rounded-full px-4">
+            <Button asChild variant="secondary" className="rounded-sm px-4">
               <Link href={getNotificationLink(notification.entity_type, notification.entity_id)}>
                 {isFr ? "Ouvrir l'élément lié" : "Open related item"}
               </Link>
@@ -137,7 +137,7 @@ export function NotificationItem({
               <Button
                 type="button"
                 variant="ghost"
-                className="rounded-full px-4"
+                className="rounded-sm px-4"
                 onClick={() => void onMarkRead?.(notification.id)}
               >
                 {isFr ? "Marquer comme lu" : "Mark as read"}
@@ -148,7 +148,7 @@ export function NotificationItem({
               <Button
                 type="button"
                 variant="ghost"
-                className="rounded-full px-4 text-muted-foreground"
+                className="rounded-sm px-4 text-muted-foreground"
                 onClick={() => void onArchive?.(notification.id)}
               >
                 <Trash2 className="size-4" />

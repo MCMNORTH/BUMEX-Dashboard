@@ -44,7 +44,7 @@ function SceneFallback() {
   return (
     <div className="loading">
       <img src={emblem} alt="" />
-      <div className="t">BUMEX VANGUARD</div>
+      <div className="t"><b>BUMEX</b> Vanguard</div>
       <div className="s">Chargement du moteur 3D…</div>
       <div className="p"><i /></div>
     </div>

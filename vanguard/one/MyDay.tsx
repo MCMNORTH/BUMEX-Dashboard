@@ -5,7 +5,7 @@ import { reloadVanguardAction } from '@/lib/erp/vanguard/actions';
 import { myDayAction, type MyDayData } from '@/lib/erp/vanguard/myday-actions';
 import type { VanguardData } from '@/lib/erp/vanguard/run';
 import { useStore } from '../store';
-import { Chip, D } from '../ui/common';
+import { Chip, D, Icon } from '../ui/common';
 import { useSay } from './say';
 import { EstimateAsk } from './EstimateAsk';
 import { LoadBar, hoursText } from './work-ui';
@@ -25,7 +25,7 @@ export function MyDayButton() {
   const on = ui.room === 'myday';
   return (
     <button className={`sb-item ${on ? 'on' : ''}`} onClick={() => openRoom(on ? null : 'myday')} aria-label={say('Ma journée', 'My day')}>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+      <Icon name="myday" filled={on} />
       <span className="lbl">{say('Ma journée', 'My day')}</span>
       <span className="tip">{say('Ma journée', 'My day')}</span>
     </button>

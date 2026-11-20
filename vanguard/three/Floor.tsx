@@ -145,7 +145,7 @@ function RoomFloor({ room, rect, map, color, hot, floorY, y = 0.012 }: { room: P
       {(hot || focused === room) && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[rect.cx, y + 0.01, rect.cz]}>
           <planeGeometry args={[rect.w, rect.d]} />
-          <meshBasicMaterial color={focused === room ? '#d9a13e' : '#6b8dc1'} transparent opacity={tint} depthWrite={false} />
+          <meshBasicMaterial color={focused === room ? '#2f6fd1' : '#8db4ea'} transparent opacity={tint} depthWrite={false} />{/* [bumex-one] Fluent's blues (2026-11-19) */}
         </mesh>
       )}
     </group>

@@ -70,8 +70,8 @@ export function MyAccountPanel() {
           <h2 style={{ margin: 0 }}>{say('Profil', 'Profile')}</h2>
           <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
             {me.avatarUrl
-              ? <span role="img" aria-label={me.fullName} style={{ width: 56, height: 56, borderRadius: '50%', background: `center / cover url("${me.avatarUrl}")` }} />
-              : <span style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--blue-pale)', display: 'grid', placeItems: 'center', fontWeight: 600 }}>{me.fullName.split(/\s+/).map((w) => w[0]).slice(0, 2).join('')}</span>}
+              ? <span role="img" aria-label={me.fullName} style={{ width: 56, height: 56, borderRadius: 2, background: `center / cover url("${me.avatarUrl}")` }} />
+              : <span style={{ width: 56, height: 56, borderRadius: 2, background: 'var(--blue-pale)', display: 'grid', placeItems: 'center', fontWeight: 600 }}>{me.fullName.split(/\s+/).map((w) => w[0]).slice(0, 2).join('')}</span>}
             <Field label={say('Photo (PNG, JPG ou WebP, 512 Ko au plus)', 'Photo (PNG, JPG or WebP, 512 KB at most)')}><input className="in" type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setAvatar(e.target.files?.[0] ?? null)} /></Field>
           </div>
           <div className="grid3">

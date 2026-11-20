@@ -3,8 +3,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", "Aptos", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, "SFMono-Regular", monospace;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -43,13 +43,13 @@
   --text-sm: 0.9286rem;
   --text-sm--line-height: 1.45;
 
-  /* Two radii: lg for controls (buttons, inputs, chips), xl for surfaces (cards, panels, dialogs). */
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  /* One radius, Fluent's 2 px corners (the redesign of 2026-11-19): controls, chips, cards, dialogs alike. */
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 6px);
-  --radius-2xl: var(--radius-xl);
-  --radius-3xl: var(--radius-xl);
+  --radius-xl: var(--radius);
+  --radius-2xl: var(--radius);
+  --radius-3xl: var(--radius);
 
   --shadow-soft: var(--shadow-soft-token);
   --shadow-glow: var(--shadow-glow-token);
@@ -58,87 +58,85 @@
 }
 
 :root {
-  /* BUMEX Vanguard's palette, surfaces and type (vanguard/styles.css): navy #2b3f66, steel blue #6b8dc1, gold #d9a13e. */
-  --theme: #2b3f66;
-  --theme-tint: #6b8dc1;
-  --theme-light: #a9bddc;
-  --theme-hero-dark: #1d2c49;
-  --background: #f2f3f5;
-  --foreground: #1c2231;
+  /* Fluent 2 with the BUMEX navy as the brand colour, as Vanguard (vanguard/styles.css): light, then dark (.dark, set
+     on <html> by lib/theme.ts). */
+  --theme: #1f4f8f;
+  --theme-tint: #2f64ad;
+  --theme-light: #8db4ea;
+  --theme-hero-dark: #163a69;
+  --background: #f5f5f5;
+  --foreground: #242424;
   --card: #ffffff;
-  --card-foreground: #1c2231;
+  --card-foreground: #242424;
   --popover: #ffffff;
-  --popover-foreground: #1c2231;
+  --popover-foreground: #242424;
   --primary-foreground: #ffffff;
-  --secondary: #f2f3f5;
-  --secondary-foreground: #1c2231;
-  --muted: #f2f3f5;
-  --muted-foreground: #6a7382;
-  --border: #d9dde4;
-  --input: #d9dde4;
-  --success: #2e7d4f;
-  --warning: #b07a1e;
-  --danger: #b4232c;
-  --brand: #2b3f66;
-  --chart-1: #2b3f66;
-  --chart-2: #6b8dc1;
-  --chart-3: #d9a13e;
-  --chart-4: #cdbfa6;
-  --chart-5: #94a3b8;
-  --radius: 10px;
-  --shadow-soft-token: 0 1px 2px rgba(16, 24, 40, 0.06), 0 2px 8px rgba(16, 24, 40, 0.06);
-  --shadow-glow-token: 0 0 0 1px rgba(107, 141, 193, 0.25), 0 8px 18px rgba(16, 24, 40, 0.08);
-  --shadow-elevated-token: 0 1px 2px rgba(16, 24, 40, 0.06), 0 10px 30px rgba(16, 24, 40, 0.12);
-  --shadow-inner-token: inset 0 0 0 1px rgba(28, 34, 49, 0.06);
+  --secondary: #f5f5f5;
+  --secondary-foreground: #242424;
+  --muted: #f5f5f5;
+  --muted-foreground: #616161;
+  --border: #e0e0e0;
+  --input: #d1d1d1;
+  --success: #107c10;
+  --warning: #bc4b09;
+  --danger: #c50f1f;
+  --brand: #1f4f8f;
+  --chart-1: #1f4f8f;
+  --chart-2: #2f6fd1;
+  --chart-3: #c48a00;
+  --chart-4: #138a3e;
+  --chart-5: #8a8886;
+  --radius: 2px;
+  --shadow-soft-token: 0 0 2px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.14);
+  --shadow-glow-token: 0 0 0 1px #a9bfe0, 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-elevated-token: 0 0 2px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.14);
+  --shadow-inner-token: none;
   --primary: var(--theme);
-  --accent: #e6edf7;
-  --accent-foreground: #1d2c49;
-  --ring: rgba(107, 141, 193, 0.4);
-  --hero: #1d2c49;
-  --hero-border: rgba(107, 141, 193, 0.35);
+  --accent: #f0f0f0;
+  --accent-foreground: #242424;
+  --ring: #1f4f8f;
+  --hero: #1f4f8f;
+  --hero-border: rgba(255, 255, 255, 0.2);
 }
 
 .dark {
-  --background: #121a26;
-  --foreground: #e3e8ef;
-  --card: #18222f;
-  --card-foreground: #e3e8ef;
-  --popover: #18222f;
-  --popover-foreground: #e3e8ef;
-  --primary-foreground: #0f1b2b;
-  --secondary: #213046;
-  --secondary-foreground: #e3e8ef;
-  --muted: #1e2a3b;
-  --muted-foreground: #9aa8ba;
-  --border: rgba(255, 255, 255, 0.09);
-  --input: rgba(255, 255, 255, 0.12);
-  --success: #5cc48a;
-  --warning: #eea442;
-  --danger: #f2766b;
-  --brand: #86a6d6;
-  --chart-1: #86a6d6;
-  --chart-2: #b9cde8;
-  --chart-3: #eea442;
-  --chart-4: #d9c5b1;
-  --chart-5: #64748b;
-  --shadow-soft-token: 0 1px 2px rgba(0, 0, 0, 0.34);
-  --shadow-glow-token: 0 0 0 1px color-mix(in srgb, var(--theme-light) 16%, transparent), 0 10px 24px rgba(0, 0, 0, 0.26);
-  --shadow-elevated-token: 0 10px 28px rgba(0, 0, 0, 0.28);
-  --shadow-inner-token: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-}
-
-.dark {
-  --primary: var(--theme-light);
-  --accent: color-mix(in srgb, var(--theme-tint) 18%, transparent);
-  --accent-foreground: color-mix(in srgb, var(--theme-light) 60%, #ffffff);
-  --ring: color-mix(in srgb, var(--theme-light) 40%, transparent);
-  --hero: var(--theme-hero-dark);
-  --hero-border: color-mix(in srgb, var(--theme-light) 18%, transparent);
+  --background: #1f1f1f;
+  --foreground: #ffffff;
+  --card: #292929;
+  --card-foreground: #ffffff;
+  --popover: #292929;
+  --popover-foreground: #ffffff;
+  --primary-foreground: #ffffff;
+  --secondary: #333333;
+  --secondary-foreground: #ffffff;
+  --muted: #333333;
+  --muted-foreground: #adadad;
+  --border: #3d3d3d;
+  --input: #5c5c5c;
+  --success: #6ccb5f;
+  --warning: #f9a56b;
+  --danger: #f1707b;
+  --brand: #8db4ea;
+  --chart-1: #8db4ea;
+  --chart-2: #5b9cf0;
+  --chart-3: #e3b23c;
+  --chart-4: #4fbf6a;
+  --chart-5: #a19f9d;
+  --shadow-soft-token: 0 0 2px rgba(0, 0, 0, 0.24), 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-glow-token: 0 0 0 1px #3e5c88, 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-elevated-token: 0 0 2px rgba(0, 0, 0, 0.24), 0 8px 16px rgba(0, 0, 0, 0.28);
+  --shadow-inner-token: none;
+  --primary: #2d63ad;
+  --accent: #333333;
+  --accent-foreground: #ffffff;
+  --ring: #8db4ea;
+  --hero: #1e2a3b;
+  --hero-border: rgba(255, 255, 255, 0.12);
 }
 
 body,
 .bumex-page {
-  font-family: "Aptos", "Aptos Narrow", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 html {
@@ -182,12 +180,12 @@ body {
 .bumex-tools {
   position: absolute;
   top: 0;
-  right: 16px;
+  right: 12px;
   z-index: 31;
   display: flex;
-  height: 52px;
+  height: 48px;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
 }
 
 @media (max-width: 900px) {
@@ -196,55 +194,23 @@ body {
   }
 }
 
+/* a phone's title bar is 52 px under the notch (vanguard/responsive.css): the bell and the account menu follow it */
+@media (max-width: 640px) {
+  .bumex-tools {
+    top: env(safe-area-inset-top);
+    height: 52px;
+  }
+}
+
 /* Vanguard keeps the browser's own scrollbars and selects (vanguard/vanguard.css); BUMEX One's pages in its frame
    keep BUMEX One's. */
 :where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *) {
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.72) transparent;
-}
-
-:where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *)::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-:where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *)::-webkit-scrollbar-track {
-  margin-block: 10px;
-  margin-inline: 10px;
-  border-radius: 999px;
-  background: transparent;
-}
-
-:where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *)::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background:
-    linear-gradient(180deg, rgba(148, 163, 184, 0.7), rgba(100, 116, 139, 0.9)) padding-box;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 8px 18px rgba(15, 23, 42, 0.12);
-}
-
-:where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *)::-webkit-scrollbar-thumb:hover {
-  background:
-    linear-gradient(180deg, rgba(96, 136, 192, 0.85), rgba(96, 136, 192, 0.85)) padding-box;
+  scrollbar-color: rgba(0, 0, 0, 0.32) transparent;
 }
 
 .dark :where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *) {
-  scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
-}
-
-.dark :where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *)::-webkit-scrollbar-thumb {
-  background:
-    linear-gradient(180deg, rgba(148, 163, 184, 0.5), rgba(71, 85, 105, 0.82)) padding-box;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 10px 22px rgba(2, 8, 23, 0.34);
-}
-
-.dark :where(:not(.vanguard, .vanguard *), .bumex-page, .bumex-page *)::-webkit-scrollbar-thumb:hover {
-  background:
-    linear-gradient(180deg, rgba(96, 136, 192, 0.85), rgba(96, 136, 192, 0.85)) padding-box;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
 }
 
 input[type="password"]::-ms-reveal,
@@ -516,19 +482,12 @@ select:where(:not(.vanguard *), .bumex-page *) option {
 }
 
 .login-grid {
-  background-image:
-    linear-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.1) 1px, transparent 1px);
-  background-size: 34px 34px;
-  mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.8), transparent 86%);
+  /* Fluent (2026-11-19): a plain page under the sign-in card, no pattern */
+  display: none;
 }
 
 .login-orb {
-  position: absolute;
-  border-radius: 9999px;
-  filter: blur(26px);
-  opacity: 0.7;
-  animation: loginOrb 18s ease-in-out infinite;
+  display: none;
 }
 
 .login-orb-a {
@@ -568,19 +527,11 @@ select:where(:not(.vanguard *), .bumex-page *) option {
 }
 
 .login-panel {
-  animation: loginCardIn 720ms ease-out both;
+  animation: fadeUp 240ms ease-out both;
 }
 
 .login-panel::after {
-  content: "";
-  position: absolute;
-  inset: -40% auto auto -30%;
-  height: 120%;
-  width: 40%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.48), transparent);
-  transform: translateX(-130%);
-  animation: loginGlowSweep 8s linear infinite;
-  pointer-events: none;
+  content: none;
 }
 
 .login-tab {

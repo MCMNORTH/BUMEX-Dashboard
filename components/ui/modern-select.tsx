@@ -227,7 +227,7 @@ export function ModernSelect({
             >
               <span className="min-w-0 flex-1 truncate">{option.label}</span>
               {option.badge ? (
-                <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] leading-none text-muted-foreground">
+                <span className="shrink-0 rounded-sm border border-border px-2 py-0.5 text-[11px] leading-none text-muted-foreground">
                   {option.badge}
                 </span>
               ) : null}

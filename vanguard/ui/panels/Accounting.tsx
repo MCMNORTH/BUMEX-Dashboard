@@ -178,7 +178,7 @@ function EntryForm({ entityId, editing, onDone }: { entityId: Id; editing: Id | 
               </div>
             </Field>
           </div>
-          <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 6 }}>
+          <div style={{ overflowX: 'auto', border: '1px solid var(--stroke)', borderRadius: 2 }}>
             <table>
               <thead><tr><th style={{ width: 36 }}>#</th><th style={{ width: 150 }}>{t('account')}</th><th>Libellé du compte</th><th>Libellé de ligne</th><th style={{ width: 170 }}>{t('dimension')}</th><th className="num" style={{ width: 140 }}>{t('debit')}</th><th className="num" style={{ width: 140 }}>{t('credit')}</th><th style={{ width: 36 }}></th></tr></thead>
               <tbody>
@@ -286,7 +286,7 @@ function EntryRow({ e, expanded, onToggle }: { e: JournalEntry; expanded: boolea
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={7} style={{ background: '#f6f7f9' }}>
+          <td colSpan={7} style={{ background: 'var(--ground)' }}>
             <table style={{ background: 'transparent' }}>
               <thead><tr><th>#</th><th>{t('account')}</th><th>{t('label')}</th><th>{t('dimension')}</th><th className="num">{t('debit')}</th><th className="num">{t('credit')}</th><th className="num">Devise</th></tr></thead>
               <tbody>
@@ -412,7 +412,7 @@ function Closing({ entityId }: { entityId: Id }) {
                 {periods.map((p) => {
                   const pd = state.entries.filter((e) => e.periodId === p.id && e.status === 'draft').length;
                   return (
-                    <div key={p.id} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 8, fontSize: 12, background: p.status === 'locked' ? '#f3f4f6' : '#fff' }}>
+                    <div key={p.id} style={{ border: '1px solid var(--stroke)', borderRadius: 2, padding: 8, fontSize: 12, background: p.status === 'locked' ? 'var(--ground)' : 'var(--paper)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}><b>{p.start.slice(0, 7)}</b><Chip kind={p.status === 'open' ? 'good' : p.status === 'soft_closed' ? 'warn' : 'dim'}>{p.status === 'open' ? t('open') : p.status === 'soft_closed' ? t('soft') : t('locked')}</Chip></div>
                       <div className="muted">{pd} brouillon(s)</div>
                       <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
