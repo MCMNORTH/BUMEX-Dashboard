@@ -7,6 +7,7 @@ import { TowerHud, FloorHud } from './ui/Hud';
 import { RackHud } from './ui/RackHud';
 import { Sheet, FlatLayout } from './ui/Rooms';
 import { DeleteDialog } from './ui/common';
+import { Sk } from './one/skeleton'; // [bumex-one] the loading shimmer (2026-11-20)
 import { AskHost } from './one/ask'; // [bumex-one] the questions in Fluent's dialog, not the browser's (2026-11-20)
 import { useRoomHistory } from './one/back'; // [mobile] Back goes back one screen
 import { PhoneNav } from './one/PhoneNav'; // [mobile]
@@ -41,13 +42,13 @@ function ModeSwitch() {
   );
 }
 
+// [bumex-one] the scene's place under Fluent's shimmer while the 3D engine loads (one/skeleton.tsx, 2026-11-20)
 function SceneFallback() {
+  const fr = useStore((s) => s.ui.lang !== 'en');
   return (
-    <div className="loading">
-      <img src={emblem} alt="" />
-      <div className="t"><b>BUMEX</b> Vanguard</div>
-      <div className="s">Chargement du moteur 3D…</div>
-      <div className="p"><i /></div>
+    <div className="sk-scene" role="status" aria-busy="true">
+      <Sk />
+      <div className="sk-scene-cap"><img src={emblem} alt="" />{fr ? 'Chargement du moteur 3D…' : 'Loading the 3D engine…'}</div>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { addDays } from '@/lib/timesheet/validation';
 import { useStore } from '../store';
 import { Icon } from '../ui/common';
 import { useSay } from './say';
+import { Loading, Sk, SkGrid } from './skeleton';
 
 // The "Temps" room's "Calendrier" tab (asked on 2026-11-02): the reviewer's year week by week, month by month. A past
 // week where someone sent their timesheet and nobody approved it yet stands out, with who is waiting, so a reviewer
@@ -50,7 +51,7 @@ export function TeamCalendar({ onWeek }: { onWeek: (week: string) => void }) {
     return () => { live = false; };
   }, [year]);
 
-  if (data === undefined) return <span className="muted">{say('Chargement…', 'Loading…')}</span>;
+  if (data === undefined) return <Loading><Sk w={220} h={28} /><SkGrid rows={5} cols={7} /></Loading>;
   if (data === null) return <div className="banner warn">{say("Le calendrier des feuilles est réservé à l'administrateur et aux managers.", 'The timesheet calendar is for the administrator and managers.')}</div>;
   const fmt = (iso: string, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(lang === 'fr' ? 'fr-FR' : 'en-GB', { ...o, timeZone: 'UTC' }).format(utc(iso));
   const months = weeksOf(data);

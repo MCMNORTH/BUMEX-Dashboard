@@ -22,6 +22,7 @@ import { useSay } from './say';
 import { ago, type Say } from './ticket-history';
 import { applyFilters, isFiltered, quickCounts, readFilters, readView, workTicketOf, writeFilters, writeView, type GroupBy, type GroupLabels, type MyCard, type WorkFilters, type WorkView } from './work-filters';
 import { Avatar, Block, Figure, LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursText, levelLabel, type Tone } from './work-ui';
+import { Loading, SkBoard, SkKpis } from './skeleton';
 
 // "Mon travail": everything the person has to do, on every floor (asked on 2026-10-27), redrawn on 2026-10-29 ("i like
 // how the board looks in tasks page but i dont like how it looks in my work page") out of the Tasks room's own parts:
@@ -112,7 +113,7 @@ export function MyWorkRoom({ entityId, initialTab }: { entityId: Id; initialTab?
         {ticketId && <TicketPanel id={ticketId} onClose={() => setTicketId(null)} backLabel={say('Retour à mon travail', 'Back to my work')} />}
         {/* kept under an open ticket, as it was (search, mission, sort, what was unfolded): back finds it there */}
         <div hidden={Boolean(ticketId)}>
-          {data === undefined ? <div className="card"><span className="muted">{say('Chargement de votre travail…', 'Loading your work…')}</span></div>
+          {data === undefined ? <Loading label={say('Chargement de votre travail…', 'Loading your work…')}><SkKpis n={4} /><SkBoard cols={4} /></Loading>
             : data === null ? (
               <div className="banner crit mw-failed">
                 <span>{say('Mon travail est indisponible.', 'My work is unavailable.')}</span>
@@ -299,7 +300,7 @@ function FloorBoards({ all, cards, entityId, boardOf, flow, groupBy, groupLabels
   const ready = useBoardsReady(all.map((c) => c.ticket.project_id));
   const columnOf = useCallback((x: MyCard) => stageIdOf(boardOf(x.ticket.project_id), x), [boardOf]);
   const dropCheck = useCallback((x: MyCard, c: { id: string }) => moveCheck(boardOf(x.ticket.project_id), stageTicketOf(x), c.id, me), [boardOf, me]);
-  if (!ready) return <div className="card"><span className="muted">{say('Chargement du tableau…', 'Loading the board…')}</span></div>;
+  if (!ready) return <Loading label={say('Chargement du tableau…', 'Loading the board…')}><SkBoard cols={4} /></Loading>;
   const floorOf = (pid: string) => { const w = boardOf(pid); return w.is_configured && w.entity_id ? w.entity_id : 'builtin'; };
   const nameOf = (floor: string) => (floor === 'builtin' ? say('Autres tickets', 'Other tickets') : entities.find((e) => e.id === floor)?.name ?? say('Autre étage', 'Other floor'));
   const floors = [...new Set(all.map((c) => floorOf(c.ticket.project_id)))]

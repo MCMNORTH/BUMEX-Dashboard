@@ -106,10 +106,11 @@ export async function runScreens({ openBrowser, cookies, check, dir, sizes = Obj
       const errors = [];
       for (const [file, path] of SCREENS) {
         await tab.go(path);
-        const shown = await tab.until("document.readyState === 'complete' && document.body.innerText.length > 60 && !document.querySelector('.loading')", 25_000);
+        // shown: nothing loading any more (the app's loading screen, a skeleton: aria-busy, vanguard/one/skeleton.tsx)
+        const shown = await tab.until("document.readyState === 'complete' && document.body.innerText.length > 60 && !document.querySelector('.loading, [aria-busy=\\'true\\']')", 25_000);
         await new Promise((resolve) => setTimeout(resolve, 900));
         // the same picture each time: no caret, no animation in flight
-        await tab.evaluate("document.activeElement?.blur?.(), document.getAnimations().forEach((a) => a.finish?.()), true").catch(() => undefined);
+        await tab.evaluate("document.activeElement?.blur?.(), document.getAnimations().forEach((a) => { try { a.finish(); } catch { /* an endless one (a shimmer) */ } }), true").catch(() => undefined);
         await tab.screenshot(join(folder, `${file}.png`));
         const m = await tab.evaluate(MEASURE).catch(() => null);
         const errs = tab.takeErrors();

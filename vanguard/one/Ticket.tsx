@@ -20,6 +20,7 @@ import { RichText } from './RichText';
 import { QuickLogButton } from './QuickLog';
 import { useMedia } from './screen'; // [mobile]
 import { confirmAsk, textAsk } from './ask';
+import { Loading, SkPage } from './skeleton';
 
 // A ticket in the Tasks room, laid out as Jira's (asked on 2026-10-27): its key and place in the breadcrumb; on the
 // left its description, attachments, sub-tasks, linked tickets and activity (comments, history, work log); on the
@@ -67,7 +68,7 @@ export function TicketPanel({ id, onClose, backLabel }: { id: string; onClose: (
   };
 
   // [mobile] a phone: the status right under the title, the details folded (docs/plans/mobile-tablet.md)
-  if (view === undefined) return <div className="card"><span className="muted">{say('Chargement du ticket…', 'Loading the ticket…')}</span></div>;
+  if (view === undefined) return <Loading label={say('Chargement du ticket…', 'Loading the ticket…')}><SkPage split tabs={0} /></Loading>;
   if (view === null) {
     return (
       <div className="card">

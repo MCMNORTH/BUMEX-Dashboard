@@ -12,6 +12,7 @@ import { useSay } from './say';
 import { useModal } from './modal';
 import type { Say } from './ticket-history';
 import { isTouch } from './screen'; // [mobile]
+import { Loading, SkForm } from './skeleton';
 
 // [bumex-one] "Saisie rapide" (asked on 2026-10-28: logging time must be effortless). One sentence, Enter saves:
 // "J'ai travaillé [durée] sur [quoi] [quand]". Quoi is one search: my open tickets first (the line then counts on the
@@ -179,7 +180,7 @@ export function QuickLogDialog({ ticketId, onClose, onSaved }: { ticketId?: stri
     <div className="ts-modal-back" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) { e.preventDefault(); onClose(); } }} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') onClose(); }}>
       <div ref={box} className="ts-modal ql-modal" role="dialog" aria-modal="true" aria-label={say('Enregistrer du temps', 'Log time')}>
         <div className="ts-modal-h"><h2>{say('Enregistrer du temps', 'Log time')}</h2><button className="btn sm ghost" onClick={onClose} aria-label={say('Fermer', 'Close')} title={say('Fermer', 'Close')}><Icon name="close" size={14} /></button></div>
-        {data ? <QuickLog data={data} ticketId={ticketId} compact say={say} onSaved={() => { onSaved?.(); onClose(); }} /> : <span className="muted">{say('Chargement…', 'Loading…')}</span>}
+        {data ? <QuickLog data={data} ticketId={ticketId} compact say={say} onSaved={() => { onSaved?.(); onClose(); }} /> : <Loading><SkForm fields={3} /></Loading>}
         <div className="small muted" style={{ marginTop: 8 }}>
           <button className="linkish" onClick={() => { onClose(); useStore.getState().openRoom('time'); }}>{say('Voir ma semaine', 'See my week')} →</button>
         </div>

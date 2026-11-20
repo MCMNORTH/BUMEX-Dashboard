@@ -6,6 +6,7 @@ import { useStore } from '../store';
 import { Chip, Icon } from '../ui/common';
 import { ClientForm, blankClient } from './ClientPage';
 import { useSay } from './say';
+import { Loading, SkKpis, SkTable } from './skeleton';
 
 // The relationship side of the clients (BUMEX One's clients, one for the group) under the Clients room's customer
 // accounts of the floor (ui/panels/Clients.tsx): which clients have an account here, opening one for the others, a new
@@ -36,7 +37,7 @@ export function ClientRelations({ entityId }: { entityId: Id }) {
     return () => { live = false; };
   }, [loadedAt, entityId]);
 
-  if (!clients) return <div className="card"><span className="muted">{say('Chargement des relations…', 'Loading the relations…')}</span></div>;
+  if (!clients) return <Loading label={say('Chargement des relations…', 'Loading the relations…')}><SkKpis n={4} /><SkTable rows={6} cols={5} /></Loading>;
   const here = (c: ClientRelation) => c.accounts.find((a) => a.entityId === entityId);
   const s = q.trim().toLowerCase();
   const rows = clients.filter((c) => (filter === 'all' || !here(c)) && (!s || `${c.name} ${c.city ?? ''} ${c.contact_email ?? ''}`.toLowerCase().includes(s)));

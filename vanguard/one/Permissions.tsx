@@ -11,6 +11,7 @@ import { useSay } from './say';
 import { Select } from '../ui/Select';
 import { WideNote } from './WideNote'; // [mobile]
 import { confirmAsk } from './ask';
+import { Loading, SkList } from './skeleton';
 
 // The Settings room's Permissions tab, for the administrators who manage access (the "role modifiers"): who sees which
 // entity, and which parts of each. A role gives its standard parts; each person's can be tweaked per entity (a tweaked
@@ -75,7 +76,7 @@ export function PermissionsPanel() {
   }, [loadedAt]);
   const refresh = async () => setData(await permissionsAction().catch(() => null));
 
-  if (data === undefined) return <span className="muted">{say('Chargement…', 'Loading…')}</span>;
+  if (data === undefined) return <Loading><SkList rows={7} card /></Loading>;
   if (data === null) return <div className="banner info">{say("Les accès sont gérés par les administrateurs qui modifient les rôles.", 'Access is managed by the administrators who modify roles.')}</div>;
 
   const floorOf = (code: ErpEntityCode | null) => data.entities.find((e) => e.code === code);

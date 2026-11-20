@@ -16,6 +16,7 @@ import { useSay } from './say';
 import { Avatar, Lozenge, PriorityIcon, TypeIcon, hoursText, statusTone } from './work-ui';
 import { Select } from '../ui/Select';
 import { confirmAsk } from './ask';
+import { Loading, SkLines, SkPage } from './skeleton';
 
 // A mission's page in the Missions room (redrawn on 2026-10-28, laid out as a ticket's page): its name and state on top,
 // then its figures, description, tickets and milestones, with its details and alerts on the side; its team, notes,
@@ -70,7 +71,7 @@ export function MissionPanel({ projectId, initialTab, onClose }: { projectId: st
     }
   };
 
-  if (view === undefined) return <div className="mp-loading"><span className="muted">{say('Chargement de la mission…', 'Loading the mission…')}</span></div>;
+  if (view === undefined) return <Loading className="mp-loading" label={say('Chargement de la mission…', 'Loading the mission…')}><SkPage /></Loading>;
   if (view === null) {
     return (
       <div className="card">
@@ -245,7 +246,7 @@ function Overview({ view, engagement, say, onTab }: { view: ProjectView; engagem
             <h2>{say('Jalons', 'Milestones')}</h2><span className="tk-count">{milestones.length}</span>
             <div className="tk-sec-x"><button className="btn sm" onClick={() => openRoom('missions', 'milestones')}>{say('Gérer les jalons', 'Manage milestones')}</button></div>
           </div>
-          {lane === undefined ? <span className="small muted">{say('Chargement…', 'Loading…')}</span> : milestones.length ? (
+          {lane === undefined ? <Loading><SkLines n={3} /></Loading> : milestones.length ? (
             <ol className="mp-steps">
               {milestones.map((m) => {
                 const s = MILESTONE_STATUS[m.status];

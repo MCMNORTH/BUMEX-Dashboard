@@ -19,6 +19,7 @@ import { EstimateAsk, parseEstimate } from './EstimateAsk';
 import { DEFAULT_ESTIMATE_HOURS } from '@/lib/tickets/workflow';
 import type { ListChange } from './TicketList';
 import type { Say } from './ticket-history';
+import { Loading, SkBoard } from './skeleton';
 
 // The board, as Jira draws it (asked on 2026-10-27), shared by the Tasks room (MissionBoard: the floor's board, 0014,
 // for one mission or all of them) and My work (vanguard/one/MyWork.tsx: one board per floor of the person's tickets,
@@ -335,7 +336,7 @@ export function MissionBoard({ entityId, scope, tickets, groupBy, onOpen, onRule
   const tags = useMemo(() => new Map(state.engagements.map((e) => [e.id, { code: e.code, name: e.name }])), [state.engagements]);
   const missionOf = useCallback((x: TicketTask) => tags.get(x.engagementId ?? '') ?? null, [tags]);
 
-  if (!workflow) return <div className="card"><span className="muted">{say('Chargement du tableau…', 'Loading the board…')}</span></div>;
+  if (!workflow) return <Loading label={say('Chargement du tableau…', 'Loading the board…')}><SkBoard cols={4} /></Loading>;
   const groupLabels: GroupLabels = {
     unassigned: say('Non assigné', 'Unassigned'),
     priority: (p) => label(PRIORITY[p], p, say),

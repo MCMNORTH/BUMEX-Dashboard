@@ -6,6 +6,7 @@ import { useStore } from '../store';
 import { Field } from '../ui/common';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
+import { Loading, SkForm } from './skeleton';
 
 // The Reports room's second part: BUMEX One's activity reports (daily, weekly, team, mission, client, executive),
 // next to Vanguard's financial reports (ui/panels/Reports.tsx).
@@ -41,7 +42,7 @@ export function ActivityReports() {
     void defaultReportRangeAction(type).then((r) => { setStart(r.startDate); setEnd(r.endDate); });
   }, [type]);
 
-  if (!options) return <span className="muted">{say('Chargement…', 'Loading…')}</span>;
+  if (!options) return <Loading><div className="card sk-card"><SkForm fields={4} cols={2} /></div></Loading>;
   const generate = async () => {
     if (!type) return;
     setBusy(true);

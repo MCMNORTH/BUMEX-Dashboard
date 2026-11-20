@@ -11,6 +11,7 @@ import { forgetWorkflows } from './stages';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
 import { WideNote } from './WideNote'; // [mobile]
+import { Loading, SkBoard, SkList } from './skeleton';
 
 // The floor's board (0014: one per entity, every mission of the floor follows it; asked on 2026-10-28), its columns and
 // rules, as BUMEX One's workflow settings had them: stages (renamed, reordered, archived, never deleted), the default
@@ -47,7 +48,7 @@ export function WorkflowEditor({ entityId }: { entityId: string }) {
   }, [entityId, say]);
 
   const preview = useMemo(() => (draft ? draftToWorkflow({ ...draft, stages: draft.stages.map((s, position) => ({ ...s, position })) }, entityId) : null), [draft, entityId]);
-  if (!data || !draft || !preview) return <div className="card"><span className="muted">{message?.text ?? say('Chargement du tableau…', 'Loading the board…')}</span></div>;
+  if (!data || !draft || !preview) return message ? <div className="card"><span className="muted">{message.text}</span></div> : <Loading label={say('Chargement du tableau…', 'Loading the board…')}><SkList rows={4} card /><SkBoard cols={4} /></Loading>;
 
   const readOnly = !data.canManage;
   const locale = ui.lang === 'fr' ? 'fr' : 'en';

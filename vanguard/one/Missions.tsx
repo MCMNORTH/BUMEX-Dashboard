@@ -8,6 +8,7 @@ import { useSay } from './say';
 import type { Say } from './ticket-history';
 import { Avatar, Dialog, type Tone } from './work-ui';
 import { Select } from '../ui/Select';
+import { Loading, SkForm } from './skeleton';
 
 // BUMEX One's projects are Vanguard's missions: created and edited here, in the Missions room (ui/panels/Other.tsx).
 // Their list is vanguard/one/MissionList.tsx, their page vanguard/one/Mission.tsx (BUMEX One's project page), their
@@ -118,7 +119,7 @@ export function MissionForm({ entityId, projectId, onClose }: { entityId: Id; pr
   }, [projectId, entityId]);
 
   const title = projectId ? `${say('Modifier', 'Edit')} · ${v?.name ?? ''}` : say('Nouvelle mission', 'New mission');
-  if (!options || !v) return <Dialog title={title} onClose={() => onClose()} wide><span className="muted">{say('Chargement…', 'Loading…')}</span></Dialog>;
+  if (!options || !v) return <Dialog title={title} onClose={() => onClose()} wide><Loading><SkForm fields={8} cols={2} /></Loading></Dialog>;
   const internal = v.project_kind === 'internal_product' || v.project_kind === 'internal_tool';
   const nameOf = (id: string) => options.people.find((p) => p.id === id)?.name ?? id;
   // a member of another entity: their entity beside their name (they work on this mission from there)

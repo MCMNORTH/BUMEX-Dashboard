@@ -9,6 +9,7 @@ import { reload } from './Tasks';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
 import { confirmAsk } from './ask';
+import { Loading, SkPage } from './skeleton';
 
 // A client's page in the Clients room, as BUMEX One's client page had it: the relationship (contact details, prospect
 // stage and next follow-up, account manager), its customer accounts in the entities (the accounting side), what it
@@ -112,7 +113,7 @@ export function ClientPanel({ clientId, onClose }: { clientId: string; onClose: 
     }
   };
 
-  if (view === undefined) return <div className="card"><span className="muted">{say('Chargement du client…', 'Loading the client…')}</span></div>;
+  if (view === undefined) return <Loading label={say('Chargement du client…', 'Loading the client…')}><SkPage /></Loading>;
   if (view === null) {
     return (
       <div className="card">

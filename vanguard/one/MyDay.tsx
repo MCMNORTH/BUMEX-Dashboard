@@ -9,6 +9,7 @@ import { Chip, D, Icon } from '../ui/common';
 import { useSay } from './say';
 import { EstimateAsk } from './EstimateAsk';
 import { LoadBar, hoursText } from './work-ui';
+import { Loading, SkList } from './skeleton';
 
 // "My day": the home's panel (the building stays the home), with what BUMEX One's overview showed: my tickets, what
 // waits for my sign-off, the missions at risk, the coming deadlines and the team's workload. "Mon travail" is a room
@@ -72,7 +73,7 @@ export function MyDay({ initialTab }: { initialTab?: string | null }) {
     <>
       <div className="sheet-head"><h1>{say('Ma journée', 'My day')}</h1><button className="btn sm" onClick={() => openRoom('mywork')}>{say('Mon travail', 'My work')} →</button><span className="small muted">{state.session.actorName}</span></div>
       <div className="sheet-body">
-        {!data ? <span className="muted">{say('Chargement…', 'Loading…')}</span> : (
+        {!data ? <Loading><SkList rows={5} /></Loading> : (
           <>
             <div className="grid4">
               <div className="kpi"><div className="l">{say('Mes tâches ouvertes', 'My open tasks')}</div><div className="v">{data.myTickets.total}</div></div>

@@ -7,6 +7,7 @@ import { Chip } from '../ui/common';
 import { when } from './Conversation';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
+import { Loading, SkList } from './skeleton';
 
 // The notifications' panel (the header's bell opens a few; "see them all" opens this): BUMEX One's Notifications page.
 // A notification opens what it is about through BUMEX One's link, which lands in the right room
@@ -56,7 +57,7 @@ export function Inbox() {
           {unread > 0 && <button className="btn sm" style={{ marginLeft: 'auto' }} onClick={async () => { await markAllNotificationsAsReadAction().catch(() => null); await load(); }}>{say('Tout marquer comme lu', 'Mark all as read')}</button>}
         </div>
         <div className="card flush">
-          {items === null && <div className="muted" style={{ padding: 14 }}>{say('Chargement…', 'Loading…')}</div>}
+          {items === null && <Loading style={{ padding: '4px 14px' }}><SkList rows={6} /></Loading>}
           {items?.map((n) => {
             const t = TYPES[n.type] ?? TYPES.system;
             return (

@@ -9,6 +9,7 @@ import { Comments, Notes, type Result, type Say, when } from './Conversation';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
 import { confirmAsk } from './ask';
+import { Loading, SkPage, SkTable } from './skeleton';
 
 // The Clients room's "Contrats" tab: BUMEX One's contracts, with what renews soon, and each contract's page (details,
 // edit form, archive, notes, conversation, history). Saved by BUMEX One's contract actions, under their rules.
@@ -95,7 +96,7 @@ export function ContractsTab() {
     return () => { live = false; };
   }, [loadedAt]);
 
-  if (data === undefined) return <span className="muted">{say('Chargement…', 'Loading…')}</span>;
+  if (data === undefined) return <Loading><SkTable rows={5} cols={5} /></Loading>;
   if (data === null) return <div className="banner warn">{say("Les contrats sont réservés à l'administrateur, aux managers et aux actionnaires.", 'Contracts are for the administrator, managers and shareholders.')}</div>;
   const s = q.trim().toLowerCase();
   const rows = data.contracts.filter((c) => (!status || c.status === status) && (!s || `${c.title} ${c.contract_number ?? ''} ${c.clientName ?? ''} ${c.projectName ?? ''}`.toLowerCase().includes(s)));
@@ -168,7 +169,7 @@ export function ContractPanel({ contractId, onClose }: { contractId: string; onC
     }
   };
 
-  if (view === undefined) return <div className="card"><span className="muted">{say('Chargement du contrat…', 'Loading the contract…')}</span></div>;
+  if (view === undefined) return <Loading label={say('Chargement du contrat…', 'Loading the contract…')}><SkPage split /></Loading>;
   if (view === null) return <div className="card"><div className="banner warn">{say("Ce contrat n'existe plus ou ne vous est pas accessible.", 'This contract no longer exists or is not open to you.')}</div><div className="actions" style={{ marginTop: 10 }}><button className="btn sm" onClick={onClose}>{say('Retour', 'Back')}</button></div></div>;
   const c = view.contract;
   const canEdit = view.role !== 'shareholder' && view.role !== 'supervisor';

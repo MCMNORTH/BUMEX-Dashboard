@@ -3,6 +3,7 @@ import { fmt } from '@bumex/domain';
 import { financeArchiveAction, type FinanceArchive as Archive } from '@/lib/erp/vanguard/finance-actions';
 import { Chip, D } from '../ui/common';
 import { useSay } from './say';
+import { Loading, SkTable } from './skeleton';
 
 // The Reports room's "Archives financières": BUMEX One's invoices, payments, transfers and bank statements, read-only
 // (the ERP keeps the books since 2026-10-24). An invoice opens as its PDF.
@@ -22,7 +23,7 @@ export function FinanceArchive() {
     return () => { live = false; };
   }, []);
 
-  if (data === undefined) return <span className="muted">{say('Chargement…', 'Loading…')}</span>;
+  if (data === undefined) return <Loading><SkTable rows={6} cols={5} /></Loading>;
   if (data === null) return <div className="banner warn">{say("Les archives financières sont réservées à l'administrateur, aux managers et aux actionnaires.", 'The finance archive is for the administrator, managers and shareholders.')}</div>;
   const s = q.trim().toLowerCase();
   const match = (...values: (string | null | undefined)[]) => !s || values.filter(Boolean).join(' ').toLowerCase().includes(s);

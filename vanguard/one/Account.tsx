@@ -10,6 +10,7 @@ import { reload } from './Tasks';
 import { MailIntakeCard } from './MailIntake';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
+import { Loading, SkForm, SkLines } from './skeleton';
 
 // The Settings room's "Mon compte" tab: BUMEX One's profile, preferences and security pages, saved by BUMEX One's
 // actions. Everyone's access is the Permissions tab's (Permissions.tsx).
@@ -29,7 +30,7 @@ export function MyAccountPanel() {
     return () => { live = false; };
   }, []);
 
-  if (!me) return <span className="muted">{say('Chargement…', 'Loading…')}</span>;
+  if (!me) return <Loading><div className="card sk-card"><SkForm fields={4} cols={2} /></div><div className="card sk-card"><SkLines n={3} /></div></Loading>;
   const saveProfile = async () => {
     const form = new FormData();
     for (const [k, v] of Object.entries(profile)) form.set(k, v);

@@ -10,6 +10,7 @@ import { useSay } from './say';
 import { Avatar, Dialog, Lozenge, type Tone } from './work-ui';
 import { Select } from '../ui/Select';
 import { confirmAsk } from './ask';
+import { Loading, SkTable } from './skeleton';
 
 // The Missions room's "Jalons" tab: BUMEX One's Roadmap page (redrawn on 2026-10-28: the missions' names were cut).
 // Each mission as a lane over 3, 6 or 12 months, its full name beside it, with its milestones; then the milestones
@@ -53,7 +54,7 @@ export function MilestonesView({ entityId }: { entityId: Id }) {
   }, [loadedAt]);
 
   const floorProjects = useMemo(() => new Set(state.engagements.filter((e) => e.entityId === entityId).map((e) => (e as { projectId?: string }).projectId).filter(Boolean) as string[]), [state.engagements, entityId]);
-  if (!data) return <span className="muted">{say('Chargement…', 'Loading…')}</span>;
+  if (!data) return <Loading><SkTable rows={5} cols={5} /></Loading>;
 
   const to = shiftMonth(from, months);
   const span = Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`);

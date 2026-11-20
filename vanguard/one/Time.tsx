@@ -19,6 +19,7 @@ import { Lozenge, type Tone } from './work-ui';
 import { QuickLog, TIME_ERRORS, pickOf, ticketMission, whatOptions, type Pick } from './QuickLog';
 import { ago } from './ticket-history';
 import { TeamCalendar } from './TimeCalendar';
+import { Loading, Sk, SkKpis, SkTable } from './skeleton';
 
 // The "Temps" room: BUMEX One's timesheet in Vanguard (asked on 2026-10-27), made simple on 2026-10-28 (MySheet): my
 // week in one strip, a quick entry, a grid typed into; an entry may be on one of my tickets, and then counts on it (0012). For the administrator and
@@ -152,7 +153,7 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
     return () => { live = false; };
   }, [week, test]);
 
-  if (!data) return <span className="muted">{say('Chargement…', 'Loading…')}</span>;
+  if (!data) return <Loading><Sk w={260} h={28} /><SkTable rows={5} cols={8} /></Loading>;
   // a line asked for from a mission without a ticket opens the full editor once the week is read
   if (!opened) {
     setOpened(true);
@@ -669,7 +670,7 @@ function TeamSheet({ initialWeek }: { initialWeek?: string | null }) {
     return () => { live = false; };
   }, [week]);
 
-  if (data === undefined) return <span className="muted">{say('Chargement…', 'Loading…')}</span>;
+  if (data === undefined) return <Loading><SkKpis n={4} /><SkTable rows={6} cols={6} /></Loading>;
   if (data === null) return <div className="banner warn">{say("La revue des feuilles de temps est réservée à l'administrateur et aux managers.", 'Reviewing timesheets is for the administrator and managers.')}</div>;
   const refresh = async () => { setSelected([]); setData(await teamTimeAction(data.week)); };
   const act = async (work: () => Promise<void>, done: string) => {

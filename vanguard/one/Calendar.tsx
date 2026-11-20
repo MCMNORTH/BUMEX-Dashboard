@@ -6,6 +6,7 @@ import { useStore } from '../store';
 import { Select } from '../ui/Select';
 import { useSay } from './say';
 import { isPhone } from './screen'; // [mobile] a tapped day shows its list, under the month
+import { Loading, Sk, SkGrid } from './skeleton';
 
 // The Missions room's "Calendrier" tab: BUMEX One's Calendar page (redrawn on 2026-10-28: the titles were cut and the
 // month said little). Ticket due dates, mission deadlines, milestones and contract renewals on a month grid, each kind
@@ -56,7 +57,7 @@ export function CalendarView({ entityId }: { entityId: Id }) {
   }, [loadedAt]);
 
   const floorProjects = useMemo(() => new Set(state.engagements.filter((e) => e.entityId === entityId).map((e) => (e as { projectId?: string }).projectId).filter(Boolean) as string[]), [state.engagements, entityId]);
-  if (!items) return <span className="muted">{say('Chargement…', 'Loading…')}</span>;
+  if (!items) return <Loading><Sk w={220} h={28} /><SkGrid rows={5} cols={7} /></Loading>;
 
   const inScope = items.filter((i) => scope === 'all' || (i.projectId && floorProjects.has(i.projectId)));
   const shown = inScope.filter((i) => !hidden.includes(i.type));

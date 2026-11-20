@@ -5,6 +5,7 @@ import Link from "next/link";
 import { NotificationList } from "@/components/notifications/notification-list";
 import { UnreadBadge } from "@/components/notifications/unread-badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenuContent,
   DropdownMenuLabel,
@@ -39,7 +40,18 @@ export function NotificationDropdown() {
       <DropdownMenuSeparator />
       <div className="max-h-[min(28rem,calc(var(--radix-dropdown-menu-content-available-height)-8rem))] overflow-y-auto px-2 py-2">
         {loading ? (
-          <div className="px-2 py-4 text-sm text-muted-foreground">{isFr ? "Chargement des notifications..." : "Loading notifications..."}</div>
+          <div role="status" aria-busy="true" className="space-y-2 py-1">
+            <span className="sr-only">{isFr ? "Chargement des notifications…" : "Loading notifications…"}</span>
+            {[72, 56, 64].map((width) => (
+              <div key={width} className="flex items-start gap-3 rounded-sm border p-3">
+                <Skeleton className="size-8 shrink-0" />
+                <div className="flex-1 space-y-2 pt-0.5">
+                  <Skeleton className="h-3" style={{ width: `${width}%` }} />
+                  <Skeleton className="h-2.5 w-2/5" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           // Alerts are recomputed on every check and would always sort first,
           // pushing assignments and mentions out of view; each gets its own section.

@@ -8,6 +8,7 @@ import { type Say, when } from './Conversation';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
 import { confirmAsk } from './ask';
+import { Loading, SkList } from './skeleton';
 
 // The Archives room's "Documents" tab: BUMEX One's documents (the files; the room's boxes are the paper). Upload,
 // describe, link to a client, mission, contract or ticket, archive, restore, delete; download through BUMEX One's
@@ -82,7 +83,7 @@ export function DocumentsTab() {
     return () => { live = false; };
   }, []);
 
-  if (data === undefined) return <span className="muted">{say('Chargement…', 'Loading…')}</span>;
+  if (data === undefined) return <Loading><SkList rows={5} card /></Loading>;
   if (data === null) return <div className="banner warn">{say("Les documents sont réservés à l'administrateur, aux managers et aux actionnaires.", 'Documents are for the administrator, managers and shareholders.')}</div>;
   const s = q.trim().toLowerCase();
   const rows = data.documents.filter((d) => d.is_archived === archived && (!type || d.document_type === type) && (!s || `${d.title} ${d.description ?? ''} ${d.file_name} ${d.relatedLabel}`.toLowerCase().includes(s)));

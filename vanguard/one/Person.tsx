@@ -13,6 +13,7 @@ import { remainingHours } from '@/lib/work/load';
 import type { MyWorkTicket } from '@/lib/erp/vanguard/work-items';
 import type { Say } from './ticket-history';
 import { Select } from '../ui/Select';
+import { Loading, SkPage } from './skeleton';
 
 // A person's page (the HR room's People tab, and the floor's overview: Overview.tsx), as BUMEX One's team member page had
 // it: profile and availability, load, missions, tickets, activity and, for the administrator, managers and the person,
@@ -64,7 +65,7 @@ export function PersonPanel({ personId, onClose }: { personId: string; onClose: 
     return () => { live = false; };
   }, [personId]);
 
-  if (view === undefined) return <div className="card"><span className="muted">{say('Chargement…', 'Loading…')}</span></div>;
+  if (view === undefined) return <Loading><SkPage tabs={3} /></Loading>;
   if (view === null) return <div className="card"><div className="banner warn">{say("Cette personne n'est pas visible pour vous.", 'This person is not visible to you.')}</div><div className="actions" style={{ marginTop: 10 }}><button className="btn sm" onClick={onClose}>{say('Retour', 'Back')}</button></div></div>;
   const { member: m, performance: perf } = view;
   const availability = AVAILABILITY[m.availability] ?? AVAILABILITY.available;

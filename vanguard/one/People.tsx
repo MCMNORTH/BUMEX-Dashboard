@@ -7,6 +7,7 @@ import { PersonPanel } from './Person';
 import { useSay } from './say';
 import { LoadBar, hoursText } from './work-ui'; // [bumex-one] the load (lib/work/load.ts)
 import { Select } from '../ui/Select';
+import { SkTableRows } from './skeleton';
 
 // The HR room's "Personnes" tab, open to everyone: BUMEX One's team (its Team page moved here), each person with their
 // Vanguard role, their load and, when they have one, their HR record. The records and their salaries are in the
@@ -68,7 +69,7 @@ export function People({ entityId, onOpen, personId }: { entityId: Id; onOpen: (
           </tr>
         </thead>
         <tbody>
-          {rows === null && <tr><td colSpan={hr ? 10 : 9} className="muted small">{say('Chargement…', 'Loading…')}</td></tr>}
+          {rows === null && <SkTableRows rows={6} cols={hr ? 10 : 9} />}
           {rows !== null && shown.length === 0 && <tr><td colSpan={hr ? 10 : 9} className="muted small">{say('Personne', 'No one')}</td></tr>}
           {shown.map((p) => {
             const record = recordOf(p);

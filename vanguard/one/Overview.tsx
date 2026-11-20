@@ -13,6 +13,7 @@ import { ago, describeHistory, type Say } from './ticket-history';
 import { StageLozenge } from './stages';
 import { sundayOf } from './work-filters';
 import { Avatar, Block, Figure, LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursText, levelLabel, type Tone } from './work-ui';
+import { Loading, SkTable } from './skeleton';
 
 // [bumex-one] The floor at a glance (asked on 2026-10-28), the first page of flat mode and the rail's "Vue d'ensemble":
 // its tickets' figures, each opening the list behind it; its people with what they carry here, their load, their week's
@@ -140,7 +141,7 @@ function FloorOverviewBody({ entityId, onPerson }: { entityId: Id; onPerson: (id
 
       <Block title={say('Équipe', 'Team')} count={people.length}
         extra={data?.week && <span className="small muted">{say('Semaine du', 'Week of')} {data.week.start.split('-').reverse().join('/')}</span>}>
-        {data === undefined ? <span className="small muted">{say('Chargement…', 'Loading…')}</span> : data === null ? <div className="banner warn small">{say("L'équipe est indisponible.", 'The team is unavailable.')}</div> : (
+        {data === undefined ? <Loading><SkTable rows={4} cols={6} bare /></Loading> : data === null ? <div className="banner warn small">{say("L'équipe est indisponible.", 'The team is unavailable.')}</div> : (
           <div className="ov-teamwrap">
             <table className="ov-team">
               <thead><tr><th>{say('Personne', 'Person')}</th><th className="num">{say('En cours', 'Doing')}</th><th className="num">{say('À faire', 'To do')}</th><th className="num">{say('En retard', 'Late')}</th><th>{say('Charge', 'Load')}</th><th>{say('Heures · semaine', 'Hours · week')}</th><th>{say('Feuille', 'Timesheet')}</th></tr></thead>
