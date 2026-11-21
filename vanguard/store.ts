@@ -3,6 +3,7 @@ import { DomainError, canSee, setChainBreaks, type State, type Id } from '@bumex
 import type { Lang, Room } from './i18n';
 import { makeT } from './i18n';
 import { isPhoneOrTablet } from './one/screen'; // [mobile]
+import { englishMessage } from './one/engine-messages'; // [bumex-one] the engine's refusals in the person's language (2026-11-21)
 // [bumex-one] The state is the ERP database's: the page brings it (hydrate), each change is recorded and sent to the
 // server, which replays it and answers with the database's state (lib/erp/vanguard). Nothing is kept in the browser.
 import { reloadVanguardAction, runVanguardChangeAction, vanguardVersionAction } from '@/lib/erp/vanguard/actions';
@@ -194,7 +195,7 @@ function send(change: VanguardChange) {
       error: lang === 'fr' ? 'Serveur injoignable : la modification n\'est pas enregistrée.' : 'Server unreachable: the change was not saved.',
     }));
     pending--;
-    if (!result.ok) useStore.getState().toast('error', result.error);
+    if (!result.ok) useStore.getState().toast('error', useStore.getState().ui.lang === 'en' ? englishMessage(result.error) : result.error); // [bumex-one] the server's refusal, in English when the person reads English
     if (pending > 0) return;
     if (result.state) useStore.getState().hydrate(result as VanguardData);
     else if (!result.ok) await reload();
@@ -254,7 +255,7 @@ export const useStore = create<Store>((set, get) => ({
       return true;
     } catch (e) {
       const msg = e instanceof DomainError ? e.message : e instanceof Error ? e.message : String(e);
-      get().toast('error', msg);
+      get().toast('error', get().ui.lang === 'en' ? englishMessage(msg) : msg); // [bumex-one] the engine words it in French (one/engine-messages.ts)
       return false;
     }
   },

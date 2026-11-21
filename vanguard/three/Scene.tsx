@@ -13,7 +13,9 @@ import { OfficeFloor } from './Floor';
 import { labelRegistry, labelCamera } from './textures';
 import { BUILDING, CAM, COMMON_ROOMS, floorIndex, floorY, roomRect } from './plan';
 import emblemImage from '../assets/emblem.png'; // [bumex-one] Next imports images as objects
+import { sayNow, useSay } from '../one/say';
 const emblem = emblemImage.src;
+// [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 // Night. Environment map rendered from the procedural sky, so glass and metal reflect a dark sky and the ground glow.
 function SkyEnvironment() {
@@ -209,8 +211,8 @@ function AdaptiveQuality() {
     if (avg > 0.07) a.slow += 1; else a.slow = 0;
     if (a.slow >= 2) {
       a.slow = 0;
-      if (quality.ao) { setQuality({ ao: false }); toast('info', 'Qualité 3D réduite : occlusion ambiante désactivée'); }
-      else if (quality.shadows) { setQuality({ shadows: false }); toast('info', 'Qualité 3D réduite : ombres douces désactivées'); }
+      if (quality.ao) { setQuality({ ao: false }); toast('info', sayNow('Qualité 3D réduite : occlusion ambiante désactivée', '3D quality lowered: ambient occlusion off')); }
+      else if (quality.shadows) { setQuality({ shadows: false }); toast('info', sayNow('Qualité 3D réduite : ombres douces désactivées', '3D quality lowered: soft shadows off')); }
     }
   });
   return null;
@@ -287,6 +289,7 @@ function LabelOverlay() {
   const state = useStore((s) => s.state);
   const entityId = useStore((s) => s.ui.entityId);
   const t = useStore((s) => s.t);
+  const say = useSay();
   const hoverRoom = useStore((s) => s.ui.hoverRoom);
   const focusRoom = useStore((s) => s.ui.focusRoom);
   const room = useStore((s) => s.ui.room);
@@ -335,11 +338,11 @@ function LabelOverlay() {
         bank: `${fmt(signals.cash, 0)} ${signals.entity.functionalCurrency}`,
         accounting: `${signals.drafts} ${t('draft').toLowerCase()} · ${signals.unmatchedBank} ${t('unmatched')}`,
         clients: `${signals.overdueCount} ${t('invoices_n')} ${t('overdue').toLowerCase()} · ${state.archives.filter((a) => a.entityId === entityId && a.status !== 'destroyed').length} ${t('arc_boxes')}`,
-        suppliers: `${signals.pendingApprovals} à approuver`,
+        suppliers: `${signals.pendingApprovals} ${say('à approuver', 'to approve')}`,
         missions: `${signals.engagements} ${t('bar_ongoing')} · ${signals.lateEngagements} ${t('late_eng').toLowerCase()}`,
-        assets: `${state.assets.filter((a) => a.entityId === entityId && a.status !== 'disposed').length} biens`,
-        hr: `${hc?.active ?? 0} collaborateurs`,
-        tax: `TVA nette ${fmt(vat?.net ?? 0, 0)}`,
+        assets: `${state.assets.filter((a) => a.entityId === entityId && a.status !== 'disposed').length} ${say('biens', 'assets')}`,
+        hr: `${hc?.active ?? 0} ${say('collaborateurs', 'employees')}`,
+        tax: `${say('TVA nette', 'Net VAT')} ${fmt(vat?.net ?? 0, 0)}`,
       }
     : {};
   const roomName = (r: string) => t(`room_${r}`);
@@ -382,11 +385,11 @@ function LabelOverlay() {
                     {popRoom === 'bank' && <><span className="k">{t('cash')}</span><span className="mono">{fmt(signals.cash, 0)} {signals.entity.functionalCurrency}</span><span className="k">{t('unmatched')}</span><span className="mono">{signals.unmatchedBank}</span></>}
                     {popRoom === 'accounting' && <><span className="k">{t('drafts')}</span><span className="mono">{signals.drafts}</span><span className="k">{t('result')}</span><span className="mono">{fmt(signals.result, 0)}</span></>}
                     {popRoom === 'clients' && <><span className="k">{t('overdue')}</span><span className="mono">{fmt(signals.overdue, 0)}</span><span className="k">{t('receivables')}</span><span className="mono">{fmt(signals.receivables, 0)}</span><span className="k">{t('nav_archives')}</span><span className="mono">{state.archives.filter((a) => a.entityId === entityId && a.status !== 'destroyed').length} {t('arc_on_rack')}</span></>}
-                    {popRoom === 'suppliers' && <><span className="k">À approuver</span><span className="mono">{signals.pendingApprovals}</span><span className="k">{t('payables')}</span><span className="mono">{fmt(signals.payables, 0)}</span></>}
+                    {popRoom === 'suppliers' && <><span className="k">{say('À approuver', 'To approve')}</span><span className="mono">{signals.pendingApprovals}</span><span className="k">{t('payables')}</span><span className="mono">{fmt(signals.payables, 0)}</span></>}
                     {popRoom === 'missions' && <><span className="k">{t('bar_ongoing')}</span><span className="mono">{signals.engagements}</span><span className="k">{t('late_eng')}</span><span className="mono">{signals.lateEngagements}</span></>}
-                    {popRoom === 'assets' && <><span className="k">Biens</span><span className="mono">{state.assets.filter((a) => a.entityId === entityId && a.status !== 'disposed').length}</span><span className="k">VNC</span><span className="mono">{fmt(state.assets.filter((a) => a.entityId === entityId && a.status !== 'disposed').reduce((x, a) => x + a.cost - a.accumulated, 0), 0)}</span></>}
-                    {popRoom === 'hr' && <><span className="k">Effectif</span><span className="mono">{hc?.active ?? 0}</span><span className="k">{t('present')}</span><span className="mono">{signals.entity.staffPresent}</span></>}
-                    {popRoom === 'tax' && <><span className="k">TVA collectée</span><span className="mono">{fmt(vat?.collected ?? 0, 0)}</span><span className="k">TVA déductible</span><span className="mono">{fmt(vat?.deductible ?? 0, 0)}</span></>}
+                    {popRoom === 'assets' && <><span className="k">{say('Biens', 'Assets')}</span><span className="mono">{state.assets.filter((a) => a.entityId === entityId && a.status !== 'disposed').length}</span><span className="k">{say('VNC', 'NBV')}</span><span className="mono">{fmt(state.assets.filter((a) => a.entityId === entityId && a.status !== 'disposed').reduce((x, a) => x + a.cost - a.accumulated, 0), 0)}</span></>}
+                    {popRoom === 'hr' && <><span className="k">{say('Effectif', 'Headcount')}</span><span className="mono">{hc?.active ?? 0}</span><span className="k">{t('present')}</span><span className="mono">{signals.entity.staffPresent}</span></>}
+                    {popRoom === 'tax' && <><span className="k">{say('TVA collectée', 'Output VAT')}</span><span className="mono">{fmt(vat?.collected ?? 0, 0)}</span><span className="k">{say('TVA déductible', 'Input VAT')}</span><span className="mono">{fmt(vat?.deductible ?? 0, 0)}</span></>}
                   </div>
                 )}
                 <div className="toolbar" style={{ marginTop: 6 }}>
@@ -417,11 +420,12 @@ class SceneBoundary extends Component<{ children: ReactNode; onError: (msg: stri
 }
 
 function Loading() {
+  const say = useSay();
   return (
     <div className="loading">
       <img src={emblem} alt="" />
       <div className="t"><b>BUMEX</b> Vanguard</div>
-      <div className="s">Construction de l'immeuble…</div>
+      <div className="s">{say("Construction de l'immeuble…", 'Building the tower…')}</div>
       <div className="p"><i /></div>
     </div>
   );
@@ -431,6 +435,7 @@ export function Scene() {
   const transition = useStore((s) => s.ui.transition);
   const setUi = useStore((s) => s.setUi);
   const toast = useStore((s) => s.toast);
+  const say = useSay();
   const ready = useStore((s) => s.ui.sceneReady);
   const low = useStore((s) => !s.ui.quality.shadows && !s.ui.quality.ao); // light rendering mode: fewer pixels too
   const [frame, setFrame] = useState(false);
@@ -445,7 +450,7 @@ export function Scene() {
   }, [frame, ready, setUi]);
   return (
     <div className="canvas-wrap">
-      <SceneBoundary onError={(msg) => { setUi({ view: 'flat', sceneError: msg }); toast('error', `Scène 3D indisponible (${msg}) : mode Plat`); }}>
+      <SceneBoundary onError={(msg) => { setUi({ view: 'flat', sceneError: msg }); toast('error', say(`Scène 3D indisponible (${msg}) : mode Plat`, `3D scene unavailable (${msg}): flat mode`)); }}>
         <Canvas
           camera={{ fov: 40, near: 0.3, far: 1600, position: CAM.exterior.pos }}
           shadows={false}

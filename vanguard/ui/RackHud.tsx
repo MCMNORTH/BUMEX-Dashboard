@@ -3,6 +3,8 @@ import { archiveRows, retrieveArchive, returnArchive, destroyArchive, rackLayout
 import { useStore } from '../store';
 import { Chip, Icon } from './common';
 import { confirmAsk } from '../one/ask'; // [bumex-one] Fluent's dialog, not the browser's (2026-11-20)
+import { useSay } from '../one/say';
+// [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 // Shelf mode: the rack is the main element on screen. A slim toolbar switches to the table, the selected box shows in
 // a compact card at the bottom left; nothing covers the shelves.
@@ -10,6 +12,7 @@ const STATUS_KIND: Record<ArchiveStatus, 'good' | 'warn' | 'crit' | 'dim'> = { a
 
 export function RackHud() {
   const { state, ui, t, apply, setUi, openArchive, openRoom, focusRoom } = useStore();
+  const say = useSay();
   const entityId = ui.entityId!;
   const rows = useMemo(() => archiveRows(state, entityId, { status: 'all' }), [state, entityId]);
   const layout = useMemo(() => rackLayout(state, entityId), [state, entityId]);
@@ -34,7 +37,7 @@ export function RackHud() {
           )}
         </div>
         <span className="small" style={{ color: 'var(--dark-muted)' }}>{layout.used} / {RACK_CAPACITY} {t('arc_used')}</span>
-        <button className="btn dark" onClick={toTable}><Icon name="reports" size={14} /> Tableau</button>
+        <button className="btn dark" onClick={toTable}><Icon name="reports" size={14} /> {say('Tableau', 'Table')}</button>
         <button className="btn dark" onClick={toFloor}>{t('back_floor')}</button>
       </div>
       <div className="rack-card">
@@ -52,7 +55,7 @@ export function RackHud() {
               <button className="btn dark sm" onClick={() => openEngagement(sel.engagement.id)}>{t('arc_open_eng')}</button>
               {(sel.record.status === 'archived' || sel.record.status === 'pending_destruction') && <button className="btn dark sm" onClick={() => apply((s) => retrieveArchive(s, sel.record.id), `${t('arc_retrieved')} · ${sel.record.reference}`)}>{t('arc_retrieve')}</button>}
               {sel.record.status === 'retrieved' && <button className="btn sm primary" onClick={() => apply((s) => returnArchive(s, sel.record.id), `${t('arc_archived')} · ${sel.record.reference}`)}>{t('arc_return')}</button>}
-              {sel.record.status === 'pending_destruction' && isPartner && <button className="btn sm danger" onClick={() => { const { id, reference } = sel.record; void confirmAsk({ title: `${t('arc_destroy')} ${reference} ?`, confirm: t('arc_destroy'), danger: true }).then((ok) => { if (ok) apply((s) => destroyArchive(s, id), `${t('arc_destroyed')} · ${reference}`); }); }}>{t('arc_destroy')}</button>}
+              {sel.record.status === 'pending_destruction' && isPartner && <button className="btn sm danger" onClick={() => { const { id, reference } = sel.record; void confirmAsk({ title: say(`${t('arc_destroy')} ${reference} ?`, `${t('arc_destroy')} ${reference}?`), confirm: t('arc_destroy'), danger: true }).then((ok) => { if (ok) apply((s) => destroyArchive(s, id), `${t('arc_destroyed')} · ${reference}`); }); }}>{t('arc_destroy')}</button>}
             </div>
           </div>
         ) : (

@@ -3,6 +3,8 @@ import { fmt, fmtDate, requestDeletion, canDecideDeletions, type ProtectedTable 
 import { useStore } from '../store';
 import { FLUENT_ICONS } from './fluent-icons'; // [bumex-one] the Fluent redesign (2026-11-19)
 import { useModal } from '../one/modal'; // [bumex-one] Escape, Tab and the focus, as every dialog (2026-11-20)
+import { sayNow, useSay } from '../one/say';
+// [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 export function Money({ v, cur, sign = false }: { v: number; cur?: string; sign?: boolean }) {
   return (
@@ -72,10 +74,10 @@ export async function saveFile(filename: string, data: string | Blob | ArrayBuff
   if (dl) {
     try {
       await dl.save({ filename, data });
-      toast('ok', `${filename} enregistré`);
+      toast('ok', sayNow(`${filename} enregistré`, `${filename} saved`));
     } catch (e) {
       const code = (e as { code?: string })?.code;
-      if (code !== 'declined') toast('error', 'Export indisponible ici');
+      if (code !== 'declined') toast('error', sayNow('Export indisponible ici', 'Export unavailable here'));
     }
     return;
   }
@@ -151,6 +153,7 @@ export function Icon({ name, size = 20, filled = false }: { name: string; size?:
 // administrator) or a request that one of them approves. The engine enforces the same rule.
 export function DeleteDialog() {
   const { ui, state, t, askDeletion, apply, toast } = useStore();
+  const say = useSay();
   const [reason, setReason] = useState('');
   const d = ui.deletion;
   const close = () => { askDeletion(null); setReason(''); };
@@ -164,7 +167,7 @@ export function DeleteDialog() {
   const go = () => {
     const ok = apply((s) => {
       const r = requestDeletion(s, { table: d.table as ProtectedTable, rowId: d.rowId, label: d.label, reason, entityId: d.entityId });
-      window.setTimeout(() => toast(r.executed ? 'ok' : 'info', r.executed ? `Supprimé · ${d.label}` : `Demande de suppression envoyée · ${d.label}`), 0);
+      window.setTimeout(() => toast(r.executed ? 'ok' : 'info', r.executed ? say(`Supprimé · ${d.label}`, `Deleted · ${d.label}`) : say(`Demande de suppression envoyée · ${d.label}`, `Deletion request sent · ${d.label}`)), 0);
       return r.state;
     });
     if (ok) close();
@@ -176,7 +179,7 @@ export function DeleteDialog() {
         <p style={{ margin: '6px 0 10px' }}><b>{d.label}</b></p>
         <div className={`banner ${direct ? 'warn' : 'info'}`}>{direct ? t('delete_note_partner') : t('delete_note_other')}</div>
         <Field label={t('delete_reason')} style={{ marginTop: 10 }}>
-          <textarea ref={note} className="in" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Doublon, erreur de saisie, fin de relation…" />
+          <textarea ref={note} className="in" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={say('Doublon, erreur de saisie, fin de relation…', 'Duplicate, input error, end of relationship…')} />
         </Field>
         <div className="actions" style={{ marginTop: 12 }}>
           {/* [bumex-one] as every question (one/ask.tsx): Cancel, then the answer, red when it deletes at once (2026-11-20) */}

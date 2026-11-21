@@ -8,3 +8,7 @@ export function useSay() {
   const lang = useStore((s) => s.ui.lang);
   return useCallback((fr: string, en: string) => (lang === 'fr' ? fr : en), [lang]);
 }
+
+/** The same outside a component's render (an event's message, a toast, a helper run at that moment): the language at
+ *  the moment it is called. In a render, use useSay(), so the screen follows a change of language. */
+export const sayNow = (fr: string, en: string) => (useStore.getState().ui.lang === 'fr' ? fr : en);

@@ -3,6 +3,9 @@ import { taskStats, recentActivity, alerts, canUseModule, fmtDate, daysBetween, 
 import { useStore, MODULE_ROOM } from '../store';
 import type { Room } from '../i18n';
 import { Icon } from './common';
+import { useSay } from '../one/say';
+import type { Say } from '../one/labels';
+// [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 // The operational bar: every figure is computed by the engine for the current scope (the selected floor's entity,
 // or the whole group from the exterior). Each segment opens the view where the figure is handled.
@@ -19,6 +22,7 @@ function Ring({ value }: { value: number }) {
 
 export function CommandBar() {
   const { state, ui, t, setUi, openRoom, goFloor } = useStore();
+  const say = useSay(); // dayLabel and TaskRow below use it (no hook of their own)
   const scopeEntity = ui.view === 'tower' ? null : ui.entityId;
   const entity = scopeEntity ? state.entities.find((e) => e.id === scopeEntity) : null;
   const ts = useMemo(() => taskStats(state, scopeEntity), [state, scopeEntity]);
@@ -43,7 +47,7 @@ export function CommandBar() {
   const dayLabel = (iso: string) => {
     if (iso >= '9999') return '—'; // [bumex-one] a ticket with no due date
     const d = daysBetween(state.today, iso);
-    return d === 0 ? "auj." : d === 1 ? 'demain' : d < 0 ? `${-d} j de retard` : `J+${d}`;
+    return d === 0 ? say('auj.', 'today') : d === 1 ? say('demain', 'tomorrow') : d < 0 ? say(`${-d} j de retard`, `${-d} d late`) : say(`J+${d}`, `D+${d}`);
   };
   const TaskRow = ({ task }: { task: Task }) => (
     <button className={`task-row ${task.status === 'done' ? 'done' : ''}`} onClick={() => openTasks('all', task.id)}>
@@ -54,7 +58,7 @@ export function CommandBar() {
   );
   const last = act[0];
   return (
-    <div className={`cmdbar ${open ? 'open' : ''}`} role="region" aria-label="Barre de pilotage">
+    <div className={`cmdbar ${open ? 'open' : ''}`} role="region" aria-label={say('Barre de pilotage', 'Command bar')}>
       <div className="strip">
         <button className="cmd-seg scope" onClick={() => (entity ? setUi({ view: 'floor', room: null, focusRoom: null, rackFocus: false }) : setUi({ barOpen: !open }))} title={entity ? entity.activity : t('bar_scope_group')}>
           <Icon name={entity ? 'floors' : 'overview'} />
@@ -74,7 +78,7 @@ export function CommandBar() {
         </button>
         <button className="cmd-seg" onClick={() => setUi({ barOpen: true, barTab: 'deadlines' })}>
           <Icon name="clock" />
-          <span><span className="k">{t('bar_deadlines')}</span><br /><span className={`v ${dueSoonTasks.length ? 'warn' : ''}`}>{String(dueSoonTasks.length).padStart(2, '0')}</span> <span className="s">{t('bar_upcoming')} · {ts.engagementDeadlines.length} missions à 30 j</span></span>
+          <span><span className="k">{t('bar_deadlines')}</span><br /><span className={`v ${dueSoonTasks.length ? 'warn' : ''}`}>{String(dueSoonTasks.length).padStart(2, '0')}</span> <span className="s">{t('bar_upcoming')} · {ts.engagementDeadlines.length} {say('missions à 30 j', 'engagements within 30 d')}</span></span>
         </button>
         <button className="cmd-seg" onClick={() => openTasks('overdue')}>
           <Icon name="flag" />
@@ -82,7 +86,7 @@ export function CommandBar() {
         </button>
         <button className="cmd-seg act" onClick={() => setUi({ barOpen: true, barTab: 'activity' })}>
           <Icon name="activity" />
-          <span style={{ minWidth: 0 }}><span className="k">{t('bar_activity')}</span><br /><span className="v">{last ? humanize(last.summary) : t('bar_none')}</span> <span className="s">{last ? timeAgo(last.at, ui.lang) : ''}</span></span>
+          <span style={{ minWidth: 0 }}><span className="k">{t('bar_activity')}</span><br /><span className="v">{last ? humanize(last.summary, say) : t('bar_none')}</span> <span className="s">{last ? timeAgo(last.at, ui.lang) : ''}</span></span>
         </button>
         <button className="cmd-seg" onClick={() => setUi({ barOpen: true, barTab: 'alerts' })}>
           <Icon name="alert" />
@@ -123,7 +127,7 @@ export function CommandBar() {
               : act.map((r, i) => (
                   <div key={i} className="task-row" style={{ cursor: 'default' }}>
                     <span className="dot" />
-                    <span className="t">{humanize(r.summary)}</span>
+                    <span className="t">{humanize(r.summary, say)}</span>
                     <span className="d">{timeAgo(r.at, ui.lang)}</span>
                   </div>
                 ))}
@@ -135,9 +139,9 @@ export function CommandBar() {
   );
 }
 
-const STATUS_WORDS: Record<string, string> = { soft_closed: 'clôture douce', locked: 'verrouillée', open: 'ouverte' };
-function humanize(summary: string): string {
-  return summary.replace(/→ (soft_closed|locked|open)/, (_, w: string) => `→ ${STATUS_WORDS[w] ?? w}`);
+const STATUS_WORDS: Record<string, [string, string]> = { soft_closed: ['clôture douce', 'soft-closed'], locked: ['verrouillée', 'locked'], open: ['ouverte', 'open'] };
+function humanize(summary: string, say: Say): string {
+  return summary.replace(/→ (soft_closed|locked|open)/, (_, w: string) => `→ ${STATUS_WORDS[w] ? say(...STATUS_WORDS[w]) : w}`);
 }
 
 function addDaysIso(iso: string, days: number): string {
@@ -154,5 +158,5 @@ function timeAgo(at: string, lang: 'fr' | 'en'): string {
   const h = Math.round(m / 60);
   if (h < 24) return `${h} h`;
   const d = Math.round(h / 24);
-  return `${d} j`;
+  return lang === 'fr' ? `${d} j` : `${d} d`;
 }

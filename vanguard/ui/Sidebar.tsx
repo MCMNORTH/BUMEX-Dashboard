@@ -5,6 +5,8 @@ import type { Room } from '../i18n';
 import { Icon, Lamp } from './common';
 import { MyDayButton } from '../one/MyDay'; // [bumex-one]
 import { useScreen } from '../one/screen'; // [mobile]
+import { useSay } from '../one/say';
+// [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 // The left rail: slim by default, expandable for labels. It routes to the existing modules and the new ones; the
 // 3D camera follows (a module opened from here focuses its room first) and the flat mode shows the same page.
@@ -66,6 +68,7 @@ export function useNavItems() {
 export function FloorList({ onPick }: { onPick: () => void }) {
   const { state, ui, setUi, goFloor, openRoom } = useStore();
   const { floors, entityId } = useNavItems();
+  const say = useSay();
   return (
     <>
       {floors.map((f) => (
@@ -82,7 +85,7 @@ export function FloorList({ onPick }: { onPick: () => void }) {
           }}
         >
           <span><b>{f.entity.isTest ? '−1' : state.entities.filter((e) => !e.isTest).length - f.entity.floorOrder}</b> {f.entity.name}<span className="small muted" style={{ marginLeft: 6 }}>{f.entity.activity}</span></span>
-          {f.visible ? <span className="sigs"><Lamp kind={f.cashSignal} letter="T" /><Lamp kind={f.overdueSignal} letter="C" /><Lamp kind={f.engagementSignal} letter="M" /><Lamp kind={f.draftSignal === 'good' ? 'off' : f.draftSignal} letter="É" /></span> : <span className="small">non autorisé</span>}
+          {f.visible ? <span className="sigs"><Lamp kind={f.cashSignal} letter="T" /><Lamp kind={f.overdueSignal} letter={say('C', 'R')} /><Lamp kind={f.engagementSignal} letter={say('M', 'E')} /><Lamp kind={f.draftSignal === 'good' ? 'off' : f.draftSignal} letter={say('É', 'J')} /></span> : <span className="small">{say('non autorisé', 'not authorised')}</span>}
         </button>
       ))}
     </>
@@ -93,12 +96,13 @@ export function Sidebar() {
   const { ui, t, setUi, goTower, openRoom, state } = useStore();
   const { entity, atOverview, modules, work, reports, settings, open } = useNavItems();
   const { tablet } = useScreen(); // [mobile] on a tablet the opened rail floats over the page (responsive.css)
+  const say = useSay(); // Btn below is drawn with Sidebar's say (no hook of its own)
   const Btn = ({ item, on }: { item: Item; on: boolean }) => (
     <button className={`sb-item ${on ? 'on' : ''} ${item.off ? 'off' : ''}`} onClick={() => open(item)} aria-label={item.label} aria-current={on ? 'page' : undefined} disabled={item.off}>
       <Icon name={item.icon} filled={on} />
       <span className="lbl">{item.label}</span>
       {item.badge ? <span className="badge">{item.badge}</span> : null}
-      <span className="tip">{item.label}{item.off ? ' · accès non autorisé' : ''}{item.kbd ? <kbd>{item.kbd}</kbd> : null}</span>
+      <span className="tip">{item.label}{item.off ? say(' · accès non autorisé', ' · access not authorised') : ''}{item.kbd ? <kbd>{item.kbd}</kbd> : null}</span>
     </button>
   );
   // [bumex-one] Fluent's nav drawer (2026-11-19): the floor at the top (its square, its name, the floors in a menu), then
@@ -119,7 +123,7 @@ export function Sidebar() {
         <button className={`sb-item ${atOverview ? 'on' : ''}`} onClick={() => { if (ui.view === 'flat') openRoom('overview'); else goTower(); }} aria-label={t('nav_overview')}>
           <Icon name="overview" filled={atOverview} />
           <span className="lbl">{t('nav_overview')}</span>
-          <span className="tip">{t('nav_overview')}<kbd>Échap</kbd></span>
+          <span className="tip">{t('nav_overview')}<kbd>{say('Échap', 'Esc')}</kbd></span>
         </button>
       </div>
       {ui.flyout === 'floors' && (

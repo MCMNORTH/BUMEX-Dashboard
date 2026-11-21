@@ -9,6 +9,8 @@ import { woodTexture, tileTexture, carpetTexture, concreteTexture, kanbanTexture
 import { Person, Walker, ROLE_COLORS } from './People';
 import { M, Box, Desk, Chair, Cabinet, Bookshelf, ConferenceTable, WallScreen, Sofa, Armchair, CoffeeTable, Plant, Planter, ReceptionDesk, LogoWall, Vault, Safe, Counter, Tray, Crate, ServerRack, Printer, HighTable, GlassWall, FolderStack } from './Furniture';
 import { ArchiveRack } from './ArchiveRack';
+import { sayNow } from '../one/say';
+// [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 // One office floor at real scale, drawn inside the building at its own height, lit at night by its own ceiling
 // lighting: white, even, no hard shadows (the light itself is set up in Scene). Partitions are section-cut at 1.55 m so the plan reads from above; glass
@@ -134,7 +136,7 @@ function RoomFloor({ room, rect, map, color, hot, floorY, y = 0.012 }: { room: P
         onClick={(e) => {
           e.stopPropagation();
           document.body.style.cursor = '';
-          if (!allowed) { toast('error', 'Module non autorisé pour votre compte : la lumière reste éteinte'); return; }
+          if (!allowed) { toast('error', sayNow('Module non autorisé pour votre compte : la lumière reste éteinte', 'Module not authorised for your account: the light stays off')); return; }
           if (focused === room && isModule) openRoom(room as Room);
           else focusRoom(room);
         }}

@@ -11,9 +11,12 @@ import { goBack, useCanGoBack } from '../one/back'; // [mobile]
 import { modalOpen } from '../one/modal';
 import { NO_FISCAL_YEAR, fiscalYearChoices } from '../one/fiscal-years'; // [bumex-one] // [bumex-one] a dialog's keys are its own (2026-11-20)
 import { setThemePref, useTheme } from '@/lib/theme'; // [bumex-one] light or dark (2026-11-19)
+import { useSay } from '../one/say';
+// [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 export function Header() {
   const { ui, state, t, setUi, goTower, goHome, goFloor, openRoom, setLang, focusRoom, openArchive } = useStore();
+  const say = useSay();
   const [q, setQ] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   // [mobile] a phone's header: Back or the emblem, the screen's title, a search that opens over everything
@@ -56,14 +59,14 @@ export function Header() {
     const out: { label: string; sub: string; go: () => void }[] = [];
     const enter = (entityId: string, room: Room, tab?: string) => { goFloor(entityId); openRoom(room, tab ?? null); };
     const mode = (entityId: string) => inMode(state, entityId); // [bumex-one] the test floor only in test mode, and alone then (0013)
-    for (const c of state.customers) if (mode(c.entityId) && (c.name.toLowerCase().includes(s) || c.code.toLowerCase().includes(s))) out.push({ label: c.name, sub: `Client · ${state.entities.find((e) => e.id === c.entityId)?.name}`, go: () => enter(c.entityId, 'clients', 'customers') });
-    for (const i of state.salesInvoices) if (mode(i.entityId) && i.number?.toLowerCase().includes(s)) out.push({ label: i.number!, sub: `Facture · ${state.customers.find((c) => c.id === i.customerId)?.name}`, go: () => enter(i.entityId, 'clients', 'invoices') });
-    for (const a of state.accounts) if (mode(a.entityId) && (a.code.startsWith(s) || a.nameFr.toLowerCase().includes(s)) && a.entityId === (ui.entityId ?? a.entityId)) out.push({ label: `${a.code} ${a.nameFr}`, sub: `Compte · ${state.entities.find((e) => e.id === a.entityId)?.name}`, go: () => enter(a.entityId, 'accounting', 'gl') });
-    for (const e of state.engagements) if (mode(e.entityId) && (e.name.toLowerCase().includes(s) || e.code.toLowerCase().includes(s))) out.push({ label: e.name, sub: `Mission · ${e.code}${e.status === 'completed' ? ' · terminée' : ''}`, go: () => { setUi({ focusEngagementId: e.id }); enter(e.entityId, 'missions'); } });
+    for (const c of state.customers) if (mode(c.entityId) && (c.name.toLowerCase().includes(s) || c.code.toLowerCase().includes(s))) out.push({ label: c.name, sub: `${say('Client', 'Customer')} · ${state.entities.find((e) => e.id === c.entityId)?.name}`, go: () => enter(c.entityId, 'clients', 'customers') });
+    for (const i of state.salesInvoices) if (mode(i.entityId) && i.number?.toLowerCase().includes(s)) out.push({ label: i.number!, sub: `${say('Facture', 'Invoice')} · ${state.customers.find((c) => c.id === i.customerId)?.name}`, go: () => enter(i.entityId, 'clients', 'invoices') });
+    for (const a of state.accounts) if (mode(a.entityId) && (a.code.startsWith(s) || a.nameFr.toLowerCase().includes(s)) && a.entityId === (ui.entityId ?? a.entityId)) out.push({ label: `${a.code} ${a.nameFr}`, sub: `${say('Compte', 'Account')} · ${state.entities.find((e) => e.id === a.entityId)?.name}`, go: () => enter(a.entityId, 'accounting', 'gl') });
+    for (const e of state.engagements) if (mode(e.entityId) && (e.name.toLowerCase().includes(s) || e.code.toLowerCase().includes(s))) out.push({ label: e.name, sub: `${say('Mission', 'Engagement')} · ${e.code}${e.status === 'completed' ? say(' · terminée', ' · completed') : ''}`, go: () => { setUi({ focusEngagementId: e.id }); enter(e.entityId, 'missions'); } });
     for (const a of state.archives) { const eng = state.engagements.find((e) => e.id === a.engagementId); if (mode(a.entityId) && (a.reference.toLowerCase().includes(s) || a.label.toLowerCase().includes(s))) out.push({ label: `${a.reference} · ${eng?.name ?? ''}`, sub: `Archive · ${a.bay}·${a.shelf}·${a.slot}`, go: () => { goFloor(a.entityId); openArchive(a.id, true); } }); }
-    for (const tk of state.tasks) { const key = (tk as { ticket?: { key?: string } }).ticket?.key ?? ''; /* [bumex-one] a ticket's key too (AUD-142) */ if (mode(tk.entityId) && (tk.title.toLowerCase().includes(s) || key.toLowerCase().startsWith(s))) out.push({ label: key ? `${key} · ${tk.title}` : tk.title, sub: `Tâche · ${tk.assignee} · ${tk.dueDate}`, go: () => { setUi({ focusTaskId: tk.id }); enter(tk.entityId, 'tasks', 'all'); } }); }
+    for (const tk of state.tasks) { const key = (tk as { ticket?: { key?: string } }).ticket?.key ?? ''; /* [bumex-one] a ticket's key too (AUD-142) */ if (mode(tk.entityId) && (tk.title.toLowerCase().includes(s) || key.toLowerCase().startsWith(s))) out.push({ label: key ? `${key} · ${tk.title}` : tk.title, sub: `${say('Tâche', 'Task')} · ${tk.assignee} · ${tk.dueDate}`, go: () => { setUi({ focusTaskId: tk.id }); enter(tk.entityId, 'tasks', 'all'); } }); }
     return out.slice(0, 12);
-  }, [q, state, ui.entityId, goFloor, openRoom, setUi, openArchive]);
+  }, [q, state, ui.entityId, goFloor, openRoom, setUi, openArchive, say]);
   const oneResults = useBumexOneSearch(q); // [bumex-one] BUMEX One's records after Vanguard's
   const allResults = [...results, ...oneResults];
 
@@ -83,7 +86,7 @@ export function Header() {
         <img src={emblem} alt="" />
         <span><b>BUMEX</b> <span>Vanguard</span></span>
       </div>
-      <nav className="crumbs" aria-label="Fil d'Ariane">
+      <nav className="crumbs" aria-label={say("Fil d'Ariane", 'Breadcrumb')}>
         {ui.view === 'flat' ? (
           <>
             {entity && <span className="cur">{entity.name}</span>}
@@ -113,7 +116,7 @@ export function Header() {
         )}
       </nav>
       <div className="search">
-        <label htmlFor="search" style={{ position: 'absolute', left: -9999 }}>Rechercher</label>
+        <label htmlFor="search" style={{ position: 'absolute', left: -9999 }}>{say('Rechercher', 'Search')}</label>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.3-4.3" /></svg>
         <input id="search" ref={inputRef} type="search" placeholder={t('search_ph')} value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" />
         {allResults.length > 0 && (
@@ -146,7 +149,7 @@ export function Header() {
             </button>
           </div>
         )}
-        <button className="btn dark" onClick={() => setLang(ui.lang === 'fr' ? 'en' : 'fr')} aria-label="Langue">
+        <button className="btn dark" onClick={() => setLang(ui.lang === 'fr' ? 'en' : 'fr')} aria-label={say('Langue', 'Language')}>
           {t('lang')}
         </button>
         <ThemeButton fr={ui.lang === 'fr'} />

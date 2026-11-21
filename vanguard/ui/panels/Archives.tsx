@@ -5,6 +5,7 @@ import { Chip, Icon, Tabs } from '../common'; // [bumex-one] Tabs
 import { confirmAsk } from '../../one/ask'; // [bumex-one] Fluent's dialog, not the browser's (2026-11-20)
 import { DocumentsTab } from '../../one/Documents'; // [bumex-one] BUMEX One's documents
 import { useSay } from '../../one/say'; // [bumex-one]
+// [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 // The archive module: the list behind the rack. Selecting a row selects the box in 3D (and the camera goes to the
 // rack); selecting a box in 3D selects the row here. Actions change the records, so the rack changes too.
@@ -42,7 +43,7 @@ export function ArchivesPanel({ entityId, compact = false, initialTab }: { entit
         <span className="muted small">{layout.used} / {RACK_CAPACITY} {t('arc_used')}</span>
         {ui.view === 'floor' && !compact && (
           <div className="hright">
-            <button className="btn sm primary" onClick={() => setUi({ rackFocus: true, focusRoom: 'clients' })}><Icon name="archives" size={14} /> Mode étagère</button>
+            <button className="btn sm primary" onClick={() => setUi({ rackFocus: true, focusRoom: 'clients' })}><Icon name="archives" size={14} /> {say('Mode étagère', 'Shelf mode')}</button>
           </div>
         )}
       </div>
@@ -82,7 +83,7 @@ export function ArchivesPanel({ entityId, compact = false, initialTab }: { entit
                 <tbody>
                   {rows.map((r) => (
                     <tr key={r.record.id} className={`click ${sel?.record.id === r.record.id ? 'sel' : ''}`} onClick={() => openArchive(r.record.id, false)}>
-                      <td className="mono" style={{ whiteSpace: 'nowrap' }}><b>{r.record.reference}</b><div className="small muted">{r.record.kind === 'box' ? `${r.record.boxCount} ${t('arc_box').toLowerCase()}${r.record.boxCount > 1 ? 's' : ''}` : t('arc_binder')}{compact ? ` · ${place(r.record)} · ${fmtDate(r.record.archivedAt)}` : ''}</div></td>
+                      <td className="mono" style={{ whiteSpace: 'nowrap' }}><b>{r.record.reference}</b><div className="small muted">{r.record.kind === 'box' ? say(`${r.record.boxCount} ${t('arc_box').toLowerCase()}${r.record.boxCount > 1 ? 's' : ''}`, `${r.record.boxCount} ${r.record.boxCount > 1 ? 'boxes' : 'box'}`) : t('arc_binder')}{compact ? ` · ${place(r.record)} · ${fmtDate(r.record.archivedAt)}` : ''}</div></td>
                       <td>{r.engagement.name}<div className="small muted">{r.engagement.code}{compact && r.customer ? ` · ${r.customer.name}` : ''}</div></td>
                       {!compact && <td>{r.customer?.name ?? '—'}</td>}
                       {!compact && <td className="mono" style={{ whiteSpace: 'nowrap' }}>{fmtDate(r.record.archivedAt)}</td>}
@@ -111,18 +112,18 @@ export function ArchivesPanel({ entityId, compact = false, initialTab }: { entit
                   <span className="k">{t('status')}</span><span><Chip kind={STATUS_KIND[sel.record.status]}>{statusLabel(sel.record.status)}</Chip></span>
                   <span className="k">{t('arc_place')}</span><span>{t('arc_bay')} {sel.record.bay} · {t('arc_shelf')} {sel.record.shelf} · {t('arc_slot')} {sel.record.slot}</span>
                   <span className="k">{t('arc_box')}</span><span>{sel.record.kind === 'box' ? `${sel.record.boxCount} ${t('arc_boxes')}` : t('arc_binder')}</span>
-                  <span className="k">Honoraires</span><span className="mono">{fmt(sel.engagement.fixedFee ?? 0, 0)} {sel.engagement.currency}</span>
-                  <span className="k">Heures</span><span className="mono">{sel.engagement.actualHours} h</span>
-                  <span className="k">Équipe</span><span>{sel.engagement.staff.join(', ')}</span>
+                  <span className="k">{say('Honoraires', 'Fees')}</span><span className="mono">{fmt(sel.engagement.fixedFee ?? 0, 0)} {sel.engagement.currency}</span>
+                  <span className="k">{say('Heures', 'Hours')}</span><span className="mono">{sel.engagement.actualHours} h</span>
+                  <span className="k">{say('Équipe', 'Team')}</span><span>{sel.engagement.staff.join(', ')}</span>
                   {sel.record.retrievedBy && <><span className="k">{t('arc_retrieved')}</span><span>{t('arc_by')} {sel.record.retrievedBy} · {sel.record.retrievedAt ? fmtDate(sel.record.retrievedAt) : ''}</span></>}
                 </div>
                 {sel.record.notes && <div className="banner info" style={{ marginTop: 10 }}>{sel.record.notes}</div>}
                 <div className="actions" style={{ marginTop: 12 }}>
-                  {ui.view === 'floor' && <button className="btn sm" onClick={() => setUi({ rackFocus: true, focusRoom: 'clients', archiveId: sel.record.id })}>Voir sur l'étagère</button>}
+                  {ui.view === 'floor' && <button className="btn sm" onClick={() => setUi({ rackFocus: true, focusRoom: 'clients', archiveId: sel.record.id })}>{say("Voir sur l'étagère", 'Show on the shelf')}</button>}
                   <button className="btn sm" onClick={() => openEngagement(sel.engagement.id)}>{t('arc_open_eng')}</button>
                   {(sel.record.status === 'archived' || sel.record.status === 'pending_destruction') && <button className="btn sm" onClick={() => apply((s) => retrieveArchive(s, sel.record.id), `${t('arc_retrieved')} · ${sel.record.reference}`)}>{t('arc_retrieve')}</button>}
                   {sel.record.status === 'retrieved' && <button className="btn sm primary" onClick={() => apply((s) => returnArchive(s, sel.record.id), `${t('arc_archived')} · ${sel.record.reference}`)}>{t('arc_return')}</button>}
-                  {sel.record.status === 'pending_destruction' && isPartner && <button className="btn sm danger" onClick={() => { const { id, reference } = sel.record; void confirmAsk({ title: `${t('arc_destroy')} ${reference} ?`, confirm: t('arc_destroy'), danger: true }).then((ok) => { if (ok) apply((s) => destroyArchive(s, id), `${t('arc_destroyed')} · ${reference}`); }); }}>{t('arc_destroy')}</button>}
+                  {sel.record.status === 'pending_destruction' && isPartner && <button className="btn sm danger" onClick={() => { const { id, reference } = sel.record; void confirmAsk({ title: say(`${t('arc_destroy')} ${reference} ?`, `${t('arc_destroy')} ${reference}?`), confirm: t('arc_destroy'), danger: true }).then((ok) => { if (ok) apply((s) => destroyArchive(s, id), `${t('arc_destroyed')} · ${reference}`); }); }}>{t('arc_destroy')}</button>}
                 </div>
               </div>
             ) : (

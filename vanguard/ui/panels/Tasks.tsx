@@ -4,12 +4,15 @@ import { useStore, MODULE_ROOM } from '../../store';
 import type { Room } from '../../i18n';
 import { Tabs, Chip, Field, D, Icon, DeleteButton } from '../common';
 import { Select } from '../Select';
+import { useSay } from '../../one/say';
+// [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 type Tab = 'open' | 'overdue' | 'done' | 'all';
 const MODULES = ['missions', 'clients', 'accounting', 'bank', 'suppliers', 'assets', 'closing', 'archives', 'tax', 'hr', 'penthouse'];
 
 export function TasksPanel({ entityId, initialTab }: { entityId: Id; initialTab?: string | null }) {
   const { state, t, apply, ui, setUi, openRoom } = useStore();
+  const say = useSay();
   const [tab, setTab] = useState<Tab>((initialTab as Tab) || 'open');
   useEffect(() => { if (initialTab) setTab(initialTab as Tab); }, [initialTab]);
   const [creating, setCreating] = useState(false);
@@ -65,7 +68,7 @@ export function TasksPanel({ entityId, initialTab }: { entityId: Id; initialTab?
                         <td><Chip kind="dim">{moduleLabel(task.module)}</Chip></td>
                         <td className="small">{eng ? <button className="btn sm ghost" onClick={(e) => { e.stopPropagation(); openLinked(task); }}>{eng.code}</button> : '—'}</td>
                         <td>{task.assignee}</td>
-                        <td style={{ color: late ? 'var(--crit)' : undefined, fontWeight: late ? 600 : 400 }}><D iso={task.dueDate} />{late ? ` · ${-daysBetween(task.dueDate, state.today)} j` : ''}</td>
+                        <td style={{ color: late ? 'var(--crit)' : undefined, fontWeight: late ? 600 : 400 }}><D iso={task.dueDate} />{late ? say(` · ${-daysBetween(task.dueDate, state.today)} j`, ` · ${-daysBetween(task.dueDate, state.today)} d`) : ''}</td>
                         <td><Chip kind={task.priority === 'high' ? 'warn' : 'dim'}>{t(`tsk_${task.priority}`)}</Chip></td>
                         <td><Chip kind={task.status === 'done' ? 'good' : task.status === 'in_progress' ? 'warn' : 'dim'}>{task.status === 'done' ? t('tsk_done_s') : task.status === 'in_progress' ? t('tsk_in_progress') : t('tsk_todo')}</Chip></td>
                         <td onClick={(e) => e.stopPropagation()}>

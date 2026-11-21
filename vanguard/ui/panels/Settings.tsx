@@ -12,16 +12,17 @@ const logo = logoImage.src;
 import { Select } from '../Select';
 import { NO_FISCAL_YEAR, fiscalYearChoices } from '../../one/fiscal-years'; // [bumex-one] never blank (2026-11-20)
 import { setThemePref, useThemePref, type ThemePref } from '@/lib/theme'; // [bumex-one] light or dark (2026-11-19)
+// [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 type Tab = 'general' | 'account' | 'access' | 'rates' | 'deletions' | 'history'; // [bumex-one] account, rates (exchange rates)
 
-const MODULE_LABEL: Record<string, string> = { accounting: 'Comptabilité', bank: 'Trésorerie', clients: 'Clients', suppliers: 'Fournisseurs', missions: 'Missions', assets: 'Immobilisations', hr: 'Ressources humaines', tax: 'Fiscalité', archives: 'Archives', tasks: 'Tâches', reports: 'Rapports', penthouse: 'Holding · consolidé' };
+const MODULE_LABEL: Record<string, [string, string]> = { accounting: ['Comptabilité', 'Accounting'], bank: ['Trésorerie', 'Treasury'], clients: ['Clients', 'Clients'], suppliers: ['Fournisseurs', 'Suppliers'], missions: ['Missions', 'Missions'], assets: ['Immobilisations', 'Fixed assets'], hr: ['Ressources humaines', 'Human resources'], tax: ['Fiscalité', 'Tax'], archives: ['Archives', 'Archives'], tasks: ['Tâches', 'Tasks'], reports: ['Rapports', 'Reports'], penthouse: ['Holding · consolidé', 'Holding · consolidated'] };
 
 export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
   const { state, ui, t, setUi, setLang, setQuality, reset, openRoom, toast } = useStore();
   const admin = state.session.managesAccess === true; // [bumex-one] the role modifiers (0009)
   const say = useSay(); // [bumex-one]
-  const tabs: { id: Tab; label: string }[] = [{ id: 'general', label: 'Général' }, { id: 'account', label: say('Mon compte', 'My account') }, ...(admin ? [{ id: 'access' as Tab, label: say('Permissions', 'Permissions') }] : []), { id: 'rates', label: say('Taux de change', 'Exchange rates') }, { id: 'deletions', label: `Demandes de suppression · ${pendingDeletions(state).length}` }, { id: 'history', label: 'Historique' }];
+  const tabs: { id: Tab; label: string }[] = [{ id: 'general', label: say('Général', 'General') }, { id: 'account', label: say('Mon compte', 'My account') }, ...(admin ? [{ id: 'access' as Tab, label: say('Permissions', 'Permissions') }] : []), { id: 'rates', label: say('Taux de change', 'Exchange rates') }, { id: 'deletions', label: say(`Demandes de suppression · ${pendingDeletions(state).length}`, `Deletion requests · ${pendingDeletions(state).length}`) }, { id: 'history', label: say('Historique', 'History') }];
   const [tab, setTab] = useState<Tab>(initialTab && tabs.some((x) => x.id === initialTab) ? (initialTab as Tab) : 'general');
   useEffect(() => { if (initialTab && tabs.some((x) => x.id === initialTab)) setTab(initialTab as Tab); }, [initialTab]); // [bumex-one] a link to another tab while the room is open
   return (
@@ -58,14 +59,15 @@ export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
       </label>
     );
     const me = state.users.find((u) => u.id === state.session.userId);
-    const scope = state.session.entityIds === '*' ? 'toutes les entités' : state.session.entityIds.map((id) => state.entities.find((e) => e.id === id)?.name).join(', ');
-    const mods = state.session.modules === '*' ? 'tous les modules' : state.session.modules.map((m) => MODULE_LABEL[m] ?? m).join(', ');
+    // say: SettingsPanel's, which this inner component sees (no hook of its own needed)
+    const scope = state.session.entityIds === '*' ? say('toutes les entités', 'all entities') : state.session.entityIds.map((id) => state.entities.find((e) => e.id === id)?.name).join(', ');
+    const mods = state.session.modules === '*' ? say('tous les modules', 'all modules') : state.session.modules.map((m) => (MODULE_LABEL[m] ? say(MODULE_LABEL[m][0], MODULE_LABEL[m][1]) : m)).join(', ');
     return (
       <div className="grid2">
         <div className="card">
           <h2>{t('set_session')}</h2>
           <div className="row" style={{ borderTop: 0 }}><span>{state.session.actorName}{me ? <div className="small muted">{me.email}</div> : null}</span><Chip kind="good">{t(state.session.role)}</Chip></div>
-          <div className="small muted" style={{ margin: '6px 0 10px' }}>Accès : {scope} · {mods}</div>
+          <div className="small muted" style={{ margin: '6px 0 10px' }}>{say('Accès :', 'Access:')} {scope} · {mods}</div>
           <div className="grid2">
             <Field label={t('set_lang')}><Select className="in" value={ui.lang} onChange={(e) => setLang(e.target.value as 'fr' | 'en')}><option value="fr">Français</option><option value="en">English</option></Select></Field>
             <Field label={t('fiscal_year')}><Select className="in" value={fys.length ? ui.fiscalYearLabel : ''} disabled={!fys.length} onChange={(e) => setUi({ fiscalYearLabel: e.target.value })}>{fys.length ? fys.map((f) => <option key={f} value={f}>{f}</option>) : <option value="">{ui.lang === 'en' ? NO_FISCAL_YEAR[1] : NO_FISCAL_YEAR[0]}</option>}</Select></Field>
@@ -84,21 +86,21 @@ export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
           <Toggle label={t('expand') + ' · ' + t('nav_modules').toLowerCase()} value={ui.sidebarOpen} onChange={(v) => setUi({ sidebarOpen: v })} />
         </div>
         <div className="card">
-          <h2>Paramétrage métier</h2>
-          <div className="small muted">Plans comptables, codes taxe, règles de paie et catégories d'immobilisations se règlent dans leur module, par entité.</div>
+          <h2>{say('Paramétrage métier', 'Business settings')}</h2>
+          <div className="small muted">{say("Plans comptables, codes taxe, règles de paie et catégories d'immobilisations se règlent dans leur module, par entité.", 'Charts of accounts, tax codes, payroll rules and asset categories are set in their own module, per entity.')}</div>
           <div className="actions" style={{ marginTop: 10, justifyContent: 'flex-start', flexWrap: 'wrap' }}>
             <button className="btn sm" onClick={() => openRoom('accounting', 'coa')}>{t('tab_coa')}</button>
             <button className="btn sm" onClick={() => openRoom('tax', 'codes')}>{t('room_tax')} · codes</button>
-            <button className="btn sm" onClick={() => openRoom('hr', 'rules')}>Règles de paie</button>
-            <button className="btn sm" onClick={() => openRoom('assets', 'categories')}>Catégories d'immobilisations</button>
+            <button className="btn sm" onClick={() => openRoom('hr', 'rules')}>{say('Règles de paie', 'Payroll rules')}</button>
+            <button className="btn sm" onClick={() => openRoom('assets', 'categories')}>{say("Catégories d'immobilisations", 'Asset categories')}</button>
             <button className="btn sm" onClick={() => openRoom('accounting', 'closing')}>{t('tab_closing')}</button>
           </div>
         </div>
         <div className="card">
           <h2>{t('set_data')}</h2>
-          <div className="small muted">{t('demo_note')} · {state.entries.length} écritures · {state.employees.length} collaborateurs · {state.assets.length} immobilisations · {state.tasks.length} tâches</div>
+          <div className="small muted">{t('demo_note')} · {say(`${state.entries.length} écritures · ${state.employees.length} collaborateurs · ${state.assets.length} immobilisations · ${state.tasks.length} tâches`, `${state.entries.length} journal entries · ${state.employees.length} employees · ${state.assets.length} fixed assets · ${state.tasks.length} tasks`)}</div>
           <div className="actions" style={{ marginTop: 10, justifyContent: 'flex-start' }}>
-            <button className="btn sm" onClick={exportJson}>Exporter les données (JSON)</button>
+            <button className="btn sm" onClick={exportJson}>{say('Exporter les données (JSON)', 'Export data (JSON)')}</button>
             <button className="btn sm" onClick={() => reset()}>{t('reset')}</button>{/* [bumex-one] reloads the database's state */}
           </div>
         </div>
@@ -109,6 +111,7 @@ export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
 
 function Deletions() {
   const { state, t, apply } = useStore();
+  const say = useSay();
   const can = canDecideDeletions(state);
   const [note, setNote] = useState<Record<string, string>>({});
   const all = [...state.deletionRequests].sort((a, b) => (a.requestedAt < b.requestedAt ? 1 : -1));
@@ -117,32 +120,32 @@ function Deletions() {
   const row = (d: (typeof all)[number]) => (
     <tr key={d.id}>
       <td className="small">{d.requestedAt.slice(0, 16).replace('T', ' ')}</td>
-      <td><b>{d.label}</b><div className="small muted">{d.table} · {state.entities.find((e) => e.id === d.entityId)?.code ?? 'groupe'}</div></td>
+      <td><b>{d.label}</b><div className="small muted">{d.table} · {state.entities.find((e) => e.id === d.entityId)?.code ?? say('groupe', 'group')}</div></td>
       <td>{d.requestedByName}</td>
       <td className="small">{d.reason}</td>
-      <td><Chip kind={d.status === 'pending' ? 'warn' : d.status === 'approved' ? 'good' : 'dim'}>{d.status === 'pending' ? 'En attente' : d.status === 'approved' ? 'Approuvée · supprimé' : 'Rejetée'}</Chip>{d.decidedBy ? <div className="small muted">{d.decidedBy} · {d.decidedAt?.slice(0, 10)}{d.decisionNote ? ` · ${d.decisionNote}` : ''}</div> : null}</td>
+      <td><Chip kind={d.status === 'pending' ? 'warn' : d.status === 'approved' ? 'good' : 'dim'}>{d.status === 'pending' ? say('En attente', 'Pending') : d.status === 'approved' ? say('Approuvée · supprimé', 'Approved · deleted') : say('Rejetée', 'Rejected')}</Chip>{d.decidedBy ? <div className="small muted">{d.decidedBy} · {d.decidedAt?.slice(0, 10)}{d.decisionNote ? ` · ${d.decisionNote}` : ''}</div> : null}</td>
       <td>
         {d.status === 'pending' && can && d.requestedBy !== state.session.actorId && (
           <div className="actions" style={{ justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
             <input className="in" placeholder="Note" style={{ width: 120 }} value={note[d.id] ?? ''} onChange={(e) => setNote({ ...note, [d.id]: e.target.value })} />
-            <button className="btn sm danger" onClick={() => apply((s) => decideDeletion(s, d.id, 'approved', note[d.id]), 'Suppression approuvée et exécutée')}>Approuver</button>
-            <button className="btn sm" onClick={() => apply((s) => decideDeletion(s, d.id, 'rejected', note[d.id]), 'Demande rejetée')}>Rejeter</button>
+            <button className="btn sm danger" onClick={() => apply((s) => decideDeletion(s, d.id, 'approved', note[d.id]), say('Suppression approuvée et exécutée', 'Deletion approved and carried out'))}>{say('Approuver', 'Approve')}</button>
+            <button className="btn sm" onClick={() => apply((s) => decideDeletion(s, d.id, 'rejected', note[d.id]), say('Demande rejetée', 'Request rejected'))}>{say('Rejeter', 'Reject')}</button>
           </div>
         )}
-        {d.status === 'pending' && d.requestedBy === state.session.actorId && <span className="small muted">votre demande</span>}
+        {d.status === 'pending' && d.requestedBy === state.session.actorId && <span className="small muted">{say('votre demande', 'your request')}</span>}
       </td>
     </tr>
   );
   return (
     <>
-      <div className="banner info">{can ? 'Vous approuvez ou rejetez les demandes des autres profils ; chaque décision est tracée. Vous ne pouvez pas trancher votre propre demande.' : t('delete_note_other')}</div>
+      <div className="banner info">{can ? say('Vous approuvez ou rejetez les demandes des autres profils ; chaque décision est tracée. Vous ne pouvez pas trancher votre propre demande.', "You approve or reject other profiles' requests; every decision is logged. You can't decide on your own request.") : t('delete_note_other')}</div>
       <div className="card flush">
         <table>
-          <thead><tr><th>Demandée le</th><th>Élément</th><th>Par</th><th>Motif</th><th>Statut</th><th></th></tr></thead>
-          <tbody>{pending.length ? pending.map(row) : <tr><td colSpan={6} className="muted small">Aucune demande en attente</td></tr>}</tbody>
+          <thead><tr><th>{say('Demandée le', 'Requested on')}</th><th>{say('Élément', 'Item')}</th><th>{say('Par', 'By')}</th><th>{say('Motif', 'Reason')}</th><th>{say('Statut', 'Status')}</th><th></th></tr></thead>
+          <tbody>{pending.length ? pending.map(row) : <tr><td colSpan={6} className="muted small">{say('Aucune demande en attente', 'No pending requests')}</td></tr>}</tbody>
         </table>
       </div>
-      {done.length > 0 && <div className="card flush"><table><thead><tr><th>Traitée</th><th>Élément</th><th>Par</th><th>Motif</th><th>Décision</th><th></th></tr></thead><tbody>{done.slice(0, 30).map(row)}</tbody></table></div>}
+      {done.length > 0 && <div className="card flush"><table><thead><tr><th>{say('Traitée', 'Processed')}</th><th>{say('Élément', 'Item')}</th><th>{say('Par', 'By')}</th><th>{say('Motif', 'Reason')}</th><th>{say('Décision', 'Decision')}</th><th></th></tr></thead><tbody>{done.slice(0, 30).map(row)}</tbody></table></div>}
     </>
   );
 }

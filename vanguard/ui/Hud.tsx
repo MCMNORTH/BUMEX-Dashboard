@@ -3,20 +3,24 @@ import { allFloors, floorSignals, canUseModule, fmt, type FloorSignals } from '@
 import { useStore } from '../store';
 import { Lamp, Chip, Icon } from './common';
 import { worstSignal } from '../three/Building';
+import { useSay } from '../one/say';
+// [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 function Sigs({ f }: { f: FloorSignals }) {
+  const say = useSay();
   return (
     <span className="sigs">
       <Lamp kind={f.cashSignal} letter="T" />
-      <Lamp kind={f.overdueSignal} letter="C" />
-      <Lamp kind={f.engagementSignal} letter="M" />
-      <Lamp kind={f.draftSignal === 'good' ? 'off' : f.draftSignal} letter="É" />
+      <Lamp kind={f.overdueSignal} letter={say('C', 'R')} />
+      <Lamp kind={f.engagementSignal} letter={say('M', 'E')} />
+      <Lamp kind={f.draftSignal === 'good' ? 'off' : f.draftSignal} letter={say('É', 'J')} />
     </span>
   );
 }
 
 export function TowerHud() {
   const { state, ui, t, setUi, goFloor, openRoom } = useStore();
+  const say = useSay();
   const floors = useMemo(() => allFloors(state), [state]);
   const hot = floors.find((f) => f.entity.id === ui.hoverFloor) ?? floors.find((f) => f.entity.id === ui.entityId) ?? floors[0];
   const fy = state.fiscalYears.find((f) => f.entityId === hot.entity.id && f.label === ui.fiscalYearLabel);
@@ -45,7 +49,7 @@ export function TowerHud() {
                   {f.entity.name}
                   <span className="small muted" style={{ marginLeft: 6 }}>{f.entity.functionalCurrency}</span>
                 </span>
-                {f.visible ? <Sigs f={f} /> : <span className="small">non autorisé</span>}
+                {f.visible ? <Sigs f={f} /> : <span className="small">{say('non autorisé', 'not authorised')}</span>}
               </button>
             ))}
           </div>
@@ -71,7 +75,7 @@ export function TowerHud() {
         </section>
       </div>
       <div className="hint">
-        {t('click_floor')} · {t('explore').toLowerCase()} : glisser pour tourner, molette pour zoomer · <kbd>Ctrl</kbd>+<kbd>K</kbd>
+        {t('click_floor')} · {t('explore').toLowerCase()}{say(' : glisser pour tourner, molette pour zoomer', ': drag to rotate, scroll to zoom')} · <kbd>Ctrl</kbd>+<kbd>K</kbd>
       </div>
     </>
   );
@@ -79,6 +83,7 @@ export function TowerHud() {
 
 export function FloorHud() {
   const { state, ui, t, goTower, focusRoom, setUi } = useStore();
+  const say = useSay();
   const f = useMemo(() => (ui.entityId ? floorSignals(state, ui.entityId) : null), [state, ui.entityId]);
   if (!f) return null;
   const worst = worstSignal(f);
@@ -89,7 +94,7 @@ export function FloorHud() {
     <>
       <div className="hud left" style={{ width: 'auto' }}>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn dark" onClick={goTower} title={`${t('back_overview')} · Échap`}><Icon name="back" size={16} /> {t('back_overview')}</button>
+          <button className="btn dark" onClick={goTower} title={`${t('back_overview')} · ${say('Échap', 'Esc')}`}><Icon name="back" size={16} /> {t('back_overview')}</button>
           {(ui.focusRoom || ui.rackFocus) && <button className="btn dark" onClick={() => { focusRoom(null); setUi({ rackFocus: false, archiveId: null }); }}>{t('back_floor')}</button>}
         </div>
       </div>
@@ -108,22 +113,22 @@ export function FloorHud() {
             <div className="row"><span>{t('nav_tasks')}</span><span className="mono">{openTasks}</span></div>
             <div className="row"><span>{t('present')}</span><span className="mono">{f.entity.staffPresent} / {f.entity.staffTotal}</span></div>
           </>}
-          <div className="row"><span>État de l'étage</span><Chip kind={worst === 'off' ? 'dim' : worst}>{worst === 'crit' ? t('action') : worst === 'warn' ? t('attention') : t('ok')}</Chip></div>
-          <div className="small muted" style={{ marginTop: 6 }}>{f.entity.functionalCurrency} · {finance ? 'écritures comptabilisées · ' : ''}{floorsAbove} étage{floorsAbove > 1 ? 's' : ''} au-dessus masqué{floorsAbove > 1 ? 's' : ''}</div>
+          <div className="row"><span>{say("État de l'étage", 'Floor status')}</span><Chip kind={worst === 'off' ? 'dim' : worst}>{worst === 'crit' ? t('action') : worst === 'warn' ? t('attention') : t('ok')}</Chip></div>
+          <div className="small muted" style={{ marginTop: 6 }}>{f.entity.functionalCurrency} · {finance ? say('écritures comptabilisées · ', 'posted journal entries · ') : ''}{floorsAbove} {floorsAbove > 1 ? say('étages au-dessus masqués', 'floors above hidden') : say('étage au-dessus masqué', 'floor above hidden')}</div>
         </section>
         {finance && <section className="panel">
           <h2>{t('decor_title')}</h2>
-          <div className="row"><span>Coffre {f.cashSignal === 'good' ? 'éclairé' : 'éteint'} · lampe du trésorier</span><Chip kind={f.cashSignal === 'off' ? 'dim' : f.cashSignal}>{t('cash')}</Chip></div>
-          <div className="row"><span>{f.overdueCount} dossiers rouges · clients</span><Chip kind={f.overdueSignal === 'off' ? 'dim' : f.overdueSignal}>{t('overdue')}</Chip></div>
-          <div className="row"><span>{f.engagements} postes · {f.lateEngagements} lampes ambre</span><Chip kind={f.engagementSignal === 'off' ? 'dim' : f.engagementSignal}>{t('room_missions')}</Chip></div>
-          <div className="row"><span>Lampe de bureau · comptabilité</span><Chip kind={f.drafts ? 'warn' : 'good'}>{f.drafts} {t('draft').toLowerCase()}</Chip></div>
-          <div className="row"><span>{f.pendingApprovals} bannettes ambre · {f.pendingApprovals ? 'coursier' : 'pas de coursier'}</span><Chip kind={f.pendingApprovals ? 'warn' : 'good'}>{t('room_suppliers')}</Chip></div>
-          <div className="row"><span>{state.archives.filter((a) => a.entityId === f.entity.id && a.status !== 'destroyed').length} boîtes sur le rayonnage</span><Chip kind="dim">{t('nav_archives')}</Chip></div>
+          <div className="row"><span>{f.cashSignal === 'good' ? say('Coffre éclairé', 'Safe lit') : say('Coffre éteint', 'Safe dark')}{say(' · lampe du trésorier', " · treasurer's lamp")}</span><Chip kind={f.cashSignal === 'off' ? 'dim' : f.cashSignal}>{t('cash')}</Chip></div>
+          <div className="row"><span>{f.overdueCount} {say('dossiers rouges · clients', 'red files · clients')}</span><Chip kind={f.overdueSignal === 'off' ? 'dim' : f.overdueSignal}>{t('overdue')}</Chip></div>
+          <div className="row"><span>{f.engagements} {say('postes', 'desks')} · {f.lateEngagements} {say('lampes ambre', 'amber lamps')}</span><Chip kind={f.engagementSignal === 'off' ? 'dim' : f.engagementSignal}>{t('room_missions')}</Chip></div>
+          <div className="row"><span>{say('Lampe de bureau · comptabilité', 'Desk lamp · accounting')}</span><Chip kind={f.drafts ? 'warn' : 'good'}>{f.drafts} {t('draft').toLowerCase()}</Chip></div>
+          <div className="row"><span>{f.pendingApprovals} {say('bannettes ambre', 'amber trays')} · {f.pendingApprovals ? say('coursier', 'courier') : say('pas de coursier', 'no courier')}</span><Chip kind={f.pendingApprovals ? 'warn' : 'good'}>{t('room_suppliers')}</Chip></div>
+          <div className="row"><span>{state.archives.filter((a) => a.entityId === f.entity.id && a.status !== 'destroyed').length} {say('boîtes sur le rayonnage', 'boxes on the rack')}</span><Chip kind="dim">{t('nav_archives')}</Chip></div>
           <div className="row"><span>{t('present')}</span><Chip kind="dim">{f.entity.staffPresent} / {f.entity.staffTotal}</Chip></div>
         </section>}
       </div>}
       {!ui.rackFocus && <div className="hint">
-        {ui.focusRoom ? <>Molette pour zoomer, glisser pour déplacer · <kbd>Échap</kbd> {t('back_floor')}</> : <>Survoler une salle pour son nom · cliquer pour zoomer, encore pour ouvrir le module · vue fixe : molette pour zoomer, glisser pour déplacer · <kbd>Échap</kbd> {t('back_overview')}</>}
+        {ui.focusRoom ? <>{say('Molette pour zoomer, glisser pour déplacer', 'Scroll to zoom, drag to move')} · <kbd>{say('Échap', 'Esc')}</kbd> {t('back_floor')}</> : <>{say('Survoler une salle pour son nom · cliquer pour zoomer, encore pour ouvrir le module · vue fixe : molette pour zoomer, glisser pour déplacer', 'Hover a room for its name · click to zoom, again to open the module · fixed view: scroll to zoom, drag to move')} · <kbd>{say('Échap', 'Esc')}</kbd> {t('back_overview')}</>}
       </div>}
     </>
   );
