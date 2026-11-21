@@ -68,6 +68,7 @@ export type ClientTimelineItem = {
   href: string | null;
   actorName: string;
   expandableDetails: string | null;
+  metadata: ActivityLogRecord["metadata"]; // said in the person's language by Vanguard (vanguard/one/labels.ts)
 };
 
 export type RelationshipHealth = "healthy" | "attention_needed" | "at_risk";

@@ -25,7 +25,7 @@ export function AssetsPanel({ entityId, initialTab }: { entityId: Id; initialTab
     { id: 'register' as Tab, label: `Registre · ${state.assets.filter((a) => a.entityId === entityId).length}` },
     { id: 'new' as Tab, label: 'Nouvelle immobilisation' },
     { id: 'sheet' as Tab, label: assetId ? `Fiche · ${state.assets.find((a) => a.id === assetId)?.code ?? ''}` : 'Fiche' },
-    { id: 'yearend' as Tab, label: <>Dotations {fy?.label} {toPost > 0 ? <Chip kind="warn">{fmt(toPost, 0)}</Chip> : <Chip kind="good">à jour</Chip>}</> },
+    { id: 'yearend' as Tab, label: <>Dotations {fy?.label} {toPost > 0 ? <Chip kind="warn">{fmt(toPost, 0)}</Chip> : <Chip kind="good">À jour</Chip>}</> },
     { id: 'categories' as Tab, label: 'Catégories' },
   ];
   const open = (id: Id) => { setAssetId(id); setTab('sheet'); };
@@ -57,7 +57,7 @@ function Register({ entityId, onOpen }: { entityId: Id; onOpen: (id: Id) => void
         <div className="kpi"><div className="l">Biens en service ou en cours</div><div className="v">{live.length}</div></div>
         <div className="kpi"><div className="l">Valeur brute</div><div className="v">{fmt(cost, 0)}</div></div>
         <div className="kpi"><div className="l">Amortissements cumulés</div><div className="v">{fmt(acc, 0)}</div><div className="l">{Math.round((acc / Math.max(1, cost)) * 100)} % amorti</div></div>
-        <div className="kpi"><div className="l">Valeur nette comptable</div><div className="v">{fmt(r2(cost - acc), 0)}</div><div className="l">dotation de l'exercice {fmt(year, 0)}</div></div>
+        <div className="kpi"><div className="l">Valeur nette comptable</div><div className="v">{fmt(r2(cost - acc), 0)}</div><div className="l">Dotation de l'exercice {fmt(year, 0)}</div></div>
       </div>
       <div className="card flush">
         <div style={{ display: 'flex', gap: 8, padding: 10, alignItems: 'center' }}>

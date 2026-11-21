@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { groupFigures, archiveEngagement, planningCalendar, fmt, r2, type Id } from '@bumex/domain';
 import { useStore } from '../../store';
-import { Chip, D, STATUS_KIND, STATUS_FR, Lamp, Tabs } from '../common';
+import { Chip, D, STATUS_KIND, STATUS_FR, StatusChip, Lamp, Tabs } from '../common';
 import { worstSignal } from '../../three/Building';
 import { PlanningView, AvailabilityView } from './Planning';
 import { MissionList } from '../../one/MissionList'; // [bumex-one] missions are BUMEX One's projects: cards or a list
@@ -144,7 +144,7 @@ export function PenthousePanel() {
           <div className="card flush">
             <table>
               <thead><tr><th>Document</th><th>De</th><th>Vers</th><th>Date</th><th className="num">HT</th><th className="num">TTC</th><th>Statut</th><th>Élimination</th></tr></thead>
-              <tbody>{ic.map((i) => { const c = state.customers.find((x) => x.id === i.customerId)!; return <tr key={i.id}><td className="mono">{i.number}</td><td>{state.entities.find((e) => e.id === i.entityId)?.name}</td><td>{state.entities.find((e) => e.id === c.groupEntityId)?.name}</td><td><D iso={i.date} /></td><td className="num">{fmt(i.totalHt, 0)}</td><td className="num">{fmt(i.totalTtc, 0)}</td><td><Chip kind={STATUS_KIND[i.status]}>{STATUS_FR[i.status]}</Chip></td><td><Chip kind="good">CA éliminé · {fmt(i.totalHt, 0)}</Chip></td></tr>; })}</tbody>
+              <tbody>{ic.map((i) => { const c = state.customers.find((x) => x.id === i.customerId)!; return <tr key={i.id}><td className="mono">{i.number}</td><td>{state.entities.find((e) => e.id === i.entityId)?.name}</td><td>{state.entities.find((e) => e.id === c.groupEntityId)?.name}</td><td><D iso={i.date} /></td><td className="num">{fmt(i.totalHt, 0)}</td><td className="num">{fmt(i.totalTtc, 0)}</td><td><StatusChip status={i.status} /></td><td><Chip kind="good">CA éliminé · {fmt(i.totalHt, 0)}</Chip></td></tr>; })}</tbody>
             </table>
             <div className="small muted" style={{ padding: 10 }}>Chaque facture interco crée aussi la charge chez l'entité réceptrice (phase d'extension) ; le revenu est éliminé dès maintenant dans le consolidé.</div>
           </div>

@@ -144,8 +144,8 @@ export function QuickLog({ data, ticketId, date: initialDate, onSaved, compact, 
         </Select>
         {pick && !pick.mission && <input className="in ql-label" value={label} maxLength={200} onChange={(e) => setLabel(e.target.value)} onKeyDown={enter} placeholder={say('Ce que vous avez fait', 'What you did')} aria-label={say('Ce que vous avez fait', 'What you did')} autoFocus />}
         <span className="ql-when" role="group" aria-label={say('Quand', 'When')}>
-          <button className={`chip ${date === data.today ? 'on' : ''}`} onClick={() => setDate(data.today)}>{say("aujourd'hui", 'today')}</button>
-          <button className={`chip ${date === yesterday ? 'on' : ''}`} onClick={() => setDate(yesterday)}>{say('hier', 'yesterday')}</button>
+          <button className={`chip ${date === data.today ? 'on' : ''}`} onClick={() => setDate(data.today)}>{say("Aujourd'hui", 'Today')}</button>
+          <button className={`chip ${date === yesterday ? 'on' : ''}`} onClick={() => setDate(yesterday)}>{say('Hier', 'Yesterday')}</button>
           <input className="in mono ql-date" type="date" value={date} max={data.today} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label={say('Jour', 'Day')} />
         </span>
         <button className="btn primary ql-save" disabled={busy || lockedWeek} onClick={save}>{busy ? say('…', '…') : say('Enregistrer', 'Save')}</button>

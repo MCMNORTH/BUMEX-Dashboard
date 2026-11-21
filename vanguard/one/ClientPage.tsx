@@ -10,6 +10,7 @@ import { useSay } from './say';
 import { Select } from '../ui/Select';
 import { confirmAsk } from './ask';
 import { Loading, SkPage } from './skeleton';
+import { activityDetail, activityText, valueLabel } from './labels';
 
 // A client's page in the Clients room, as BUMEX One's client page had it: the relationship (contact details, prospect
 // stage and next follow-up, account manager), its customer accounts in the entities (the accounting side), what it
@@ -212,7 +213,7 @@ export function ClientPanel({ clientId, onClose }: { clientId: string; onClose: 
         <div className="card flush"><table>
           <thead><tr><th>{say('Mission', 'Mission')}</th><th>{say('Statut', 'Status')}</th><th className="num">{say('Avancement', 'Progress')}</th><th>{say('Échéance', 'Deadline')}</th></tr></thead>
           <tbody>
-            {client.linkedProjects.map((p) => <tr key={p.id} className="click" onClick={() => openRoom('missions', `mission:${p.id}`)}><td><b>{p.name}</b></td><td className="small">{p.status}</td><td className="num">{p.progress} %</td><td><D iso={p.end_date?.slice(0, 10)} /></td></tr>)}
+            {client.linkedProjects.map((p) => <tr key={p.id} className="click" onClick={() => openRoom('missions', `mission:${p.id}`)}><td><b>{p.name}</b></td><td className="small">{valueLabel('project', p.status, say)}</td><td className="num">{p.progress} %</td><td><D iso={p.end_date?.slice(0, 10)} /></td></tr>)}
             {!client.linkedProjects.length && <tr><td colSpan={4} className="muted" style={{ padding: 14 }}>{say('Aucune mission.', 'No mission.')}</td></tr>}
           </tbody>
         </table></div>
@@ -221,7 +222,7 @@ export function ClientPanel({ clientId, onClose }: { clientId: string; onClose: 
         <div className="card flush"><table>
           <thead><tr><th>{say('Contrat', 'Contract')}</th><th>{say('Statut', 'Status')}</th><th>{say('Renouvellement', 'Renewal')}</th><th>{say('Fin', 'End')}</th></tr></thead>
           <tbody>
-            {view.contracts.map((c) => <tr key={c.id} className="click" onClick={() => openRoom('clients', `contract:${c.id}`)}><td><b>{c.title}</b></td><td className="small">{c.status}</td><td><D iso={c.renewal_date?.slice(0, 10)} /></td><td><D iso={c.end_date?.slice(0, 10)} /></td></tr>)}
+            {view.contracts.map((c) => <tr key={c.id} className="click" onClick={() => openRoom('clients', `contract:${c.id}`)}><td><b>{c.title}</b></td><td className="small">{valueLabel('contract', c.status, say)}</td><td><D iso={c.renewal_date?.slice(0, 10)} /></td><td><D iso={c.end_date?.slice(0, 10)} /></td></tr>)}
             {!view.contracts.length && <tr><td colSpan={4} className="muted" style={{ padding: 14 }}>{say('Aucun contrat.', 'No contract.')}</td></tr>}
           </tbody>
         </table></div>
@@ -239,7 +240,7 @@ export function ClientPanel({ clientId, onClose }: { clientId: string; onClose: 
         <div className="card flush"><table>
           <thead><tr><th>Ticket</th><th>{say('Mission', 'Mission')}</th><th>{say('Assigné à', 'Assignee')}</th><th>{say('Statut', 'Status')}</th><th>{say('Échéance', 'Due')}</th></tr></thead>
           <tbody>
-            {view.tickets.map((t) => <tr key={t.id} className="click" onClick={() => openRoom('tasks', `ticket:${t.id}`)}><td><b>{t.title}</b></td><td className="small">{t.projectName ?? '—'}</td><td className="small">{t.assigneeName ?? '—'}</td><td className="small">{t.status}</td><td><D iso={t.dueDate ?? undefined} /></td></tr>)}
+            {view.tickets.map((t) => <tr key={t.id} className="click" onClick={() => openRoom('tasks', `ticket:${t.id}`)}><td><b>{t.title}</b></td><td className="small">{t.projectName ?? '—'}</td><td className="small">{t.assigneeName ?? '—'}</td><td className="small">{valueLabel('ticket', t.status, say)}</td><td><D iso={t.dueDate ?? undefined} /></td></tr>)}
             {!view.tickets.length && <tr><td colSpan={5} className="muted" style={{ padding: 14 }}>{say('Aucun ticket.', 'No ticket.')}</td></tr>}
           </tbody>
         </table></div>
@@ -253,8 +254,8 @@ export function ClientPanel({ clientId, onClose }: { clientId: string; onClose: 
           </Select>
           {view.timeline.filter((h) => historyFilter === 'all' || h.type === historyFilter).map((h) => (
             <div key={h.id} style={{ borderTop: '1px solid var(--line)', padding: '7px 0', fontSize: 12.5 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}><b>{h.title}</b><span className="muted mono">{when(h.date)}</span></div>
-              <div className="muted">{h.actorName}{h.description ? ` · ${h.description}` : ''}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}><b>{activityText(h.title, say)}</b><span className="muted mono">{when(h.date)}</span></div>
+              <div className="muted">{h.actorName === 'System' ? say('Système', 'System') : h.actorName}{activityDetail(h.metadata, say, h.entityType) ? ` · ${activityDetail(h.metadata, say, h.entityType)}` : ''}</div>
             </div>
           ))}
           {!view.timeline.length && <span className="small muted">{say('Aucune activité.', 'No activity.')}</span>}

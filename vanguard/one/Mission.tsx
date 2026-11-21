@@ -17,6 +17,7 @@ import { Avatar, Lozenge, PriorityIcon, TypeIcon, hoursText, statusTone } from '
 import { Select } from '../ui/Select';
 import { confirmAsk } from './ask';
 import { Loading, SkLines, SkPage } from './skeleton';
+import { activityDetail, activityText } from './labels';
 
 // A mission's page in the Missions room (redrawn on 2026-10-28, laid out as a ticket's page): its name and state on top,
 // then its figures, description, tickets and milestones, with its details and alerts on the side; its team, notes,
@@ -135,8 +136,8 @@ export function MissionPanel({ projectId, initialTab, onClose }: { projectId: st
             <div key={h.id} className="mp-event">
               <Avatar name={h.who || null} size={28} />
               <div className="grow">
-                <div><b>{h.who || say('Système', 'System')}</b> <span className="muted">· {h.action}</span></div>
-                {h.detail && <div className="small muted">{h.detail}</div>}
+                <div><b>{h.who || say('Système', 'System')}</b> <span className="muted">· {activityText(h.action, say)}</span></div>
+                {activityDetail(h.metadata, say, h.entity) && <div className="small muted">{activityDetail(h.metadata, say, h.entity)}</div>}
               </div>
               <span className="small muted mono">{when(h.at)}</span>
             </div>

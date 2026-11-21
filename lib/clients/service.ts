@@ -206,6 +206,7 @@ function mapTimelineItem(activity: ActivityLogRecord): ClientTimelineItem {
     href: buildTimelineHref(activity),
     actorName: activity.user?.full_name ?? "System",
     expandableDetails: getTimelineDetails(activity),
+    metadata: activity.metadata ?? {},
   };
 }
 

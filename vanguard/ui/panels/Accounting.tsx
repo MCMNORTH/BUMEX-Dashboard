@@ -7,7 +7,7 @@ import {
 } from '@bumex/domain';
 import { useStore } from '../../store';
 import { FxRevaluationCard } from '../../one/FxRevaluation'; // [bumex-one] foreign currencies revalued at year end
-import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, saveFile, downloadXlsx, readXlsx, DeleteButton } from '../common';
+import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, StatusChip, saveFile, downloadXlsx, readXlsx, DeleteButton } from '../common';
 import { confirmAsk, textAsk } from '../../one/ask'; // [bumex-one] Fluent's dialog, not the browser's (2026-11-20)
 import { Select, Suggest } from '../Select';
 import { WideNote } from '../../one/WideNote'; // [mobile]
@@ -282,7 +282,7 @@ function EntryRow({ e, expanded, onToggle }: { e: JournalEntry; expanded: boolea
         <td>{e.description}</td>
         <td className="muted small">{e.sourceType}{e.postingRule ? ` · ${e.postingRule}` : ''}</td>
         <td className="num">{fmt(total)}</td>
-        <td><Chip kind={STATUS_KIND[e.status]}>{STATUS_FR[e.status]}</Chip></td>
+        <td><StatusChip status={e.status} /></td>
         <td>{chainOk === null ? '—' : <Chip kind={chainOk ? 'good' : 'crit'}>{chainOk ? t('hash_ok') : t('hash_bad')}</Chip>}</td>
       </tr>
       {expanded && (
@@ -375,7 +375,7 @@ function TrialBalance({ entityId }: { entityId: Id }) {
     <div className="card flush">
       <div style={{ display: 'flex', gap: 8, padding: 10, alignItems: 'center' }}>
         <b>Balance · exercice {ui.fiscalYearLabel}</b>
-        <Chip kind={td === tc ? 'good' : 'crit'}>{td === tc ? 'équilibrée' : 'déséquilibrée'}</Chip>
+        <Chip kind={td === tc ? 'good' : 'crit'}>{td === tc ? 'Équilibrée' : 'Déséquilibrée'}</Chip>
         <label className="small" style={{ marginLeft: 'auto' }}><input type="checkbox" checked={aux} onChange={(e) => setAux(e.target.checked)} /> détail des comptes auxiliaires (balance tiers)</label>
         <button className="btn sm" onClick={exportCsv}>Exporter (CSV pour Excel)</button>
       </div>
@@ -559,7 +559,7 @@ function Chart({ entityId }: { entityId: Id }) {
           <Field label="Intitulé (EN)" style={{ marginTop: 8 }}><input className="in" value={nameEn} onChange={(e) => setNameEn(e.target.value)} /></Field>
           <div className="grid2" style={{ marginTop: 8 }}>
             <Field label="Type"><Select className="in" value={kind} onChange={(e) => setKind(e.target.value as Account['kind'])}>{(Object.keys(ACCOUNT_KIND_FR) as Account['kind'][]).map((k) => <option key={k} value={k}>{ACCOUNT_KIND_FR[k]}</option>)}</Select></Field>
-            <Field label="Dimension requise"><Select className="in" value={dim} onChange={(e) => setDim(e.target.value as typeof dim)}><option value="">aucune</option><option value="customer">client</option><option value="supplier">fournisseur</option><option value="engagement">mission</option></Select></Field>
+            <Field label="Dimension requise"><Select className="in" value={dim} onChange={(e) => setDim(e.target.value as typeof dim)}><option value="">Aucune</option><option value="customer">Client</option><option value="supplier">Fournisseur</option><option value="engagement">Mission</option></Select></Field>
           </div>
           <label className="small" style={{ display: 'block', marginTop: 8 }}><input type="checkbox" checked={postable} onChange={(e) => setPostable(e.target.checked)} /> Imputable (accepte des écritures)</label>
           {editing && <label className="small" style={{ display: 'block', marginTop: 4 }}><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Actif (proposé dans les saisies)</label>}

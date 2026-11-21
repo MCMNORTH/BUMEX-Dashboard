@@ -10,6 +10,7 @@ import { useSay } from '../../one/say'; // [bumex-one]
 import logoImage from '../../assets/logo.jpg'; // [bumex-one] Next imports images as objects
 const logo = logoImage.src;
 import { Select } from '../Select';
+import { NO_FISCAL_YEAR, fiscalYearChoices } from '../../one/fiscal-years'; // [bumex-one] never blank (2026-11-20)
 import { setThemePref, useThemePref, type ThemePref } from '@/lib/theme'; // [bumex-one] light or dark (2026-11-19)
 
 type Tab = 'general' | 'account' | 'access' | 'rates' | 'deletions' | 'history'; // [bumex-one] account, rates (exchange rates)
@@ -47,7 +48,7 @@ export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
   );
 
   function General() {
-    const fys = useMemo(() => [...new Set(state.fiscalYears.map((f) => f.label))].sort().reverse(), [state.fiscalYears]);
+    const fys = useMemo(() => fiscalYearChoices(state.fiscalYears.map((f) => f.label), ui.fiscalYearLabel), [state.fiscalYears, ui.fiscalYearLabel]); // [bumex-one] never blank (one/fiscal-years.ts)
     const entities = [...state.entities].sort((a, b) => a.floorOrder - b.floorOrder);
     const exportJson = () => saveFile(`bumex-vanguard-${state.today}.json`, JSON.stringify(state, null, 1), 'application/json', toast);
     const Toggle = ({ label, sub, value, onChange }: { label: string; sub?: string; value: boolean; onChange: (v: boolean) => void }) => (
@@ -67,7 +68,7 @@ export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
           <div className="small muted" style={{ margin: '6px 0 10px' }}>Accès : {scope} · {mods}</div>
           <div className="grid2">
             <Field label={t('set_lang')}><Select className="in" value={ui.lang} onChange={(e) => setLang(e.target.value as 'fr' | 'en')}><option value="fr">Français</option><option value="en">English</option></Select></Field>
-            <Field label={t('fiscal_year')}><Select className="in" value={ui.fiscalYearLabel} onChange={(e) => setUi({ fiscalYearLabel: e.target.value })}>{fys.map((f) => <option key={f} value={f}>{f}</option>)}</Select></Field>
+            <Field label={t('fiscal_year')}><Select className="in" value={fys.length ? ui.fiscalYearLabel : ''} disabled={!fys.length} onChange={(e) => setUi({ fiscalYearLabel: e.target.value })}>{fys.length ? fys.map((f) => <option key={f} value={f}>{f}</option>) : <option value="">{ui.lang === 'en' ? NO_FISCAL_YEAR[1] : NO_FISCAL_YEAR[0]}</option>}</Select></Field>
             <ThemeField fr={ui.lang === 'fr'} />{/* [bumex-one] light, dark or the system's (lib/theme.ts) */}
             <Field label={t('set_entity')}><Select className="in" value={ui.entityId ?? ''} onChange={(e) => setUi({ entityId: e.target.value, room: e.target.value === state.entities.find((x) => x.isHolding)?.id ? 'penthouse' : ui.room === 'penthouse' ? 'settings' : ui.room })}>{entities.filter((e) => state.session.entityIds === '*' || state.session.entityIds.includes(e.id)).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</Select></Field>
           </div>

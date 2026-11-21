@@ -80,7 +80,7 @@ export type PersonView = {
   load: Load | null;
   projects: { id: string; name: string; status: string; role: string; clientName: string | null }[];
   tickets: { id: string; title: string; status: string; priority: string; dueDate: string | null; projectName: string | null }[];
-  history: { id: string; at: string; action: string; detail: string }[];
+  history: { id: string; at: string; action: string; detail: string; metadata: Record<string, unknown>; entity: string }[]; // metadata: said in the person's language (vanguard/one/labels.ts)
   current: MyWorkTicket[]; // in progress, in review, blocked
   next: MyWorkTicket[]; // to do and backlog, most pressing first
   week: { days: string[]; byDay: number[]; minutes: number; status: string | null; missions: { mission: string; project: string | null; minutes: number }[] } | null; // null: not the viewer's to read
@@ -127,7 +127,7 @@ export async function personViewAction(personId: string): Promise<PersonView | n
     load: workload?.load ?? null,
     projects: detail.assignedProjects.map((p) => ({ id: p.id, name: p.name, status: p.status, role: p.role, clientName: p.client_name })),
     tickets: detail.assignedTickets.map((t) => ({ id: t.id, title: t.title, status: t.status, priority: t.priority, dueDate: t.due_date?.slice(0, 10) ?? null, projectName: t.project_name })),
-    history: detail.recentActivity.map((a) => ({ id: a.id, at: a.created_at, action: a.action, detail: getActivityMetadataSummary(a) ?? "" })),
+    history: detail.recentActivity.map((a) => ({ id: a.id, at: a.created_at, action: a.action, detail: getActivityMetadataSummary(a) ?? "", metadata: a.metadata ?? {}, entity: a.entity_type })),
     current: tickets.filter((t) => t.assignee_id === m.id && ["in_progress", "review", "blocked"].includes(t.status)).map(asItem).sort(pressing),
     next: tickets.filter((t) => t.assignee_id === m.id && (t.status === "todo" || t.status === "backlog")).map(asItem).sort(pressing).slice(0, 40),
     week: time

@@ -17,8 +17,9 @@ import { UnreadBadge } from "@/components/notifications/unread-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/components/layout/i18n-provider";
-import { getNotificationLink, getNotificationSeverity, getNotificationTypeLabel } from "@/lib/notifications/helpers";
+import { getNotificationLink, getNotificationSeverity } from "@/lib/notifications/helpers";
 import type { NotificationRecord } from "@/types/notification";
+import { localizeNotification, notificationTypeLabel, severityLabel } from "@/lib/notifications/localize";
 
 const iconMap = {
   mention: AtSign,
@@ -67,6 +68,8 @@ export function NotificationItem({
   // (the old enum had "project"); an unknown type must not break the list.
   const Icon = iconMap[notification.type as keyof typeof iconMap] ?? BellRing;
   const severity = getNotificationSeverity(notification);
+  // stored in English, said in the person's language (lib/notifications/localize.ts)
+  const text = localizeNotification(notification, locale);
 
   return (
     <div
@@ -92,23 +95,9 @@ export function NotificationItem({
         <div className="min-w-0 flex-1 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-medium">{notification.title}</p>
+              <p className="text-sm font-medium">{text.title}</p>
               {!notification.is_read ? <UnreadBadge count={1} /> : null}
-              <Badge variant="outline">
-                {isFr
-                  ? ({
-                      mention: "mention",
-                      assignment: "affectation",
-                      status_change: "statut",
-                      comment: "commentaire",
-                      deadline: "échéance",
-                      overdue: "retard",
-                      payment_due: "paiement",
-                      contract_due: "contrat",
-                      system: "système",
-                    } as Record<string, string>)[notification.type] ?? getNotificationTypeLabel(notification.type)
-                  : getNotificationTypeLabel(notification.type)}
-              </Badge>
+              <Badge variant="outline">{notificationTypeLabel(notification.type, locale)}</Badge>
               {severity !== "info" ? (
                 <Badge
                   className={
@@ -117,14 +106,14 @@ export function NotificationItem({
                       : "bg-warning/15 text-warning"
                   }
                 >
-                  {isFr ? (severity === "critical" ? "critique" : "alerte") : severity}
+                  {severityLabel(severity, locale)}
                 </Badge>
               ) : null}
             </div>
             <p className="text-xs text-muted-foreground">{formatRelativeDate(notification.created_at, locale)}</p>
           </div>
 
-          <p className="text-sm leading-6 text-muted-foreground">{notification.body}</p>
+          <p className="text-sm leading-6 text-muted-foreground">{text.body}</p>
 
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="secondary" className="rounded-sm px-4">

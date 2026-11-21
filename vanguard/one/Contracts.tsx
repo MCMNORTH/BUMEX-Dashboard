@@ -10,6 +10,7 @@ import { useSay } from './say';
 import { Select } from '../ui/Select';
 import { confirmAsk } from './ask';
 import { Loading, SkPage, SkTable } from './skeleton';
+import { activityDetail, activityText } from './labels';
 
 // The Clients room's "Contrats" tab: BUMEX One's contracts, with what renews soon, and each contract's page (details,
 // edit form, archive, notes, conversation, history). Saved by BUMEX One's contract actions, under their rules.
@@ -220,7 +221,7 @@ export function ContractPanel({ contractId, onClose }: { contractId: string; onC
       {tab === 'comments' && <Comments entityType="contract" entityId={c.id} comments={view.comments} people={view.people} role={view.role} me={view.me} canComment={view.canComment} busy={busy} run={run} say={say} />}
       {tab === 'history' && (
         <div className="card">
-          {view.history.map((h) => <div key={h.id} style={{ borderTop: '1px solid var(--line)', padding: '7px 0', fontSize: 12.5 }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}><b>{h.action}</b><span className="muted mono">{when(h.at)}</span></div><div className="muted">{h.who}{h.detail ? ` · ${h.detail}` : ''}</div></div>)}
+          {view.history.map((h) => <div key={h.id} style={{ borderTop: '1px solid var(--line)', padding: '7px 0', fontSize: 12.5 }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}><b>{activityText(h.action, say)}</b><span className="muted mono">{when(h.at)}</span></div><div className="muted">{h.who || say('Système', 'System')}{activityDetail(h.metadata, say, h.entity) ? ` · ${activityDetail(h.metadata, say, h.entity)}` : ''}</div></div>)}
           {!view.history.length && <span className="small muted">{say('Aucune activité.', 'No activity.')}</span>}
         </div>
       )}

@@ -5,6 +5,7 @@ import { useStore } from '../store';
 import { Chip } from '../ui/common';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
+import { activityDetail, activityText, entityLabel, tableLabel, valueLabel } from './labels';
 
 // The one History (the Settings room's "Historique" tab): the ERP's audit log, which is in the state, and BUMEX One's
 // activity log (projects, tickets, clients, contracts…), latest first, filtered together. Replaces the delivered
@@ -30,8 +31,10 @@ export function History() {
 
   const A: Record<'I' | 'U' | 'D', [string, string, 'good' | 'warn' | 'crit']> = { I: ['Création', 'Created', 'good'], U: ['Modification', 'Changed', 'warn'], D: ['Suppression', 'Deleted', 'crit'] };
   const rows = useMemo(() => {
-    const erp: Row[] = state.auditLog.map((r, i) => ({ key: `erp-${i}`, at: r.at, who: r.actorId, role: r.role, source: 'erp', action: '', kind: r.action, object: r.table, ref: r.rowId, detail: r.summary, entityId: r.entityId }));
-    const one: Row[] = (events ?? []).map((e) => ({ key: `one-${e.id}`, at: e.at, who: e.who, source: 'one', action: e.action, kind: null, object: e.object, detail: e.detail, url: e.url }));
+    // said in the person's language (labels.ts): a person's name, not their id; the table's name, the log's sentence
+    const names = new Map(state.users.map((u) => [u.id, u.name]));
+    const erp: Row[] = state.auditLog.map((r, i) => ({ key: `erp-${i}`, at: r.at, who: names.get(r.actorId) ?? r.actorId, role: r.role, source: 'erp', action: '', kind: r.action, object: tableLabel(r.table, say), ref: r.rowId, detail: r.summary, entityId: r.entityId }));
+    const one: Row[] = (events ?? []).map((e) => ({ key: `one-${e.id}`, at: e.at, who: e.who, source: 'one', action: activityText(e.action, say), kind: null, object: entityLabel(e.entity, say), detail: activityDetail(e.metadata, say, e.entity), url: e.url }));
     const s = q.trim().toLowerCase();
     return [...erp, ...one]
       .filter((r) => (!source || r.source === source)
@@ -40,7 +43,7 @@ export function History() {
         && (!s || `${r.who} ${r.action} ${r.object} ${r.detail} ${r.ref ?? ''}`.toLowerCase().includes(s)))
       .sort((a, b) => (a.at < b.at ? 1 : -1))
       .slice(0, 300);
-  }, [state.auditLog, events, q, source, action, scope, ui.entityId]);
+  }, [state.auditLog, state.users, events, q, source, action, scope, ui.entityId, say]);
 
   return (
     <>
@@ -71,7 +74,7 @@ export function History() {
               <tr key={r.key} onClick={r.url ? () => router.push(r.url!) : undefined} style={r.url ? { cursor: 'pointer' } : undefined}>
                 <td className="small mono">{r.at.slice(0, 16).replace('T', ' ')}</td>
                 <td>{r.who || '—'}</td>
-                <td className="small">{r.role ? t(r.role) : ''}</td>
+                <td className="small">{r.role ? (t(r.role) !== r.role ? t(r.role) : valueLabel('role', r.role, say)) : ''}</td>
                 <td>{r.kind ? <Chip kind={A[r.kind][2]}>{say(A[r.kind][0], A[r.kind][1])}</Chip> : <span className="small">{r.action}</span>}</td>
                 <td className="small">{r.source === 'one' ? <Chip kind="dim">{r.object}</Chip> : r.object}{r.ref && <div className="muted mono">{r.ref}</div>}</td>
                 <td className="small">{r.detail}</td>

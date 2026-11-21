@@ -7,6 +7,7 @@ import { Select } from '../ui/Select';
 import { useSay } from './say';
 import { isPhone } from './screen'; // [mobile] a tapped day shows its list, under the month
 import { Loading, Sk, SkGrid } from './skeleton';
+import { cap } from './labels';
 
 // The Missions room's "Calendrier" tab: BUMEX One's Calendar page (redrawn on 2026-10-28: the titles were cut and the
 // month said little). Ticket due dates, mission deadlines, milestones and contract renewals on a month grid, each kind
@@ -67,8 +68,8 @@ export function CalendarView({ entityId }: { entityId: Id }) {
   const weeks = Array.from({ length: 6 }, (_, w) => Array.from({ length: 7 }, (_, d) => addDays(gridStart, w * 7 + d))).filter((week) => week[0] < end);
   const locale = ui.lang === 'fr' ? 'fr-FR' : 'en-GB';
   const title = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(first);
-  const weekdays = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${addDays(gridStart, i)}T00:00:00Z`)));
-  const longDay = (iso: string) => new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+  const weekdays = Array.from({ length: 7 }, (_, i) => cap(new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${addDays(gridStart, i)}T00:00:00Z`))));
+  const longDay = (iso: string) => cap(new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`)));
   const byDay = new Map<string, CalendarItem[]>();
   for (const i of shown) byDay.set(i.date, [...(byDay.get(i.date) ?? []), i]);
   const inMonth = shown.filter((i) => i.date >= month && i.date < end).length;
@@ -144,7 +145,7 @@ export function CalendarView({ entityId }: { entityId: Id }) {
           </div>
           <div className="mw-block">
             <div className="mw-block-h"><h2>{say('Les 14 jours suivants', 'The next 14 days')}</h2><span className="tk-count">{next.length}</span></div>
-            {next.slice(0, 8).map((i) => <Event key={i.id} item={i} onOpen={() => open(i)} date={new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${i.date}T00:00:00Z`))} />)}
+            {next.slice(0, 8).map((i) => <Event key={i.id} item={i} onOpen={() => open(i)} date={cap(new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${i.date}T00:00:00Z`)))} />)}
             {next.length > 8 && <span className="small muted">+{next.length - 8} {say('autres', 'more')}</span>}
             {!next.length && <span className="small muted">{say('Rien de prévu.', 'Nothing planned.')}</span>}
           </div>

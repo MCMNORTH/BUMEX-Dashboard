@@ -4,6 +4,7 @@ import { financeArchiveAction, type FinanceArchive as Archive } from '@/lib/erp/
 import { Chip, D } from '../ui/common';
 import { useSay } from './say';
 import { Loading, SkTable } from './skeleton';
+import { valueLabel } from './labels';
 
 // The Reports room's "Archives financières": BUMEX One's invoices, payments, transfers and bank statements, read-only
 // (the ERP keeps the books since 2026-10-24). An invoice opens as its PDF.
@@ -46,7 +47,7 @@ export function FinanceArchive() {
                   <td className="mono"><b>{i.number}</b>{i.project ? <div className="small muted">{i.project}</div> : null}</td><td className="small">{i.client ?? '—'}</td>
                   <td><D iso={i.issued.slice(0, 10)} /></td><td><D iso={i.due.slice(0, 10)} /></td>
                   <td className="num">{money(i.ht, i.currency)}</td><td className="num">{fmt(i.tax, 0)}</td><td className="num"><b>{money(i.ttc, i.currency)}</b></td>
-                  <td><Chip kind={i.status === 'paid' ? 'good' : i.status === 'overdue' ? 'crit' : 'dim'}>{i.status}</Chip>{i.approved && <> <Chip kind="good">{say('validée', 'approved')}</Chip></>}</td>
+                  <td><Chip kind={i.status === 'paid' ? 'good' : i.status === 'overdue' ? 'crit' : 'dim'}>{valueLabel('invoice', i.status, say)}</Chip>{i.approved && <> <Chip kind="good">{say('Validée', 'Approved')}</Chip></>}</td>
                 </tr>
               ))}
             </tbody>
@@ -57,7 +58,7 @@ export function FinanceArchive() {
             <thead><tr><th>Client</th><th>{say('Facture', 'Invoice')}</th><th className="num">{say('Montant', 'Amount')}</th><th>{say('Date', 'Date')}</th><th>{say('Moyen', 'Method')}</th><th>{say('Référence', 'Reference')}</th><th>{say('Statut', 'Status')}</th></tr></thead>
             <tbody>
               {data.payments.filter((p) => match(p.client, p.invoice, p.reference)).map((p) => (
-                <tr key={p.id}><td className="small">{p.client ?? '—'}</td><td className="mono small">{p.invoice ?? '—'}</td><td className="num"><b>{money(p.amount, p.currency)}</b></td><td><D iso={(p.date ?? p.due)?.slice(0, 10)} /></td><td className="small">{p.method}</td><td className="mono small">{p.reference ?? '—'}</td><td><Chip kind={p.status === 'received' || p.status === 'reconciled' ? 'good' : p.status === 'late' ? 'crit' : 'dim'}>{p.status}</Chip></td></tr>
+                <tr key={p.id}><td className="small">{p.client ?? '—'}</td><td className="mono small">{p.invoice ?? '—'}</td><td className="num"><b>{money(p.amount, p.currency)}</b></td><td><D iso={(p.date ?? p.due)?.slice(0, 10)} /></td><td className="small">{valueLabel('method', p.method, say)}</td><td className="mono small">{p.reference ?? '—'}</td><td><Chip kind={p.status === 'received' || p.status === 'reconciled' ? 'good' : p.status === 'late' ? 'crit' : 'dim'}>{valueLabel('payment', p.status, say)}</Chip></td></tr>
               ))}
             </tbody>
           </table>
@@ -67,7 +68,7 @@ export function FinanceArchive() {
             <thead><tr><th>{say('Référence', 'Reference')}</th><th>{say('Bénéficiaire', 'Beneficiary')}</th><th className="num">{say('Montant', 'Amount')}</th><th>{say('Date', 'Date')}</th><th>{say('Catégorie', 'Category')}</th><th>{say('Statut', 'Status')}</th></tr></thead>
             <tbody>
               {data.transfers.filter((t) => match(t.reference, t.beneficiary, t.bank)).map((t) => (
-                <tr key={t.id}><td className="mono small">{t.reference}</td><td><b>{t.beneficiary}</b>{t.bank ? <div className="small muted">{t.bank}</div> : null}</td><td className="num"><b>{money(t.amount, t.currency)}</b></td><td><D iso={t.date.slice(0, 10)} /></td><td className="small">{t.category}</td><td><Chip kind={t.status === 'confirmed' || t.status === 'sent' ? 'good' : t.status === 'failed' ? 'crit' : 'dim'}>{t.status}</Chip></td></tr>
+                <tr key={t.id}><td className="mono small">{t.reference}</td><td><b>{t.beneficiary}</b>{t.bank ? <div className="small muted">{t.bank}</div> : null}</td><td className="num"><b>{money(t.amount, t.currency)}</b></td><td><D iso={t.date.slice(0, 10)} /></td><td className="small">{valueLabel('category', t.category, say)}</td><td><Chip kind={t.status === 'confirmed' || t.status === 'sent' ? 'good' : t.status === 'failed' ? 'crit' : 'dim'}>{valueLabel('transfer', t.status, say)}</Chip></td></tr>
               ))}
             </tbody>
           </table>

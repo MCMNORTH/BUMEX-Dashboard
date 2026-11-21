@@ -106,7 +106,7 @@ export function DocumentsTab() {
       <div className="actions" style={{ justifyContent: 'flex-start' }}>
         <input className="in" style={{ maxWidth: 280 }} placeholder={say('Rechercher un document…', 'Search for a document…')} value={q} onChange={(e) => setQ(e.target.value)} />
         <Select className="in" style={{ width: 190 }} value={type} onChange={(e) => setType(e.target.value)}><option value="">{say('Tous les types', 'Every type')}</option>{(Object.keys(TYPES) as DocumentType[]).map((k) => <option key={k} value={k}>{say(...TYPES[k])}</option>)}</Select>
-        <label className="small"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> {say('archivés', 'archived')}</label>
+        <label className="small"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> {say('Archivés', 'Archived')}</label>
         {data.canManage && !draft && <button className="btn sm primary" style={{ marginLeft: 'auto' }} onClick={() => setDraft({ id: '', title: '', description: '', document_type: 'report', related_type: 'project', related_id: '', visibility: 'internal', file: null })}><Icon name="upload" size={13} /> {say('Déposer', 'Upload')}</button>}
       </div>
       {draft && <DocumentForm key={draft.id || 'new'} draft={draft} options={data.options} onDone={(saved) => { setDraft(null); if (saved) void load(); }} say={say} />}

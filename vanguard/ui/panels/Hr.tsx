@@ -68,7 +68,7 @@ function Employees({ entityId, onOpen }: { entityId: Id; onOpen: (id: Id | null)
     <div className="card flush">
       <div style={{ display: 'flex', gap: 8, padding: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <input className="in" style={{ maxWidth: 280 }} placeholder="Rechercher un collaborateur…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <label className="small"><input type="checkbox" checked={showLeft} onChange={(e) => setShowLeft(e.target.checked)} /> inclure les sorties</label>
+        <label className="small"><input type="checkbox" checked={showLeft} onChange={(e) => setShowLeft(e.target.checked)} /> Inclure les sorties</label>
         <span style={{ marginLeft: 'auto' }} />
         <button className="btn sm" onClick={exportXlsx}>Exporter (Excel)</button>
         <button className="btn sm primary" onClick={() => onOpen(null)}>Nouveau collaborateur</button>
@@ -84,7 +84,7 @@ function Employees({ entityId, onOpen }: { entityId: Id; onOpen: (id: Id | null)
               <tr key={e.id} onClick={() => onOpen(e.id)} style={{ cursor: 'pointer' }}>
                 <td className="mono">{e.code}</td><td><b>{e.lastName.toUpperCase()}</b> {e.firstName}<div className="small muted">{e.initials}{e.email ? ` · ${e.email}` : ''}</div></td><td>{e.jobTitle}</td><td>{e.department}</td><td>{CATEGORY_FR[e.category]}</td><td>{e.contractType}</td><td><D iso={e.hireDate} />{e.status === 'left' && <Chip kind="dim"> sorti</Chip>}</td>
                 <td className="num">{fmt(r2(e.grossSalary + e.allowances), 0)}</td><td className="num">{fmt(line.net, 0)}</td>
-                <td>{plan ? <Chip kind={plan.status === 'free' ? 'good' : plan.status === 'overloaded' ? 'crit' : 'dim'}>{plan.status === 'free' ? 'disponible' : plan.status === 'overloaded' ? `${Math.round(plan.loadNow * 100)} % · surcharge` : `${Math.round(plan.loadNow * 100)} % affecté`}</Chip> : '—'}</td>
+                <td>{plan ? <Chip kind={plan.status === 'free' ? 'good' : plan.status === 'overloaded' ? 'crit' : 'dim'}>{plan.status === 'free' ? 'Disponible' : plan.status === 'overloaded' ? `${Math.round(plan.loadNow * 100)} % · surcharge` : `${Math.round(plan.loadNow * 100)} % affecté`}</Chip> : '—'}</td>
                 <td className="small">{user ? `${t(user.role)}` : <span className="muted">aucun</span>}</td>
                 <td onClick={(ev) => ev.stopPropagation()}><DeleteButton table="employee" rowId={e.id} label={`Collaborateur ${e.firstName} ${e.lastName}`} entityId={entityId} /></td>
               </tr>

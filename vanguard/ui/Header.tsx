@@ -8,7 +8,8 @@ import { Select } from './Select';
 import { Icon } from './common';
 import { useScreen } from '../one/screen'; // [mobile]
 import { goBack, useCanGoBack } from '../one/back'; // [mobile]
-import { modalOpen } from '../one/modal'; // [bumex-one] a dialog's keys are its own (2026-11-20)
+import { modalOpen } from '../one/modal';
+import { NO_FISCAL_YEAR, fiscalYearChoices } from '../one/fiscal-years'; // [bumex-one] // [bumex-one] a dialog's keys are its own (2026-11-20)
 import { setThemePref, useTheme } from '@/lib/theme'; // [bumex-one] light or dark (2026-11-19)
 
 export function Header() {
@@ -21,7 +22,7 @@ export function Header() {
   const [searching, setSearching] = useState(false);
   const searchOpen = phone && searching;
   const entity = state.entities.find((e) => e.id === ui.entityId);
-  const fys = useMemo(() => [...new Set(state.fiscalYears.map((f) => f.label))].sort().reverse(), [state.fiscalYears]);
+  const fys = useMemo(() => fiscalYearChoices(state.fiscalYears.map((f) => f.label), ui.fiscalYearLabel), [state.fiscalYears, ui.fiscalYearLabel]); // [bumex-one] never blank (one/fiscal-years.ts)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -128,12 +129,12 @@ export function Header() {
         {searchOpen && <button className="h-cancel" onClick={() => { setQ(''); setSearching(false); }}>{ui.lang === 'fr' ? 'Annuler' : 'Cancel'}</button>}
       </div>
       <div className="hright">
-        <Select className="dark" aria-label={t('fiscal_year')} value={ui.fiscalYearLabel} onChange={(e) => setUi({ fiscalYearLabel: e.target.value })}>
-          {fys.map((f) => (
+        <Select className="dark" aria-label={t('fiscal_year')} value={fys.length ? ui.fiscalYearLabel : ''} disabled={!fys.length} onChange={(e) => setUi({ fiscalYearLabel: e.target.value })}>
+          {fys.length ? fys.map((f) => (
             <option key={f} value={f}>
               {t('fiscal_year')} {f}
             </option>
-          ))}
+          )) : <option value="">{ui.lang === 'en' ? NO_FISCAL_YEAR[1] : NO_FISCAL_YEAR[0]}</option>}
         </Select>
         {ui.scene3d && ( // [bumex-one] the building is the person's option (0010)
           <div className="seg" role="group" aria-label="Mode">

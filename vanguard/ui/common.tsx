@@ -57,6 +57,12 @@ export function D({ iso }: { iso?: string }) {
 
 export const STATUS_KIND: Record<string, 'good' | 'warn' | 'crit' | 'dim'> = { posted: 'good', paid: 'good', draft: 'dim', reversed: 'warn', pending_approval: 'warn', approved: 'good', rejected: 'crit', validated: 'good', cancelled: 'dim' };
 export const STATUS_FR: Record<string, string> = { posted: 'Comptabilisée', paid: 'Payée', draft: 'Brouillon', reversed: 'Extournée', pending_approval: 'À approuver', approved: 'Approuvée', rejected: 'Rejetée', validated: 'Validée', cancelled: 'Annulée' };
+// [bumex-one] the same statuses in English, and their chip in the person's language (2026-11-20)
+export const STATUS_EN: Record<string, string> = { posted: 'Posted', paid: 'Paid', draft: 'Draft', reversed: 'Reversed', pending_approval: 'To approve', approved: 'Approved', rejected: 'Rejected', validated: 'Validated', cancelled: 'Cancelled' };
+export function StatusChip({ status }: { status: string }) {
+  const en = useStore((s) => s.ui.lang === 'en');
+  return <Chip kind={STATUS_KIND[status] ?? 'dim'}>{(en ? STATUS_EN : STATUS_FR)[status] ?? status}</Chip>;
+}
 
 // Files leave the page through the claude.ai downloads capability when the page runs there (the viewer confirms
 // the save); elsewhere through a plain browser download.

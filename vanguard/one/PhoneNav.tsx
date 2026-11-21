@@ -6,6 +6,7 @@ import { Select } from '../ui/Select';
 import { FloorList, useNavItems, type Item } from '../ui/Sidebar';
 import { useBackLayer } from './back';
 import { useSay } from './say';
+import { NO_FISCAL_YEAR, fiscalYearChoices } from './fiscal-years';
 import { setThemePref, useThemePref } from '@/lib/theme'; // light or dark (2026-11-19)
 
 // A phone's navigation (docs/plans/mobile-tablet.md, step 3): the rail is hidden, a bar at the bottom carries the
@@ -53,7 +54,7 @@ function PhoneMore({ onClose }: { onClose: () => void }) {
   const theme = useThemePref();
   const { entity, modules, work, reports, settings, open } = useNavItems();
   useBackLayer(true, onClose); // the phone's Back closes the sheet
-  const fys = useMemo(() => [...new Set(state.fiscalYears.map((f) => f.label))].sort().reverse(), [state.fiscalYears]);
+  const fys = useMemo(() => fiscalYearChoices(state.fiscalYears.map((f) => f.label), ui.fiscalYearLabel), [state.fiscalYears, ui.fiscalYearLabel]); // never blank (fiscal-years.ts)
   const go = (room: Room) => { onClose(); openRoom(room); };
   const pick = (item: Item) => {
     if (item.off) return;
@@ -93,8 +94,8 @@ function PhoneMore({ onClose }: { onClose: () => void }) {
             <button className={`btn ${theme === 'system' ? 'primary' : ''}`} onClick={() => setThemePref('system')}>{say('Système', 'System')}</button>
           </div>
           <label>{t('fiscal_year')}</label>
-          <Select className="in" aria-label={t('fiscal_year')} value={ui.fiscalYearLabel} onChange={(e) => setUi({ fiscalYearLabel: e.target.value })}>
-            {fys.map((f) => <option key={f} value={f}>{t('fiscal_year')} {f}</option>)}
+          <Select className="in" aria-label={t('fiscal_year')} value={fys.length ? ui.fiscalYearLabel : ''} disabled={!fys.length} onChange={(e) => setUi({ fiscalYearLabel: e.target.value })}>
+            {fys.length ? fys.map((f) => <option key={f} value={f}>{t('fiscal_year')} {f}</option>) : <option value="">{say(...NO_FISCAL_YEAR)}</option>}
           </Select>
         </div>
       </section>

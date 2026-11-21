@@ -14,6 +14,7 @@ import type { MyWorkTicket } from '@/lib/erp/vanguard/work-items';
 import type { Say } from './ticket-history';
 import { Select } from '../ui/Select';
 import { Loading, SkPage } from './skeleton';
+import { activityDetail, activityText, cap, valueLabel } from './labels';
 
 // A person's page (the HR room's People tab, and the floor's overview: Overview.tsx), as BUMEX One's team member page had
 // it: profile and availability, load, missions, tickets, activity and, for the administrator, managers and the person,
@@ -92,7 +93,7 @@ export function PersonPanel({ personId, onClose }: { personId: string; onClose: 
   };
   const most = Math.max(1, ...(perf?.contributionByProject.map((c) => c.completed) ?? [1]));
   const openTicket = (id: string) => openRoom('tasks', `ticket:${id}`);
-  const dayName = (d: string) => new Intl.DateTimeFormat(say('fr-FR', 'en-GB'), { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${d}T00:00:00Z`));
+  const dayName = (d: string) => cap(new Intl.DateTimeFormat(say('fr-FR', 'en-GB'), { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${d}T00:00:00Z`)));
   const week = view.week;
 
   return (
@@ -184,14 +185,14 @@ export function PersonPanel({ personId, onClose }: { personId: string; onClose: 
         <div className="card flush"><table>
           <thead><tr><th>{say('Missions', 'Missions')}</th><th>{say('Rôle', 'Role')}</th><th>{say('Statut', 'Status')}</th></tr></thead>
           <tbody>
-            {view.projects.map((p) => <tr key={p.id} className="click" onClick={() => openRoom('missions', `mission:${p.id}`)}><td><b>{p.name}</b>{p.clientName ? <div className="small muted">{p.clientName}</div> : null}</td><td className="small">{p.role}</td><td className="small">{p.status}</td></tr>)}
+            {view.projects.map((p) => <tr key={p.id} className="click" onClick={() => openRoom('missions', `mission:${p.id}`)}><td><b>{p.name}</b>{p.clientName ? <div className="small muted">{p.clientName}</div> : null}</td><td className="small">{valueLabel('member', p.role, say)}</td><td className="small">{valueLabel('project', p.status, say)}</td></tr>)}
             {!view.projects.length && <tr><td colSpan={3} className="muted" style={{ padding: 14 }}>{say('Aucune mission.', 'No mission.')}</td></tr>}
           </tbody>
         </table></div>
       </div>
       <div className="card">
         <h2>{say('Activité', 'Activity')}</h2>
-        {view.history.map((h) => <div key={h.id} style={{ borderTop: '1px solid var(--line)', padding: '6px 0', fontSize: 12.5 }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}><b>{h.action}</b><span className="muted mono">{when(h.at)}</span></div>{h.detail && <div className="muted">{h.detail}</div>}</div>)}
+        {view.history.map((h) => <div key={h.id} style={{ borderTop: '1px solid var(--line)', padding: '6px 0', fontSize: 12.5 }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}><b>{activityText(h.action, say)}</b><span className="muted mono">{when(h.at)}</span></div>{activityDetail(h.metadata, say, h.entity) && <div className="muted">{activityDetail(h.metadata, say, h.entity)}</div>}</div>)}
         {!view.history.length && <span className="small muted">{say('Aucune activité.', 'No activity.')}</span>}
       </div>
     </>

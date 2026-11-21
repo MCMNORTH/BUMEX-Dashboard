@@ -25,7 +25,7 @@ import type { ProjectRecord } from "@/types/project";
 export type ProjectView = {
   project: Omit<ProjectRecord, "members" | "recentActivity" | "owner"> & { ownerName: string | null };
   members: { id: string; name: string; entity: string | null; title: string | null }[];
-  history: { id: string; at: string; who: string; action: string; detail: string }[];
+  history: { id: string; at: string; who: string; action: string; detail: string; metadata: Record<string, unknown>; entity: string }[]; // metadata: said in the person's language (vanguard/one/labels.ts)
   alerts: PlanningAlert[];
   comments: CommentRecord[];
   notes: InternalNoteRecord[];
@@ -59,7 +59,7 @@ export async function projectViewAction(projectId: string): Promise<ProjectView 
   return {
     project: { ...rest, ownerName: owner?.full_name ?? null },
     members: members.flatMap((m) => (m.user ? [{ id: m.user.id, name: m.user.full_name, entity: m.user.entity_code ?? null, title: m.user.job_title ?? null }] : [])),
-    history: recentActivity.map((a) => ({ id: a.id, at: a.created_at, who: a.user?.full_name ?? "", action: a.action, detail: getActivityMetadataSummary(a) ?? "" })),
+    history: recentActivity.map((a) => ({ id: a.id, at: a.created_at, who: a.user?.full_name ?? "", action: a.action, detail: getActivityMetadataSummary(a) ?? "", metadata: a.metadata ?? {}, entity: a.entity_type })),
     alerts,
     comments: comments.filter((c) => canViewComment(c, auth.role)),
     notes,

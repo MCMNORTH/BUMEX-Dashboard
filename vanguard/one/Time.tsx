@@ -20,6 +20,7 @@ import { QuickLog, TIME_ERRORS, pickOf, ticketMission, whatOptions, type Pick } 
 import { ago } from './ticket-history';
 import { TeamCalendar } from './TimeCalendar';
 import { Loading, Sk, SkKpis, SkTable } from './skeleton';
+import { cap } from './labels';
 
 // The "Temps" room: BUMEX One's timesheet in Vanguard (asked on 2026-10-27), made simple on 2026-10-28 (MySheet): my
 // week in one strip, a quick entry, a grid typed into; an entry may be on one of my tickets, and then counts on it (0012). For the administrator and
@@ -46,7 +47,7 @@ function Estimate({ hours, say }: { hours: number | undefined; say: Say }) {
 
 function useDayLabel() {
   const lang = useStore((s) => s.ui.lang);
-  return (date: string, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(lang === 'fr' ? 'fr-FR' : 'en-GB', { ...options, timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`));
+  return (date: string, options: Intl.DateTimeFormatOptions) => cap(new Intl.DateTimeFormat(lang === 'fr' ? 'fr-FR' : 'en-GB', { ...options, timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`)));
 }
 
 function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
@@ -472,7 +473,7 @@ function RecentPanel({ data, locked, onLogged, say }: { data: MyTime; locked: bo
         <h2>{say('Mes tickets récents', 'My recent tickets')}</h2>
         <span className="small muted">{say('Un clic enregistre le temps pour', 'One click logs time for')}</span>
         <div className="seg-mini" role="group" aria-label={say('Jour', 'Day')}>
-          {open.map((d) => <button key={d} className={d === date ? 'on' : ''} onClick={() => setDate(d)}>{d === data.today ? say("aujourd'hui", 'today') : day(d, { weekday: 'short', day: 'numeric' })}</button>)}
+          {open.map((d) => <button key={d} className={d === date ? 'on' : ''} onClick={() => setDate(d)}>{d === data.today ? say("Aujourd'hui", 'Today') : day(d, { weekday: 'short', day: 'numeric' })}</button>)}
         </div>
       </div>
       {locked ? <span className="small muted">{say('Semaine envoyée : elle est verrouillée.', 'Week sent: it is locked.')}</span> : data.recent.map((t) => {

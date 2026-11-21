@@ -57,7 +57,7 @@ function Accounts({ entityId }: { entityId: Id }) {
         <div className="card flush">
           <div style={{ display: 'flex', gap: 8, padding: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <b>Comptes bancaires et caisses · {entity.name}</b>
-            <label className="small"><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> afficher les comptes désactivés</label>
+            <label className="small"><input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> Afficher les comptes désactivés</label>
             <button className="btn sm primary" style={{ marginLeft: 'auto' }} onClick={() => setEditId('new')}>Nouveau compte bancaire</button>
           </div>
           <table>
@@ -72,13 +72,13 @@ function Accounts({ entityId }: { entityId: Id }) {
                     <td>{r.account.isCash ? <span className="muted">caisse</span> : <>{r.account.bankName}<div className="small muted mono">{r.account.accountNumber ?? r.account.iban ?? '—'}</div></>}</td>
                     <td>{r.account.currency}</td><td className="mono small">{gl ? `${gl.code} ${gl.nameFr}` : '—'}</td><td className="mono small">{j ? `${j.code} · ${j.name}` : '—'}</td>
                     <td className="num">{r.bookBalance === null ? <span className="muted" title={`Pas de taux ${r.account.currency}/${entity.functionalCurrency} à ce jour : saisissez-le dans Réglages › Taux de change`}>— · {fmt(r.bookBalanceFunctional)} {entity.functionalCurrency} <button className="btn sm" onClick={() => openRoom('settings', 'rates')}>Saisir le taux</button></span> : fmt(r.bookBalance)}</td><td className="num">{r.account.isCash ? '—' : fmt(r.statementBalance)}</td>
-                    <td>{r.account.isCash ? <Chip kind="dim">comptage</Chip> : r.unmatched ? <Chip kind="warn">{r.unmatched} ligne(s) à traiter</Chip> : <Chip kind="good">à jour</Chip>}</td>
+                    <td>{r.account.isCash ? <Chip kind="dim">comptage</Chip> : r.unmatched ? <Chip kind="warn">{r.unmatched} ligne(s) à traiter</Chip> : <Chip kind="good">À jour</Chip>}</td>
                     <td style={{ whiteSpace: 'nowrap' }}><button className="btn sm" onClick={() => setEditId(r.account.id)}>{t('edit')}</button> {r.account.active === false ? <button className="btn sm" onClick={() => apply((s) => setBankAccountActive(s, r.account.id, true), 'Compte réactivé')}>Réactiver</button> : <button className="btn sm" onClick={() => apply((s) => setBankAccountActive(s, r.account.id, false), 'Compte désactivé')}>Désactiver</button>}</td>
                   </tr>
                 );
               })}
             </tbody>
-            <tfoot><tr><td colSpan={5}>Total contre-valeur {entity.functionalCurrency}</td><td className="num">{fmt(total)}</td><td colSpan={3}>Seuil du coffre : {fmt(entity.cashThreshold)} · <Chip kind={total >= entity.cashThreshold ? 'good' : 'crit'}>{total >= entity.cashThreshold ? 'au-dessus' : 'en dessous'}</Chip></td></tr></tfoot>
+            <tfoot><tr><td colSpan={5}>Total contre-valeur {entity.functionalCurrency}</td><td className="num">{fmt(total)}</td><td colSpan={3}>Seuil du coffre : {fmt(entity.cashThreshold)} · <Chip kind={total >= entity.cashThreshold ? 'good' : 'crit'}>{total >= entity.cashThreshold ? 'Au-dessus' : 'En dessous'}</Chip></td></tr></tfoot>
           </table>
           <div className="small muted" style={{ padding: 10 }}>Chaque opération d'un compte (encaissement, règlement, échéance d'emprunt, ligne de relevé) est comptabilisée sur le compte comptable et le journal attribués ici. L'écart entre le relevé et la comptabilité est la somme des lignes non rapprochées.</div>
         </div>

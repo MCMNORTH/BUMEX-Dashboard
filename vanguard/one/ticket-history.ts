@@ -2,6 +2,8 @@
 // "To merge → Done". The lines come from work.activity: the database writes one per changed field (0012,
 // work.task_history), the application the stage changes, the creation and the sub-tasks (lib/tickets/*).
 
+import { activityText } from './labels';
+
 export type Say = (fr: string, en: string) => string;
 
 export type HistoryValue = { text: string; tone?: 'todo' | 'in_progress' | 'review' | 'blocked' | 'done' | 'archived' | 'plain' };
@@ -88,8 +90,9 @@ export function describeHistory(action: string, metadata: Record<string, unknown
     }
   }
   // made from an e-mail (lib/mail): the sender as the note
-  if (metadata.kind === 'create' && metadata.source === 'email') return { verb: say('a créé le ticket depuis un e-mail', 'created the ticket from an e-mail'), note: str(metadata.from) ?? undefined };
-  if (metadata.kind === 'create') return { verb: say('a créé le ticket', 'created the ticket') };
+  // a ticket's creation; a mission's or a client's (the floor's activity, Overview.tsx) is said further down
+  if (metadata.kind === 'create' && metadata.source === 'email' && /^Created ticket/.test(action)) return { verb: say('a créé le ticket depuis un e-mail', 'created the ticket from an e-mail'), note: str(metadata.from) ?? undefined };
+  if (metadata.kind === 'create' && /^Created ticket/.test(action)) return { verb: say('a créé le ticket', 'created the ticket') };
   // the sub-tasks' lines (lib/tickets/subtasks.ts), said in the person's language
   const sub = /^(Added|Completed|Reopened|Removed) sub-task (.+)$/.exec(action);
   if (sub) {
@@ -98,8 +101,9 @@ export function describeHistory(action: string, metadata: Record<string, unknown
   }
   const added = /^Added (\d+) sub-tasks$/.exec(action);
   if (added) return { verb: say(`a ajouté ${added[1]} sous-tâches`, `added ${added[1]} sub-tasks`) };
-  if (/sub-task/.test(action)) return { verb: say('a modifié une sous-tâche', 'changed a sub-task'), note: action };
-  return { verb: action };
+  if (/sub-task/.test(action)) return { verb: say('a modifié une sous-tâche', 'changed a sub-task'), note: activityText(action, say) };
+  // any other line of the log (a mission, a milestone, a comment…): its sentence in the person's language (labels.ts)
+  return { verb: `· ${activityText(action, say)}` };
 }
 
 /** "il y a 4 mois", "à l'instant": how long ago, as Jira says it. */

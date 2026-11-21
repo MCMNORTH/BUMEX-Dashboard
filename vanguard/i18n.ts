@@ -46,7 +46,7 @@ const dict: Record<string, [string, string]> = {
   arc_archived: ['Archivé', 'Archived'], arc_retrieved: ['Sorti', 'Retrieved'], arc_pending: ['Fin de conservation', 'Retention ended'], arc_destroyed: ['Détruit', 'Destroyed'], arc_all: ['Tous', 'All'],
   arc_retrieve: ['Sortir la boîte', 'Take the box out'], arc_return: ['Remettre en place', 'Put back'], arc_destroy: ['Détruire', 'Destroy'], arc_open_eng: ['Ouvrir la mission', 'Open the engagement'], arc_queue: ['À archiver', 'To archive'], arc_archive_now: ['Archiver sur le rayonnage', 'Archive on the rack'],
   arc_boxes: ['boîtes', 'boxes'], arc_used: ['cases occupées', 'slots used'], arc_notes: ['Notes', 'Notes'], arc_by: ['par', 'by'], arc_select: ['Cliquer une boîte du rayonnage ou une ligne de la liste', 'Click a box on the rack or a row of the list'],
-  arc_empty: ['Aucun dossier ne correspond', 'No file matches'], arc_on_rack: ['sur le rayonnage', 'on the rack'],
+  arc_empty: ['Aucun dossier ne correspond', 'No file matches'], arc_on_rack: ['Sur le rayonnage', 'On the rack'],
   // tasks
   tsk_title: ['Tâches', 'Tasks'], tsk_new: ['Nouvelle tâche', 'New task'], tsk_all: ['Toutes', 'All'], tsk_open: ['Ouvertes', 'Open'], tsk_done: ['Terminées', 'Done'], tsk_overdue: ['En retard', 'Overdue'], tsk_mine: ['Échéance', 'Due'],
   tsk_complete: ['Terminer', 'Complete'], tsk_reopen: ['Rouvrir', 'Reopen'], tsk_start: ['Démarrer', 'Start'], tsk_assignee: ['Responsable', 'Assignee'], tsk_module: ['Module', 'Module'], tsk_priority: ['Priorité', 'Priority'], tsk_engagement: ['Mission', 'Engagement'],

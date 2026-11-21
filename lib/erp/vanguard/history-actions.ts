@@ -16,6 +16,9 @@ export type BumexOneEvent = {
   object: string;
   detail: string;
   url: string | null;
+  // what the person's language says of it (vanguard/one/labels.ts): the log's own record
+  entity: string;
+  metadata: Record<string, unknown>;
 };
 
 export async function bumexOneHistoryAction(): Promise<BumexOneEvent[]> {
@@ -30,5 +33,7 @@ export async function bumexOneHistoryAction(): Promise<BumexOneEvent[]> {
     object: getActivityLabel(a.entity_type),
     detail: getActivityMetadataSummary(a) ?? "",
     url: getActivityEntityUrl(a),
+    entity: a.entity_type,
+    metadata: a.metadata ?? {},
   }));
 }

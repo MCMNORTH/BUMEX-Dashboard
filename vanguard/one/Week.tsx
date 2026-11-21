@@ -13,6 +13,7 @@ import { useScreen } from './screen'; // [mobile]
 import { useBackLayer } from './back'; // [mobile]
 import { useModal } from './modal';
 import { useDragScroll } from './drag-scroll';
+import { cap } from './labels';
 
 // The Missions room's "Semaine" tab: BUMEX One's weekly planning on the floor's tickets (lib/erp/vanguard/tickets.ts),
 // day by day, with what is late, what has no date and each person's load. A task dropped on another day is
@@ -54,7 +55,7 @@ export function WeekView({ entityId }: { entityId: Id }) {
   const undated = open.filter((x) => x.dueDate === NO_DUE_DATE);
   const mission = (x: Task) => state.engagements.find((e) => e.id === x.engagementId);
   const locale = ui.lang === 'fr' ? 'fr-FR' : 'en-GB';
-  const dayLabel = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const dayLabel = (iso: string) => cap(new Date(`${iso}T00:00:00Z`).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }));
 
   // each person's load on the floor (lib/work/load.ts): the hours assigned through their open tickets; their counts
   const load = people.map(([id, name]) => {

@@ -136,7 +136,7 @@ export async function contractsAction(): Promise<ContractsData> {
 
 export type ContractView = {
   contract: ContractRow;
-  history: { id: string; at: string; who: string; action: string; detail: string }[];
+  history: { id: string; at: string; who: string; action: string; detail: string; metadata: Record<string, unknown>; entity: string }[]; // metadata: said in the person's language (vanguard/one/labels.ts)
   comments: CommentRecord[];
   notes: InternalNoteRecord[];
   people: { id: string; name: string }[];
@@ -153,7 +153,7 @@ export async function contractViewAction(contractId: string): Promise<ContractVi
   if (!contract) return null;
   return {
     contract: contractRow(contract),
-    history: contract.recentActivity.map((a) => ({ id: a.id, at: a.created_at, who: a.user?.full_name ?? "", action: a.action, detail: getActivityMetadataSummary(a) ?? "" })),
+    history: contract.recentActivity.map((a) => ({ id: a.id, at: a.created_at, who: a.user?.full_name ?? "", action: a.action, detail: getActivityMetadataSummary(a) ?? "", metadata: a.metadata ?? {}, entity: a.entity_type })),
     comments: comments.filter((c) => canViewComment(c, auth.role)),
     notes,
     people: mentions.map((p) => ({ id: p.id, name: p.full_name })),

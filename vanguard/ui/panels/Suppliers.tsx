@@ -5,7 +5,7 @@ import {
   favoritesFirst, // [bumex-one]
 } from '@bumex/domain';
 import { useStore } from '../../store';
-import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, DeleteButton, downloadXlsx, entryRef } from '../common';
+import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, StatusChip, DeleteButton, downloadXlsx, entryRef } from '../common';
 import { textAsk } from '../../one/ask'; // [bumex-one] Fluent's dialog, not the browser's (2026-11-20)
 import { Select } from '../Select';
 
@@ -73,7 +73,7 @@ function Invoices({ entityId, onPay }: { entityId: Id; onPay: (id: Id) => void }
                   <tr key={si.id} className={si.id === detail ? 'sel' : ''} onClick={() => setDetail(si.id)} style={{ cursor: 'pointer' }}>
                     <td className="mono">{si.number ?? '—'}</td><td>{s?.name}</td><td className="mono small">{si.supplierRef}</td><td><D iso={si.date} /></td><td>{overdue ? <Chip kind="crit"><D iso={si.dueDate} /></Chip> : <D iso={si.dueDate} />}</td>
                     <td className="num">{si.currency !== 'MRU' ? si.currency + ' ' : ''}{fmt(si.totalHt)}</td><td className="num">{fmt(si.totalTax)}</td><td className="num">{si.withholdingAmount ? fmt(si.withholdingAmount) : '—'}</td><td className="num">{fmt(si.netPayable)}</td><td className="num">{fmt(si.amountPaid)}</td>
-                    <td><Chip kind={STATUS_KIND[si.status]}>{STATUS_FR[si.status]}</Chip>{si.status === 'pending_approval' && <div className="small muted">{approverLabel(si)}</div>}</td>
+                    <td><StatusChip status={si.status} />{si.status === 'pending_approval' && <div className="small muted">{approverLabel(si)}</div>}</td>
                     <td style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                       {si.status === 'pending_approval' && <><button className="btn sm primary" onClick={() => apply((s) => approveSupplierInvoice(s, si.id), 'Approuvée et comptabilisée')}>Approuver</button>{' '}<button className="btn sm" onClick={() => { void textAsk({ title: 'Rejeter la facture', label: 'Motif du rejet', required: true, confirm: 'Rejeter', danger: true }).then((reason) => { if (reason) apply((s) => rejectSupplierInvoice(s, si.id, reason), 'Facture rejetée'); }); }}>Rejeter</button></>}
                       {si.status === 'posted' && <button className="btn sm primary" onClick={() => onPay(si.id)}>Régler</button>}
@@ -310,7 +310,7 @@ function Suppliers({ entityId }: { entityId: Id }) {
         <div className="card flush">
           <table>
             <thead><tr><th>Code auxiliaire</th><th>Fournisseur</th><th>Compte collectif</th><th>Régime</th><th>Retenue</th><th>Délai</th><th>Compte de charge</th><th className="num">Solde auxiliaire</th><th></th></tr></thead>
-            <tbody>{rows.map((s) => { const w = whtCodes.find((x) => x.id === s.withholdingCodeId); const aux = auxOf(s); const col = aux?.collectiveId ? state.accounts.find((a) => a.id === aux.collectiveId) : undefined; return <tr key={s.id} className={s.id === editId ? 'sel' : ''}><td className="mono">{s.code}</td><td>{s.name}{!s.active && <Chip kind="dim"> inactif</Chip>}<div className="small muted">{[s.email, s.phone, s.nif ? `NIF ${s.nif}` : ''].filter(Boolean).join(' · ')}</div></td><td className="mono small">{col ? `${col.code} ${col.nameFr}` : '—'}</td><td>{REGIMES.find((r) => r[0] === s.regime)?.[1]}</td><td>{w ? <Chip kind="warn">{w.code} · {Math.round(w.rate * 1000) / 10} %</Chip> : <span className="muted">aucune</span>}</td><td>{s.paymentTermsDays} j</td><td className="mono small">{state.accounts.find((a) => a.id === s.expenseAccountId)?.code ?? '—'}</td><td className="num">{aux ? fmt(-accountBalance(state, entityId, aux.id), 0) : '0'}</td><td style={{ whiteSpace: 'nowrap' }}><button className="btn sm" onClick={() => load(s.id)}>{t('edit')}</button> <DeleteButton table="supplier" rowId={s.id} label={`Fournisseur ${s.name}`} entityId={entityId} /></td></tr>; })}</tbody>
+            <tbody>{rows.map((s) => { const w = whtCodes.find((x) => x.id === s.withholdingCodeId); const aux = auxOf(s); const col = aux?.collectiveId ? state.accounts.find((a) => a.id === aux.collectiveId) : undefined; return <tr key={s.id} className={s.id === editId ? 'sel' : ''}><td className="mono">{s.code}</td><td>{s.name}{!s.active && <Chip kind="dim"> inactif</Chip>}<div className="small muted">{[s.email, s.phone, s.nif ? `NIF ${s.nif}` : ''].filter(Boolean).join(' · ')}</div></td><td className="mono small">{col ? `${col.code} ${col.nameFr}` : '—'}</td><td>{REGIMES.find((r) => r[0] === s.regime)?.[1]}</td><td>{w ? <Chip kind="warn">{w.code} · {Math.round(w.rate * 1000) / 10} %</Chip> : <span className="muted">Aucune</span>}</td><td>{s.paymentTermsDays} j</td><td className="mono small">{state.accounts.find((a) => a.id === s.expenseAccountId)?.code ?? '—'}</td><td className="num">{aux ? fmt(-accountBalance(state, entityId, aux.id), 0) : '0'}</td><td style={{ whiteSpace: 'nowrap' }}><button className="btn sm" onClick={() => load(s.id)}>{t('edit')}</button> <DeleteButton table="supplier" rowId={s.id} label={`Fournisseur ${s.name}`} entityId={entityId} /></td></tr>; })}</tbody>
           </table>
         </div>
       </div>
