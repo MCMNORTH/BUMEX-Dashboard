@@ -6,6 +6,7 @@ import { useStore } from '../store';
 import { Chip, D } from '../ui/common';
 import { reload } from './Tasks';
 import { useSay } from './say';
+import { ticketMenu } from './TicketMenu';
 import { loadOf } from '@/lib/work/load';
 import { hoursText } from './work-ui';
 import { Select } from '../ui/Select';
@@ -94,6 +95,7 @@ export function WeekView({ entityId }: { entityId: Id }) {
     return (
       <div
         key={x.id}
+        {...ticketMenu({ id: x.id })}
         className={`desk ${late ? 'late' : ''} ${ui.focusTaskId === x.id ? 'focus' : ''}`}
         draggable={!touch && x.status !== 'done' && busy !== x.id}
         onDragStart={(e) => { setDragged(x.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', x.id); }} // [mobile] without data, Firefox never starts the drag
@@ -158,7 +160,7 @@ export function WeekView({ entityId }: { entityId: Id }) {
             <thead><tr><th>{say('En retard', 'Overdue')} · {overdue.length}</th><th>{say('Mission', 'Mission')}</th><th>{say('Assignée à', 'Assignee')}</th><th>{say('Échéance', 'Due')}</th><th className="num">{say('Jours', 'Days')}</th></tr></thead>
             <tbody>
               {overdue.length ? overdue.map((x) => (
-                <tr key={x.id} onClick={() => show(x)} style={{ cursor: 'pointer' }}>
+                <tr key={x.id} {...ticketMenu({ id: x.id })} onClick={() => show(x)} style={{ cursor: 'pointer' }}>
                   <td><b>{x.title}</b></td>
                   <td className="small">{mission(x)?.name ?? '—'}</td>
                   <td className="small">{x.assignee}</td>

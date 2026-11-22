@@ -7,6 +7,7 @@ import { Chip, D, Field, Icon, Tabs } from '../ui/common';
 import { Comments, Notes, type Result, type Say, when } from './Conversation';
 import { reload } from './Tasks';
 import { useSay } from './say';
+import { ticketMenu } from './TicketMenu';
 import { Select } from '../ui/Select';
 import { confirmAsk } from './ask';
 import { Loading, SkPage } from './skeleton';
@@ -240,7 +241,7 @@ export function ClientPanel({ clientId, onClose }: { clientId: string; onClose: 
         <div className="card flush"><table>
           <thead><tr><th>Ticket</th><th>{say('Mission', 'Mission')}</th><th>{say('Assigné à', 'Assignee')}</th><th>{say('Statut', 'Status')}</th><th>{say('Échéance', 'Due')}</th></tr></thead>
           <tbody>
-            {view.tickets.map((t) => <tr key={t.id} className="click" onClick={() => openRoom('tasks', `ticket:${t.id}`)}><td><b>{t.title}</b></td><td className="small">{t.projectName ?? '—'}</td><td className="small">{t.assigneeName ?? '—'}</td><td className="small">{valueLabel('ticket', t.status, say)}</td><td><D iso={t.dueDate ?? undefined} /></td></tr>)}
+            {view.tickets.map((t) => <tr key={t.id} {...ticketMenu({ id: t.id, title: t.title })} className="click" onClick={() => openRoom('tasks', `ticket:${t.id}`)}><td><b>{t.title}</b></td><td className="small">{t.projectName ?? '—'}</td><td className="small">{t.assigneeName ?? '—'}</td><td className="small">{valueLabel('ticket', t.status, say)}</td><td><D iso={t.dueDate ?? undefined} /></td></tr>)}
             {!view.tickets.length && <tr><td colSpan={5} className="muted" style={{ padding: 14 }}>{say('Aucun ticket.', 'No ticket.')}</td></tr>}
           </tbody>
         </table></div>

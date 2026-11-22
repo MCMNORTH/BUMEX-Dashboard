@@ -9,6 +9,7 @@ import type { BoardWorkflow } from '@/types/workflow';
 import { useStore } from '../store';
 import { Icon } from '../ui/common';
 import { PRIORITY, TEAM_ROLES, label, reload, type TicketTask } from './Tasks';
+import { ticketMenu } from './TicketMenu';
 import { useSay } from './say';
 import { PHONE } from './screen'; // [mobile]
 import { NO_DUE_DATE, groupTickets, type GroupBy, type GroupLabels, type WorkTicket } from './work-filters';
@@ -266,6 +267,7 @@ export const TicketCard = memo(function TicketCard({ task: x, busy, dragging, mi
   const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
   return (
     <div
+      {...ticketMenu({ id: x.id })}
       className={`wk-card ${busy ? 'busy' : ''} ${dragging ? 'dragging' : ''} ${done ? 'done' : ''}`}
       draggable={!busy && !touch}
       onDragStart={(e) => { onDrag(x.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', x.ticket.key || x.id); }}

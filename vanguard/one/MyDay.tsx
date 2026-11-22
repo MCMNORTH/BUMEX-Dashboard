@@ -7,6 +7,7 @@ import type { VanguardData } from '@/lib/erp/vanguard/run';
 import { useStore } from '../store';
 import { Chip, D, Icon } from '../ui/common';
 import { useSay } from './say';
+import { ticketMenu } from './TicketMenu';
 import { EstimateAsk } from './EstimateAsk';
 import { LoadBar, hoursText } from './work-ui';
 import { Loading, SkList } from './skeleton';
@@ -87,7 +88,7 @@ export function MyDay({ initialTab }: { initialTab?: string | null }) {
                   <thead><tr><th>{say('Mes tâches', 'My tasks')}</th><th>{say('Priorité', 'Priority')}</th><th>{say('Échéance', 'Due')}</th></tr></thead>
                   <tbody>
                     {data.myTickets.items.map((t) => (
-                      <tr key={t.id} className="click" onClick={() => openTask(t.id)}>
+                      <tr key={t.id} {...ticketMenu({ id: t.id, title: t.title })} className="click" onClick={() => openTask(t.id)}>
                         <td><b>{t.title}</b><div className="small muted">{t.projectName ?? '—'}{t.stageName ? ` · ${t.stageName}` : ''}</div></td>
                         <td><Chip kind={t.priority === 'urgent' || t.priority === 'high' ? 'warn' : 'dim'}>{say(...(PRIORITY[t.priority] ?? [t.priority, t.priority]))}</Chip></td>
                         <td>{t.dueDate ? <D iso={t.dueDate} /> : '—'}</td>
@@ -102,7 +103,7 @@ export function MyDay({ initialTab }: { initialTab?: string | null }) {
                   <thead><tr><th>{say('À valider (vous êtes le demandeur)', 'To sign off (you reported them)')}</th><th></th></tr></thead>
                   <tbody>
                     {data.signOff.items.map((t) => (
-                      <tr key={t.id}>
+                      <tr key={t.id} {...ticketMenu({ id: t.id, title: t.title })}>
                         <td className="click" onClick={() => openTask(t.id)}><b>{t.title}</b><div className="small muted">{t.projectName ?? '—'} · {t.assigneeName ?? '—'}</div></td>
                         <td>{estimating === t.id
                           ? <EstimateAsk compact name={t.completedStageName} busy={busy === t.id} onConfirm={(h) => void signOff(t.id, t.completedStageId, t.title, h)} onCancel={() => setEstimating(null)} say={say} />
@@ -150,7 +151,7 @@ export function MyDay({ initialTab }: { initialTab?: string | null }) {
               <div className="card flush">
                 <table>
                   <thead><tr><th>{say('Tâches à suivre', 'Tasks needing attention')}</th><th>{say('Pourquoi', 'Why')}</th></tr></thead>
-                  <tbody>{data.attentionTickets.map((t) => <tr key={t.id} className="click" onClick={() => openTask(t.id)}><td><b>{t.title}</b><div className="small muted">{t.projectName ?? '—'}</div></td><td><Chip kind="warn">{say(...(REASON[t.reason] ?? [t.reason, t.reason]))}</Chip></td></tr>)}</tbody>
+                  <tbody>{data.attentionTickets.map((t) => <tr key={t.id} {...ticketMenu({ id: t.id, title: t.title })} className="click" onClick={() => openTask(t.id)}><td><b>{t.title}</b><div className="small muted">{t.projectName ?? '—'}</div></td><td><Chip kind="warn">{say(...(REASON[t.reason] ?? [t.reason, t.reason]))}</Chip></td></tr>)}</tbody>
                 </table>
               </div>
             )}

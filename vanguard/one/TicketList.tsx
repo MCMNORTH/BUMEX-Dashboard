@@ -3,6 +3,7 @@ import { remainingHours } from '@/lib/work/load';
 import type { TicketStatus } from '@/types/ticket';
 import { useStore } from '../store';
 import { PRIORITY, label } from './Tasks';
+import { ticketMenu } from './TicketMenu';
 import { NO_DUE_DATE, groupTickets, type GroupBy, type GroupLabels, type WorkTicket } from './work-filters';
 import { Avatar, PriorityIcon, TypeIcon, hoursText } from './work-ui';
 import { StageSelect, stageTicketOf } from './stages';
@@ -133,7 +134,7 @@ function Row<T extends WorkTicket>({ x, columns, missionOf, onOpen, onChanged, s
     }
   };
   return (
-    <tr className="click" tabIndex={0} onClick={() => onOpen(x.id)} onKeyDown={key}>
+    <tr {...ticketMenu({ id: x.id })} className="click" tabIndex={0} onClick={() => onOpen(x.id)} onKeyDown={key}>
       {columns.map(cell)}
     </tr>
   );

@@ -44,6 +44,10 @@
 .vanguard .menu button { border: none; background: none; text-align: left; padding: 7px 10px; border-radius: var(--r); font-size: 13px; cursor: pointer; color: var(--ink); white-space: nowrap; }
 .vanguard .menu button:hover { background: var(--ground); }
 .vanguard .menu button.danger { color: var(--crit); }
+/* a ticket's menu on a right click (one/TicketMenu.tsx), where the cursor is */
+.vanguard .menu.tk-ctx { position: fixed; z-index: 160; /* over a drawer (111) and Time's dialogs (120), under a question (200) */ }
+.vanguard .menu.tk-ctx button:focus-visible { background: var(--ground); outline: 2px solid var(--accent); outline-offset: -2px; }
+.vanguard .tk-ctx-sep { height: 1px; margin: 4px 0; background: var(--border); }
 /* a person's load */
 .vanguard .loadbar { min-width: 0; }
 .vanguard .loadbar-head { display: flex; align-items: baseline; gap: 4px; font-size: 13px; margin-bottom: 4px; flex-wrap: wrap; }

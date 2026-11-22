@@ -5,6 +5,7 @@ import { calendarAction, type CalendarItem } from '@/lib/erp/vanguard/calendar-a
 import { useStore } from '../store';
 import { Select } from '../ui/Select';
 import { useSay } from './say';
+import { ticketMenu } from './TicketMenu';
 import { isPhone } from './screen'; // [mobile] a tapped day shows its list, under the month
 import { Loading, Sk, SkGrid } from './skeleton';
 import { cap } from './labels';
@@ -126,7 +127,7 @@ export function CalendarView({ entityId }: { entityId: Id }) {
                   <span className="cal-num">{Number(d.slice(8))}</span>
                   <div className="cal-pills">
                     {list.slice(0, SHOWN_PER_DAY).map((i) => (
-                      <button key={i.id} className={`cal-pill ${i.type}`} title={`${say(...(ONE[i.type] ?? ONE.internal_event))} · ${i.title}${i.projectName ? ` · ${i.projectName}` : ''}`}
+                      <button key={i.id} {...(i.open?.kind === 'ticket' ? ticketMenu({ id: i.open.id, title: i.title }) : {})} className={`cal-pill ${i.type}`} title={`${say(...(ONE[i.type] ?? ONE.internal_event))} · ${i.title}${i.projectName ? ` · ${i.projectName}` : ''}`}
                         onClick={(e) => { e.stopPropagation(); setDay(d); open(i); }}>{i.title}</button>
                     ))}
                     {list.length > SHOWN_PER_DAY && <span className="cal-more">+{list.length - SHOWN_PER_DAY} {say('autres', 'more')}</span>}
@@ -158,7 +159,7 @@ export function CalendarView({ entityId }: { entityId: Id }) {
 function Event({ item, onOpen, date }: { item: CalendarItem; onOpen: () => void; date?: string }) {
   const say = useSay();
   return (
-    <button className={`cal-event ${item.type}`} onClick={onOpen} disabled={!item.open}>
+    <button {...(item.open?.kind === 'ticket' ? ticketMenu({ id: item.open.id, title: item.title }) : {})} className={`cal-event ${item.type}`} onClick={onOpen} disabled={!item.open}>
       <span className="cal-event-k">{date ? <b>{date}</b> : null}{date ? ' · ' : ''}{say(...(ONE[item.type] ?? ONE.internal_event))}</span>
       <span className="cal-event-t">{item.title}</span>
       {(item.projectName || item.clientName || item.who) && <span className="small muted">{[item.projectName, item.clientName, item.who].filter(Boolean).join(' · ')}</span>}

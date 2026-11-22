@@ -9,6 +9,7 @@ import { Sheet, FlatLayout } from './ui/Rooms';
 import { DeleteDialog } from './ui/common';
 import { Sk } from './one/skeleton'; // [bumex-one] the loading shimmer (2026-11-20)
 import { AskHost } from './one/ask'; // [bumex-one] the questions in Fluent's dialog, not the browser's (2026-11-20)
+import { TicketMenuHost } from './one/TicketMenu'; // [bumex-one] a ticket's menu on a right click, anywhere (2026-11-22)
 import { useRoomHistory } from './one/back'; // [mobile] Back goes back one screen
 import { PhoneNav } from './one/PhoneNav'; // [mobile]
 import { useScreen } from './one/screen'; // [mobile]
@@ -85,6 +86,7 @@ export function App() {
       {phone && <PhoneNav />}
       <DeleteDialog />
       <AskHost />
+      <TicketMenuHost />
       <ModeSwitch />
       <Toast />
     </div>

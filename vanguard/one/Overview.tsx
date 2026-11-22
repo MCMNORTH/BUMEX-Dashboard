@@ -9,6 +9,7 @@ import { hasDeadline } from './Missions';
 import { PersonPanel } from './Person';
 import type { TicketTask } from './Tasks';
 import { useSay } from './say';
+import { ticketMenu } from './TicketMenu';
 import { ago, describeHistory, type Say } from './ticket-history';
 import { StageLozenge } from './stages';
 import { sundayOf } from './work-filters';
@@ -168,7 +169,7 @@ function FloorOverviewBody({ entityId, onPerson }: { entityId: Id; onPerson: (id
         <Block title={say('En retard', 'Overdue')} count={late.length} tone={late.length ? 'crit' : undefined}>
           <div className="mw-rows">
             {late.slice(0, 12).map((x) => (
-              <div key={x.id} className="mw-ticket click" onClick={() => ticket(x.id)}>
+              <div key={x.id} {...ticketMenu({ id: x.id })} className="mw-ticket click" onClick={() => ticket(x.id)}>
                 <span className="wk-keycell"><TypeIcon type={x.ticket.type} say={say} /> <span className="mono">{x.ticket.key}</span></span>
                 <span className="mw-title">{x.title}</span>
                 <StageLozenge name={x.ticket.stage_name} status={x.ticket.status} />
@@ -201,7 +202,7 @@ function FloorOverviewBody({ entityId, onPerson }: { entityId: Id; onPerson: (id
         <Block title={say('Échéances · 14 jours', 'Deadlines · 14 days')} count={upcoming.length}>
           <div className="mw-rows">
             {upcoming.map((u) => (
-              <div key={`${u.kind}${u.id}`} className="mw-ticket click" onClick={() => (u.kind === 'ticket' ? ticket(u.id) : mission(u.m))}>
+              <div key={`${u.kind}${u.id}`} {...(u.kind === 'ticket' ? ticketMenu({ id: u.id }) : {})} className="mw-ticket click" onClick={() => (u.kind === 'ticket' ? ticket(u.id) : mission(u.m))}>
                 <span className="mw-due">{u.date.slice(8, 10)}/{u.date.slice(5, 7)}</span>
                 {u.kind === 'ticket' ? <TypeIcon type={u.x.ticket.type} say={say} /> : <Icon name="missions" size={15} />}
                 <span className="mono small">{u.key}</span>

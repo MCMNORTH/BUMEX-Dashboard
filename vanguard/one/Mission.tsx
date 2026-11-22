@@ -13,6 +13,7 @@ import { MissionForm, PRIORITIES, dueIn, teamGroups, kindLabel, missionPriority,
 import { StageLozenge } from './stages';
 import { reload, type TicketTask } from './Tasks';
 import { useSay } from './say';
+import { ticketMenu } from './TicketMenu';
 import { Avatar, Lozenge, PriorityIcon, TypeIcon, hoursText, statusTone } from './work-ui';
 import { Select } from '../ui/Select';
 import { confirmAsk } from './ask';
@@ -227,7 +228,7 @@ function Overview({ view, engagement, say, onTab }: { view: ProjectView; engagem
           )}
           <div className="mp-tickets">
             {shown.slice(0, 40).map((r) => (
-              <button key={r.id} className={`mp-ticket ${r.done ? 'done' : ''}`} onClick={() => ticket(r.id)}>
+              <button key={r.id} {...ticketMenu({ id: r.id, key: r.key, projectId: project.id, title: r.title })} className={`mp-ticket ${r.done ? 'done' : ''}`} onClick={() => ticket(r.id)}>
                 <TypeIcon type={r.type ?? 'task'} say={say} />
                 {r.key && <span className="tk-key mono">{r.key}</span>}
                 <span className="mp-ticket-t">{r.title}</span>

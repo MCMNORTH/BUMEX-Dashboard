@@ -15,6 +15,7 @@ import { QuickLogDialog } from './QuickLog';
 import { TicketPanel } from './Ticket';
 import { TicketList, type ListChange } from './TicketList';
 import { PRIORITY, label, reload } from './Tasks';
+import { ticketMenu } from './TicketMenu';
 import { isPhone } from './screen';
 import { WorkToolbar, type Scope } from './WorkToolbar';
 import { StageLozenge, moveCheck, stageTicketOf, useBoardOf, useBoardsReady } from './stages';
@@ -338,7 +339,7 @@ function TicketLine({ t, sub, busy, onOpen, say, children }: {
   t: { id: string; key: string | null; type: string; title: string }; sub?: ReactNode; busy?: boolean; onOpen: (id: string) => void; say: Say; children?: ReactNode;
 }) {
   return (
-    <div className={`mw-ticket ${busy ? 'busy' : ''}`}>
+    <div {...ticketMenu({ id: t.id, key: t.key, title: t.title })} className={`mw-ticket ${busy ? 'busy' : ''}`}>
       <span className="wk-keycell"><TypeIcon type={t.type} say={say} /> <span className="mono">{t.key ?? '—'}</span></span>
       <button className="linkish mw-title" onClick={() => onOpen(t.id)}>{t.title}{sub ? <span className="small muted"> · {sub}</span> : null}</button>
       {children}

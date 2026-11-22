@@ -7,6 +7,7 @@ import { Chip, Field, Icon } from '../ui/common';
 import { when } from './Conversation';
 import { reload } from './Tasks';
 import { useSay } from './say';
+import { ticketMenu } from './TicketMenu';
 import { LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursText } from './work-ui';
 import { StageLozenge } from './stages';
 import { remainingHours } from '@/lib/work/load';
@@ -32,7 +33,7 @@ const hm = (m: number) => `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, 
 
 function WorkRow({ t, say, onOpen }: { t: MyWorkTicket; say: Say; onOpen: () => void }) {
   return (
-    <div className="mw-ticket">
+    <div {...ticketMenu({ id: t.id, key: t.key, title: t.title })} className="mw-ticket">
       <span className="wk-keycell"><TypeIcon type={t.type} say={say} /> <button className="linkish mono" onClick={onOpen}>{t.key ?? '—'}</button></span>
       <button className="linkish mw-title" onClick={onOpen}>{t.title}<span className="small muted"> · {t.projectName ?? '—'}</span></button>
       <StageLozenge name={t.stageName} status={t.status} />

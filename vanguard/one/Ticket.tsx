@@ -11,6 +11,7 @@ import { Select, Suggest } from '../ui/Select';
 import { PRIORITY, TYPES, reload } from './Tasks';
 import { type Result, type Run, type Say } from './Conversation';
 import { useSay } from './say';
+import { ticketMenu } from './TicketMenu';
 import { Markdown } from './markdown';
 import { LINK_WORDS, ago } from './ticket-history';
 import { TicketActivity } from './TicketActivity';
@@ -398,7 +399,7 @@ function Links({ view, busy, run, say, open, onOpened }: { view: TicketView; bus
         <div key={label} className="tk-linkgrp">
           <div className="small muted tk-linkh">{label}</div>
           {links.map((l) => (
-            <div key={l.id} className="tk-link">
+            <div key={l.id} {...ticketMenu({ id: l.ticket.id, key: l.ticket.key, title: l.ticket.title })} className="tk-link">
               <TypeIcon type={l.ticket.type} say={say} />
               <button className="linkish mono" onClick={() => openRoom('tasks', `ticket:${l.ticket.id}`)}>{l.ticket.key ?? '—'}</button>
               <button className="linkish grow tk-link-t" onClick={() => openRoom('tasks', `ticket:${l.ticket.id}`)}>{l.ticket.title}</button>
