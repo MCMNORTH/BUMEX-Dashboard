@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { addTicketLinkAction, removeTicketLinkAction, searchTicketsAction, ticketViewAction, type TicketLink, type TicketLinkKind, type TicketView } from '@/lib/erp/vanguard/ticket-actions';
 import { ARCHIVED_STAGE_VALUE, evaluateTransition, findStage, getActiveStages, getCompletedStage, getCompletionRule, getSignOffStage, missingEstimate } from '@/lib/tickets/workflow';
 import { EstimateAsk } from './EstimateAsk';
@@ -19,6 +19,8 @@ import { Avatar, Lozenge, PriorityIcon, TypeIcon, hoursText, levelLabel, stageTo
 import { SHORT_REASONS, StageLozenge } from './stages';
 import { RichText } from './RichText';
 import { QuickLogButton } from './QuickLog';
+import { invalidate, useCached } from './cache';
+import { POLICY, withTag } from './policies';
 import { useMedia } from './screen'; // [mobile]
 import { confirmAsk, textAsk } from './ask';
 import { Loading, SkPage } from './skeleton';
@@ -35,21 +37,16 @@ export function TicketPanel({ id, onClose, backLabel }: { id: string; onClose: (
   const { toast } = useStore();
   const [now] = useState(Date.now);
   const say = useSay();
-  const [view, setView] = useState<TicketView | null | undefined>(undefined);
+  // kept per ticket between visits, read again behind what is shown every minute while open (others comment on it)
+  // and after each change (one/policies.ts); one that no longer exists or is closed to the person reads null
+  const cached = useCached<TicketView | null>(['ticket', id], () => ticketViewAction(id), withTag(POLICY.ticket, `ticket:${id}`));
+  const view = cached.data === undefined ? (cached.error ? null : undefined) : cached.data;
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState<'subtask' | 'link' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const phone = useMedia('(max-width: 900px)'); // [mobile] a phone or an upright tablet: one column, the status first
 
-  const load = useCallback(async () => {
-    const next = await ticketViewAction(id).catch(() => null);
-    setView(next);
-  }, [id]);
-  useEffect(() => {
-    let live = true;
-    ticketViewAction(id).catch(() => null).then((next) => { if (live) setView(next); });
-    return () => { live = false; };
-  }, [id]);
+  const load = cached.refresh;
 
   // a change through BUMEX One's code, then the ticket and Vanguard's state as they now are
   const run: Run = async (work: () => Promise<Result | void>, done?: string) => {
@@ -58,7 +55,12 @@ export function TicketPanel({ id, onClose, backLabel }: { id: string; onClose: (
       const result = await work();
       if (result && result.error) { toast('error', result.error); return false; }
       if (done) toast('ok', done);
-      await Promise.all([load(), reload()]);
+      // what the change moved, through the store's sync (the tickets: this one read again with them), then the ticket
+      // once (a read the sync started after the change is shared) and its sub-tasks, comments and attachments, which
+      // the audit log does not see, made stale where they show (My work, My day, documents)
+      const changedAt = Date.now();
+      await reload();
+      await invalidate([`ticket:${id}`, 'subtasks', 'comments', 'documents'], changedAt);
       return true;
     } catch {
       toast('error', say("Serveur injoignable : rien n'a changé.", 'Server unreachable: nothing changed.'));

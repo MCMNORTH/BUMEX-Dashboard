@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { addDays, canOpenRoom, floorSignals, type Id } from '@bumex/domain';
 import { floorOverviewAction, type FloorOverview, type OverviewPerson } from '@/lib/erp/vanguard/overview-actions';
 import { useStore } from '../store';
@@ -15,6 +15,9 @@ import { StageLozenge } from './stages';
 import { sundayOf } from './work-filters';
 import { Avatar, Block, Figure, LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursText, levelLabel, type Tone } from './work-ui';
 import { Loading, SkTable } from './skeleton';
+import { PageRefresh } from './PageRefresh';
+import { useCached } from './cache';
+import { POLICY } from './policies';
 
 // [bumex-one] The floor at a glance (asked on 2026-10-28), the first page of flat mode and the rail's "Vue d'ensemble":
 // its tickets' figures, each opening the list behind it; its people with what they carry here, their load, their week's
@@ -44,6 +47,7 @@ export function OverviewRoom({ entityId, initialTab }: { entityId: Id; initialTa
       <div className="sheet-head">
         <h1>{say("Vue d'ensemble", 'Overview')}</h1>
         <span className="small muted">{entity?.name}</span>
+        <PageRefresh />
       </div>
       <div className="sheet-body">
         {person ? <PersonPanel key={person} personId={person} onClose={() => setPerson(null)} /> : <FloorOverviewBody entityId={entityId} onPerson={setPerson} />}
@@ -55,15 +59,10 @@ export function OverviewRoom({ entityId, initialTab }: { entityId: Id; initialTa
 function FloorOverviewBody({ entityId, onPerson }: { entityId: Id; onPerson: (id: string) => void }) {
   const say = useSay();
   const { state, openRoom } = useStore();
-  const loadedAt = useStore((s) => s.loadedAt);
-  const [data, setData] = useState<FloorOverview | null | undefined>(undefined);
+  // kept between visits; read again when its tickets, hours, team or books move, or by ↻ (one/policies.ts)
+  const overview = useCached<FloorOverview | null>(['overview', entityId], () => floorOverviewAction(entityId), POLICY.overview);
+  const data = overview.data === undefined && overview.error ? null : overview.data;
   const [now] = useState(Date.now);
-
-  useEffect(() => {
-    let live = true;
-    floorOverviewAction(entityId).then((d) => live && setData(d)).catch(() => live && setData(null));
-    return () => { live = false; };
-  }, [entityId, loadedAt]);
 
   const today = state.today;
   const tickets = useMemo(() => state.tasks.filter((x) => x.entityId === entityId && 'ticket' in x) as TicketTask[], [state.tasks, entityId]);

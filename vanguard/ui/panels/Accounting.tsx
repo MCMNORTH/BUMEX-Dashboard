@@ -13,6 +13,7 @@ import { Select, Suggest } from '../Select';
 import { WideNote } from '../../one/WideNote'; // [mobile]
 import { useSay } from '../../one/say';
 import { englishMessage } from '../../one/engine-messages';
+import { PageRefresh } from '../../one/PageRefresh'; // [bumex-one] ↻ at the right of the header (2026-11-22)
 // [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 // the engine's labels are French (ACCOUNT_KIND_FR, JOURNAL_KINDS, CHART_TEMPLATES): their English, at render time only
@@ -49,6 +50,7 @@ export function AccountingPanel({ entityId, initialTab }: { entityId: Id; initia
       <div className="sheet-head">
         <h1>{t('room_accounting')}</h1>
         <Tabs tabs={tabs} value={tab} onChange={setTab} />
+        <PageRefresh />
       </div>
       <div className="sheet-body">
         {tab === 'entry' && !ready && <div className="banner info">{say(`Le plan comptable de cette entité n'est pas encore installé : choisissez-le dans l'onglet « ${t('tab_coa')} ».`, `This entity's chart of accounts is not installed yet: choose it in the "${t('tab_coa')}" tab.`)} <button className="btn sm" onClick={() => setTab('coa')}>{t('tab_coa')}</button></div>}{/* [bumex-one] */}

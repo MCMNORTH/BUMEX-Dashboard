@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import type { Id } from '@bumex/domain';
 import { toggleSubtaskAction } from '@/app/(app)/tickets/actions';
 import { myWorkAction, type MyWorkData } from '@/lib/erp/vanguard/myday-actions';
@@ -18,12 +18,15 @@ import { PRIORITY, label, reload } from './Tasks';
 import { ticketMenu } from './TicketMenu';
 import { isPhone } from './screen';
 import { WorkToolbar, type Scope } from './WorkToolbar';
-import { StageLozenge, moveCheck, stageTicketOf, useBoardOf, useBoardsReady } from './stages';
+import { StageLozenge, moveCheck, moveOnScreen, stageTicketOf, useBoardOf, useBoardsReady } from './stages';
 import { useSay } from './say';
 import { ago, type Say } from './ticket-history';
 import { applyFilters, isFiltered, quickCounts, readFilters, readView, workTicketOf, writeFilters, writeView, type GroupBy, type GroupLabels, type MyCard, type WorkFilters, type WorkView } from './work-filters';
 import { Avatar, Block, Figure, LoadBar, Lozenge, PriorityIcon, TypeIcon, hoursText, levelLabel, type Tone } from './work-ui';
 import { Loading, SkBoard, SkKpis } from './skeleton';
+import { PageRefresh } from './PageRefresh';
+import { useCached } from './cache';
+import { POLICY } from './policies';
 
 // "Mon travail": everything the person has to do, on every floor (asked on 2026-10-27), redrawn on 2026-10-29 ("i like
 // how the board looks in tasks page but i dont like how it looks in my work page") out of the Tasks room's own parts:
@@ -47,9 +50,14 @@ type Mission = MissionTag & { other: string | null };
 // the room: the rail's "Mon travail" (ui/Sidebar.tsx); tab: "board", "list", "ticket:<id>"
 export function MyWorkRoom({ entityId, initialTab }: { entityId: Id; initialTab?: string | null }) {
   const say = useSay();
-  const loadedAt = useStore((s) => s.loadedAt);
-  const [data, setData] = useState<Data | null | undefined>(undefined);
-  const [attempt, setAttempt] = useState(0);
+  // kept between visits; read again when the person's tickets, hours, sub-tasks or mentions move, or by ↻ (one/policies.ts)
+  const work = useCached<Data | null>(['mywork'], () => myWorkAction(), POLICY.myWork);
+  const data = work.data === undefined && work.error ? null : work.data;
+  const { set: keep, refresh: readAgain } = work;
+  const setData: SetData = useCallback((next) => keep((previous) => {
+    const value = typeof next === 'function' ? next(previous) : next;
+    return value === undefined ? (previous ?? null) : value;
+  }), [keep]);
   // the view chosen last; else the board, but the list on a phone
   const [view, setView] = useState<WorkView>(() => viewOf(initialTab) ?? readView('mywork', isPhone() ? 'list' : 'board'));
   const [ticketId, setTicketId] = useState<string | null>(ticketOf(initialTab));
@@ -63,22 +71,13 @@ export function MyWorkRoom({ entityId, initialTab }: { entityId: Id; initialTab?
   const body = useRef<HTMLDivElement>(null);
   const scroll = useRef<number | null>(null);
 
-  // read again whenever the state is (a ticket moved, time logged, the ↻ button)
-  useEffect(() => {
-    let live = true;
-    myWorkAction().then((d) => { if (live) setData(d); }).catch(() => { if (live) setData((x) => x ?? null); });
-    return () => { live = false; };
-  }, [loadedAt, attempt]);
-
+  // after the person's own change: what it moved (the store's sync makes My work stale when tickets or hours moved,
+  // and it is read again behind what it shows), and My work itself (sub-tasks, mentions: the audit log does not see them)
   const refresh = useCallback(async () => {
-    const before = useStore.getState().loadedAt;
+    const changedAt = Date.now();
     await reload();
-    // the state did not move (unreachable): My work is read on its own, and kept as it is if that fails too
-    if (useStore.getState().loadedAt === before) {
-      const fresh = await myWorkAction().catch(() => null);
-      if (fresh) setData(fresh);
-    }
-  }, []);
+    await readAgain(changedAt); // once: a read the sync started after the change is shared
+  }, [readAgain]);
   const open = useCallback((id: string) => {
     scroll.current = body.current?.scrollTop ?? null;
     setTicketId(id);
@@ -109,6 +108,7 @@ export function MyWorkRoom({ entityId, initialTab }: { entityId: Id; initialTab?
             </button>
           )}
         </div>
+        <PageRefresh />
       </div>
       <div className="sheet-body" ref={body}>
         {ticketId && <TicketPanel id={ticketId} onClose={() => setTicketId(null)} backLabel={say('Retour à mon travail', 'Back to my work')} />}
@@ -118,7 +118,7 @@ export function MyWorkRoom({ entityId, initialTab }: { entityId: Id; initialTab?
             : data === null ? (
               <div className="banner crit mw-failed">
                 <span>{say('Mon travail est indisponible.', 'My work is unavailable.')}</span>
-                <button className="btn sm" onClick={() => { setData(undefined); setAttempt((n) => n + 1); }}>{say('Réessayer', 'Retry')}</button>
+                <button className="btn sm" onClick={() => void readAgain()}>{say('Réessayer', 'Retry')}</button>
               </div>
             )
             : <MyWorkBody data={data} setData={setData} view={view} entityId={entityId} onOpen={open} refresh={refresh} say={say} />}
@@ -163,18 +163,25 @@ function MyWorkBody({ data, setData, view, entityId, onOpen, refresh, say }: {
   const boardOf = useBoardOf(cards.map((c) => c.ticket.project_id));
   const cardMission = useCallback((x: MyCard) => missionOf(x.ticket.project_id), [missionOf]);
 
-  // a moved ticket settles in its new column at once (the server has accepted), then everything is read again
-  const flow = useTicketMove(async (id: string, target: MoveTarget) => {
+  // a moved ticket is in its new column at once, before the server answers (here and in the store's tickets: the Tasks
+  // room's board), and back where it was if the server refuses; once accepted, what it moved is read again
+  const flow = useTicketMove(async () => { await refresh(); }, (id: string, target: MoveTarget, name: string) => {
+    let before: Data['tickets'][number] | undefined;
     setData((d) => d && {
       ...d,
       tickets: d.tickets.map((t) => {
         if (t.id !== id) return t;
+        before = t;
         if (!('stageId' in target)) return { ...t, status: target.status, stageId: null, stageName: null }; // built-in: its column is its status
         const stage = boardOf(t.projectId).stages.find((s) => s.id === target.stageId);
         return stage ? { ...t, stageId: stage.id, stageName: stage.name, status: stageStatus(stage) } : t;
       }),
     });
-    await refresh();
+    const undoStore = moveOnScreen(id, target, name, before ? boardOf(before.projectId) : null);
+    return () => {
+      undoStore();
+      if (before) { const was = before; setData((d) => d && { ...d, tickets: d.tickets.map((t) => (t.id === id ? was : t)) }); }
+    };
   });
   // a stage picked in the list or on a card (touch), or time logged: shown at once, then read again (the picker waits)
   const changed = useCallback((change?: ListChange) => {

@@ -167,3 +167,10 @@ export async function signOutAction() {
 
   redirect("/login");
 }
+
+// The account menu's sign-out: the session ended here, the page then left for /login by a full load (components/layout
+// account-menu.tsx), so nothing the app read for this person stays in the tab's memory for the next one (2026-11-22).
+export async function endSessionAction(): Promise<{ ok: true }> {
+  await clearSession();
+  return { ok: true };
+}

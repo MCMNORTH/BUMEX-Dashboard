@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRouteAccess } from "@/lib/auth/server";
@@ -163,10 +162,6 @@ async function saveClient(formData: FormData): Promise<ClientActionState & { suc
     return { error: getClientMutationErrorMessage(error), values };
   }
 
-  revalidatePath("/clients");
-  if (clientId) {
-    revalidatePath(`/clients/${clientId}`);
-  }
   return { success: true };
 }
 
@@ -186,8 +181,6 @@ export async function shelveClientAction(clientId: string): Promise<{ error?: st
   }
 
   await archiveClient(client.id, auth.profile.id);
-  revalidatePath("/clients");
-  revalidatePath(`/clients/${client.id}`);
   return { success: true };
 }
 
@@ -214,7 +207,5 @@ export async function archiveClientAction(formData: FormData) {
   }
 
   await archiveClient(clientId, auth.profile.id);
-  revalidatePath("/clients");
-  revalidatePath(`/clients/${clientId}`);
   redirect("/clients?toast=client-archived");
 }

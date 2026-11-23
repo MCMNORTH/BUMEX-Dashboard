@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { erpConsolidationRoles, erpEntityModuleKeys, erpModules, erpRoleLabels, resolveErpModules } from '@/lib/erp/config';
 import type { PermissionPerson, PermissionsData, PermissionsError, PersonAccess } from '@/lib/erp/permissions';
 import { invitePersonAction, permissionsAction, prepareTestFloorAction, removeAccessAction, resendInvitationAction, savePermissionsAction, sendPasswordLinkAction, setPasswordAction } from '@/lib/erp/vanguard/permission-actions';
@@ -12,6 +12,8 @@ import { Select } from '../ui/Select';
 import { WideNote } from './WideNote'; // [mobile]
 import { confirmAsk } from './ask';
 import { Loading, SkList } from './skeleton';
+import { invalidate, useCached } from './cache';
+import { POLICY } from './policies';
 
 // The Settings room's Permissions tab, for the administrators who manage access (the "role modifiers"): who sees which
 // entity, and which parts of each. A role gives its standard parts; each person's can be tweaked per entity (a tweaked
@@ -61,20 +63,22 @@ function draftOf(p: PermissionPerson, entities: BumexEntityCode[]): Draft {
 
 export function PermissionsPanel() {
   const { say, lang, roleName } = useWords();
-  const loadedAt = useStore((s) => s.loadedAt);
-  const [data, setData] = useState<PermissionsData | null | undefined>(undefined);
+  // kept between visits; read again when the people or their access move (one/policies.ts); null: the person does
+  // not manage access (a failed read says the same, as before)
+  const cached = useCached<PermissionsData | null>(['permissions'], () => permissionsAction(), POLICY.permissions);
+  const data = cached.data === undefined ? (cached.error ? null : undefined) : cached.data;
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [selected, setSelected] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
   const [showRoles, setShowRoles] = useState(false);
 
-  useEffect(() => {
-    let live = true;
-    permissionsAction().then((d) => { if (live) setData(d); }, () => { if (live) setData(null); });
-    return () => { live = false; };
-  }, [loadedAt]);
-  const refresh = async () => setData(await permissionsAction().catch(() => null));
+  // after a change of access, an invitation or the test floor's samples: read again here, and stale wherever else it
+  // shows
+  const refresh = async () => {
+    invalidate(['permissions']);
+    await cached.refresh();
+  };
 
   if (data === undefined) return <Loading><SkList rows={7} card /></Loading>;
   if (data === null) return <div className="banner info">{say("Les accès sont gérés par les administrateurs qui modifient les rôles.", 'Access is managed by the administrators who modify roles.')}</div>;
@@ -375,13 +379,14 @@ function PasswordRow({ person, self }: { person: PermissionPerson; self: boolean
     const { toast } = useStore();
     const [password, setPassword] = useState('');
     const [busy, setBusy] = useState(false);
+    // a password set or a link sent: the access list is stale wherever it shows (read again here, the field kept)
     const set = async () => {
       if (!(await confirmAsk(self ? { title: say('Changer votre mot de passe ?', 'Change your password?'), confirm: say('Changer', 'Change') } : { title: say(`Définir ce mot de passe pour ${person.name} ?`, `Set this password for ${person.name}?`), message: say('Ses sessions ouvertes se fermeront.', 'Their open sessions will end.'), confirm: say('Définir le mot de passe', 'Set the password') }))) return;
       setBusy(true);
       const result = await setPasswordAction(person.id, password).catch(() => ({ error: 'unavailable' as const }));
       setBusy(false);
       if (result.error) toast('error', errorText(result.error));
-      else toast('ok', say('Mot de passe défini : transmettez-le à la personne', 'Password set: pass it on to the person'));
+      else { toast('ok', say('Mot de passe défini : transmettez-le à la personne', 'Password set: pass it on to the person')); invalidate(['permissions']); }
     };
     const send = async () => {
       setBusy(true);
@@ -389,7 +394,7 @@ function PasswordRow({ person, self }: { person: PermissionPerson; self: boolean
       setBusy(false);
       if (result.error) toast('error', errorText(result.error));
       else if (!result.mailed) toast('error', say("Le lien est prêt mais l'e-mail n'est pas parti : réessayez.", 'The link is ready but the e-mail did not go out: try again.'));
-      else toast('ok', say(`Lien envoyé à ${person.email}`, `Link sent to ${person.email}`));
+      else { toast('ok', say(`Lien envoyé à ${person.email}`, `Link sent to ${person.email}`)); invalidate(['permissions']); }
     };
     const copy = async () => {
       try {

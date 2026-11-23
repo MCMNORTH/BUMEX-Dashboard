@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { bumexOneHistoryAction, type BumexOneEvent } from '@/lib/erp/vanguard/history-actions';
 import { useStore } from '../store';
@@ -6,12 +6,15 @@ import { Chip } from '../ui/common';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
 import { activityDetail, activityText, entityLabel, tableLabel, valueLabel } from './labels';
+import { useCached } from './cache';
+import { POLICY } from './policies';
 
 // The one History (the Settings room's "Historique" tab): the ERP's audit log, which is in the state, and BUMEX One's
 // activity log (projects, tickets, clients, contracts…), latest first, filtered together. Replaces the delivered
 // History of ui/panels/Settings.tsx and BUMEX One's Activity page.
 
 type Row = { key: string; at: string; who: string; role?: string; source: 'erp' | 'one'; action: string; kind: 'I' | 'U' | 'D' | null; object: string; ref?: string; detail: string; entityId?: string | null; url?: string | null };
+const NONE: BumexOneEvent[] = [];
 
 export function History() {
   const { state, t, ui } = useStore();
@@ -21,13 +24,10 @@ export function History() {
   const [source, setSource] = useState<'' | 'erp' | 'one'>('');
   const [action, setAction] = useState<'' | 'I' | 'U' | 'D'>('');
   const [scope, setScope] = useState<'entity' | 'all'>('entity');
-  const [events, setEvents] = useState<BumexOneEvent[] | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    bumexOneHistoryAction().then((r) => live && setEvents(r)).catch(() => live && setEvents([]));
-    return () => { live = false; };
-  }, []);
+  // BUMEX One's activity log, kept between visits; read again when the work moves, or after a minute (one/policies.ts);
+  // unreadable, the ERP's log alone
+  const log = useCached<BumexOneEvent[]>(['history'], () => bumexOneHistoryAction(), POLICY.history);
+  const events = log.data ?? (log.error ? NONE : null);
 
   const A: Record<'I' | 'U' | 'D', [string, string, 'good' | 'warn' | 'crit']> = { I: ['Création', 'Created', 'good'], U: ['Modification', 'Changed', 'warn'], D: ['Suppression', 'Deleted', 'crit'] };
   const rows = useMemo(() => {

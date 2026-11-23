@@ -15,13 +15,15 @@ import { PHONE } from './screen'; // [mobile]
 import { NO_DUE_DATE, groupTickets, type GroupBy, type GroupLabels, type WorkTicket } from './work-filters';
 import { Avatar, PriorityIcon, TypeIcon, hoursText, stageTone, useMedia, type Tone } from './work-ui';
 import { QuickLogButton } from './QuickLog';
-import { StageSelect, moveCheck, stageTicketOf, type DropCheck } from './stages';
+import { StageSelect, moveCheck, moveOnScreen, stageTicketOf, type DropCheck } from './stages';
 import { EstimateAsk, parseEstimate } from './EstimateAsk';
 import { DEFAULT_ESTIMATE_HOURS } from '@/lib/tickets/workflow';
 import type { ListChange } from './TicketList';
 import type { Say } from './ticket-history';
 import { useDragScroll } from './drag-scroll';
 import { Loading, SkBoard } from './skeleton';
+import { useCached } from './cache';
+import { POLICY } from './policies';
 
 // The board, as Jira draws it (asked on 2026-10-27), shared by the Tasks room (MissionBoard: the floor's board, 0014,
 // for one mission or all of them) and My work (vanguard/one/MyWork.tsx: one board per floor of the person's tickets,
@@ -53,27 +55,29 @@ export function boardColumns(workflow: BoardWorkflow, tickets: WorkTicket[]): Bo
 type Asking = { t: { id: string; label: string }; target: MoveTarget; name: string; message: string; kind: 'reason' | 'estimate'; why?: string };
 export type MoveFlow = ReturnType<typeof useTicketMove>;
 
-/** Moves a ticket with BUMEX One's action; asks a reason or an estimate when the board wants one; `onMoved` once the server accepted. */
-export function useTicketMove(onMoved: (id: string, target: MoveTarget, name: string) => void | Promise<void>) {
+/** Moves a ticket with BUMEX One's action, shown in its new column at once (`onScreen`, undone if refused); asks a reason or an estimate when the board wants one; `onMoved` once the server accepted. */
+export function useTicketMove(onMoved: (id: string, target: MoveTarget, name: string) => void | Promise<void>, onScreen: (id: string, target: MoveTarget, name: string) => () => void = moveOnScreen) {
   const toast = useStore((s) => s.toast);
   const say = useSay();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [asking, setAsking] = useState<Asking | null>(null);
   const [reason, setReason] = useState('');
-  const latest = useRef(onMoved);
-  useEffect(() => { latest.current = onMoved; });
+  const latest = useRef({ onMoved, onScreen });
+  useEffect(() => { latest.current = { onMoved, onScreen }; });
   const move = useCallback(async (t: { id: string; label: string }, target: MoveTarget, name: string, why?: string, estimate?: number) => {
     setBusyId(t.id);
+    const undo = latest.current.onScreen(t.id, target, name);
     try {
       const result = await moveTicketStageAction(t.id, target, why, estimate);
-      if (result.code === 'reason_required') { setAsking({ t, target, name, message: result.error ?? '', kind: 'reason' }); return; }
-      if (result.code === 'estimate_required') { setAsking({ t, target, name, message: result.error ?? '', kind: 'estimate', why }); return; }
+      if (result.code === 'reason_required') { undo(); setAsking({ t, target, name, message: result.error ?? '', kind: 'reason' }); return; }
+      if (result.code === 'estimate_required') { undo(); setAsking({ t, target, name, message: result.error ?? '', kind: 'estimate', why }); return; }
       setAsking(null);
       setReason('');
-      if (result.error) { toast('error', result.error); return; }
+      if (result.error) { undo(); toast('error', result.error); return; }
       toast('ok', `${t.label} → ${name}`);
-      await latest.current(t.id, target, name);
+      await latest.current.onMoved(t.id, target, name);
     } catch {
+      undo();
       toast('error', say("Serveur injoignable : le ticket n'a pas bougé.", 'Server unreachable: the ticket did not move.'));
     } finally {
       setBusyId(null);
@@ -313,26 +317,15 @@ export function MissionBoard({ entityId, scope, tickets, groupBy, onOpen, onRule
   const me = state.session.userId;
   const mission = scope === 'all' ? null : ((state.engagements as Mission[]).find((e) => e.id === scope) ?? null);
   const projectId = mission?.projectId ?? null;
-  const loadedAt = useStore((s) => s.loadedAt);
-  const [board, setBoard] = useState<{ entityId: string; data: FloorBoard } | null>(null);
-  const flow = useTicketMove(reloadAll);
-
+  // the floor's board (its statuses and rules), kept until it is saved (Workflow.tsx invalidates "board")
+  const floorBoard = useCached<FloorBoard | null>(['board', entityId], () => floorBoardAction(entityId), POLICY.board);
+  const board = floorBoard.data ? { entityId, data: floorBoard.data } : null;
+  const unavailable = floorBoard.error !== null || floorBoard.data === null;
   useEffect(() => {
-    let live = true;
-    floorBoardAction(entityId)
-      .then((data) => {
-        if (!live) return;
-        if (data) setBoard({ entityId, data });
-        else useStore.getState().toast('error', useStore.getState().ui.lang === 'fr' ? "Le tableau de l'étage est indisponible." : "The floor's board is unavailable.");
-      })
-      .catch(() => {
-        const { toast: show, ui: now } = useStore.getState();
-        if (live) show('error', now.lang === 'fr' ? "Le tableau de l'étage est indisponible." : "The floor's board is unavailable.");
-      });
-    return () => { live = false; };
-  }, [entityId, loadedAt]);
-
-  const workflow = board && board.entityId === entityId ? board.data.workflow : null;
+    if (unavailable) useStore.getState().toast('error', useStore.getState().ui.lang === 'fr' ? "Le tableau de l'étage est indisponible." : "The floor's board is unavailable.");
+  }, [unavailable]);
+  const workflow = board ? board.data.workflow : null;
+  const flow = useTicketMove(reloadAll, (id, target, name) => moveOnScreen(id, target, name, workflow));
   const columns = useMemo(() => (workflow ? boardColumns(workflow, tickets) : []), [workflow, tickets]);
   const columnOf = useCallback((x: TicketTask) => (workflow ? stageIdOf(workflow, x) : ''), [workflow]);
   const dropCheck = useCallback((x: TicketTask, c: BoardColumn) => (workflow ? moveCheck(workflow, stageTicketOf(x), c.id, me) : null), [workflow, me]);

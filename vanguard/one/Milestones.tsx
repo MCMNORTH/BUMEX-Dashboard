@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Id } from '@bumex/domain';
 import { changeMilestoneAction, saveMilestoneAction } from '@/app/(app)/roadmap/actions';
 import { roadmapAction, type RoadmapData, type RoadmapLane } from '@/lib/erp/vanguard/calendar-actions';
@@ -11,6 +11,8 @@ import { Avatar, Dialog, Lozenge, type Tone } from './work-ui';
 import { Select } from '../ui/Select';
 import { confirmAsk } from './ask';
 import { Loading, SkTable } from './skeleton';
+import { invalidate, useCached } from './cache';
+import { POLICY } from './policies';
 
 // The Missions room's "Jalons" tab: BUMEX One's Roadmap page (redrawn on 2026-10-28: the missions' names were cut).
 // Each mission as a lane over 3, 6 or 12 months, its full name beside it, with its milestones; then the milestones
@@ -32,26 +34,23 @@ const shiftMonth = (first: string, by: number) => {
 };
 const dmy = (iso: string) => iso.slice(0, 10).split('-').reverse().join('/');
 const settled = (s: MilestoneStatus) => s === 'completed' || s === 'cancelled';
+const NO_ROADMAP: RoadmapData = { lanes: [], owners: [], canManage: false, me: '', role: '' };
 type Draft = { id: string; projectId: string; title: string; description: string; status: MilestoneStatus; dueDate: string; ownerId: string };
 
 export function MilestonesView({ entityId }: { entityId: Id }) {
   const { state, ui, toast, openRoom } = useStore();
   const say = useSay();
   const today = state.today;
-  const loadedAt = useStore((s) => s.loadedAt);
-  const [data, setData] = useState<RoadmapData | null>(null);
+  // one cache key for this tab and every mission's page (Mission.tsx): kept between visits, read again when missions,
+  // tickets or milestones move (one/policies.ts); unreadable, it shows an empty roadmap
+  const roadmap = useCached<Awaited<ReturnType<typeof roadmapAction>>>(['roadmap'], () => roadmapAction(), POLICY.roadmap);
+  const data: RoadmapData | null = roadmap.data ?? (roadmap.error ? NO_ROADMAP : null);
   const [months, setMonths] = useState(6);
   const [from, setFrom] = useState(() => shiftMonth(`${state.today.slice(0, 7)}-01`, -1));
   const [scope, setScope] = useState<'floor' | 'all'>('floor');
   const [show, setShow] = useState<'next' | 'all'>('next');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let live = true;
-    roadmapAction().then((d) => live && setData(d)).catch(() => live && setData({ lanes: [], owners: [], canManage: false, me: '', role: '' }));
-    return () => { live = false; };
-  }, [loadedAt]);
 
   const floorProjects = useMemo(() => new Set(state.engagements.filter((e) => e.entityId === entityId).map((e) => (e as { projectId?: string }).projectId).filter(Boolean) as string[]), [state.engagements, entityId]);
   if (!data) return <Loading><SkTable rows={5} cols={5} /></Loading>;
@@ -66,7 +65,11 @@ export function MilestonesView({ entityId }: { entityId: Id }) {
     .filter((l) => scope === 'all' || floorProjects.has(l.id))
     .filter((l) => l.status !== 'cancelled')
     .sort((a, b) => Number(a.status === 'completed') - Number(b.status === 'completed') || (a.end ?? '9999').localeCompare(b.end ?? '9999'));
-  const refresh = async () => setData(await roadmapAction());
+  // milestones are not in the audit log: the change names the roadmap, read again here and on every mission's page
+  const refresh = async () => {
+    invalidate(['roadmap']);
+    await roadmap.refresh();
+  };
   const run = async (work: () => Promise<{ error?: string }>, done: string) => {
     setBusy(true);
     try {

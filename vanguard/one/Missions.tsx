@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { Engagement, Id } from '@bumex/domain';
 import { missionDetailsAction, missionOptionsAction, saveMissionAction, type MissionInput, type MissionOptions } from '@/lib/erp/vanguard/mission-actions';
 import type { VanguardData } from '@/lib/erp/vanguard/run';
@@ -9,6 +9,8 @@ import type { Say } from './ticket-history';
 import { Avatar, Dialog, type Tone } from './work-ui';
 import { Select } from '../ui/Select';
 import { Loading, SkForm } from './skeleton';
+import { invalidate, useCached } from './cache';
+import { POLICY, withTag } from './policies';
 
 // BUMEX One's projects are Vanguard's missions: created and edited here, in the Missions room (ui/panels/Other.tsx).
 // Their list is vanguard/one/MissionList.tsx, their page vanguard/one/Mission.tsx (BUMEX One's project page), their
@@ -100,23 +102,19 @@ export function canEditMissions(role: string) {
 export function MissionForm({ entityId, projectId, onClose }: { entityId: Id; projectId: string | null; onClose: (saved?: string) => void }) {
   const { toast, hydrate } = useStore();
   const say = useSay();
-  const [options, setOptions] = useState<MissionOptions | null>(null);
+  // the form's lists (people, clients) and the mission as saved, kept between forms (one/policies.ts)
+  const options = useCached<MissionOptions>(['mission-options', entityId], () => missionOptionsAction(entityId), POLICY.missionOptions).data ?? null;
+  const details = useCached<Omit<MissionInput, 'entity_id'> | null>(projectId ? ['mission-details', projectId] : null, () => missionDetailsAction(projectId!), withTag(POLICY.missionDetails, `project:${projectId}`));
   const [v, setV] = useState<Omit<MissionInput, 'entity_id'> | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (patch: Partial<MissionInput>) => setV((x) => (x ? { ...x, ...patch } : x));
-
-  useEffect(() => {
-    let live = true;
-    void Promise.all([missionOptionsAction(entityId), projectId ? missionDetailsAction(projectId) : Promise.resolve(null)]).then(([o, details]) => {
-      if (!live) return;
-      setOptions(o);
-      setV(details ?? {
-        name: '', client_id: '', description: '', owner_id: o.me, status: 'active', start_date: '', end_date: '', budget_amount: '', priority: 'medium',
-        project_kind: 'client_mission', manual_progress: '', member_ids: [], fee_type: 'fixed', budget_hours: '',
-      });
+  // the fields filled once, when both are read: a later read leaves what the person is typing alone
+  if (!v && options && (!projectId || details.data !== undefined)) {
+    setV(details.data ?? {
+      name: '', client_id: '', description: '', owner_id: options.me, status: 'active', start_date: '', end_date: '', budget_amount: '', priority: 'medium',
+      project_kind: 'client_mission', manual_progress: '', member_ids: [], fee_type: 'fixed', budget_hours: '',
     });
-    return () => { live = false; };
-  }, [projectId, entityId]);
+  }
 
   const title = projectId ? `${say('Modifier', 'Edit')} · ${v?.name ?? ''}` : say('Nouvelle mission', 'New mission');
   if (!options || !v) return <Dialog title={title} onClose={() => onClose()} wide><Loading><SkForm fields={8} cols={2} /></Loading></Dialog>;
@@ -130,6 +128,8 @@ export function MissionForm({ entityId, projectId, onClose }: { entityId: Id; pr
       const result = await saveMissionAction({ ...v, entity_id: entityId, client_id: internal ? '' : v.client_id });
       if (!result.ok) { toast('error', result.error); return; }
       if (result.state) hydrate(result as VanguardData);
+      // the mission's pages and form, its members' and the lists that name it read again (the state came with the save)
+      invalidate(['engagement', 'person', ...(result.projectId ? [`project:${result.projectId}`] : []), ...(projectId ? [`project:${projectId}`] : [])]);
       toast('ok', projectId ? say('Mission mise à jour', 'Mission updated') : say('Mission créée', 'Mission created'));
       onClose(result.projectId);
     } catch {

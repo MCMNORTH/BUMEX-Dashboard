@@ -1071,3 +1071,10 @@
   .vanguard .wk-board.slidable, .vanguard .kanban.slidable { cursor: grab; }
 }
 .vanguard .wk-board.sliding, .vanguard .kanban.sliding, .vanguard .wk-board.sliding *, .vanguard .kanban.sliding * { cursor: grabbing !important; user-select: none; }
+/* ↻ at the right of a page's header (one/PageRefresh.tsx): when the page was last read, and read it again */
+.vanguard .pg-refresh { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 6px 0; flex: none; }
+.vanguard .sheet-head > .hright ~ .pg-refresh { margin-left: 8px; }
+.vanguard .pg-refresh-at { white-space: nowrap; }
+.vanguard .pg-refresh-btn { padding: 0 6px; }
+.vanguard .pg-refresh-btn.spinning .ic { animation: vg-spin .9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .vanguard .pg-refresh-btn.spinning .ic { animation: none; opacity: .55; } }

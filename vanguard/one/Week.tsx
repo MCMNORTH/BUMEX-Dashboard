@@ -74,12 +74,15 @@ export function WeekView({ entityId }: { entityId: Id }) {
     const task = tasks.find((x) => x.id === id);
     if (!task || (day ?? NO_DUE_DATE) === task.dueDate) return;
     setBusy(id);
+    // on its new day at once (asked on 2026-11-22), back on its old one if the server refuses
+    const undo = useStore.getState().patchTask(id, (t) => ({ ...t, dueDate: day ?? NO_DUE_DATE }));
     try {
       const result = await updateTaskDueDateAction(id, day);
-      if (result.error) toast('error', result.error);
+      if (result.error) { undo(); toast('error', result.error); }
       else toast('ok', `${task.title} · ${day ? dayLabel(day) : say('sans échéance', 'no due date')}`);
       await reload();
     } catch {
+      undo();
       toast('error', say("Serveur injoignable : la tâche n'a pas changé.", 'Server unreachable: the task did not change.'));
     } finally {
       setBusy(null);

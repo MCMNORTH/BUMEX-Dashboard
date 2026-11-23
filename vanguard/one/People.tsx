@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { canUseModule, fmt, r2, type Id } from '@bumex/domain';
 import { peopleAction, type PersonRow } from '@/lib/erp/vanguard/people-actions';
 import { useStore } from '../store';
@@ -8,6 +8,8 @@ import { useSay } from './say';
 import { LoadBar, hoursText } from './work-ui'; // [bumex-one] the load (lib/work/load.ts)
 import { Select } from '../ui/Select';
 import { SkTableRows } from './skeleton';
+import { useCached } from './cache';
+import { POLICY } from './policies';
 
 // The HR room's "Personnes" tab, open to everyone: BUMEX One's team (its Team page moved here), each person with their
 // Vanguard role, their load and, when they have one, their HR record. The records and their salaries are in the
@@ -25,22 +27,20 @@ const WORKLOAD: Record<string, [string, string, 'good' | 'warn' | 'crit' | 'dim'
   high: ['Élevée', 'High', 'warn'],
   critical: ['Critique', 'Critical', 'crit'],
 };
+const NO_ONE: PersonRow[] = [];
 
 export function People({ entityId, onOpen, personId }: { entityId: Id; onOpen: (employeeId: Id) => void; personId?: string | null }) {
   const { state, t } = useStore();
   const say = useSay();
   const [person, setPerson] = useState<string | null>(personId ?? null);
-  const [rows, setRows] = useState<PersonRow[] | null>(null);
+  // kept between visits; read again when the people, their tickets or their hours move (one/policies.ts); unreadable,
+  // the list shows empty
+  const people = useCached<PersonRow[]>(['people'], () => peopleAction(), POLICY.people);
+  const rows = people.data ?? (people.error ? NO_ONE : null);
   const [q, setQ] = useState('');
   const [floor, setFloor] = useState('all');
   const hr = canUseModule(state, 'hr');
   const here = state.entities.find((e) => e.id === entityId);
-
-  useEffect(() => {
-    let live = true;
-    peopleAction().then((r) => live && setRows(r)).catch(() => live && setRows([]));
-    return () => { live = false; };
-  }, []);
 
   const recordOf = useMemo(() => {
     const byEmail = new Map(state.employees.filter((e) => e.email).map((e) => [e.email!.toLowerCase(), e]));

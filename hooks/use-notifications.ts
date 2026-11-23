@@ -124,12 +124,18 @@ async function loadOperational(store: Store) {
   }
 }
 
+/** Fired on window when the person's notifications moved since the last check. */
+export const NOTIFICATIONS_CHANGED = "bumex:notifications-changed";
+
 async function check(store: Store) {
   const version = await notificationsVersionAction().catch(() => null);
 
   if (version !== null && version !== store.seenVersion) {
+    const first = store.seenVersion === null;
     store.seenVersion = version;
     void loadStored(store);
+    // Vanguard's screens that show notifications (the inbox, My work's mentions) read them again (vanguard/one/cache.ts)
+    if (!first) window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED));
   }
 
   if (Date.now() - store.operationalAt > OPERATIONAL_MAX_AGE_MS) {

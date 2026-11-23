@@ -21,6 +21,10 @@ import { ago } from './ticket-history';
 import { TeamCalendar } from './TimeCalendar';
 import { Loading, Sk, SkKpis, SkTable } from './skeleton';
 import { cap } from './labels';
+import { PageRefresh } from './PageRefresh';
+import { invalidate, useCached, useLastRead, changeTime } from './cache';
+import { reload } from './Tasks';
+import { POLICY } from './policies';
 
 // The "Temps" room: BUMEX One's timesheet in Vanguard (asked on 2026-10-27), made simple on 2026-10-28 (MySheet): my
 // week in one strip, a quick entry, a grid typed into; an entry may be on one of my tickets, and then counts on it (0012). For the administrator and
@@ -111,6 +115,7 @@ export function TimeRoom({ initialTab }: { initialTab?: string | null }) {
       <div className="sheet-head">
         <h1>{say('Temps', 'Time')}</h1>
         <Tabs tabs={[{ id: 'mine' as const, label: say('Ma feuille', 'My timesheet') }, ...(canReview ? [{ id: 'team' as const, label: role === 'admin' ? say("Toute l'entreprise", 'The whole company') : say('Mon équipe', 'My team') }, { id: 'calendar' as const, label: say('Calendrier', 'Calendar') }] : [])]} value={tab} onChange={setTab} />
+        <PageRefresh />
       </div>
       <div className="sheet-body">
         {tab === 'team' && canReview ? <TeamSheet key={teamWeek ?? ''} initialWeek={teamWeek} /> : tab === 'calendar' && canReview ? <TeamCalendar onWeek={(w) => { setTeamWeek(w); setTab('team'); }} /> : <MySheet key={`${initialTab ?? ''}:${test}`} log={logOf(initialTab)} test={test} />}
@@ -134,7 +139,10 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
   const { toast } = useStore();
   const day = useDayLabel();
   const [week, setWeek] = useState<string | null>(null);
-  const [data, setData] = useState<MyTime | null>(null);
+  // each week kept between visits (the current one shared with the quick entry's window: QuickLog.tsx); read again when
+  // hours, tickets or the week's state move (one/policies.ts)
+  const mine = useCached<MyTime>(['time', 'mine', week, test], () => myTimeAction(week, test), POLICY.myTime);
+  const data = useLastRead(mine.data) ?? null;
   const [selection, setSelection] = useState<Selection | null>(null);
   const [opened, setOpened] = useState(!log);
   const [busy, setBusy] = useState(false);
@@ -146,13 +154,10 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
   const [phoneDay, setPhoneDay] = useState<string | null>(null); // [mobile] the day a phone shows
 
   useEffect(() => {
-    let live = true;
-    myTimeAction(week, test).then((d) => live && setData(d)).catch(() => {
-      const { toast: show, ui } = useStore.getState();
-      if (live) show('error', ui.lang === 'fr' ? 'La feuille de temps est indisponible.' : 'The timesheet is unavailable.');
-    });
-    return () => { live = false; };
-  }, [week, test]);
+    if (!mine.error) return;
+    const { toast: show, ui } = useStore.getState();
+    show('error', ui.lang === 'fr' ? 'La feuille de temps est indisponible.' : 'The timesheet is unavailable.');
+  }, [mine.error]);
 
   if (!data) return <Loading><Sk w={260} h={28} /><SkTable rows={5} cols={8} /></Loading>;
   // a line asked for from a mission without a ticket opens the full editor once the week is read
@@ -160,7 +165,13 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
     setOpened(true);
     if (log && !log.taskId && data.projects.some((p) => p.id === log.projectId) && !(data.weekStatus && data.weekStatus.status !== 'returned')) setSelection({ date: data.today, projectId: log.projectId, mission: log.mission, taskId: null, entries: [] });
   }
-  const refresh = async () => setData(await myTimeAction(data.week, data.test));
+  // after the person's own save: the week read again, and what it moved elsewhere (a ticket's logged hours, My day,
+  // the floor's overview) through the store's sync (one/cache.ts)
+  const refresh = async () => {
+    const changedAt = changeTime();
+    await reload();
+    await mine.refresh(changedAt); // once: a read the sync started after the save is shared
+  };
   const { days, today } = data;
   const projectName = new Map(data.projects.map((p) => [p.id, p.name]));
   const rows: Row[] = groupWeeklyEntries(data.entries).map((g) => {
@@ -204,6 +215,8 @@ function MySheet({ log, test }: { log: { projectId: string; mission: string; tas
     setConfirm(null);
     if ('error' in result) toast('error', result.error === 'empty' ? say('Ajoutez au moins une saisie avant l’envoi.', 'Add at least one entry before sending.') : result.error === 'approved' ? say('Cette semaine est déjà validée.', 'This week is already approved.') : say('La semaine n’a pas pu être envoyée.', 'The week could not be sent.'));
     else toast('ok', say('Semaine envoyée pour validation.', 'Week sent for review.'));
+    // the week's state is not in the audit log: what shows it is made stale (this sheet, read again; My day, the review)
+    invalidate(['timesheet']);
     await refresh();
   };
   const copy = async () => {
@@ -629,7 +642,11 @@ function TeamSheet({ initialWeek }: { initialWeek?: string | null }) {
   const { state, toast } = useStore();
   const day = useDayLabel();
   const [week, setWeek] = useState<string | null>(initialWeek ?? null);
-  const [data, setData] = useState<TeamTime | null | undefined>(undefined);
+  // each week kept between visits; read again when hours, people or a week's state move, and every 2 minutes while
+  // shown (others send their weeks meanwhile: one/policies.ts); one the person may not review reads null
+  const team = useCached<TeamTime | null>(['time', 'team', week], () => teamTimeAction(week), POLICY.teamTime);
+  const last = useLastRead(team.data);
+  const data = team.data !== undefined ? team.data : team.error ? null : last;
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [entityFilter, setEntityFilter] = useState('all');
@@ -665,18 +682,14 @@ function TeamSheet({ initialWeek }: { initialWeek?: string | null }) {
     reviewTicketsAction(ids).then((list) => setTickets((all) => ({ ...all, ...Object.fromEntries(list.map((t) => [t.id, t])) }))).catch(() => ids.forEach((id) => asked.current.delete(id)));
   }, [open, data]);
 
-  useEffect(() => {
-    let live = true;
-    teamTimeAction(week).then((d) => live && setData(d)).catch(() => live && setData(null));
-    return () => { live = false; };
-  }, [week]);
-
   if (data === undefined) return <Loading><SkKpis n={4} /><SkTable rows={6} cols={6} /></Loading>;
   if (data === null) return <div className="banner warn">{say("La revue des feuilles de temps est réservée à l'administrateur et aux managers.", 'Reviewing timesheets is for the administrator and managers.')}</div>;
-  const refresh = async () => { setSelected([]); setData(await teamTimeAction(data.week)); };
+  const refresh = async () => { setSelected([]); await team.refresh(); };
+  // a week approved, returned or chased: its state is not in the audit log, so what shows it is made stale (this review,
+  // read again; the person's own sheet and My day, the calendar)
   const act = async (work: () => Promise<void>, done: string) => {
     setBusy(true);
-    try { await work(); toast('ok', done); await refresh(); } catch { toast('error', say("Serveur injoignable : rien n'a changé.", 'Server unreachable: nothing changed.')); } finally { setBusy(false); }
+    try { await work(); toast('ok', done); invalidate(['timesheet']); await refresh(); } catch { toast('error', say("Serveur injoignable : rien n'a changé.", 'Server unreachable: nothing changed.')); } finally { setBusy(false); }
   };
   const totals = new Map<string, number>();
   const daily = new Map<string, Map<string, number>>();

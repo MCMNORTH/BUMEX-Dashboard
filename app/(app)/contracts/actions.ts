@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRouteAccess } from "@/lib/auth/server";
@@ -139,7 +138,6 @@ async function saveContract(formData: FormData): Promise<ContractActionState & {
     }
 
     await createContract(values, auth.profile.id);
-    revalidatePath("/contracts");
     return { success: true };
   }
 
@@ -160,8 +158,6 @@ async function saveContract(formData: FormData): Promise<ContractActionState & {
   }
 
   await updateContract(contractId, values, auth.profile.id);
-  revalidatePath("/contracts");
-  revalidatePath(`/contracts/${contractId}`);
   return { success: true };
 }
 
@@ -181,8 +177,6 @@ export async function shelveContractAction(contractId: string): Promise<Contract
   }
 
   await archiveContract(contract.id, auth.profile.id);
-  revalidatePath("/contracts");
-  revalidatePath(`/contracts/${contract.id}`);
   return { success: true };
 }
 
@@ -215,7 +209,5 @@ export async function archiveContractAction(formData: FormData) {
   }
 
   await archiveContract(contractId, auth.profile.id);
-  revalidatePath("/contracts");
-  revalidatePath(`/contracts/${contractId}`);
   redirect("/contracts?toast=contract-archived");
 }

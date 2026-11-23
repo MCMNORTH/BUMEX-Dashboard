@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { moveTicketStageAction } from '@/app/(app)/tickets/actions';
-import { reloadVanguardAction } from '@/lib/erp/vanguard/actions';
 import { myDayAction, type MyDayData } from '@/lib/erp/vanguard/myday-actions';
-import type { VanguardData } from '@/lib/erp/vanguard/run';
 import { useStore } from '../store';
 import { Chip, D, Icon } from '../ui/common';
 import { useSay } from './say';
@@ -11,6 +9,10 @@ import { ticketMenu } from './TicketMenu';
 import { EstimateAsk } from './EstimateAsk';
 import { LoadBar, hoursText } from './work-ui';
 import { Loading, SkList } from './skeleton';
+import { PageRefresh } from './PageRefresh';
+import { useCached } from './cache';
+import { POLICY } from './policies';
+import { reload } from './Tasks';
 
 // "My day": the home's panel (the building stays the home), with what BUMEX One's overview showed: my tickets, what
 // waits for my sign-off, the missions at risk, the coming deadlines and the team's workload. "Mon travail" is a room
@@ -40,18 +42,12 @@ export function MyDay({ initialTab }: { initialTab?: string | null }) {
   const router = useRouter();
   // the old "Mon travail" tab (links, bookmarks) is a room of its own now
   useEffect(() => { if (initialTab === 'work') openRoom('mywork'); }, [initialTab, openRoom]);
-  const loadedAt = useStore((s) => s.loadedAt);
-  const [data, setData] = useState<MyDayData | null>(null);
+  // kept between visits; read again when the person's tickets, hours or sub-tasks move, or by ↻ (one/policies.ts)
+  const day = useCached<MyDayData>(['myday'], () => myDayAction(), POLICY.myDay);
+  const data = day.data ?? null;
   const [busy, setBusy] = useState<string | null>(null);
   const [estimating, setEstimating] = useState<string | null>(null); // a sign-off into a stage that forces an estimate (2026-11-02)
 
-  useEffect(() => {
-    let live = true;
-    void myDayAction().then((d) => live && setData(d)).catch(() => live && toast('error', say('Ma journée est indisponible.', 'My day is unavailable.')));
-    return () => { live = false; };
-    // read again with the state (a ticket moved, a mission changed)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadedAt]);
 
   const openTask = (id: string) => openRoom('tasks', `ticket:${id}`);
   const openMission = (projectId: string) => openRoom('missions', `mission:${projectId}`);
@@ -63,8 +59,9 @@ export function MyDay({ initialTab }: { initialTab?: string | null }) {
       setEstimating(null);
       if (result.error) toast('error', result.error);
       else toast('ok', `${say('Validé', 'Signed off')} · ${title}`);
-      const fresh = await reloadVanguardAction().catch(() => null);
-      if (fresh?.state) useStore.getState().hydrate(fresh as VanguardData);
+      const changedAt = Date.now();
+      await reload(); // what the sign-off moved; My day is read again with it (once: that read is shared)
+      await day.refresh(changedAt);
     } finally {
       setBusy(null);
     }
@@ -72,9 +69,11 @@ export function MyDay({ initialTab }: { initialTab?: string | null }) {
 
   return (
     <>
-      <div className="sheet-head"><h1>{say('Ma journée', 'My day')}</h1><button className="btn sm" onClick={() => openRoom('mywork')}>{say('Mon travail', 'My work')} →</button><span className="small muted">{state.session.actorName}</span></div>
+      <div className="sheet-head"><h1>{say('Ma journée', 'My day')}</h1><button className="btn sm" onClick={() => openRoom('mywork')}>{say('Mon travail', 'My work')} →</button><span className="small muted">{state.session.actorName}</span><PageRefresh /></div>
       <div className="sheet-body">
-        {!data ? <Loading><SkList rows={5} /></Loading> : (
+        {!data ? (day.error
+          ? <div className="banner warn">{say('Ma journée est indisponible.', 'My day is unavailable.')} <button className="btn sm" onClick={() => void day.refresh()}>{say('Réessayer', 'Retry')}</button></div>
+          : <Loading><SkList rows={5} /></Loading>) : (
           <>
             <div className="grid4">
               <div className="kpi"><div className="l">{say('Mes tâches ouvertes', 'My open tasks')}</div><div className="v">{data.myTickets.total}</div></div>

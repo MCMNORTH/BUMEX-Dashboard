@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { disconnectMailAction, mailIntakeAction, setMailPausedAction, ticketFromMailAction, type MailIntakeView } from '@/lib/erp/vanguard/mail-actions';
 import { useStore } from '../store';
 import { Chip } from '../ui/common';
 import { ago, type Say } from './ticket-history';
 import { useSay } from './say';
+import { reload } from './Tasks';
+import { useCached } from './cache';
+import { POLICY } from './policies';
 
 // Settings, My account: "E-mails → tickets" (lib/mail, 0017). The person connects their Outlook inbox; Claude reads
 // each new e-mail and makes the tasks tickets assigned to them, with their files, the replies comments. The card says
@@ -35,17 +38,15 @@ function reasonLabel(reason: string | null, say: Say) {
 export function MailIntakeCard() {
   const say = useSay();
   const { toast, openRoom } = useStore();
-  const [view, setView] = useState<MailIntakeView | null>(null);
+  // kept between visits, read again behind what is shown every minute while open (the e-mails arrive meanwhile) and
+  // after each action (one/policies.ts); nothing shown until read
+  const cached = useCached<MailIntakeView>(['mail'], () => mailIntakeAction(), POLICY.mail);
+  const view = cached.data ?? null;
   const [busy, setBusy] = useState<string | null>(null);
   const [all, setAll] = useState(false);
   const [now] = useState(Date.now);
 
-  const refresh = () => mailIntakeAction().then(setView).catch(() => null);
-  useEffect(() => {
-    let live = true;
-    mailIntakeAction().then((v) => { if (live) setView(v); }).catch(() => null);
-    return () => { live = false; };
-  }, []);
+  const refresh = cached.refresh;
 
   if (!view?.enabled) return null;
   const c = view.connection;
@@ -63,7 +64,11 @@ export function MailIntakeCard() {
   };
   const makeTicket = (row: Row) => act(row.id, async () => {
     const result = await ticketFromMailAction(row.id);
-    if (!result.error) toast('ok', result.ticketKey ? say(`Ticket ${result.ticketKey} créé`, `Ticket ${result.ticketKey} created`) : say('Ticket créé', 'Ticket created'));
+    if (!result.error) {
+      toast('ok', result.ticketKey ? say(`Ticket ${result.ticketKey} créé`, `Ticket ${result.ticketKey} created`) : say('Ticket créé', 'Ticket created'));
+      // the new ticket reaches the Tasks room, My work… through the store's sync (and makes this card stale with it)
+      await reload();
+    }
     return { error: result.error };
   });
 

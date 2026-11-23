@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { teamYearAction, type TeamYear } from '@/lib/erp/vanguard/time-actions';
 import { addDays } from '@/lib/timesheet/validation';
 import { useStore } from '../store';
 import { Icon } from '../ui/common';
 import { useSay } from './say';
 import { Loading, Sk, SkGrid } from './skeleton';
+import { useCached, useLastRead } from './cache';
+import { POLICY } from './policies';
 
 // The "Temps" room's "Calendrier" tab (asked on 2026-11-02): the reviewer's year week by week, month by month. A past
 // week where someone sent their timesheet and nobody approved it yet stands out, with who is waiting, so a reviewer
@@ -44,12 +46,11 @@ export function TeamCalendar({ onWeek }: { onWeek: (week: string) => void }) {
   const say = useSay();
   const lang = useStore((s) => s.ui.lang);
   const [year, setYear] = useState<number | null>(null);
-  const [data, setData] = useState<TeamYear | null | undefined>(undefined);
-  useEffect(() => {
-    let live = true;
-    teamYearAction(year).then((d) => live && setData(d)).catch(() => live && setData(null));
-    return () => { live = false; };
-  }, [year]);
+  // each year kept between visits; read again when hours, people or a week's state move (one/policies.ts); one the
+  // person may not review reads null. The year shown stays while another one is read (‹ ›).
+  const cached = useCached<TeamYear | null>(['time', 'year', year], () => teamYearAction(year), POLICY.teamYear);
+  const last = useLastRead(cached.data);
+  const data = cached.data !== undefined ? cached.data : cached.error ? null : last;
 
   if (data === undefined) return <Loading><Sk w={220} h={28} /><SkGrid rows={5} cols={7} /></Loading>;
   if (data === null) return <div className="banner warn">{say("Le calendrier des feuilles est réservé à l'administrateur et aux managers.", 'The timesheet calendar is for the administrator and managers.')}</div>;

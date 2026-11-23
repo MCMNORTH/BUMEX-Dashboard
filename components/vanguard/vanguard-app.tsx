@@ -12,13 +12,20 @@ import { useStore } from "@/vanguard/store";
 
 // BUMEX VANGUARD as the ERP team delivered it (vanguard/), in the frame of every page (vanguard-shell.tsx). Replaces
 // their main.tsx. The state is read once when the frame mounts, then kept across pages and refreshed from the database.
-export default function VanguardApp() {
+export default function VanguardApp({ userId }: { userId: string }) {
   const { locale, setLocale } = useI18n();
-  const [ready, setReady] = useState(() => useStore.getState().loadedAt > 0);
+  // the state in this tab's memory is someone else's (signed out and in again without the page reloading, a session
+  // that ended in another tab): the page starts over, so nothing read for them (the state, the pages' cache) is shown
+  const [someoneElse] = useState(() => useStore.getState().loadedAt > 0 && useStore.getState().state.session.userId !== userId);
+  const [ready, setReady] = useState(() => useStore.getState().loadedAt > 0 && !someoneElse);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (ready) return;
+    if (someoneElse) window.location.reload();
+  }, [someoneElse]);
+
+  useEffect(() => {
+    if (ready || someoneElse) return;
     let live = true;
     reloadVanguardAction()
       .then((result) => {
@@ -32,10 +39,11 @@ export default function VanguardApp() {
     return () => {
       live = false;
     };
-  }, [ready]);
+  }, [ready, someoneElse]);
 
   useEffect(() => {
-    // What others change shows up: a cheap check every 30 seconds while the page is in view, and on coming back to it.
+    // What others change shows up: a cheap check every 30 seconds while the page is in view, and on coming back to it;
+    // what moved is read (the tickets alone when only they did: vanguard/store.ts sync).
     const check = () => document.visibilityState === "visible" && useStore.getState().refreshIfChanged();
     const timer = window.setInterval(check, 30_000);
     document.addEventListener("visibilitychange", check);

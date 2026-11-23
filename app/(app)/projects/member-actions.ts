@@ -1,7 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { requireRouteAccess } from "@/lib/auth/server";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { addProjectMember, removeProjectMember } from "@/lib/projects/members";
@@ -36,7 +34,6 @@ async function runMemberChange(
     return { ok: false, error: message || (isFr ? "L’équipe n’a pas pu être modifiée." : "The team could not be updated.") };
   }
 
-  revalidatePath(`/projects/${projectId}`);
   return { ok: true };
 }
 

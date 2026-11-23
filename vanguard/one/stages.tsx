@@ -11,6 +11,8 @@ import type { Say } from './ticket-history';
 import { Lozenge, statusTone } from './work-ui';
 import { EstimateAsk } from './EstimateAsk';
 import type { WorkTicket } from './work-filters';
+import type { TicketTask } from './Tasks';
+import { onScopeChange } from './cache';
 
 // [bumex-one] Each ticket's status is a stage of its board (asked on 2026-10-28), its floor's since 0014, as BUMEX One
 // had it: its name in its category's colour wherever a status shows, and a picker of that board's stages wherever it
@@ -90,6 +92,24 @@ export function forgetWorkflows(projectId?: string) {
   else { cache.clear(); settled.clear(); failed.clear(); }
   changed();
 }
+// another person signed in, or the test mode switched: nothing read for the one before is kept (one/cache.ts)
+if (typeof window !== 'undefined') onScopeChange(() => forgetWorkflows());
+
+// A moved ticket is in its new column at once (asked on 2026-11-22), before the server answers: the store's ticket
+// takes the stage (and the status its category gives, when the board is known); the undo puts it back if the server
+// refuses or asks a reason or an estimate first. The server's answer then comes with the store's sync.
+const taskStatus = (status: TicketStatus): TicketTask['status'] => (status === 'done' ? 'done' : status === 'backlog' || status === 'todo' ? 'todo' : 'in_progress');
+export function moveOnScreen(id: string, target: { stageId: string } | { status: TicketStatus }, name: string, workflow?: BoardWorkflow | null): () => void {
+  return useStore.getState().patchTask(id, (task) => {
+    if (!('ticket' in task)) return task;
+    const x = task as TicketTask;
+    if (!('stageId' in target)) return { ...x, status: taskStatus(target.status), ticket: { ...x.ticket, status: target.status, stage_id: null, stage_name: null } };
+    const stage = workflow?.stages.find((st) => st.id === target.stageId);
+    const status = stage ? stageStatus(stage) : null;
+    return { ...x, ...(status ? { status: taskStatus(status) } : {}), ticket: { ...x.ticket, stage_id: target.stageId, stage_name: name, ...(status ? { status } : {}) } };
+  });
+}
+
 
 /** A stage's name, or the status's when its board runs on the built-in stages. */
 export function stageLabel(name: string | null | undefined, status: string, say: Say) {
@@ -168,16 +188,18 @@ export function StageSelect({ ticket, onMoved, disabled, className }: { ticket: 
     const to = workflow.stages.find((s) => s.id === stageId);
     if (!to || stageId === from) return;
     setBusy(true);
+    const undo = moveOnScreen(ticket.id, { stageId }, to.name, workflow); // on every board and list at once, back if refused
     try {
       const result = await moveTicketStageAction(ticket.id, { stageId }, why, estimate);
-      if (result.code === 'reason_required') { setAsking({ stageId, name: to.name, message: result.error ?? '', kind: 'reason' }); return; }
-      if (result.code === 'estimate_required') { setAsking({ stageId, name: to.name, message: result.error ?? '', kind: 'estimate', why }); return; }
-      if (result.error) { toast('error', result.error); return; }
+      if (result.code === 'reason_required') { undo(); setAsking({ stageId, name: to.name, message: result.error ?? '', kind: 'reason' }); return; }
+      if (result.code === 'estimate_required') { undo(); setAsking({ stageId, name: to.name, message: result.error ?? '', kind: 'estimate', why }); return; }
+      if (result.error) { undo(); toast('error', result.error); return; }
       toast('ok', `${ticket.key ?? ticket.title ?? ''} → ${to.name}`);
       setAsking(null);
       setReason('');
       await onMoved?.({ id: to.id, name: to.name, status: stageStatus(to) });
     } catch {
+      undo();
       toast('error', say("Serveur injoignable : le ticket n'a pas bougé.", 'Server unreachable: the ticket did not move.'));
     } finally {
       setBusy(false);

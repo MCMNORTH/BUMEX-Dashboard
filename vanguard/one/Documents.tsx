@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { changeDocumentAction, saveDocumentAction } from '@/app/(app)/documents/actions';
 import { documentsAction, type DocumentRow, type DocumentsData } from '@/lib/erp/vanguard/document-actions';
 import type { DocumentRelatedType, DocumentType, DocumentVisibility } from '@/types/document';
@@ -9,6 +9,8 @@ import { useSay } from './say';
 import { Select } from '../ui/Select';
 import { confirmAsk } from './ask';
 import { Loading, SkList } from './skeleton';
+import { invalidate, useCached } from './cache';
+import { POLICY } from './policies';
 
 // The Archives room's "Documents" tab: BUMEX One's documents (the files; the room's boxes are the paper). Upload,
 // describe, link to a client, mission, contract or ticket, archive, restore, delete; download through BUMEX One's
@@ -69,19 +71,22 @@ function DocumentForm({ draft, options, onDone, say }: { draft: Draft; options: 
 export function DocumentsTab() {
   const say = useSay();
   const { toast } = useStore();
-  const [data, setData] = useState<DocumentsData | undefined>(undefined);
+  // kept between visits; read again when a document is uploaded, changed or deleted (one/policies.ts); null: not open
+  // to the person's role (a failed read says the same, as before)
+  const cached = useCached<DocumentsData>(['documents'], () => documentsAction(), POLICY.documents);
+  const data = cached.data === undefined ? (cached.error ? null : undefined) : cached.data;
   const [q, setQ] = useState('');
   const [type, setType] = useState('');
   const [archived, setArchived] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => setData(await documentsAction().catch(() => null)), []);
-  useEffect(() => {
-    let live = true;
-    documentsAction().catch(() => null).then((d) => { if (live) setData(d); });
-    return () => { live = false; };
-  }, []);
+  // after a document's change: the list read again, and stale wherever else documents show (a ticket's, a mission's, a
+  // client's page: the audit log does not see them)
+  const load = async () => {
+    invalidate(['documents']);
+    await cached.refresh();
+  };
 
   if (data === undefined) return <Loading><SkList rows={5} card /></Loading>;
   if (data === null) return <div className="banner warn">{say("Les documents sont réservés à l'administrateur, aux managers et aux actionnaires.", 'Documents are for the administrator, managers and shareholders.')}</div>;

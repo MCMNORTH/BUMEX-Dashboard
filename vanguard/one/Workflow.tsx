@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { saveFloorBoardAction } from '@/app/(app)/projects/workflow-actions';
 import { floorBoardEditorAction, floorBoardSourceAction, type FloorBoardEditor } from '@/lib/erp/vanguard/board-actions';
 import { WORKFLOW_MODELS, applyModel, modelOfBoard, type WorkflowModel } from '@/lib/tickets/workflow-models';
@@ -12,6 +12,8 @@ import { useSay } from './say';
 import { Select } from '../ui/Select';
 import { WideNote } from './WideNote'; // [mobile]
 import { Loading, SkBoard, SkList } from './skeleton';
+import { invalidate, useCached } from './cache';
+import { POLICY } from './policies';
 
 // The floor's board (0014: one per entity, every mission of the floor follows it; asked on 2026-10-28), its columns and
 // rules, as BUMEX One's workflow settings had them: stages (renamed, reordered, archived, never deleted), the default
@@ -33,22 +35,28 @@ export function WorkflowEditor({ entityId }: { entityId: string }) {
   const say = useSay();
   const { ui, state } = useStore();
   const [copyFrom, setCopyFrom] = useState('');
-  const [data, setData] = useState<FloorBoardEditor | null>(null);
+  // kept per floor until a board is saved, which makes the Tasks room's board stale too (Board.tsx; one/policies.ts);
+  // null: a floor closed to the person
+  const editor = useCached<FloorBoardEditor | null>(['board-editor', entityId], () => floorBoardEditorAction(entityId), POLICY.board);
+  const unavailable = editor.data === null || (editor.data === undefined && editor.error !== null);
+  // the board the draft starts from: a later read (↻) replaces it only while the draft is untouched, else the save
+  // would be checked against a board the person did not see; and right after a save (follow)
+  const [base, setBase] = useState<{ entityId: string; data: FloorBoardEditor } | null>(null);
   const [draft, setDraft] = useState<WorkflowDraft | null>(null);
+  const [follow, setFollow] = useState(false);
+  const read = editor.data;
+  if (read && read !== base?.data && (follow || base?.entityId !== entityId || !draft || JSON.stringify(draft) === JSON.stringify(toWorkflowDraft(base.data.workflow)))) {
+    setBase({ entityId, data: read });
+    setDraft(toWorkflowDraft(read.workflow));
+    setFollow(false);
+  }
+  const data = base?.entityId === entityId ? base.data : null;
   const [message, setMessage] = useState<{ kind: 'crit' | 'info'; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [test, setTest] = useState({ from: '', to: '' });
 
-  useEffect(() => {
-    let live = true;
-    floorBoardEditorAction(entityId)
-      .then((d) => { if (!live) return; if (!d) { setMessage({ kind: 'crit', text: say('Ce tableau est indisponible.', 'This board is unavailable.') }); return; } setData(d); setDraft(toWorkflowDraft(d.workflow)); })
-      .catch(() => live && setMessage({ kind: 'crit', text: say('Ce tableau est indisponible.', 'This board is unavailable.') }));
-    return () => { live = false; };
-  }, [entityId, say]);
-
   const preview = useMemo(() => (draft ? draftToWorkflow({ ...draft, stages: draft.stages.map((s, position) => ({ ...s, position })) }, entityId) : null), [draft, entityId]);
-  if (!data || !draft || !preview) return message ? <div className="card"><span className="muted">{message.text}</span></div> : <Loading label={say('Chargement du tableau…', 'Loading the board…')}><SkList rows={4} card /><SkBoard cols={4} /></Loading>;
+  if (!data || !draft || !preview) return unavailable ? <div className="card"><span className="muted">{say('Ce tableau est indisponible.', 'This board is unavailable.')}</span></div> : <Loading label={say('Chargement du tableau…', 'Loading the board…')}><SkList rows={4} card /><SkBoard cols={4} /></Loading>;
 
   const readOnly = !data.canManage;
   const locale = ui.lang === 'fr' ? 'fr' : 'en';
@@ -99,8 +107,11 @@ export function WorkflowEditor({ entityId }: { entityId: string }) {
     try {
       const result = await saveFloorBoardAction(entityId, draft, data.workflow.updated_at);
       if (result.error) { setMessage({ kind: 'crit', text: result.error }); return; }
-      const next = await floorBoardEditorAction(entityId);
-      if (next) { setData(next); setDraft(toWorkflowDraft(next.workflow)); }
+      // the saved board read again, the draft taken from it (follow); the floor's board stale wherever it shows (the
+      // Tasks room's, Board.tsx), named first so this one is read once
+      setFollow(true);
+      invalidate(['board']);
+      await editor.refresh();
       setMessage({ kind: 'info', text: say("Tableau enregistré pour toutes les missions de l'étage. Aucune carte n'a été déplacée.", "Board saved for every mission of the floor. No card was moved.") });
       forgetWorkflows();
       await reload();

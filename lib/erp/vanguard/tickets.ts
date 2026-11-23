@@ -37,7 +37,8 @@ export type TaskTicket = Pick<VanguardTicket, "project_id" | "assignee_id" | "re
 export const NO_DUE_DATE = "9999-12-31";
 
 // The tickets the person sees, archived ones apart ('normal', the engine's default priority, is the boards' medium).
-export async function listTickets(tx: ErpTransaction): Promise<VanguardTicket[]> {
+// only: the tickets asked (a change's, load.ts loadVanguardWork); those archived or gone are not returned
+export async function listTickets(tx: ErpTransaction, only?: string[]): Promise<VanguardTicket[]> {
   const [{ rows }] = await tx.query<{ rows: VanguardTicket[] }>(
     `select coalesce(jsonb_agg(jsonb_build_object(
               'id', t.id, 'title', t.title, 'description', t.notes, 'project_id', t.engagement_id, 'assignee_id', t.assignee_id,
@@ -49,7 +50,8 @@ export async function listTickets(tx: ErpTransaction): Promise<VanguardTicket[]>
               'key', (select x.ticket_prefix || '-' || t.number from erp.entity x where x.id = t.entity_id), 'labels', t.labels,
               'estimated_hours', t.estimated_hours::float8, 'logged_minutes', work.task_logged_minutes(t.id))), '[]'::jsonb) as rows
        from erp.task t
-      where t.engagement_id is not null and t.status <> 'archived'`,
+      where t.engagement_id is not null and t.status <> 'archived' and ($1::uuid[] is null or t.id = any($1::uuid[]))`,
+    [only ?? null],
   );
   return rows;
 }

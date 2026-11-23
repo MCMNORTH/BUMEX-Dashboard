@@ -108,7 +108,21 @@ export function visibleState(state: State, access: ErpAccess, codeOf: (entityId:
   // People tab) and the payroll runs without their lines.
   out.employees = state.employees.map((e) => (has("hr", e.entityId) ? e : { ...e, grossSalary: 0, allowances: 0 }));
   out.payrollRuns = out.payrollRuns.map((r) => (has("hr", r.entityId) ? r : { ...r, lines: [] }));
-  out.auditLog = state.auditLog.filter((r) => keeps(r.table, r.entityId));
+  out.auditLog = visibleAuditLog(state.auditLog, access, codeOf);
   out.deletionRequests = state.deletionRequests.filter((r) => keeps(r.table, r.entityId));
   return out;
+}
+
+// The history's rows a person keeps: those of their modules (a module's rows name its amounts), on every module for
+// the reports and the group's consolidation, but pay. Also for a ticket change's history alone (load.ts loadVanguardWork).
+export function visibleAuditLog(rows: State["auditLog"], access: ErpAccess, codeOf: (entityId: string) => string | undefined): State["auditLog"] {
+  const on = new Map<string, ErpModuleKey[]>();
+  const modules = (entityId: string | undefined) => {
+    if (!entityId) return access.modules;
+    if (!on.has(entityId)) on.set(entityId, modulesOn(access, codeOf(entityId)));
+    return on.get(entityId)!;
+  };
+  const has = (module: ErpModuleKey, entityId: string | undefined) => modules(entityId).includes(module);
+  const all = (entityId: string | undefined) => access.modules.includes("consolidation") || has("reports", entityId);
+  return rows.filter((r) => !TABLE_MODULE[r.table] || has(TABLE_MODULE[r.table], r.entityId) || (all(r.entityId) && TABLE_MODULE[r.table] !== "hr"));
 }

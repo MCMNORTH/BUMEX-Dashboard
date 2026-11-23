@@ -16,6 +16,7 @@ import { Select } from '../Select';
 import { WideNote } from '../../one/WideNote'; // [mobile]
 import { InvoiceSheet, defaultInvoiceLang, type InvoiceLang, type InvoiceSheetData } from '../../one/InvoiceSheet'; // [bumex-one] the invoice as printed
 import { InvoiceFit } from '../../one/InvoiceFit'; // [bumex-one]
+import { PageRefresh } from '../../one/PageRefresh'; // [bumex-one] ↻ at the right of the header (2026-11-22)
 // [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 // Withholding codes that a customer applies on our invoices (the receivable side), as opposed to the ones we apply on suppliers.
@@ -81,6 +82,7 @@ export function ClientsPanel({ entityId, initialTab }: { entityId: Id; initialTa
       <div className="sheet-head">
         <h1>{t('room_clients')}</h1>
         <Tabs tabs={tabs} value={tab} onChange={pickTab} />
+        <PageRefresh />
       </div>
       <div className="sheet-body">
         {tab === 'invoices' && <Invoices entityId={entityId} onPay={(id) => { setPayFor(id); setTab('payments'); }} onEdit={(id) => { setEditInvoiceId(id); setTab('new'); }} />}

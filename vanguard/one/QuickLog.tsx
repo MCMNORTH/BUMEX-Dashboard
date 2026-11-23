@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { saveTimeAction } from '@/app/(app)/timesheet/actions';
 import { myTimeAction, type MyTime } from '@/lib/erp/vanguard/time-actions';
@@ -13,6 +13,8 @@ import { useModal } from './modal';
 import type { Say } from './ticket-history';
 import { isTouch } from './screen'; // [mobile]
 import { Loading, SkForm } from './skeleton';
+import { useCached } from './cache';
+import { POLICY } from './policies';
 
 // [bumex-one] "Saisie rapide" (asked on 2026-10-28: logging time must be effortless). One sentence, Enter saves:
 // "J'ai travaillé [durée] sur [quoi] [quand]". Quoi is one search: my open tickets first (the line then counts on the
@@ -167,20 +169,20 @@ export function QuickLog({ data, ticketId, date: initialDate, onSaved, compact, 
 export function QuickLogDialog({ ticketId, onClose, onSaved }: { ticketId?: string | null; onClose: () => void; onSaved?: () => void }) {
   const say = useSay();
   const test = useStore((s) => s.state.session.testMode === true);
-  const [data, setData] = useState<MyTime | null>(null);
+  // the current week, kept between visits and shared with My timesheet (Time.tsx), so the window opens filled
+  // (one/policies.ts)
+  const mine = useCached<MyTime>(['time', 'mine', null, test], () => myTimeAction(null, test), POLICY.myTime);
+  const data = mine.data ?? null;
   const box = useRef<HTMLDivElement>(null);
   useModal(box, onClose, { ownKeys: true }); // Tab stays in it, the focus goes back (modal.ts)
-  useEffect(() => {
-    let live = true;
-    myTimeAction(null, test).then((d) => live && setData(d)).catch(() => live && setData(null));
-    return () => { live = false; };
-  }, [test]);
+  // the week read again behind the closed window: My timesheet, opened next, shows the line just saved
+  const saved = () => { void mine.refresh(); onSaved?.(); onClose(); };
   // drawn over the page (a card or a row never cuts it), and its clicks stay its own (React bubbles them through)
   return createPortal(
     <div className="ts-modal-back" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) { e.preventDefault(); onClose(); } }} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') onClose(); }}>
       <div ref={box} className="ts-modal ql-modal" role="dialog" aria-modal="true" aria-label={say('Enregistrer du temps', 'Log time')}>
         <div className="ts-modal-h"><h2>{say('Enregistrer du temps', 'Log time')}</h2><button className="btn sm ghost" onClick={onClose} aria-label={say('Fermer', 'Close')} title={say('Fermer', 'Close')}><Icon name="close" size={14} /></button></div>
-        {data ? <QuickLog data={data} ticketId={ticketId} compact say={say} onSaved={() => { onSaved?.(); onClose(); }} /> : <Loading><SkForm fields={3} /></Loading>}
+        {data ? <QuickLog data={data} ticketId={ticketId} compact say={say} onSaved={saved} /> : <Loading><SkForm fields={3} /></Loading>}
         <div className="small muted" style={{ marginTop: 8 }}>
           <button className="linkish" onClick={() => { onClose(); useStore.getState().openRoom('time'); }}>{say('Voir ma semaine', 'See my week')} →</button>
         </div>

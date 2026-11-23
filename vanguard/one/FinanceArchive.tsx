@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { fmt } from '@bumex/domain';
 import { financeArchiveAction, type FinanceArchive as Archive } from '@/lib/erp/vanguard/finance-actions';
 import { Chip, D } from '../ui/common';
 import { useSay } from './say';
 import { Loading, SkTable } from './skeleton';
 import { valueLabel } from './labels';
+import { useCached } from './cache';
+import { POLICY } from './policies';
 
 // The Reports room's "Archives financières": BUMEX One's invoices, payments, transfers and bank statements, read-only
 // (the ERP keeps the books since 2026-10-24). An invoice opens as its PDF.
@@ -14,15 +16,12 @@ const money = (amount: number, currency: string) => `${fmt(amount, 0)} ${currenc
 
 export function FinanceArchive() {
   const say = useSay();
-  const [data, setData] = useState<Archive | undefined>(undefined);
+  // kept between visits: BUMEX One's records no longer change, read again only with the books or by ↻
+  // (one/policies.ts); null: not open to the person's role (a failed read says the same, as before)
+  const cached = useCached<Archive>(['finance-archive'], () => financeArchiveAction(), POLICY.financeArchive);
+  const data = cached.data === undefined ? (cached.error ? null : undefined) : cached.data;
   const [part, setPart] = useState<Part>('invoices');
   const [q, setQ] = useState('');
-
-  useEffect(() => {
-    let live = true;
-    financeArchiveAction().catch(() => null).then((d) => { if (live) setData(d); });
-    return () => { live = false; };
-  }, []);
 
   if (data === undefined) return <Loading><SkTable rows={6} cols={5} /></Loading>;
   if (data === null) return <div className="banner warn">{say("Les archives financières sont réservées à l'administrateur, aux managers et aux actionnaires.", 'The finance archive is for the administrator, managers and shareholders.')}</div>;

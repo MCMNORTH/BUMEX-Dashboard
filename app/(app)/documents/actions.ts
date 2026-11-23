@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRouteAccess } from "@/lib/auth/server";
@@ -86,7 +85,6 @@ export async function createDocumentAction(
     };
   }
 
-  revalidatePath("/documents");
   redirect("/documents?toast=document-uploaded");
 }
 
@@ -120,7 +118,6 @@ export async function updateDocumentAction(
     };
   }
 
-  revalidatePath("/documents");
   redirect(`/documents?document=${documentId}&toast=document-updated`);
 }
 
@@ -139,7 +136,6 @@ export async function toggleDocumentArchiveAction(formData: FormData) {
     redirect("/documents?toast=document-action-error");
   }
 
-  revalidatePath("/documents");
   redirect(`/documents?document=${documentId}&toast=${nextState === "archived" ? "document-archived" : "document-restored"}`);
 }
 
@@ -163,7 +159,6 @@ export async function deleteDocumentAction(formData: FormData) {
     redirect(`/documents?document=${document.id}&toast=document-action-error`);
   }
 
-  revalidatePath("/documents");
   redirect("/documents?toast=document-deleted");
 }
 
@@ -199,7 +194,6 @@ export async function saveDocumentAction(formData: FormData): Promise<DocumentAc
     return { error: error instanceof Error ? error.message : "The document could not be saved." };
   }
 
-  revalidatePath("/documents");
   return { success: true };
 }
 
@@ -226,6 +220,5 @@ export async function changeDocumentAction(documentId: string, change: "archive"
     return { error: "The document could not be changed." };
   }
 
-  revalidatePath("/documents");
   return { success: true };
 }

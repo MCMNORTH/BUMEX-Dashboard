@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Bell, Clock, Languages, ListChecks, LogOut, Moon, Settings, ShieldCheck, Sun, SunMoon, UserRound } from "lucide-react";
 
-import { signOutAction } from "@/app/login/actions";
+import { endSessionAction } from "@/app/login/actions";
 import { useNotifications } from "@/hooks/use-notifications";
 import { useUser } from "@/hooks/use-user";
 import { siteConfig } from "@/lib/site";
@@ -35,6 +35,14 @@ import {
 // work, account), settings and permissions, the language, sign out. The floor is chosen from the rail (vanguard/ui/Sidebar.tsx).
 export function AccountMenu() {
   const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  // the session ended, then a full load of the sign-in page: the app's memory (its state, its pages' cache) goes with
+  // the person (vanguard/one/cache.ts), never to whoever signs in next in this tab
+  const signOut = async () => {
+    setSigningOut(true);
+    await endSessionAction().catch(() => null);
+    window.location.replace("/login");
+  };
   const { profile } = useUser();
   const { unreadCount } = useNotifications(6);
   const loaded = useStore((s) => s.loadedAt > 0);
@@ -149,11 +157,9 @@ export function AccountMenu() {
             <Button variant="ghost" type="button" onClick={() => setSignOutDialogOpen(false)}>
               {say("Annuler", "Cancel")}
             </Button>
-            <form action={signOutAction}>
-              <Button type="submit" variant="primary">
-                {say("Oui, me déconnecter", "Yes, sign out")}
-              </Button>
-            </form>
+            <Button type="button" variant="primary" disabled={signingOut} onClick={() => void signOut()}>
+              {say("Oui, me déconnecter", "Yes, sign out")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

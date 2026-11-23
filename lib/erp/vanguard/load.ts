@@ -6,7 +6,7 @@ import { resolveErpModules } from "@/lib/erp/config";
 import type { ErpTransaction } from "@/lib/erp/db";
 import { moduleTables, readTable } from "@/lib/erp/vanguard/tables";
 import { listTickets, ticketTasks } from "@/lib/erp/vanguard/tickets";
-import { visibleState } from "@/lib/erp/vanguard/visible";
+import { visibleAuditLog, visibleState } from "@/lib/erp/vanguard/visible";
 import { floors } from "@/lib/erp/vanguard/floors";
 import type { ErpAccess, ErpModuleKey } from "@/types/erp";
 import { bumexTestEntityCode } from "@/types/entity";
@@ -52,10 +52,16 @@ const bankRules = (entityId: string): BankRule[] => chartBankRules(entityId);
 
 // Every change of the database leaves a row in the audit log, or moves the work's counter (people, mission members:
 // 0008): together they tell a screen whether to read again.
-export async function vanguardVersion(tx: ErpTransaction): Promise<number> {
-  const [{ version }] = await tx.query<{ version: number }>("select (coalesce(max(id), 0) + work.version())::float8 as version from erp.audit_log");
-  return version;
+// Where the database stands for a screen: the audit log's last row (every audited table, the tickets and time lines
+// among them) and the counter of what is not audited (the people, the missions' members: 0008 §17). The browser sends
+// them back to ask what changed since (run.ts syncVanguard); their sum is the screen's version.
+export type VanguardMarks = { audit: number; seq: number };
+
+export async function vanguardMarks(tx: ErpTransaction): Promise<VanguardMarks> {
+  const [marks] = await tx.query<VanguardMarks>("select coalesce((select max(id) from erp.audit_log), 0)::float8 as audit, work.version()::float8 as seq");
+  return marks;
 }
+
 
 async function rows<T>(tx: ErpTransaction, sql: string, params: unknown[] = []): Promise<T[]> {
   const [{ rows: list }] = await tx.query<{ rows: T[] }>(`select coalesce(jsonb_agg(r), '[]'::jsonb) as rows from (${sql}) r`, params);
@@ -68,6 +74,56 @@ async function records<T>(tx: ErpTransaction, sql: string, params: unknown[] = [
   return list;
 }
 
+// the history of the entities the person sees (the audit log has no row-level security of its own), latest first;
+// rows of no entity (access grants, rates) for the access administrator only
+// after: only the rows since this one (a change's, loadVanguardWork), oldest first like the others
+async function readAuditLog(tx: ErpTransaction, access: ErpAccess, names: Map<string, string>, after = 0): Promise<AuditRow[]> {
+  return (
+    await records<Omit<AuditRow, "summary"> & { label?: string }>(
+      tx,
+      `select a.id::float8 as "logId", a.at, a.actor_id as "actorId", a.actor_role as role, a.table_name as "table", a.row_id as "rowId", a.entity_id as "entityId", a.action,
+              coalesce(a.after_row, a.before_row) ->> coalesce((select k from unnest(array['label', 'description', 'name', 'name_fr', 'code']) k
+                                                                 where coalesce(a.after_row, a.before_row) ? k limit 1), 'id') as label
+         from erp.audit_log a
+        where ((a.entity_id is null and $1) or erp.can_see_entity(a.entity_id)) and a.id > $2
+        order by a.id desc limit 500`,
+      [access.role === "admin", after],
+    )
+  )
+    .reverse()
+    .map(({ label, ...a }) => ({ ...a, actorId: names.get(a.actorId) ?? a.actorId, summary: label ?? "" }));
+}
+
+// What a change of tickets or time lines since the marks moves in the state, and only that (syncVanguardState): the
+// tickets it touched as they now are (`taskIds`: those asked; one asked and not sent is gone or archived), the missions
+// (their stage follows their tickets' progress: tables.ts) and the history's new rows. The same reads as below; the
+// browser puts them in its state (vanguard/store.ts hydrateWork, mergeWork) and gets what a whole read would give.
+export type VanguardWork = { taskIds: string[]; tasks: State["tasks"]; engagements: State["engagements"]; auditLogAdded: State["auditLog"]; auditFrom: number };
+
+export async function loadVanguardWork(tx: ErpTransaction, access: ErpAccess, people: VanguardPerson[], since: VanguardMarks): Promise<VanguardWork> {
+  const names = new Map(people.map((p) => [p.id, p.name]));
+  const [{ ids }] = await tx.query<{ ids: string[] | null }>(
+    `select array_agg(distinct id) as ids from (
+       select a.row_id as id from erp.audit_log a where a.id > $1 and a.table_name = 'task'
+       union select coalesce(a.after_row, a.before_row) ->> 'task_id' from erp.audit_log a where a.id > $1 and a.table_name = 'time_entry'
+     ) x where id is not null`,
+    [since.audit],
+  );
+  const taskIds = ids ?? [];
+  const engagements = await readTable<State["engagements"][number]>(tx, moduleTables.find((spec) => spec.collection === "engagements")!);
+  const tasks = taskIds.length ? ticketTasks(await listTickets(tx, taskIds), engagements as Parameters<typeof ticketTasks>[1], names) : [];
+  const codes = await rows<{ id: string; code: string }>(tx, "select id, code from erp.entity");
+  const codeById = new Map(codes.map((e) => [e.id, e.code]));
+  const auditLogAdded = visibleAuditLog(await readAuditLog(tx, access, names, since.audit), access, (entityId) => codeById.get(entityId));
+  // where the history's 500 rows now start (readAuditLog): older rows leave it
+  const [{ from }] = await tx.query<{ from: number | null }>(
+    `select min(id)::float8 as "from" from (select a.id from erp.audit_log a
+      where (a.entity_id is null and $1) or erp.can_see_entity(a.entity_id) order by a.id desc limit 500) w`,
+    [access.role === "admin"],
+  );
+  return { taskIds, tasks, engagements, auditLogAdded, auditFrom: from ?? 0 };
+}
+
 export async function loadVanguardState(
   tx: ErpTransaction,
   person: { id: string; name: string },
@@ -76,7 +132,7 @@ export async function loadVanguardState(
   // full: every row the person's entities hold, for the server's replay (save.ts); otherwise what the browser may
   // receive of it (visible.ts)
   { checkChains = true, full = false } = {},
-): Promise<{ state: State; chainBreaks: string[]; version: number }> {
+): Promise<{ state: State; chainBreaks: string[]; version: number; marks: VanguardMarks }> {
   const names = new Map(people.map((p) => [p.id, p.name]));
 
   const [group] = await rows<OrgGroup>(tx, `select id, name, presentation_currency as "presentationCurrency" from erp.org_group order by created_at limit 1`);
@@ -228,20 +284,7 @@ export async function loadVanguardState(
 
   // the history of the entities the person sees (the audit log has no row-level security of its own), latest first;
   // rows of no entity (access grants, rates) for the access administrator only
-  const auditLog = (
-    await records<Omit<AuditRow, "summary"> & { label?: string }>(
-      tx,
-      `select a.at, a.actor_id as "actorId", a.actor_role as role, a.table_name as "table", a.row_id as "rowId", a.entity_id as "entityId", a.action,
-              coalesce(a.after_row, a.before_row) ->> coalesce((select k from unnest(array['label', 'description', 'name', 'name_fr', 'code']) k
-                                                                 where coalesce(a.after_row, a.before_row) ? k limit 1), 'id') as label
-         from erp.audit_log a
-        where (a.entity_id is null and $1) or erp.can_see_entity(a.entity_id)
-        order by a.id desc limit 500`,
-      [access.role === "admin"],
-    )
-  )
-    .reverse()
-    .map(({ label, ...a }) => ({ ...a, actorId: names.get(a.actorId) ?? a.actorId, summary: label ?? "" }));
+  const auditLog = await readAuditLog(tx, access, names);
 
   // the person's own access (the permissions page reads everyone's: lib/erp/permissions.ts)
   const users = (
@@ -325,5 +368,47 @@ export async function loadVanguardState(
     seq: 0,
   };
 
-  return { state: full ? state : visibleState(state, access, (entityId) => entityCodeById.get(entityId)), chainBreaks: chainBreaks.map((c) => c.id), version: await vanguardVersion(tx) };
+  const marks = await vanguardMarks(tx);
+  return { state: full ? state : visibleState(state, access, (entityId) => entityCodeById.get(entityId)), chainBreaks: chainBreaks.map((c) => c.id), version: marks.audit + marks.seq, marks };
+}
+
+// What changed since a screen's marks (asked on 2026-11-22: a screen reads again only what moved), in one session:
+// - nothing: the marks;
+// - only tickets and time lines (the audit log's rows since the marks are of those tables): the tickets, the missions
+//   and the history (loadVanguardWork), not the books;
+// - anything else (an entry, an invoice, a mission, a person, a mission's members…): the whole state, as before.
+// `changed` names the audited tables that moved ("person" for the people and the missions' members), so the screens'
+// caches read again what depends on them (vanguard/one/cache.ts). Rows of floors the person does not see change
+// nothing for them.
+export type SyncState = { marks: VanguardMarks; version: number; changed: string[] } & (
+  | { kind: "same" }
+  | ({ kind: "work" } & VanguardWork)
+  | ({ kind: "full" } & Awaited<ReturnType<typeof loadVanguardState>>)
+);
+
+const WORK_TABLES = ["task", "time_entry"];
+
+export async function syncVanguardState(
+  tx: ErpTransaction,
+  person: { id: string; name: string },
+  access: ErpAccess,
+  people: VanguardPerson[],
+  since: VanguardMarks,
+): Promise<SyncState> {
+  const marks = await vanguardMarks(tx);
+  const version = marks.audit + marks.seq;
+  if (marks.audit === since.audit && marks.seq === since.seq) return { kind: "same", marks, version, changed: [] };
+  const [{ tables }] = await tx.query<{ tables: string[] | null }>(
+    // a new ticket takes its number from its floor (0012: erp.entity.ticket_seq), which the state does not read
+    `select array_agg(distinct table_name order by table_name) as tables from erp.audit_log a
+      where a.id > $1 and a.id <= $2 and (a.entity_id is null or erp.can_see_entity(a.entity_id))
+        and not (a.table_name = 'entity' and a.action = 'U' and a.after_row - 'ticket_seq' - 'updated_at' = a.before_row - 'ticket_seq' - 'updated_at')`,
+    [since.audit, marks.audit],
+  );
+  const changed = [...(tables ?? []), ...(marks.seq !== since.seq ? ["person"] : [])];
+  if (since.audit > marks.audit || changed.some((table) => !WORK_TABLES.includes(table))) {
+    return { kind: "full", changed, ...(await loadVanguardState(tx, person, access, people)) };
+  }
+  if (!changed.length) return { kind: "same", marks, version, changed };
+  return { kind: "work", marks, version, changed, ...(await loadVanguardWork(tx, access, people, since)) };
 }

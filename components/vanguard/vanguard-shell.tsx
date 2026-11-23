@@ -49,7 +49,8 @@ function RoomLink() {
 
 // BUMEX Vanguard, the app (/vanguard), with two of BUMEX One's controls in its header: the notifications' bell and the
 // person's menu (vanguard/ui/Header.tsx keeps room for them). The floor is chosen from Vanguard's rail only.
-export function VanguardShell({ children }: { children: React.ReactNode }) {
+// userId: who is signed in, for the app to check its memory is theirs (vanguard-app.tsx)
+export function VanguardShell({ children, userId }: { children: React.ReactNode; userId: string }) {
   const frame = useRef<HTMLDivElement>(null);
   const tools = useRef<HTMLDivElement>(null);
 
@@ -69,7 +70,7 @@ export function VanguardShell({ children }: { children: React.ReactNode }) {
         <RoomLink />
       </Suspense>
       <div ref={frame} className="vanguard">
-        <VanguardApp />
+        <VanguardApp userId={userId} />
         {children}
         {/* the theme is the page's (lib/theme.ts): <html class="dark"> in the dark, as for the menus these open */}
         <div ref={tools} className="bumex-page bumex-tools text-foreground">

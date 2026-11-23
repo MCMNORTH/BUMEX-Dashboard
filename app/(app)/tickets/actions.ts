@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRouteAccess } from "@/lib/auth/server";
@@ -223,12 +222,6 @@ export async function createTicketAction(
     emailAssignee: getString(formData, "notify_assignee_email") !== "0",
   });
   await createSubtasks(ticketId, subtaskTitles.titles, auth.profile.id);
-  revalidatePath("/tickets");
-  revalidatePath("/my-work");
-  revalidatePath("/overview");
-  if (values.project_id) {
-    revalidatePath(`/projects/${values.project_id}`);
-  }
 
   if (getString(formData, "create_another") === "1") {
     return { created: { id: ticketId, title: values.title } };
@@ -292,11 +285,6 @@ async function saveTicketEdit(formData: FormData): Promise<TicketActionState> {
   }
 
   await updateTicket(ticketId, values, auth.profile.id, stage.change);
-  revalidatePath("/tickets");
-  revalidatePath("/my-work");
-  revalidatePath("/overview");
-  revalidatePath(`/tickets/${ticketId}`);
-  revalidatePath(`/projects/${currentTicket.project_id}`);
   return { success: true };
 }
 
@@ -355,8 +343,6 @@ export async function removeTicketAction(ticketId: string): Promise<TicketAction
     return refused;
   }
   await deleteTicket(ticket.id);
-  revalidatePath("/tickets");
-  revalidatePath(`/projects/${ticket.project_id}`);
   return { success: true };
 }
 
@@ -387,8 +373,6 @@ export async function deleteTicketAction(formData: FormData) {
   }
 
   await deleteTicket(ticketId);
-  revalidatePath("/tickets");
-  revalidatePath(`/projects/${ticket.project_id}`);
   redirect("/tickets?toast=ticket-deleted");
 }
 
@@ -528,14 +512,6 @@ export async function moveTicketStageAction(
     return { error: result.message, code: result.code, stageId: result.stageId };
   }
 
-  if (result.changed) {
-    revalidatePath("/tickets");
-    revalidatePath("/my-work");
-    revalidatePath("/overview");
-    revalidatePath(`/tickets/${ticket.id}`);
-    revalidatePath(`/projects/${ticket.project_id}`);
-  }
-
   return { success: true };
 }
 
@@ -616,13 +592,6 @@ async function loadSubtask(subtaskId: string) {
   return { auth, ticket, subtask, permissionError } as const;
 }
 
-function revalidateSubtaskViews(ticket: TicketRecord) {
-  revalidatePath("/tickets");
-  revalidatePath("/my-work");
-  revalidatePath(`/tickets/${ticket.id}`);
-  revalidatePath(`/projects/${ticket.project_id}`);
-}
-
 export async function createSubtaskAction(ticketId: string, rawTitle: string): Promise<SubtaskActionState> {
   const title = rawTitle.trim();
   const validationError = validateSubtaskTitle(title);
@@ -638,7 +607,6 @@ export async function createSubtaskAction(ticketId: string, rawTitle: string): P
   }
 
   await createSubtasks(scope.ticket.id, [title], scope.auth.profile.id);
-  revalidateSubtaskViews(scope.ticket);
 
   return { success: true };
 }
@@ -656,7 +624,6 @@ export async function toggleSubtaskAction(subtaskId: string, isDone: boolean): P
 
   if (scope.subtask.is_done !== isDone) {
     await setSubtaskDone(scope.subtask, isDone, scope.auth.profile.id);
-    revalidateSubtaskViews(scope.ticket);
   }
 
   return { success: true };
@@ -678,7 +645,6 @@ export async function renameSubtaskAction(subtaskId: string, rawTitle: string): 
 
   if (scope.subtask.title !== title) {
     await renameSubtask(scope.subtask, title);
-    revalidateSubtaskViews(scope.ticket);
   }
 
   return { success: true };
@@ -703,7 +669,6 @@ export async function setSubtaskOwnerAction(subtaskId: string, assigneeId: strin
 
   if (scope.subtask.assignee_id !== (owner?.id ?? null)) {
     await setSubtaskOwner(scope.subtask, owner, scope.ticket.title, scope.auth.profile.id);
-    revalidateSubtaskViews(scope.ticket);
   }
 
   return { success: true };
@@ -722,7 +687,6 @@ export async function setSubtaskDueDateAction(subtaskId: string, dueDate: string
 
   if (scope.subtask.due_date !== dueDate) {
     await setSubtaskDueDate(scope.subtask, dueDate, scope.auth.profile.id);
-    revalidateSubtaskViews(scope.ticket);
   }
 
   return { success: true };
@@ -745,8 +709,6 @@ export async function reorderSubtasksAction(ticketId: string, orderedIds: string
     return { error: "The sub-task list changed in the meantime. Refresh the page and try again." };
   }
 
-  revalidatePath(`/tickets/${scope.ticket.id}`);
-
   return { success: true };
 }
 
@@ -758,7 +720,6 @@ export async function deleteSubtaskAction(subtaskId: string): Promise<SubtaskAct
   }
 
   await deleteSubtask(scope.subtask, scope.auth.profile.id);
-  revalidateSubtaskViews(scope.ticket);
 
   return { success: true };
 }

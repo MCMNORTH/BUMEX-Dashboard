@@ -12,6 +12,7 @@ import { useSay } from '../../one/say'; // [bumex-one]
 
 const STATUS_KIND: Record<ArchiveStatus, 'good' | 'warn' | 'crit' | 'dim'> = { archived: 'good', retrieved: 'warn', pending_destruction: 'crit', destroyed: 'dim' };
 import { Select } from '../Select';
+import { PageRefresh } from '../../one/PageRefresh'; // [bumex-one] ↻ at the right of the header (2026-11-22)
 
 export function ArchivesPanel({ entityId, compact = false, initialTab }: { entityId: Id; compact?: boolean; initialTab?: string | null }) { // [bumex-one] initialTab
   const { state, t, apply, ui, setUi, openRoom, openArchive } = useStore();
@@ -34,7 +35,7 @@ export function ArchivesPanel({ entityId, compact = false, initialTab }: { entit
   const [part, setPart] = useState<'boxes' | 'documents'>(initialTab === 'documents' ? 'documents' : 'boxes');
   useEffect(() => { if (initialTab === 'documents') setPart('documents'); }, [initialTab]);
   const parts = compact ? null : <Tabs tabs={[{ id: 'boxes' as const, label: say('Boîtes', 'Boxes') }, { id: 'documents' as const, label: 'Documents' }]} value={part} onChange={setPart} />;
-  if (part === 'documents' && !compact) return (<><div className="sheet-head"><h1>{t('arc_title')}</h1>{parts}</div><div className="sheet-body"><DocumentsTab /></div></>);
+  if (part === 'documents' && !compact) return (<><div className="sheet-head"><h1>{t('arc_title')}</h1>{parts}<PageRefresh /></div><div className="sheet-body"><DocumentsTab /></div></>);
   return (
     <>
       <div className="sheet-head">
@@ -46,6 +47,7 @@ export function ArchivesPanel({ entityId, compact = false, initialTab }: { entit
             <button className="btn sm primary" onClick={() => setUi({ rackFocus: true, focusRoom: 'clients' })}><Icon name="archives" size={14} /> {say('Mode étagère', 'Shelf mode')}</button>
           </div>
         )}
+        <PageRefresh />
       </div>
       <div className="sheet-body">
         <div className="toolbar">

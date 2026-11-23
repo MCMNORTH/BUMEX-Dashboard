@@ -22,5 +22,5 @@ export default async function ApplicationLayout({
   if (!entry.access) {
     return <NoAccess reason={entry.reason} email={auth.profile.email} />;
   }
-  return <VanguardShell>{children}</VanguardShell>;
+  return <VanguardShell userId={auth.profile.id}>{children}</VanguardShell>;
 }

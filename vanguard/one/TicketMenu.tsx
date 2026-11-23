@@ -5,6 +5,7 @@ import { confirmAsk } from './ask';
 import { useModal } from './modal';
 import { useSay } from './say';
 import { TEAM_ROLES, reload, type TicketTask } from './Tasks';
+import { forget } from './cache';
 
 // A ticket's menu on a right click, wherever the ticket is shown (asked on 2026-11-22): a board's card, a list's row,
 // My work, My day, a mission, a person, a client, the overview, the calendar, the week, a ticket's links. The same
@@ -121,6 +122,7 @@ function TicketMenu({ opened, onClose }: { opened: Opened; onClose: () => void }
       const result = await removeTicketAction(opened.id);
       if (result.error) { store().toast('error', result.error); return; }
       store().toast('ok', say('Ticket supprimé', 'Ticket deleted'));
+      forget(['ticket', opened.id]);
       await reload();
     } catch {
       store().toast('error', say("Serveur injoignable : le ticket n'est pas supprimé.", 'Server unreachable: the ticket was not deleted.'));

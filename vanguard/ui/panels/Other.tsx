@@ -10,6 +10,7 @@ import { WeekView } from '../../one/Week'; // [bumex-one] BUMEX One's weekly pla
 import { MissionPanel } from '../../one/Mission'; // [bumex-one] a mission's page (BUMEX One's project page)
 import { CalendarView } from '../../one/Calendar'; // [bumex-one] BUMEX One's Calendar
 import { MilestonesView } from '../../one/Milestones'; // [bumex-one] BUMEX One's Roadmap
+import { PageRefresh } from '../../one/PageRefresh'; // [bumex-one] ↻ at the right of the header (2026-11-22)
 // [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 type MissionsTab = 'board' | 'week' | 'calendar' | 'milestones' | 'billing' | 'planning' | 'availability'; // [bumex-one] week, calendar, milestones, billing
@@ -31,7 +32,7 @@ export function MissionsPanel({ entityId, initialTab }: { entityId: Id; initialT
   ];
   return (
     <>
-      <div className="sheet-head"><h1>{t('room_missions')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
+      <div className="sheet-head"><h1>{t('room_missions')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /><PageRefresh /></div>
       <div className="sheet-body">
         {/* [bumex-one] "mission:<project>" opens that mission's page */}
         {tab.startsWith('mission:') && <MissionPanel key={tab} projectId={tab.split(':')[1]} onClose={() => { setTab('board'); useStore.getState().setUi({ tab: null }); }} />}
@@ -113,6 +114,7 @@ export function PenthousePanel() {
         <h1>{t('room_penthouse')}</h1>
         <button className={`tab ${tab === 'board' ? 'on' : ''}`} onClick={() => setTab('board')}>{say('Tableau de bord', 'Dashboard')}</button>
         <button className={`tab ${tab === 'ic' ? 'on' : ''}`} onClick={() => setTab('ic')}>{say('Intercos', 'Intercompany')} · {ic.length}</button>
+        <PageRefresh />
       </div>
       <div className="sheet-body">
         {tab === 'board' ? (

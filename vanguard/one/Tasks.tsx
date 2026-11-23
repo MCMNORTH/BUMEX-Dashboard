@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { addDays, type Id, type Task } from '@bumex/domain';
-import { reloadVanguardAction } from '@/lib/erp/vanguard/actions';
 import { missionOptionsAction, type MissionOptions } from '@/lib/erp/vanguard/mission-actions';
 import { peopleLoadsAction } from '@/lib/erp/vanguard/people-actions';
-import type { VanguardData } from '@/lib/erp/vanguard/run';
 import type { TaskTicket } from '@/lib/erp/vanguard/tickets';
 import { createTicketAction } from '@/app/(app)/tickets/actions';
-import { useStore } from '../store';
+import { sync, useStore } from '../store';
 import { useBackLayer } from './back'; // [mobile]
 import { isPhone } from './screen'; // [mobile]
 import { Field, Icon, Tabs } from '../ui/common';
@@ -22,6 +20,11 @@ import { TicketList } from './TicketList';
 import { hoursText } from './work-ui';
 import { useBoardOf } from './stages';
 import { getActiveStages, getDefaultStage } from '@/lib/tickets/workflow';
+import { PageRefresh } from './PageRefresh';
+import { useCached } from './cache';
+import { POLICY } from './policies';
+
+const NO_LOADS: Awaited<ReturnType<typeof peopleLoadsAction>> = {};
 
 // Vanguard's Tasks room on BUMEX One's tickets (lib/erp/vanguard/tickets.ts), laid out as Jira's (asked on
 // 2026-10-27): the board (a mission's own columns, or every mission of the floor by state) and the list, with one
@@ -45,10 +48,10 @@ export const typeLabel = (type: string, say: (fr: string, en: string) => string)
 };
 export const TEAM_ROLES = ['admin', 'partner', 'raf', 'manager'];
 
-// after a change made in BUMEX One's code: the state again, with the ticket as it now is
+// after a change made in BUMEX One's code: what it moved, read again (the tickets alone when only they moved, not the
+// books: store.ts sync); the screens' caches read again what depends on it (one/cache.ts)
 export async function reload() {
-  const result = await reloadVanguardAction().catch(() => null);
-  if (result?.state) useStore.getState().hydrate(result as VanguardData);
+  await sync();
 }
 
 // the toolbar's choices, remembered per floor in this browser (work-filters.ts)
@@ -113,6 +116,7 @@ export function TasksRoom({ entityId, initialTab }: { entityId: Id; initialTab?:
         <h1>{t('tsk_title')}</h1>
         <Tabs tabs={[{ id: 'board' as View, label: say('Tableau', 'Board') }, { id: 'list' as View, label: say('Liste', 'List') }, { id: 'rules' as View, label: say('Statuts et règles', 'Statuses and rules') }]} value={view} onChange={(v) => { setView(v); if (v !== 'rules') writeView('tasks', v); close(); }} />
         <div className="hright">{canCreate && <button className="btn sm primary" onClick={() => { setTicketId(null); setCreating(true); }}><Icon name="plus" size={13} /> {say('Créer', 'Create')}</button>}</div>
+        <PageRefresh />
       </div>
       <div className="sheet-body">
         {ticketId ? <TicketPanel id={ticketId} onClose={close} /> : view === 'rules' ? <WorkflowEditor entityId={entityId} /> : (
@@ -140,7 +144,8 @@ const ESTIMATES = [1, 2, 4, 8, 16, 24, 40];
 function NewTask({ entityId, missionId, onDone }: { entityId: Id; missionId?: string; onDone: (createdId?: string) => void }) {
   const { state, t, toast } = useStore();
   const say = useSay();
-  const [options, setOptions] = useState<MissionOptions | null>(null);
+  // the form's lists (people, their week's load), kept between forms (one/policies.ts)
+  const options = useCached<MissionOptions>(['mission-options', null], () => missionOptionsAction(), POLICY.missionOptions).data ?? null;
   const missions = state.engagements.filter((e) => e.entityId === entityId && e.status !== 'completed' && (e as { projectId?: string }).projectId);
   const [mission, setMission] = useState(missionId && missions.some((m) => m.id === missionId) ? missionId : missions[0]?.id ?? '');
   // stage '': the board's default; the reporter is who signs the ticket off (moves it to the completed stage): me unless chosen
@@ -153,8 +158,7 @@ function NewTask({ entityId, missionId, onDone }: { entityId: Id; missionId?: st
   const board = useBoardOf(pickedProject ? [pickedProject] : [])(pickedProject);
   const startStages = getActiveStages(board).filter((st) => !st.is_completed);
   const [busy, setBusy] = useState(false);
-  const [loads, setLoads] = useState<Awaited<ReturnType<typeof peopleLoadsAction>>>({});
-  useEffect(() => { void missionOptionsAction().then(setOptions); void peopleLoadsAction().then(setLoads).catch(() => {}); }, []);
+  const loads = useCached(['people-loads'], () => peopleLoadsAction(), POLICY.peopleLoads).data ?? NO_LOADS;
 
   const submit = async (open: boolean) => {
     const picked = missions.find((m) => m.id === mission) as { projectId?: string } | undefined;

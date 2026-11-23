@@ -10,6 +10,7 @@ import { Select } from '../Select';
 import { WideNote } from '../../one/WideNote'; // [mobile]
 import { AssignLine, BankRules, propositionOf } from '../../one/BankAssign'; // [bumex-one] a line to any account, rules on the label
 import { useSay } from '../../one/say';
+import { PageRefresh } from '../../one/PageRefresh'; // [bumex-one] ↻ at the right of the header (2026-11-22)
 // [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 type Tab = 'accounts' | 'recon' | 'rules' | 'import' | 'forecast' | 'loans';
@@ -30,6 +31,7 @@ export function BankPanel({ entityId, initialTab }: { entityId: Id; initialTab?:
       <div className="sheet-head">
         <h1>{t('room_bank')}</h1>
         <Tabs tabs={tabs} value={tab} onChange={setTab} />
+        <PageRefresh />
       </div>
       <div className="sheet-body">
         {tab === 'accounts' && <Accounts entityId={entityId} />}

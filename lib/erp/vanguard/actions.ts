@@ -2,7 +2,8 @@
 
 import { requireErpAccess } from "@/lib/erp/server";
 import type { VanguardChange } from "@/lib/erp/vanguard/record";
-import { getVanguardVersion, loadVanguard, runVanguardChange, type VanguardResult } from "@/lib/erp/vanguard/run";
+import type { VanguardMarks } from "@/lib/erp/vanguard/load";
+import { loadVanguard, runVanguardChange, syncVanguard, type VanguardResult, type VanguardSync } from "@/lib/erp/vanguard/run";
 import { getCurrentLocale } from "@/lib/i18n/server";
 
 // A change made in BUMEX Vanguard (the store's apply()), replayed and saved for the signed-in person.
@@ -17,8 +18,11 @@ export async function reloadVanguardAction(): Promise<VanguardResult> {
   return { ok: true, ...(await loadVanguard(auth.profile, access)) };
 }
 
-// Whether someone else changed the ERP since the screen's state was read.
-export async function vanguardVersionAction(): Promise<number> {
-  const { auth } = await requireErpAccess();
-  return getVanguardVersion(auth.profile);
+
+// What changed since the screen's marks, and what it needs of it (run.ts syncVanguard): after the person's own change
+// and every 30 seconds (components/vanguard/vanguard-app.tsx).
+export async function syncVanguardAction(since: VanguardMarks): Promise<VanguardSync> {
+  const { auth, access } = await requireErpAccess();
+  const marks = { audit: Number(since?.audit) || 0, seq: Number(since?.seq) || 0 };
+  return syncVanguard(auth.profile, access, marks);
 }

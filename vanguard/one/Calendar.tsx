@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { addDays, type Id } from '@bumex/domain';
 import { calendarAction, type CalendarItem } from '@/lib/erp/vanguard/calendar-actions';
@@ -9,6 +9,8 @@ import { ticketMenu } from './TicketMenu';
 import { isPhone } from './screen'; // [mobile] a tapped day shows its list, under the month
 import { Loading, Sk, SkGrid } from './skeleton';
 import { cap } from './labels';
+import { useCached } from './cache';
+import { POLICY } from './policies';
 
 // The Missions room's "Calendrier" tab: BUMEX One's Calendar page (redrawn on 2026-10-28: the titles were cut and the
 // month said little). Ticket due dates, mission deadlines, milestones and contract renewals on a month grid, each kind
@@ -32,6 +34,7 @@ const ONE: Record<string, [string, string]> = {
   internal_event: ['Interne', 'Internal'],
 };
 const SHOWN_PER_DAY = 3;
+const NONE: CalendarItem[] = [];
 
 const monthStart = (iso: string) => `${iso.slice(0, 7)}-01`;
 const shiftMonth = (first: string, by: number) => {
@@ -45,18 +48,14 @@ export function CalendarView({ entityId }: { entityId: Id }) {
   const say = useSay();
   const router = useRouter();
   const today = state.today;
-  const loadedAt = useStore((s) => s.loadedAt);
-  const [items, setItems] = useState<CalendarItem[] | null>(null);
+  // kept between visits; read again when tickets, missions, milestones, contracts or clients move (one/policies.ts);
+  // unreadable, the month shows empty
+  const calendar = useCached<CalendarItem[]>(['calendar'], () => calendarAction(), POLICY.calendar);
+  const items = calendar.data ?? (calendar.error ? NONE : null);
   const [month, setMonth] = useState(() => monthStart(state.today));
   const [day, setDay] = useState(() => state.today);
   const [hidden, setHidden] = useState<string[]>([]);
   const [scope, setScope] = useState<'floor' | 'all'>('floor');
-
-  useEffect(() => {
-    let live = true;
-    calendarAction().then((d) => live && setItems(d)).catch(() => live && setItems([]));
-    return () => { live = false; };
-  }, [loadedAt]);
 
   const floorProjects = useMemo(() => new Set(state.engagements.filter((e) => e.entityId === entityId).map((e) => (e as { projectId?: string }).projectId).filter(Boolean) as string[]), [state.engagements, entityId]);
   if (!items) return <Loading><Sk w={220} h={28} /><SkGrid rows={5} cols={7} /></Loading>;

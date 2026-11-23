@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { activityReportAction, activityReportOptionsAction, defaultReportRangeAction } from '@/lib/erp/vanguard/report-actions';
 import { frenchReportTypeLabels, reportTypeLabels } from '@/components/reports/report-type-selector';
 import type { ReportBuilderData, ReportDocument, ReportType } from '@/types/report';
@@ -7,6 +7,8 @@ import { Field } from '../ui/common';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
 import { Loading, SkForm } from './skeleton';
+import { useCached } from './cache';
+import { POLICY } from './policies';
 
 // The Reports room's second part: BUMEX One's activity reports (daily, weekly, team, mission, client, executive),
 // next to Vanguard's financial reports (ui/panels/Reports.tsx).
@@ -16,7 +18,9 @@ type Options = ReportBuilderData & { me: string; canChoosePerson: boolean };
 export function ActivityReports() {
   const { ui, toast } = useStore();
   const say = useSay();
-  const [options, setOptions] = useState<Options | null>(null);
+  // the templates, people, missions and clients offered, kept between visits (one/policies.ts)
+  const offered = useCached<Options>(['report-options'], () => activityReportOptionsAction(), POLICY.reportOptions);
+  const options = offered.data ?? null;
   const [type, setType] = useState<ReportType | ''>('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
@@ -25,24 +29,29 @@ export function ActivityReports() {
   const [clientId, setClientId] = useState('');
   const [report, setReport] = useState<ReportDocument | null>(null);
   const [busy, setBusy] = useState(false);
+  const [seeded, setSeeded] = useState(false);
+  const [rangeOf, setRangeOf] = useState<ReportType | ''>('');
   const label = (t: ReportType) => (ui.lang === 'fr' ? frenchReportTypeLabels[t] : reportTypeLabels[t]);
 
-  useEffect(() => {
-    void activityReportOptionsAction().then((o) => {
-      setOptions(o);
-      setUserId(o.me);
-      setProjectId(o.projects[0]?.id ?? '');
-      setClientId(o.clients[0]?.id ?? '');
-      if (o.allowedTypes[0]) setType(o.allowedTypes[0]);
-    });
-  }, []);
-  // each template has its own natural period (a day, a week, a month)
-  useEffect(() => {
-    if (!type) return;
-    void defaultReportRangeAction(type).then((r) => { setStart(r.startDate); setEnd(r.endDate); });
-  }, [type]);
+  // the form starts on the person, the first mission, client and template, once the choices are read
+  if (options && !seeded) {
+    setSeeded(true);
+    setUserId(options.me);
+    setProjectId(options.projects[0]?.id ?? '');
+    setClientId(options.clients[0]?.id ?? '');
+    if (options.allowedTypes[0]) setType(options.allowedTypes[0]);
+  }
+  // each template has its own natural period (a day, a week, a month), put in the dates when the template changes (a
+  // date typed afterwards stays: a later read of the same period does not put it back)
+  const range = useCached(type ? ['report-range', type] : null, () => defaultReportRangeAction(type as ReportType), POLICY.reportOptions);
+  if (type && range.data && rangeOf !== type) {
+    setRangeOf(type);
+    setStart(range.data.startDate);
+    setEnd(range.data.endDate);
+  }
 
   if (!options) return <Loading><div className="card sk-card"><SkForm fields={4} cols={2} /></div></Loading>;
+  // generated on the button only (the press asks for it now), so read each time and not kept
   const generate = async () => {
     if (!type) return;
     setBusy(true);

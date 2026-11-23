@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRouteAccess } from "@/lib/auth/server";
@@ -88,9 +87,7 @@ export async function createMilestoneAction(
     return { error: "Only entity-level leads can manage milestones for projects they own." };
   }
 
-  const milestone = await createMilestone(values, auth.profile.id);
-  revalidatePath("/roadmap");
-  revalidatePath(`/projects/${milestone.project_id}`);
+  await createMilestone(values, auth.profile.id);
   redirect(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}toast=milestone-created`);
 }
 
@@ -121,9 +118,7 @@ export async function updateMilestoneAction(
     return { error: "Only entity-level leads can manage milestones for projects they own." };
   }
 
-  const projectId = await updateMilestone(milestoneId, values, auth.profile.id);
-  revalidatePath("/roadmap");
-  revalidatePath(`/projects/${projectId}`);
+  await updateMilestone(milestoneId, values, auth.profile.id);
   redirect(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}toast=milestone-updated`);
 }
 
@@ -141,12 +136,7 @@ export async function deleteMilestoneAction(formData: FormData) {
     redirect(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}toast=milestone-delete-error`);
   }
 
-  const relatedProjectId = await deleteMilestone(milestoneId);
-  revalidatePath("/roadmap");
-
-  if (relatedProjectId) {
-    revalidatePath(`/projects/${relatedProjectId}`);
-  }
+  await deleteMilestone(milestoneId);
 
   redirect(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}toast=milestone-deleted`);
 }
@@ -165,9 +155,7 @@ export async function completeMilestoneAction(formData: FormData) {
     redirect(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}toast=milestone-update-error`);
   }
 
-  const relatedProjectId = await completeMilestone(milestoneId, auth.profile.id);
-  revalidatePath("/roadmap");
-  revalidatePath(`/projects/${relatedProjectId}`);
+  await completeMilestone(milestoneId, auth.profile.id);
   redirect(`${redirectTo}${redirectTo.includes("?") ? "&" : "?"}toast=milestone-completed`);
 }
 
@@ -193,11 +181,8 @@ export async function saveMilestoneAction(formData: FormData): Promise<Milestone
     return { error: "Only entity-level leads can manage milestones for projects they own." };
   }
 
-  const projectId = milestoneId
-    ? await updateMilestone(milestoneId, values, auth.profile.id)
-    : (await createMilestone(values, auth.profile.id)).project_id;
-  revalidatePath("/roadmap");
-  revalidatePath(`/projects/${projectId}`);
+  if (milestoneId) await updateMilestone(milestoneId, values, auth.profile.id);
+  else await createMilestone(values, auth.profile.id);
   return { success: true };
 }
 
@@ -209,12 +194,7 @@ export async function changeMilestoneAction(milestoneId: string, projectId: stri
     return { error: "Only entity-level leads can manage milestones for projects they own." };
   }
 
-  const relatedProjectId = change === "complete"
-    ? await completeMilestone(String(milestoneId), auth.profile.id)
-    : await deleteMilestone(String(milestoneId));
-  revalidatePath("/roadmap");
-  if (relatedProjectId) {
-    revalidatePath(`/projects/${relatedProjectId}`);
-  }
+  if (change === "complete") await completeMilestone(String(milestoneId), auth.profile.id);
+  else await deleteMilestone(String(milestoneId));
   return { success: true };
 }

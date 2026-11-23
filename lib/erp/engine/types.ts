@@ -720,6 +720,7 @@ export interface AuditRow {
   entityId?: Id;
   action: 'I' | 'U' | 'D';
   summary: string;
+  logId?: number; // [bumex-one] the database's row (erp.audit_log.id): a change's new rows are put after it (lib/erp/vanguard/work-merge.ts)
 }
 
 export interface ChainHead {

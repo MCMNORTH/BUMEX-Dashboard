@@ -13,6 +13,7 @@ import { useSay } from '../../one/say'; // [bumex-one]
 type Tab = 'people' | 'employees' | 'sheet' | 'headcount' | 'payroll' | 'statements' | 'rules'; // [bumex-one] people
 const CATS = Object.keys(CATEGORY_FR) as EmployeeCategory[];
 import { Select, Suggest } from '../Select';
+import { PageRefresh } from '../../one/PageRefresh'; // [bumex-one] ↻ at the right of the header (2026-11-22)
 const CONTRACTS = ['CDI', 'CDD', 'Stage', 'Prestataire', 'Associé'];
 // [bumex-one] categories, contracts and a run's status stay stored as they are (codes, French words); English only on screen
 const CATEGORY_EN: Record<EmployeeCategory, string> = { partner: 'Partner', manager: 'Manager', senior: 'Senior', assistant: 'Assistant', intern: 'Intern', support: 'Support' };
@@ -46,7 +47,7 @@ export function HrPanel({ entityId, initialTab }: { entityId: Id; initialTab?: s
   const open = (id: Id | null) => { setEmployeeId(id); setTab('sheet'); };
   return (
     <>
-      <div className="sheet-head"><h1>{t('room_hr')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
+      <div className="sheet-head"><h1>{t('room_hr')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /><PageRefresh /></div>
       <div className="sheet-body">
         {tab === 'people' && <People key={personId ?? ''} entityId={entityId} onOpen={open} personId={personId} />}
         {tab === 'employees' && <Employees entityId={entityId} onOpen={open} />}

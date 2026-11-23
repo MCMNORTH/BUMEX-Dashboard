@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { updateProfileSettingsAction } from '@/app/(app)/settings/profile/actions';
 import { updateEmailNotificationsAction } from '@/app/(app)/settings/preferences/actions';
 import { updatePasswordAction } from '@/lib/auth/actions';
@@ -11,6 +11,8 @@ import { MailIntakeCard } from './MailIntake';
 import { useSay } from './say';
 import { Select } from '../ui/Select';
 import { Loading, SkForm, SkLines } from './skeleton';
+import { invalidate, useCached } from './cache';
+import { POLICY } from './policies';
 
 // The Settings room's "Mon compte" tab: BUMEX One's profile, preferences and security pages, saved by BUMEX One's
 // actions. Everyone's access is the Permissions tab's (Permissions.tsx).
@@ -18,17 +20,20 @@ import { Loading, SkForm, SkLines } from './skeleton';
 export function MyAccountPanel() {
   const say = useSay();
   const { toast, ui, setLang } = useStore();
-  const [me, setMe] = useState<MyAccount | null>(null);
+  // kept between visits; only the person's own saves change it (one/policies.ts)
+  const account = useCached<MyAccount>(['account'], () => myAccountAction(), POLICY.account);
+  const me = account.data ?? null;
   const [profile, setProfile] = useState({ full_name: '', phone: '', job_title: '' });
   const [avatar, setAvatar] = useState<File | null>(null);
   const [password, setPassword] = useState({ next: '', confirm: '' });
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let live = true;
-    myAccountAction().then((m) => { if (live) { setMe(m); setProfile({ full_name: m.fullName, phone: m.phone, job_title: m.jobTitle }); } }).catch(() => null);
-    return () => { live = false; };
-  }, []);
+  // the profile's fields filled once, from the first account read: a later read (behind what is shown) leaves what the
+  // person is typing alone
+  const [filled, setFilled] = useState(false);
+  if (me && !filled) {
+    setFilled(true);
+    setProfile({ full_name: me.fullName, phone: me.phone, job_title: me.jobTitle });
+  }
 
   if (!me) return <Loading><div className="card sk-card"><SkForm fields={4} cols={2} /></div><div className="card sk-card"><SkLines n={3} /></div></Loading>;
   const saveProfile = async () => {
@@ -41,8 +46,11 @@ export function MyAccountPanel() {
       if (result.error) { toast('error', result.error); return; }
       toast('ok', say('Profil enregistré', 'Profile saved'));
       setAvatar(null);
-      setMe(await myAccountAction());
+      // what the save moved (the store's people, the sync), then the account read again once (its photo), stale
+      // wherever else it shows
+      const changedAt = Date.now();
       await reload();
+      await Promise.all([invalidate(['account'], changedAt), account.refresh(changedAt)]);
     } finally {
       setBusy(false);
     }
@@ -50,7 +58,7 @@ export function MyAccountPanel() {
   const toggleEmails = async () => {
     const result = await updateEmailNotificationsAction(!me.emailNotifications).catch(() => ({ error: say('Serveur injoignable.', 'Server unreachable.') }));
     if (result.error) toast('error', result.error);
-    else setMe({ ...me, emailNotifications: !me.emailNotifications });
+    else account.set({ ...me, emailNotifications: !me.emailNotifications });
   };
   const changePassword = async () => {
     if (password.next !== password.confirm) { toast('error', say('Les deux mots de passe diffèrent.', 'The two passwords differ.')); return; }

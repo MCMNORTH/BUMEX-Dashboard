@@ -9,6 +9,7 @@ import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, StatusChip, Delete
 import { textAsk } from '../../one/ask'; // [bumex-one] Fluent's dialog, not the browser's (2026-11-20)
 import { Select } from '../Select';
 import { useSay, sayNow } from '../../one/say';
+import { PageRefresh } from '../../one/PageRefresh'; // [bumex-one] ↻ at the right of the header (2026-11-22)
 // [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 type Say = ReturnType<typeof useSay>;
@@ -32,7 +33,7 @@ export function SuppliersPanel({ entityId, initialTab }: { entityId: Id; initial
   ];
   return (
     <>
-      <div className="sheet-head"><h1>{t('room_suppliers')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
+      <div className="sheet-head"><h1>{t('room_suppliers')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /><PageRefresh /></div>
       <div className="sheet-body">
         {tab === 'invoices' && <Invoices entityId={entityId} onPay={(id) => { setPayFor(id); setTab('payments'); }} />}
         {tab === 'new' && <NewInvoice entityId={entityId} onDone={() => setTab('invoices')} />}

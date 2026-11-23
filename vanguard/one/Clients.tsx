@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { addCustomer, type Currency, type Id } from '@bumex/domain';
 import { clientRelationsAction, type ClientRelation } from '@/lib/erp/vanguard/client-actions';
-import { missionOptionsAction } from '@/lib/erp/vanguard/mission-actions';
+import { missionOptionsAction, type MissionOptions } from '@/lib/erp/vanguard/mission-actions';
 import { useStore } from '../store';
 import { Chip, Icon } from '../ui/common';
 import { ClientForm, blankClient } from './ClientPage';
 import { useSay } from './say';
 import { Loading, SkKpis, SkTable } from './skeleton';
+import { invalidate, useCached } from './cache';
+import { POLICY } from './policies';
 
 // The relationship side of the clients (BUMEX One's clients, one for the group) under the Clients room's customer
 // accounts of the floor (ui/panels/Clients.tsx): which clients have an account here, opening one for the others, a new
@@ -23,30 +25,32 @@ const STATUS: Record<string, [string, string, 'good' | 'warn' | 'dim']> = {
 export function ClientRelations({ entityId }: { entityId: Id }) {
   const { state, apply, openRoom } = useStore();
   const say = useSay();
-  const [clients, setClients] = useState<ClientRelation[] | null>(null);
+  // kept per floor between visits; read again when the customers or the books move, or a client is saved
+  // (one/policies.ts); a failed read shows an empty list
+  const relations = useCached<ClientRelation[]>(['clients', entityId], () => clientRelationsAction(entityId), POLICY.clients);
+  const clients = relations.data ?? (relations.error ? [] : null);
+  // a customer account opened here (open, below) comes back with the store's state: the store then names the books as
+  // moved ("erp"), so the account shows here (linked to its client on the server) and its button goes
   const [filter, setFilter] = useState<'all' | 'without'>('all');
   const [q, setQ] = useState('');
-  const [creating, setCreating] = useState<{ id: string; name: string }[] | null>(null);
-  const loadedAt = useStore((s) => s.loadedAt);
+  // the new client's form asks for the people (its account managers) only once it is asked for; the Tasks room reads
+  // the same list (Tasks.tsx), so it is often there already
+  const [wantsForm, setWantsForm] = useState(false);
+  const options = useCached<MissionOptions>(wantsForm ? ['mission-options', null] : null, () => missionOptionsAction(), POLICY.missionOptions);
+  const creating = wantsForm ? (options.data?.people ?? (options.error ? [] : null)) : null;
   const entity = state.entities.find((e) => e.id === entityId);
-
-  // read again with the state: a customer just created here is linked to its client on the server
-  useEffect(() => {
-    let live = true;
-    void clientRelationsAction(entityId).then((list) => live && setClients(list)).catch(() => live && setClients([]));
-    return () => { live = false; };
-  }, [loadedAt, entityId]);
 
   if (!clients) return <Loading label={say('Chargement des relations…', 'Loading the relations…')}><SkKpis n={4} /><SkTable rows={6} cols={5} /></Loading>;
   const here = (c: ClientRelation) => c.accounts.find((a) => a.entityId === entityId);
   const s = q.trim().toLowerCase();
   const rows = clients.filter((c) => (filter === 'all' || !here(c)) && (!s || `${c.name} ${c.city ?? ''} ${c.contact_email ?? ''}`.toLowerCase().includes(s)));
-  const startCreating = async () => setCreating((await missionOptionsAction().catch(() => null))?.people ?? []);
-  const open = (c: ClientRelation) =>
+  const startCreating = () => setWantsForm(true);
+  const open = (c: ClientRelation) => {
     apply(
       (s) => addCustomer(s, { entityId, name: c.name, regime: 'standard', country: c.country && /^[a-z]{2}$/i.test(c.country) ? c.country.toUpperCase() : 'MR', defaultCurrency: (entity?.functionalCurrency ?? 'MRU') as Currency, paymentTermsDays: 30, email: c.contact_email ?? undefined, nif: c.tax_id ?? undefined }),
       say(`Compte client ouvert · ${c.name}`, `Customer account opened · ${c.name}`),
     );
+  };
 
   return (
     <div className="card flush">
@@ -60,7 +64,7 @@ export function ClientRelations({ entityId }: { entityId: Id }) {
           <button className={`btn sm ${filter === 'without' ? 'on' : ''}`} onClick={() => setFilter('without')}>{say('Sans compte ici', 'No account here')}</button>
         </div>
       </div>
-      {creating && <div style={{ padding: '0 12px 12px' }}><ClientForm initial={blankClient(state.session.userId)} managers={creating} floor={entityId} onDone={(saved) => { setCreating(null); if (saved) void clientRelationsAction(entityId).then(setClients); }} say={say} /></div>}
+      {creating && <div style={{ padding: '0 12px 12px' }}><ClientForm initial={blankClient(state.session.userId)} managers={creating} floor={entityId} onDone={(saved) => { setWantsForm(false); if (saved) { invalidate(['clients']); void relations.refresh(); } }} say={say} /></div>}
       <table>
         <thead><tr><th>{say('Client', 'Client')}</th><th>{say('Statut', 'Status')}</th><th>{say('Responsable', 'Account manager')}</th><th>{say('Contact', 'Contact')}</th><th>{say('Compte ici', 'Account here')}</th><th></th></tr></thead>
         <tbody>

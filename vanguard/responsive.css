@@ -83,6 +83,8 @@
   .vanguard .tabs::-webkit-scrollbar { display: none; }
   .vanguard .sheet-head > .hright { flex: none; margin-left: 0; }
   .vanguard .sheet-head .tab { height: 46px; padding: 0 10px; }
+  .vanguard .pg-refresh-at { display: none; } /* ↻ alone: the time is in its tooltip */
+  .vanguard .sheet-head:has(> h1:first-child + .pg-refresh:last-child) { justify-content: flex-end; }
   .vanguard .sheet-body { padding: 12px; }
   @keyframes vg-pm-up { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
 }

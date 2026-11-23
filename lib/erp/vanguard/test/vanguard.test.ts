@@ -14,11 +14,12 @@ import { testFloorBooks } from "@/lib/erp/test-floor";
 import { vanguardCommands } from "@/lib/erp/vanguard/commands";
 import * as domain from "@/lib/erp/vanguard/domain";
 import { vanguardErrorMessage } from "@/lib/erp/vanguard/errors";
-import { loadVanguardState, type VanguardPerson } from "@/lib/erp/vanguard/load";
+import { loadVanguardState, syncVanguardState, type VanguardMarks, type VanguardPerson } from "@/lib/erp/vanguard/load";
 import { record, type VanguardChange } from "@/lib/erp/vanguard/record";
 import { ReplayError } from "@/lib/erp/vanguard/replay";
 import { applyVanguardChange, saveVanguardChange } from "@/lib/erp/vanguard/save";
 import { visibleState } from "@/lib/erp/vanguard/visible";
+import { mergeWork } from "@/lib/erp/vanguard/work-merge";
 import { readInvoiceByLink } from "@/lib/erp/invoice-link";
 import { storedAccess } from "@/lib/erp/permissions";
 import type { BumexEntityCode } from "@/types/entity";
@@ -734,6 +735,63 @@ describe("the modules", () => {
     } finally {
       await asSystem(() => tx.query("update erp.user_access set test_floor = false where user_id = 'adm'"));
     }
+  });
+
+  it("a screen asks what changed since its marks: nothing, the tickets alone, or the whole state (store.ts sync)", async () => {
+    const sync = (uid: string, since: VanguardMarks) => as(uid, () => syncVanguardState(tx, who(uid), accessOf(uid), people, since));
+    const byId = <T extends { id: string }>(list: T[]) => [...list].sort((a, b) => a.id.localeCompare(b.id));
+    const readers = ["aicha", "awa", "sidi"];
+    // what the tickets alone give, put in each person's state, is what reading it whole gives (store.ts hydrateWork)
+    const sameAsWhole = async (before: Record<string, State>, since: VanguardMarks, changed: string[]) => {
+      for (const uid of readers) {
+        const part = await sync(uid, since);
+        expect(part).toMatchObject({ kind: "work", changed });
+        if (part.kind !== "work") throw new Error(`expected the tickets alone for ${uid}`);
+        expect("entries" in part).toBe(false);
+        const merged = mergeWork(before[uid], part);
+        const whole = (await load(uid)).state;
+        expect(byId(merged.tasks)).toEqual(byId(whole.tasks));
+        expect(merged.engagements).toEqual(whole.engagements);
+        expect(merged.auditLog).toEqual(whole.auditLog);
+      }
+    };
+    // one after the other: one connection, one session at a time
+    const states = async () => {
+      const out: Record<string, State> = {};
+      for (const uid of readers) out[uid] = (await load(uid)).state;
+      return out;
+    };
+
+    let { marks } = await load("aicha");
+    expect(await sync("aicha", marks)).toMatchObject({ kind: "same", changed: [] });
+    // a new ticket (its number taken from its floor: not a change of the state)
+    let before = await states();
+    const ticket = await asSystem(async () => (await db.query<{ id: string }>("insert into erp.task (engagement_id, title, reporter_id, priority) values ($1, 'Lettre de mission', 'awa', 'medium') returning id", [engagement])).rows[0].id);
+    await sameAsWhole(before, marks, ["task"]);
+    expect((await load("awa")).state.tasks.some((t) => t.title === "Lettre de mission")).toBe(true);
+    // time logged on it: its hours
+    marks = (await load("aicha")).marks;
+    before = await states();
+    await asSystem(() => db.query("insert into erp.time_entry (engagement_id, user_id, work_date, minutes, task_id) values ($1, 'mariem', '2026-05-06', 90, $2)", [engagement, ticket]));
+    await sameAsWhole(before, marks, ["time_entry"]);
+    // archived: gone from the tickets
+    marks = (await load("aicha")).marks;
+    before = await states();
+    await asSystem(() => db.query("update erp.task set status = 'archived' where id = $1", [ticket]));
+    await sameAsWhole(before, marks, ["task"]);
+    // the same marks again: nothing
+    marks = (await load("aicha")).marks;
+    expect(await sync("aicha", marks)).toMatchObject({ kind: "same" });
+    // anything else (a mission's progress set by hand): the whole state
+    await asSystem(() => db.query("update erp.engagement set manual_progress = 50 where id = $1", [engagement]));
+    const full = await sync("aicha", marks);
+    expect(full).toMatchObject({ kind: "full" });
+    expect(full.changed).toContain("engagement");
+    if (full.kind !== "full") throw new Error("expected the whole state");
+    expect(full.state.engagements.length).toBeGreaterThan(0);
+    // a person (not audited: work.change_seq) reads the whole state too
+    await asSystem(() => db.query("update work.person set full_name = full_name where id = 'mariem'"));
+    expect(await sync("aicha", full.marks)).toMatchObject({ kind: "full", changed: ["person"] });
   });
 
   it("a partner deletes a customer without documents; its auxiliary account stays in the ledger history", async () => {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { fmt } from '@bumex/domain';
 import { saveContractAction, shelveContractAction } from '@/app/(app)/contracts/actions';
 import { contractsAction, contractViewAction, type ContractRow, type ContractsData, type ContractView } from '@/lib/erp/vanguard/client-actions';
@@ -11,6 +11,8 @@ import { Select } from '../ui/Select';
 import { confirmAsk } from './ask';
 import { Loading, SkPage, SkTable } from './skeleton';
 import { activityDetail, activityText } from './labels';
+import { invalidate, useCached } from './cache';
+import { POLICY, withTag } from './policies';
 
 // The Clients room's "Contrats" tab: BUMEX One's contracts, with what renews soon, and each contract's page (details,
 // edit form, archive, notes, conversation, history). Saved by BUMEX One's contract actions, under their rules.
@@ -84,18 +86,13 @@ function ContractForm({ id, initial, options, onDone, say }: { id?: string; init
 export function ContractsTab() {
   const say = useSay();
   const { openRoom } = useStore();
-  const loadedAt = useStore((s) => s.loadedAt);
-  const [data, setData] = useState<ContractsData | undefined>(undefined);
+  // kept between visits; read again when a contract or a client is saved (one/policies.ts); null: not open to the
+  // person's role (a failed read says the same, as before)
+  const cached = useCached<ContractsData>(['contracts'], () => contractsAction(), POLICY.contracts);
+  const data = cached.data === undefined ? (cached.error ? null : undefined) : cached.data;
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
   const [creating, setCreating] = useState(false);
-
-  const load = useCallback(async () => setData(await contractsAction().catch(() => null)), []);
-  useEffect(() => {
-    let live = true;
-    contractsAction().catch(() => null).then((d) => { if (live) setData(d); });
-    return () => { live = false; };
-  }, [loadedAt]);
 
   if (data === undefined) return <Loading><SkTable rows={5} cols={5} /></Loading>;
   if (data === null) return <div className="banner warn">{say("Les contrats sont réservés à l'administrateur, aux managers et aux actionnaires.", 'Contracts are for the administrator, managers and shareholders.')}</div>;
@@ -115,7 +112,7 @@ export function ContractsTab() {
         <Select className="in" style={{ width: 170 }} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">{say('Tous les statuts', 'Every status')}</option>{(Object.keys(STATUS) as ContractStatus[]).map((k) => <option key={k} value={k}>{say(STATUS[k][0], STATUS[k][1])}</option>)}</Select>
         {data.canEdit && !creating && <button className="btn sm primary" style={{ marginLeft: 'auto' }} onClick={() => setCreating(true)}><Icon name="plus" size={13} /> {say('Nouveau contrat', 'New contract')}</button>}
       </div>
-      {creating && <ContractForm initial={{ title: '', contract_number: '', client_id: '', project_id: '', status: 'draft', contract_type: 'audit', start_date: '', end_date: '', signed_date: '', renewal_date: '', amount: '', currency: 'MRU', payment_terms: '', responsible_user_id: data.me, notes: '' }} options={data.options} onDone={(saved) => { setCreating(false); if (saved) void load(); }} say={say} />}
+      {creating && <ContractForm initial={{ title: '', contract_number: '', client_id: '', project_id: '', status: 'draft', contract_type: 'audit', start_date: '', end_date: '', signed_date: '', renewal_date: '', amount: '', currency: 'MRU', payment_terms: '', responsible_user_id: data.me, notes: '' }} options={data.options} onDone={(saved) => { setCreating(false); if (saved) { invalidate(['contracts']); void cached.refresh(); } }} say={say} />}
       <div className="card flush">
         <table>
           <thead><tr><th>{say('Contrat', 'Contract')}</th><th>Client</th><th>{say('Mission', 'Mission')}</th><th>Type</th><th>{say('Statut', 'Status')}</th><th className="num">{say('Montant', 'Amount')}</th><th>{say('Renouvellement', 'Renewal')}</th></tr></thead>
@@ -142,24 +139,30 @@ export function ContractsTab() {
 export function ContractPanel({ contractId, onClose }: { contractId: string; onClose: () => void }) {
   const { toast, openRoom } = useStore();
   const say = useSay();
-  const [view, setView] = useState<ContractView | null | undefined>(undefined);
-  const [options, setOptions] = useState<ContractFiltersData | null>(null);
+  // kept per contract between visits; read again when it, or its client, is saved (one/policies.ts); one that no longer
+  // exists or is closed to the person reads null
+  const cached = useCached<ContractView | null>(['contract', contractId], () => contractViewAction(contractId), withTag(POLICY.contracts, `contract:${contractId}`));
+  const view = cached.data === undefined ? (cached.error ? null : undefined) : cached.data;
   const [editing, setEditing] = useState(false);
+  // the form's lists are the contracts list's (ContractsTab), read once the form is first opened
+  const [wantsOptions, setWantsOptions] = useState(false);
+  const options = useCached<ContractsData>(wantsOptions ? ['contracts'] : null, () => contractsAction(), POLICY.contracts).data?.options ?? null;
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<'details' | 'notes' | 'comments' | 'history'>('details');
 
-  const load = useCallback(async () => setView(await contractViewAction(contractId).catch(() => null)), [contractId]);
-  useEffect(() => {
-    let live = true;
-    contractViewAction(contractId).catch(() => null).then((next) => { if (live) setView(next); });
-    return () => { live = false; };
-  }, [contractId]);
-  const run = async (work: () => Promise<Result | void>, done?: string) => {
+  const load = cached.refresh;
+  // the contract itself saved or archived: the list, its client's page and the calendar are stale (the audit log does
+  // not see contracts)
+  const contractWords = ['contracts', `contract:${contractId}`];
+  // words: what else the change makes stale, named before this page is read again so it is read once (a note or a
+  // comment moves only this page)
+  const run = async (work: () => Promise<Result | void>, done?: string, words: string[] = []) => {
     setBusy(true);
     try {
       const result = await work();
       if (result && result.error) { toast('error', result.error); return false; }
       if (done) toast('ok', done);
+      invalidate(words);
       await load();
       return true;
     } catch {
@@ -174,8 +177,8 @@ export function ContractPanel({ contractId, onClose }: { contractId: string; onC
   if (view === null) return <div className="card"><div className="banner warn">{say("Ce contrat n'existe plus ou ne vous est pas accessible.", 'This contract no longer exists or is not open to you.')}</div><div className="actions" style={{ marginTop: 10 }}><button className="btn sm" onClick={onClose}>{say('Retour', 'Back')}</button></div></div>;
   const c = view.contract;
   const canEdit = view.role !== 'shareholder' && view.role !== 'supervisor';
-  const edit = async () => {
-    if (!options) setOptions((await contractsAction().catch(() => null))?.options ?? null);
+  const edit = () => {
+    setWantsOptions(true);
     setEditing(!editing);
   };
   const kv = (label: string, value: ReactNode) => <><span className="k">{label}</span><span>{value ?? '—'}</span></>;
@@ -191,14 +194,14 @@ export function ContractPanel({ contractId, onClose }: { contractId: string; onC
           {c.renewalState === 'renewing_soon' && <Chip kind="warn">{say('à renouveler', 'renewing soon')}</Chip>}
           <div className="actions" style={{ marginLeft: 'auto' }}>
             {canEdit && <button className="btn sm" onClick={edit}>{editing ? say('Fermer le formulaire', 'Close the form') : say('Modifier', 'Edit')}</button>}
-            {canEdit && c.status !== 'archived' && <button className="btn sm danger" disabled={busy} onClick={async () => { if ((await confirmAsk({ title: say(`Archiver « ${c.title} » ?`, `Archive "${c.title}"?`), confirm: say('Archiver', 'Archive') })) && (await run(() => shelveContractAction(c.id), say('Contrat archivé', 'Contract archived')))) onClose(); }}>{say('Archiver', 'Archive')}</button>}
+            {canEdit && c.status !== 'archived' && <button className="btn sm danger" disabled={busy} onClick={async () => { if ((await confirmAsk({ title: say(`Archiver « ${c.title} » ?`, `Archive "${c.title}"?`), confirm: say('Archiver', 'Archive') })) && (await run(() => shelveContractAction(c.id), say('Contrat archivé', 'Contract archived'), contractWords))) onClose(); }}>{say('Archiver', 'Archive')}</button>}
           </div>
         </div>
         <div role="tablist" className="tabs" style={{ display: 'flex', gap: 4 }}>
           {([['details', 'Détails', 'Details'], ['notes', 'Notes', 'Notes'], ['comments', 'Commentaires', 'Comments'], ['history', 'Historique', 'History']] as const).map(([k, fr, en]) => <button key={k} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{say(fr, en)}</button>)}
         </div>
       </div>
-      {editing && options && <ContractForm id={c.id} initial={fromRow(c)} options={options} onDone={(saved) => { setEditing(false); if (saved) void load(); }} say={say} />}
+      {editing && options && <ContractForm id={c.id} initial={fromRow(c)} options={options} onDone={(saved) => { setEditing(false); if (saved) { invalidate(contractWords); void load(); } }} say={say} />}
       {tab === 'details' && (
         <div className="card">
           <div className="kv">

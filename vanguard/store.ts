@@ -6,7 +6,10 @@ import { isPhoneOrTablet } from './one/screen'; // [mobile]
 import { englishMessage } from './one/engine-messages'; // [bumex-one] the engine's refusals in the person's language (2026-11-21)
 // [bumex-one] The state is the ERP database's: the page brings it (hydrate), each change is recorded and sent to the
 // server, which replays it and answers with the database's state (lib/erp/vanguard). Nothing is kept in the browser.
-import { reloadVanguardAction, runVanguardChangeAction, vanguardVersionAction } from '@/lib/erp/vanguard/actions';
+import { reloadVanguardAction, runVanguardChangeAction, syncVanguardAction } from '@/lib/erp/vanguard/actions';
+import type { VanguardMarks } from '@/lib/erp/vanguard/load';
+import type { VanguardSync } from '@/lib/erp/vanguard/run';
+import { mergeWork } from '@/lib/erp/vanguard/work-merge';
 import { record, type VanguardChange } from '@/lib/erp/vanguard/record';
 import type { VanguardData, VanguardResult } from '@/lib/erp/vanguard/run';
 
@@ -61,11 +64,14 @@ interface Store {
   state: State;
   loadedAt: number; // [bumex-one] when the server read the state shown
   version: number; // [bumex-one] the database's version of that state (refreshIfChanged)
+  marks: VanguardMarks; // [bumex-one] where the database stood when that state was read (sync)
   ui: UI;
   t: (k: string) => string;
   apply: (fn: (s: State) => State | [State, unknown], okMessage?: string) => boolean;
   hydrate: (data: VanguardData) => void; // [bumex-one]
   refreshIfChanged: () => void; // [bumex-one] reads the database again when someone else changed it
+  hydrateWork: (data: Extract<VanguardSync, { kind: 'work' }>) => void; // [bumex-one] the tickets, missions and history alone (sync)
+  patchTask: (id: Id, change: (task: State['tasks'][number]) => State['tasks'][number]) => () => void; // [bumex-one] a ticket changed on screen before the server answers; returns the undo
   setUi: (patch: Partial<UI>) => void;
   goTower: () => void;
   goHome: () => void; // [bumex-one] the logo: the person's default floor (0015)
@@ -197,8 +203,10 @@ function send(change: VanguardChange) {
     pending--;
     if (!result.ok) useStore.getState().toast('error', useStore.getState().ui.lang === 'en' ? englishMessage(result.error) : result.error); // [bumex-one] the server's refusal, in English when the person reads English
     if (pending > 0) return;
-    if (result.state) useStore.getState().hydrate(result as VanguardData);
-    else if (!result.ok) await reload();
+    if (result.state) {
+      useStore.getState().hydrate(result as VanguardData);
+      emitChanged(['erp']); // [bumex-one] the books moved: the screens that read them read again (one/cache.ts)
+    } else if (!result.ok) await reload();
   });
 }
 async function reload() {
@@ -207,12 +215,49 @@ async function reload() {
   return Boolean(result?.state);
 }
 
+// [bumex-one] What changed since the screen's marks, read in one call (asked on 2026-11-22: after a ticket's change the
+// whole state, the books included, was read again; lib/erp/vanguard/run.ts syncVanguard): nothing, the tickets alone,
+// or the whole state when something else moved. After the person's own change and every 30 seconds
+// (components/vanguard/vanguard-app.tsx). One at a time: asked while one runs, one more follows it (the change just made
+// may be newer than the marks the running one sent). The tables that moved go to the screens' caches (one/cache.ts).
+const changeListeners = new Set<(tables: string[], since: number) => void>();
+/** Called after each sync with the audited tables that moved (task, time_entry, customer…; "person" for the people, "erp" for a state read whole), [] for none. */
+export function onDataChanged(listener: (tables: string[], since: number) => void) {
+  changeListeners.add(listener);
+  return () => { changeListeners.delete(listener); };
+}
+// since: when what moved was read (a screen read after it has it); [] too: the state was found current
+const emitChanged = (tables: string[], since = Date.now()) => changeListeners.forEach((l) => l(tables, since));
+
+async function runSync(): Promise<boolean> {
+  const asked = Date.now();
+  const result = await syncVanguardAction(useStore.getState().marks).catch(() => null);
+  if (!result) return false;
+  const store = useStore.getState();
+  if (result.kind === 'full') { if (pending === 0) store.hydrate(result); } // a change on its way brings the state back
+  else if (result.kind === 'work') store.hydrateWork(result);
+  emitChanged(result.kind === 'full' ? [...result.changed, 'erp'] : result.changed, asked);
+  return true;
+}
+let syncing: Promise<boolean> | null = null;
+let syncNext: Promise<boolean> | null = null;
+/** Reads what changed since the screen's state (the tickets alone when only they moved); true once answered. */
+export function sync(): Promise<boolean> {
+  if (!syncing) {
+    syncing = runSync().finally(() => { syncing = null; });
+    return syncing;
+  }
+  if (!syncNext) syncNext = syncing.then(() => { syncNext = null; return sync(); });
+  return syncNext;
+}
+
 export const MODULE_ONLY: Room[] = ['tasks', 'archives', 'reports', 'settings', 'penthouse', 'myday', 'mywork', 'time', 'inbox', 'overview']; // [bumex-one] myday, time, inbox, overview
 
 export const useStore = create<Store>((set, get) => ({
   state: EMPTY,
   loadedAt: 0,
   version: 0,
+  marks: { audit: 0, seq: 0 },
   ui: {
     view: 'flat', // [bumex-one] until hydrate() reads the person's option
     entityId: null,
@@ -277,16 +322,27 @@ export const useStore = create<Store>((set, get) => ({
     const fiscalYearLabel = loadedAt ? ui.fiscalYearLabel : state.fiscalYears.find((f) => f.entityId === entity?.id && state.today >= f.start && state.today <= f.end)?.label ?? ui.fiscalYearLabel;
     const scene3d = state.session.view3d === true;
     const view: View = !(scene3d && webgl) ? 'flat' : loadedAt ? ui.view : prefs.flat ? 'flat' : 'tower';
-    set({ state, loadedAt: data.loadedAt, version: data.version, ui: { ...ui, entityId: entity?.id ?? null, fiscalYearLabel, scene3d, webgl: scene3d && webgl, view, switching: null } });
+    set({ state, loadedAt: data.loadedAt, version: data.version, marks: data.marks ?? get().marks, ui: { ...ui, entityId: entity?.id ?? null, fiscalYearLabel, scene3d, webgl: scene3d && webgl, view, switching: null } });
     if (!loadedAt && scene3d && !webgl && !isPhoneOrTablet()) get().toast('info', get().t('no_webgl'));
   },
   refreshIfChanged: () => {
     if (pending > 0 || checking) return;
     checking = true;
-    void vanguardVersionAction()
-      .then((version) => (version > get().version && pending === 0 ? reload() : false))
-      .catch(() => false)
-      .finally(() => (checking = false));
+    void sync().finally(() => (checking = false));
+  },
+  hydrateWork: (data) => {
+    if (data.loadedAt <= get().loadedAt) return;
+    const { state } = get();
+    // the change's tickets, missions and history put in; a change of the books on its way brings the whole state back,
+    // the tickets alone meanwhile
+    set({ state: mergeWork(state, data, pending === 0), loadedAt: data.loadedAt, version: data.version, marks: data.marks });
+  },
+  patchTask: (id, change) => {
+    const before = get().state.tasks.find((t) => t.id === id);
+    if (!before) return () => undefined;
+    const swap = (to: State['tasks'][number]) => set((s) => ({ state: { ...s.state, tasks: s.state.tasks.map((t) => (t.id === id ? to : t)) } }));
+    swap(change(before));
+    return () => swap(before);
   },
   setUi: (patch) => {
     set((s) => ({ ui: { ...s.ui, ...patch } }));

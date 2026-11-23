@@ -3,7 +3,7 @@ import "server-only";
 import type { State } from "@/lib/erp/engine";
 import { withErpSession } from "@/lib/erp/db";
 import { vanguardErrorMessage } from "@/lib/erp/vanguard/errors";
-import { listPeople, loadVanguardState, vanguardVersion } from "@/lib/erp/vanguard/load";
+import { listPeople, loadVanguardState, syncVanguardState, type SyncState, type VanguardMarks } from "@/lib/erp/vanguard/load";
 import type { VanguardChange } from "@/lib/erp/vanguard/record";
 import { applyVanguardChange } from "@/lib/erp/vanguard/save";
 import type { Locale } from "@/lib/i18n/config";
@@ -12,12 +12,21 @@ import type { ErpAccess } from "@/types/erp";
 
 // What the page and every change send to the browser: the state, the entries whose hash check failed, when it was
 // read (the browser keeps a newer state than a page it gets from the router's cache) and the database's version.
-export type VanguardData = { state: State; chainBreaks: string[]; loadedAt: number; version: number };
+export type VanguardData = { state: State; chainBreaks: string[]; loadedAt: number; version: number; marks: VanguardMarks };
 export type VanguardResult = ({ ok: true } | { ok: false; error: string }) & Partial<VanguardData>;
 
 type Person = Pick<Profile, "id" | "full_name">;
 
-const stamped = (data: { state: State; chainBreaks: string[]; version: number }): VanguardData => ({ ...data, loadedAt: Date.now() });
+const stamped = (data: Omit<VanguardData, "loadedAt">): VanguardData => ({ ...data, loadedAt: Date.now() });
+
+// What changed since the browser's marks, read in one session (load.ts syncVanguardState), stamped like a state.
+export type VanguardSync = Exclude<SyncState, { kind: "full" | "work" }> | (Extract<SyncState, { kind: "work" }> & { loadedAt: number }) | (Extract<SyncState, { kind: "full" }> & VanguardData);
+
+export async function syncVanguard(person: Person, access: ErpAccess, since: VanguardMarks): Promise<VanguardSync> {
+  const who = { id: person.id, name: person.full_name };
+  const result = await withErpSession(person.id, async (tx) => syncVanguardState(tx, who, access, await listPeople(tx), since));
+  return result.kind === "same" ? result : { ...result, loadedAt: Date.now() };
+}
 
 export async function loadVanguard(person: Person, access: ErpAccess): Promise<VanguardData> {
   const who = { id: person.id, name: person.full_name };
@@ -37,9 +46,4 @@ export async function runVanguardChange(person: Person, access: ErpAccess, chang
     const data = await withErpSession(person.id, async (tx) => loadVanguardState(tx, who, access, await listPeople(tx))).catch(() => undefined);
     return { ok: false, error: message, ...(data ? stamped(data) : {}) };
   }
-}
-
-// The database's version for the person's screen (a cheap read: the screen reads the state again when it moved).
-export async function getVanguardVersion(person: Person): Promise<number> {
-  return withErpSession(person.id, vanguardVersion);
 }

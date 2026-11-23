@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { fmt } from '@bumex/domain';
 import { floorCode } from '@/lib/erp/vanguard/floors';
 import { roadmapAction, type RoadmapLane } from '@/lib/erp/vanguard/calendar-actions';
@@ -19,6 +19,8 @@ import { Select } from '../ui/Select';
 import { confirmAsk } from './ask';
 import { Loading, SkLines, SkPage } from './skeleton';
 import { activityDetail, activityText } from './labels';
+import { useCached } from './cache';
+import { POLICY, withTag } from './policies';
 
 // A mission's page in the Missions room (redrawn on 2026-10-28, laid out as a ticket's page): its name and state on top,
 // then its figures, description, tickets and milestones, with its details and alerts on the side; its team, notes,
@@ -45,17 +47,14 @@ const pair = <T extends string>(list: [T, string, string][], key: string, say: S
 export function MissionPanel({ projectId, initialTab, onClose }: { projectId: string; initialTab?: Tab; onClose: () => void }) {
   const { state, toast, openRoom } = useStore();
   const say = useSay();
-  const [view, setView] = useState<ProjectView | null | undefined>(undefined);
+  // kept per mission between visits; read again when its tickets, hours, members or documents move (one/policies.ts)
+  const cached = useCached<ProjectView | null>(['project', projectId], () => projectViewAction(projectId), withTag(POLICY.project, `project:${projectId}`));
+  const view = cached.data === undefined ? (cached.error ? null : undefined) : cached.data;
   const [tab, setTab] = useState<Tab>(initialTab ?? 'overview');
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => setView(await projectViewAction(projectId).catch(() => null)), [projectId]);
-  useEffect(() => {
-    let live = true;
-    projectViewAction(projectId).catch(() => null).then((next) => { if (live) setView(next); });
-    return () => { live = false; };
-  }, [projectId]);
+  const load = cached.refresh;
 
   const run = async (work: () => Promise<Result | void>, done?: string) => {
     setBusy(true);
@@ -63,7 +62,10 @@ export function MissionPanel({ projectId, initialTab, onClose }: { projectId: st
       const result = await work();
       if (result && result.error) { toast('error', result.error); return false; }
       if (done) toast('ok', done);
-      await Promise.all([load(), reload()]);
+      // what the change moved (the store's sync), then the mission once (a read the sync started after it is shared)
+      const changedAt = Date.now();
+      await reload();
+      await load(changedAt);
       return true;
     } catch {
       toast('error', say("Serveur injoignable : rien n'a changé.", 'Server unreachable: nothing changed.'));
@@ -155,13 +157,9 @@ function Overview({ view, engagement, say, onTab }: { view: ProjectView; engagem
   const { project } = view;
   const today = state.today;
   const [scope, setScope] = useState<TicketScope>('open');
-  const [lane, setLane] = useState<RoadmapLane | null | undefined>(undefined);
-  const loadedAt = useStore((s) => s.loadedAt);
-  useEffect(() => {
-    let live = true;
-    roadmapAction().then((d) => live && setLane(d.lanes.find((l) => l.id === project.id) ?? null)).catch(() => live && setLane(null));
-    return () => { live = false; };
-  }, [project.id, loadedAt]);
+  // the roadmap is read once for every mission's page and the Roadmap tab (one cache key: Milestones.tsx)
+  const roadmap = useCached<Awaited<ReturnType<typeof roadmapAction>>>(['roadmap'], () => roadmapAction(), POLICY.roadmap);
+  const lane: RoadmapLane | null | undefined = roadmap.data ? (roadmap.data.lanes.find((l) => l.id === project.id) ?? null) : roadmap.error ? null : undefined;
 
   // the state's tickets of the mission (key, stage, assignee); a mission of another floor shows its preview
   const tickets = useMemo(() => (engagement ? (state.tasks.filter((x) => x.engagementId === engagement.id && 'ticket' in x) as TicketTask[]) : []), [state.tasks, engagement]);

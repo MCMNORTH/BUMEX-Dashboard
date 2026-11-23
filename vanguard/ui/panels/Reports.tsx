@@ -6,6 +6,7 @@ import { Icon, Tabs } from '../common';
 import { ActivityReports } from '../../one/ActivityReports'; // [bumex-one] BUMEX One's activity reports, same room
 import { FinanceArchive } from '../../one/FinanceArchive'; // [bumex-one] BUMEX One's finance, read-only
 import { useSay } from '../../one/say'; // [bumex-one]
+import { PageRefresh } from '../../one/PageRefresh'; // [bumex-one] ↻ at the right of the header (2026-11-22)
 // [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 // Reports: each card carries a live figure and opens the module that produces the report, on the right tab.
@@ -69,7 +70,7 @@ export function ReportsPanel({ entityId }: { entityId: Id }) {
       ];
   return (
     <>
-      <div className="sheet-head"><h1>{t('rep_title')}</h1><Tabs tabs={[{ id: 'finance' as const, label: say('Pilotage', 'Management') }, { id: 'activity' as const, label: say("Rapports d'activité", 'Activity reports') }, { id: 'archive' as const, label: say('Archives financières', 'Finance archive') }]} value={part} onChange={setPart} />{part === 'finance' && <span className="muted small">{t('rep_sub')}</span>}</div>
+      <div className="sheet-head"><h1>{t('rep_title')}</h1><Tabs tabs={[{ id: 'finance' as const, label: say('Pilotage', 'Management') }, { id: 'activity' as const, label: say("Rapports d'activité", 'Activity reports') }, { id: 'archive' as const, label: say('Archives financières', 'Finance archive') }]} value={part} onChange={setPart} />{part === 'finance' && <span className="muted small">{t('rep_sub')}</span>}<PageRefresh /></div>
       <div className="sheet-body">
         {part === 'archive' ? <FinanceArchive /> : part === 'activity' ? <ActivityReports /> : (
         <div className="grid3">

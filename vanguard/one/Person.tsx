@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { editTeamMemberAction } from '@/app/(app)/team/actions';
 import { personViewAction, type PersonView } from '@/lib/erp/vanguard/people-actions';
 import type { AvailabilityStatus } from '@/types/auth';
@@ -16,6 +16,8 @@ import type { Say } from './ticket-history';
 import { Select } from '../ui/Select';
 import { Loading, SkPage } from './skeleton';
 import { activityDetail, activityText, cap, valueLabel } from './labels';
+import { invalidate, useCached } from './cache';
+import { POLICY, withTag } from './policies';
 
 // A person's page (the HR room's People tab, and the floor's overview: Overview.tsx), as BUMEX One's team member page had
 // it: profile and availability, load, missions, tickets, activity and, for the administrator, managers and the person,
@@ -55,17 +57,14 @@ const AVAILABILITY: Record<AvailabilityStatus, [string, string, 'good' | 'warn' 
 export function PersonPanel({ personId, onClose }: { personId: string; onClose: () => void }) {
   const { state, toast, openRoom } = useStore();
   const say = useSay();
-  const [view, setView] = useState<PersonView | null | undefined>(undefined);
+  // kept per person between visits; read again when the people, their tickets, hours or missions move, or after a change
+  // of this person (one/policies.ts); one not visible to the person reads null
+  const cached = useCached<PersonView | null>(['person', personId], () => personViewAction(personId), withTag(POLICY.person, `person:${personId}`));
+  const view = cached.data === undefined ? (cached.error ? null : undefined) : cached.data;
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ full_name: '', job_title: '', department: '', phone: '', skills: '', availability_status: 'available' as AvailabilityStatus, weekly_capacity_hours: '40' });
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => setView(await personViewAction(personId).catch(() => null)), [personId]);
-  useEffect(() => {
-    let live = true;
-    personViewAction(personId).catch(() => null).then((v) => { if (live) setView(v); });
-    return () => { live = false; };
-  }, [personId]);
 
   if (view === undefined) return <Loading><SkPage tabs={3} /></Loading>;
   if (view === null) return <div className="card"><div className="banner warn">{say("Cette personne n'est pas visible pour vous.", 'This person is not visible to you.')}</div><div className="actions" style={{ marginTop: 10 }}><button className="btn sm" onClick={onClose}>{say('Retour', 'Back')}</button></div></div>;
@@ -85,7 +84,10 @@ export function PersonPanel({ personId, onClose }: { personId: string; onClose: 
       if (result.error) { toast('error', result.error); return; }
       toast('ok', say('Profil mis à jour', 'Profile updated'));
       setEditing(false);
-      await Promise.all([load(), reload()]);
+      // the store's people (the sync), then what shows this person made stale (this page, read again once, and the team)
+      const changedAt = Date.now();
+      await reload();
+      await invalidate(['person', `person:${personId}`], changedAt);
     } catch {
       toast('error', say("Serveur injoignable : rien n'a changé.", 'Server unreachable: nothing changed.'));
     } finally {

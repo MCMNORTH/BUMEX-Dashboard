@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { archiveNotificationAction, listNotificationsAction, markAllNotificationsAsReadAction, markNotificationAsReadAction } from '@/lib/notifications/actions';
 import { getNotificationLink } from '@/lib/notifications/helpers';
@@ -10,6 +10,9 @@ import { Select } from '../ui/Select';
 import { Loading, SkList } from './skeleton';
 import { localizeNotification } from '@/lib/notifications/localize';
 import { useStore } from '../store';
+import { PageRefresh } from './PageRefresh';
+import { invalidate, useCached, useLastRead } from './cache';
+import { POLICY } from './policies';
 
 // The notifications' panel (the header's bell opens a few; "see them all" opens this): BUMEX One's Notifications page.
 // A notification opens what it is about through BUMEX One's link, which lands in the right room
@@ -26,32 +29,40 @@ const TYPES: Record<NotificationType, [string, string, 'good' | 'warn' | 'crit' 
   contract_due: ['Contrat', 'Contract', 'warn'],
   system: ['Système', 'System', 'dim'],
 };
+const NONE: NotificationRecord[] = [];
 
 export function Inbox() {
   const say = useSay();
   const lang = useStore((st) => (st.ui.lang === 'en' ? 'en' : 'fr'));
   const router = useRouter();
-  const [items, setItems] = useState<NotificationRecord[] | null>(null);
   const [q, setQ] = useState('');
   const [type, setType] = useState<NotificationType | ''>('');
   const [unreadOnly, setUnreadOnly] = useState(false);
 
-  const load = useCallback(async () => setItems(await listNotificationsAction(200, { search: q, type, unreadOnly }).catch(() => [])), [q, type, unreadOnly]);
-  useEffect(() => {
-    let live = true;
-    listNotificationsAction(200, { search: q, type, unreadOnly }).catch(() => []).then((list) => { if (live) setItems(list); });
-    return () => { live = false; };
-  }, [q, type, unreadOnly]);
+  // each search kept between visits; read again when notifications move (the bell's check, the person's own change:
+  // one/policies.ts). The list shown stays while another search is read (each letter typed); unreadable, it shows empty.
+  const list = useCached<NotificationRecord[]>(['inbox', 200, q, type, unreadOnly], () => listNotificationsAction(200, { search: q, type, unreadOnly }), POLICY.inbox);
+  const last = useLastRead(list.data);
+  const items = list.data ?? (list.error ? NONE : (last ?? null));
+  // after the person's own change: this list read again, and the others that show notifications made stale (the other
+  // searches, My work's and My day's mentions)
+  const load = async () => {
+    invalidate(['notifications']);
+    await list.refresh();
+  };
 
   const open = async (n: NotificationRecord) => {
-    if (!n.is_read) await markNotificationAsReadAction(n.id).catch(() => null);
+    if (!n.is_read) {
+      await markNotificationAsReadAction(n.id).catch(() => null);
+      invalidate(['notifications']);
+    }
     router.push(getNotificationLink(n.entity_type, n.entity_id));
   };
   const unread = items?.filter((n) => !n.is_read).length ?? 0;
 
   return (
     <>
-      <div className="sheet-head"><h1>{say('Notifications', 'Notifications')}</h1>{unread > 0 && <Chip kind="warn">{unread} {say('non lue(s)', 'unread')}</Chip>}</div>
+      <div className="sheet-head"><h1>{say('Notifications', 'Notifications')}</h1>{unread > 0 && <Chip kind="warn">{unread} {say('non lue(s)', 'unread')}</Chip>}<PageRefresh /></div>
       <div className="sheet-body">
         <div className="actions" style={{ justifyContent: 'flex-start' }}>
           <input className="in" style={{ maxWidth: 280 }} placeholder={say('Rechercher…', 'Search…')} value={q} onChange={(e) => setQ(e.target.value)} />

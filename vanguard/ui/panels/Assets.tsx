@@ -8,6 +8,7 @@ import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, DeleteButton, downloadXlsx, entryRef } from '../common';
 import { Select } from '../Select';
 import { useSay } from '../../one/say';
+import { PageRefresh } from '../../one/PageRefresh'; // [bumex-one] ↻ at the right of the header (2026-11-22)
 // [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 type Tab = 'register' | 'new' | 'sheet' | 'yearend' | 'categories';
@@ -36,7 +37,7 @@ export function AssetsPanel({ entityId, initialTab }: { entityId: Id; initialTab
   const open = (id: Id) => { setAssetId(id); setTab('sheet'); };
   return (
     <>
-      <div className="sheet-head"><h1>{t('room_assets')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
+      <div className="sheet-head"><h1>{t('room_assets')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /><PageRefresh /></div>
       <div className="sheet-body">
         {tab === 'register' && <Register entityId={entityId} onOpen={open} />}
         {tab === 'new' && <NewAsset entityId={entityId} onDone={open} />}

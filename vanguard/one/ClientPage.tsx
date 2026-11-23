@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { saveClientAction, shelveClientAction } from '@/app/(app)/clients/actions';
 import { clientViewAction, type ClientView } from '@/lib/erp/vanguard/client-actions';
 import type { ClientStatus, ClientType, ProspectStage } from '@/types/client';
@@ -12,6 +12,8 @@ import { Select } from '../ui/Select';
 import { confirmAsk } from './ask';
 import { Loading, SkPage } from './skeleton';
 import { activityDetail, activityText, valueLabel } from './labels';
+import { invalidate, useCached } from './cache';
+import { POLICY, withTag } from './policies';
 
 // A client's page in the Clients room, as BUMEX One's client page had it: the relationship (contact details, prospect
 // stage and next follow-up, account manager), its customer accounts in the entities (the accounting side), what it
@@ -86,26 +88,33 @@ export function ClientForm({ id, initial, managers, floor, onDone, say }: { id?:
 export function ClientPanel({ clientId, onClose }: { clientId: string; onClose: () => void }) {
   const { state, toast, openRoom } = useStore();
   const say = useSay();
-  const [view, setView] = useState<ClientView | null | undefined>(undefined);
+  // kept per client between visits; read again when its contracts, missions, tickets or documents move (one/policies.ts);
+  // one that no longer exists or is closed to the person reads null
+  const cached = useCached<ClientView | null>(['client', clientId], () => clientViewAction(clientId), withTag(POLICY.client, `client:${clientId}`));
+  const view = cached.data === undefined ? (cached.error ? null : undefined) : cached.data;
   const [tab, setTab] = useState<Tab>('overview');
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [historyFilter, setHistoryFilter] = useState('all');
 
-  const load = useCallback(async () => setView(await clientViewAction(clientId).catch(() => null)), [clientId]);
-  useEffect(() => {
-    let live = true;
-    clientViewAction(clientId).catch(() => null).then((next) => { if (live) setView(next); });
-    return () => { live = false; };
-  }, [clientId]);
+  const load = cached.refresh;
+  // the client itself saved or archived: the Clients room's lists and what else shows it are stale (the audit log does
+  // not see the relationship side)
+  const clientWords = ['clients', `client:${clientId}`];
 
-  const run = async (work: () => Promise<Result | void>, done?: string) => {
+  // words: what else the change makes stale, named before this page is read again so it is read once (a note or a
+  // comment moves only this page)
+  const run = async (work: () => Promise<Result | void>, done?: string, words: string[] = []) => {
     setBusy(true);
     try {
       const result = await work();
       if (result && result.error) { toast('error', result.error); return false; }
       if (done) toast('ok', done);
-      await Promise.all([load(), reload()]);
+      // what the change moved (the store's sync), then what else it makes stale and the client once (a read started
+      // after the change is shared)
+      const changedAt = Date.now();
+      await reload();
+      await Promise.all([invalidate(words, changedAt), load(changedAt)]);
       return true;
     } catch {
       toast('error', say("Serveur injoignable : rien n'a changé.", 'Server unreachable: nothing changed.'));
@@ -131,7 +140,7 @@ export function ClientPanel({ clientId, onClose }: { clientId: string; onClose: 
   const accounts = state.customers.filter((c) => (c as { clientId?: string }).clientId === client.id);
   const archive = async () => {
     if (!(await confirmAsk({ title: say(`Archiver le client « ${client.name} » ?`, `Archive the client "${client.name}"?`), confirm: say('Archiver', 'Archive') }))) return;
-    if (await run(() => shelveClientAction(client.id), say('Client archivé', 'Client archived'))) onClose();
+    if (await run(() => shelveClientAction(client.id), say('Client archivé', 'Client archived'), clientWords)) onClose();
   };
   const tabs = [
     { id: 'overview' as Tab, label: say("Vue d'ensemble", 'Overview') },
@@ -167,7 +176,7 @@ export function ClientPanel({ clientId, onClose }: { clientId: string; onClose: 
           id={client.id}
           initial={{ name: client.name, legal_name: client.legal_name ?? '', type: client.type, industry: client.industry ?? '', contact_email: client.contact_email ?? '', contact_phone: client.contact_phone ?? '', address: client.address ?? '', country: client.country ?? '', city: client.city ?? '', website: client.website ?? '', tax_id: client.tax_id ?? '', status: client.status, prospect_stage: client.prospect_stage ?? '', next_follow_up_at: client.next_follow_up_at ?? '', account_manager_id: client.account_manager_id ?? '', notes: client.notes ?? '' }}
           managers={view.managers}
-          onDone={(saved) => { setEditing(false); if (saved) void Promise.all([load(), reload()]); }}
+          onDone={(saved) => { setEditing(false); if (saved) { const at = Date.now(); void reload().then(() => Promise.all([invalidate(clientWords, at), load(at)])); } }}
           say={say}
         />
       )}

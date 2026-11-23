@@ -12,6 +12,7 @@ const logo = logoImage.src;
 import { Select } from '../Select';
 import { NO_FISCAL_YEAR, fiscalYearChoices } from '../../one/fiscal-years'; // [bumex-one] never blank (2026-11-20)
 import { setThemePref, useThemePref, type ThemePref } from '@/lib/theme'; // [bumex-one] light or dark (2026-11-19)
+import { PageRefresh } from '../../one/PageRefresh'; // [bumex-one] ↻ at the right of the header (2026-11-22)
 // [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 type Tab = 'general' | 'account' | 'access' | 'rates' | 'deletions' | 'history'; // [bumex-one] account, rates (exchange rates)
@@ -27,7 +28,7 @@ export function SettingsPanel({ initialTab }: { initialTab?: string | null }) {
   useEffect(() => { if (initialTab && tabs.some((x) => x.id === initialTab)) setTab(initialTab as Tab); }, [initialTab]); // [bumex-one] a link to another tab while the room is open
   return (
     <>
-      <div className="sheet-head"><h1>{t('set_title')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
+      <div className="sheet-head"><h1>{t('set_title')}</h1><Tabs tabs={tabs} value={tab} onChange={setTab} /><PageRefresh /></div>
       <div className="sheet-body">
         {tab === 'general' && <General />}
         {tab === 'account' && <MyAccountPanel />}{/* [bumex-one] BUMEX One's profile, preferences, security */}
