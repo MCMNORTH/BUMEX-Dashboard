@@ -363,6 +363,14 @@
 .vanguard tr.click:not(:where(.bumex-page, .bumex-page *)) { cursor: pointer; } .vanguard tr.click:hover td:not(:where(.bumex-page, .bumex-page *)) { background: var(--hover); }
 .vanguard tr.sel.click:hover td:not(:where(.bumex-page, .bumex-page *)) { background: var(--brand-tint-2); }
 .vanguard tfoot td:not(:where(.bumex-page, .bumex-page *)) { font-weight: 600; background: var(--ground); }
+/* [bumex-one] a row's buttons wrap inside their cell, whole, onto a second line rather than push the table past its card
+   (the invoice list's Preview · Record payment · Credit ran off the screen, 2026-11-24); a table in any card scrolls
+   inside it rather than spill over its edge. Dropdowns are drawn outside the page (select.css: fixed), unclipped. */
+.vanguard td:has(.btn):not(:where(.bumex-page, .bumex-page *)) { white-space: normal !important; }
+.vanguard td .btn:not(:where(.bumex-page, .bumex-page *)) { margin-block: 2px; }
+.vanguard .card:has(> table):not(:where(.bumex-page, .bumex-page *)) { overflow-x: auto; }
+/* a code in a cell (an invoice number, an account) stays whole: IN2412-0033 never breaks at its hyphen */
+.vanguard td.mono:not(:where(.bumex-page, .bumex-page *)) { white-space: nowrap; }
 .vanguard .kv:not(:where(.bumex-page, .bumex-page *)) { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; font-size: 13px; }
 .vanguard .kv .k:not(:where(.bumex-page, .bumex-page *)) { color: var(--muted); }
 .vanguard .field:not(:where(.bumex-page, .bumex-page *)) { display: flex; flex-direction: column; gap: 4px; }
