@@ -105,7 +105,7 @@ describe('clients: withholding at source (RAS 7 %)', () => {
   it('an invoice to a withholding customer books the net receivable and the RAS receivable', () => {
     const bank = base.customers.find((c) => c.entityId === AUD && c.name === 'Banque C')!;
     expect(bank.withholdingCodeId).toBeDefined();
-    const [s1, inv] = createInvoice(base, { entityId: AUD, customerId: bank.id, date: TODAY, currency: 'MRU', lines: [{ description: 'Audit', quantity: 1, unitPrice: 1000000, serviceCategory: 'AUDIT' }] });
+    const [s1, inv] = createInvoice(base, { entityId: AUD, customerId: bank.id, date: TODAY, currency: 'MRU', lines: [{ description: 'Audit', quantity: 1, unitPrice: 1000000, serviceCategory: 'AUDIT', withholdingCodeId: bank.withholdingCodeId }] });
     expect(inv.totalTtc).toBe(1160000);
     expect(inv.withholdingRate).toBe(0.07);
     expect(inv.withholdingAmount).toBe(70000);
@@ -123,11 +123,11 @@ describe('clients: withholding at source (RAS 7 %)', () => {
     // an exempt customer can still be subject to withholding: the two notions are separate
     const ong = base.customers.find((c) => c.entityId === AUD && c.regime === 'exempt')!;
     const ras = base.taxCodes.find((t) => t.entityId === AUD && t.code === 'RAS-7')!;
-    const [, inv2] = createInvoice(base, { entityId: AUD, customerId: ong.id, date: TODAY, currency: 'EUR', withholdingCodeId: ras.id, lines: [{ description: 'Audit', quantity: 1, unitPrice: 1000, serviceCategory: 'AUDIT' }] });
+    const [, inv2] = createInvoice(base, { entityId: AUD, customerId: ong.id, date: TODAY, currency: 'EUR', lines: [{ description: 'Audit', quantity: 1, unitPrice: 1000, serviceCategory: 'AUDIT', withholdingCodeId: ras.id }] });
     expect(inv2.totalTax).toBe(0);
     expect(inv2.withholdingAmount).toBe(70);
-    // and a withholding customer can be invoiced without it
-    const [, inv3] = createInvoice(base, { entityId: AUD, customerId: bank.id, date: TODAY, currency: 'MRU', withholdingCodeId: null, lines: [{ description: 'Audit', quantity: 1, unitPrice: 1000, serviceCategory: 'AUDIT' }] });
+    // and a withholding customer can be invoiced without it: a line without a code bears none, whatever its card says
+    const [, inv3] = createInvoice(base, { entityId: AUD, customerId: bank.id, date: TODAY, currency: 'MRU', lines: [{ description: 'Audit', quantity: 1, unitPrice: 1000, serviceCategory: 'AUDIT' }] });
     expect(inv3.withholdingAmount).toBe(0);
   });
   it('statements separate withholding suffered on sales from withholding due on purchases, and VAT', () => {

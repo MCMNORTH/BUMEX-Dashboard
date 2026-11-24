@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   assignStatementLine, addBankRule, updateBankRule, deleteBankRule, recordPayment, paySupplierInvoice, openInvoices, suggestFor, ruleMatches, findAccountByCode,
-  arAccountFor, apAccountFor, mapped, canOpenRoom, parseAmount, fmt, r2, DomainError,
+  arAccountFor, apAccountFor, mapped, canOpenRoom, parseAmount, fmt, r2, DomainError, bookTransfer, favoritesFirst, daysBetween,
   type Id, type State, type Account, type BankTransaction, type BankRule, type StatementSplit,
 } from '@bumex/domain';
 import { useStore } from '../store';
@@ -10,6 +10,7 @@ import { confirmAsk } from './ask';
 import { Select, Suggest } from '../ui/Select';
 import { useSay, sayNow } from './say';
 import { englishMessage } from './engine-messages';
+import { AllocationEditor, allocationsOf } from './Lettering'; // [bumex-one] a receipt over several invoices (2026-11-23)
 // [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 // [bumex-one] Banque › Rapprochement and Banque › Règles (asked by Sidaty on 2026-11-18, lib/erp/engine/bank.ts): a
@@ -93,7 +94,12 @@ export function patternFrom(label: string): string {
   return label.replace(/[0-9]+([/.\-:][0-9]+)*/g, ' ').replace(/\b(N°|NO|REF)\b/gi, ' ').replace(/[°#]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-export function AssignLine({ entityId, txn, parked, onDone }: { entityId: Id; txn: BankTransaction; parked: boolean; onDone: () => void }) {
+// [bumex-one] Sidaty's corrections (2026-11-23): a receipt settles several invoices of its client; "Virement interne"
+// to or from any other account of the entity (a cash deposit too), with the other side's real amount — its statement
+// line or a typed amount — and, between two currencies, the difference to the FX loss / gain or the sale commission.
+export type AssignMode = 'accounts' | 'invoice' | 'transfer';
+
+export function AssignLine({ entityId, txn, parked, onDone, initialMode, initialTarget }: { entityId: Id; txn: BankTransaction; parked: boolean; onDone: () => void; initialMode?: AssignMode; initialTarget?: Id }) {
   const { state, apply } = useStore();
   const say = useSay();
   const bank = state.bankAccounts.find((b) => b.id === txn.bankAccountId)!;
@@ -101,8 +107,7 @@ export function AssignLine({ entityId, txn, parked, onDone }: { entityId: Id; tx
   const incoming = txn.amount > 0;
   const suspense = useMemo(() => { try { return mapped(state, entityId, 'SUSPENSE'); } catch { return undefined; } }, [state, entityId]);
   const canClients = canOpenRoom(state, entityId, 'clients'), canSuppliers = canOpenRoom(state, entityId, 'suppliers');
-  type Mode = 'accounts' | 'invoice';
-  const [mode, setMode] = useState<Mode>('accounts');
+  const [mode, setMode] = useState<AssignMode>(parked ? 'accounts' : initialMode ?? 'accounts');
   const [rows, setRows] = useState<Row[]>(() => {
     const rule = state.bankRules.find((r) => r.accountId && !r.builtIn && ruleMatches(r, txn));
     const code = rule ? state.accounts.find((a) => a.id === rule.accountId)?.code ?? '' : '';
@@ -113,6 +118,38 @@ export function AssignLine({ entityId, txn, parked, onDone }: { entityId: Id; tx
   const [makeRule, setMakeRule] = useState(false);
   const [pattern, setPattern] = useState(() => patternFrom(txn.description));
   const [invoiceId, setInvoiceId] = useState('');
+  // a client receipt: the client, then what goes to each of its invoices
+  const [customerId, setCustomerId] = useState('');
+  const [amounts, setAmounts] = useState<Record<Id, string>>({});
+  // an internal transfer: the other account, its line or a typed amount, where a loss goes
+  const targets = favoritesFirst(state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && b.id !== bank.id));
+  const [targetId, setTargetId] = useState(initialTarget ?? targets[0]?.id ?? '');
+  const target = targets.find((b) => b.id === targetId);
+  const targetKey = target?.id;
+  // the other account's lines going the other way, within ten days, the closest first
+  const candidates = targetKey ? state.bankTransactions.filter((t) => t.bankAccountId === targetKey && t.status === 'unmatched' && Math.sign(t.amount) === -Math.sign(txn.amount) && Math.abs(daysBetween(t.date, txn.date)) <= 10).sort((a, b) => Math.abs(daysBetween(a.date, txn.date)) - Math.abs(daysBetween(b.date, txn.date))) : [];
+  const [counterpartId, setCounterpartId] = useState('');
+  const [otherAmount, setOtherAmount] = useState('');
+  const [difference, setDifference] = useState<'fx' | 'fee'>('fx');
+  const transferOpts = () => ({ counterpartTxnId: counterpartId || undefined, amount: !counterpartId && otherAmount.trim() ? parseAmount(otherAmount) ?? undefined : undefined, difference });
+  // the transfer as it would be booked: the difference, if any
+  const transferPreview = useMemo(() => {
+    if (mode !== 'transfer' || !target) return null;
+    try {
+      const [s1] = bookTransfer(state, txn.id, target.id, transferOpts());
+      const added = s1.entries.slice(state.entries.length).flatMap((e) => e.lines);
+      const keys = ['FX_LOSS', 'FX_GAIN', 'FX_SALE_FEE'].map((k) => { try { return mapped(state, entityId, k); } catch { return undefined; } }).filter((a): a is Account => !!a);
+      const diff = added.filter((l) => keys.some((a) => a.id === l.accountId));
+      return { error: null as string | null, diff: diff.map((l) => ({ code: keys.find((a) => a.id === l.accountId)!.code, amount: r2(l.debit - l.credit) })) };
+    } catch (err) {
+      return { error: err instanceof DomainError ? say(err.message, englishMessage(err.message)) : String(err), diff: [] };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, mode, target, counterpartId, otherAmount, difference, say]);
+  const clients = useMemo(() => {
+    const ids = new Set(openInvoices(state, entityId).filter((o) => o.invoice.currency === bank.currency).map((o) => o.customer.id));
+    return state.customers.filter((c) => c.entityId === entityId && (ids.has(c.id) || c.id === customerId)).sort((a, b) => a.name.localeCompare(b.name));
+  }, [state, entityId, bank.currency, customerId]);
 
   const setRow = (i: number, patch: Partial<Row>) => setRows((rs) => rs.map((r, k) => (k === i ? { ...r, ...patch } : r)));
   const splits: StatementSplit[] = rows.map((r) => ({ accountId: accountOf(state, entityId, r.code)?.id ?? (r.code.trim() ? `?${r.code}` : ''), amount: parseAmount(r.amount) ?? 0, description: r.description || undefined, ...partyOf(r) }));
@@ -133,12 +170,15 @@ export function AssignLine({ entityId, txn, parked, onDone }: { entityId: Id; tx
 
   const check = useMemo(() => {
     try {
+      if (mode === 'transfer') return transferPreview?.error ?? (target ? null : say("Choisissez l'autre compte", 'Choose the other account'));
       if (mode === 'invoice') {
-        if (!invoice) return say('Choisissez la facture', 'Choose the invoice');
         if (incoming) {
-          const inv = state.salesInvoices.find((i) => i.id === invoice.id)!;
-          recordPayment(state, { entityId, customerId: inv.customerId, date: txn.date, currency: bank.currency, amountTxn: txn.amount, bankAccountId: bank.id, invoiceId: inv.id, bankTransactionId: txn.id });
-        } else paySupplierInvoice(state, { invoiceId: invoice.id, date: txn.date, bankAccountId: bank.id, amount: total, bankTransactionId: txn.id });
+          if (!customerId) return say('Choisissez le client', 'Choose the client');
+          recordPayment(state, { entityId, customerId, date: txn.date, currency: bank.currency, amountTxn: txn.amount, bankAccountId: bank.id, allocations: allocationsOf(amounts), bankTransactionId: txn.id });
+          return null;
+        }
+        if (!invoice) return say('Choisissez la facture', 'Choose the invoice');
+        paySupplierInvoice(state, { invoiceId: invoice.id, date: txn.date, bankAccountId: bank.id, amount: total, bankTransactionId: txn.id });
         return null;
       }
       let s = state;
@@ -149,13 +189,20 @@ export function AssignLine({ entityId, txn, parked, onDone }: { entityId: Id; tx
       return err instanceof DomainError ? say(err.message, englishMessage(err.message)) : String(err);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, mode, invoice, rows, date, makeRule, pattern, say]);
+  }, [state, mode, invoice, rows, date, makeRule, pattern, say, customerId, amounts, transferPreview, target]);
 
   const save = () => {
+    if (mode === 'transfer' && target) {
+      if (apply((s) => bookTransfer(s, txn.id, target.id, transferOpts()), sayNow('Virement interne comptabilisé, les lignes rapprochées', 'Internal transfer posted, the lines reconciled'))) onDone();
+      return;
+    }
+    if (mode === 'invoice' && incoming && customerId) {
+      const allocations = allocationsOf(amounts);
+      if (apply((s) => recordPayment(s, { entityId, customerId, date: txn.date, currency: bank.currency, amountTxn: txn.amount, bankAccountId: bank.id, allocations, bankTransactionId: txn.id, reference: txn.reference }), allocations.length ? sayNow('Encaissement comptabilisé, factures lettrées, ligne rapprochée', 'Receipt posted, invoices lettered, line reconciled') : sayNow('Encaissement comptabilisé, à lettrer, ligne rapprochée', 'Receipt posted, to letter, line reconciled'))) onDone();
+      return;
+    }
     if (mode === 'invoice' && invoice) {
-      const ok = incoming
-        ? apply((s) => { const inv = s.salesInvoices.find((i) => i.id === invoice.id)!; return recordPayment(s, { entityId, customerId: inv.customerId, date: txn.date, currency: bank.currency, amountTxn: txn.amount, bankAccountId: bank.id, invoiceId: inv.id, bankTransactionId: txn.id, reference: txn.reference ?? inv.number }); }, sayNow('Encaissement comptabilisé, facture lettrée, ligne rapprochée', 'Receipt posted, invoice matched, line reconciled'))
-        : apply((s) => paySupplierInvoice(s, { invoiceId: invoice.id, date: txn.date, bankAccountId: bank.id, amount: total, reference: txn.reference, bankTransactionId: txn.id }), sayNow('Règlement comptabilisé, facture fournisseur lettrée, ligne rapprochée', 'Payment posted, supplier invoice matched, line reconciled'));
+      const ok = apply((s) => paySupplierInvoice(s, { invoiceId: invoice.id, date: txn.date, bankAccountId: bank.id, amount: total, reference: txn.reference, bankTransactionId: txn.id }), sayNow('Règlement comptabilisé, facture fournisseur lettrée, ligne rapprochée', 'Payment posted, supplier invoice matched, line reconciled'));
       if (ok) onDone();
       return;
     }
@@ -172,14 +219,50 @@ export function AssignLine({ entityId, txn, parked, onDone }: { entityId: Id; tx
     <div style={{ padding: '10px 4px', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
         <b>{parked ? say(`Reclasser hors de l'attente${suspense ? ` (${suspense.code})` : ''}`, `Reclassify out of suspense${suspense ? ` (${suspense.code})` : ''}`) : incoming ? say('Affecter l\'entrée', 'Assign the inflow') : say('Affecter la sortie', 'Assign the outflow')} · {bank.currency} {fmt(total)}</b>
-        {invoices.length > 0 && <>
+        {!parked && <>
           <button className={`btn sm ${mode === 'accounts' ? 'on' : ''}`} onClick={() => setMode('accounts')}>{say('Comptes', 'Accounts')}</button>
-          <button className={`btn sm ${mode === 'invoice' ? 'on' : ''}`} onClick={() => setMode('invoice')}>{incoming ? say('Facture client', 'Client invoice') : say('Facture fournisseur', 'Supplier invoice')}</button>
+          {(incoming ? canClients : invoices.length > 0) && <button className={`btn sm ${mode === 'invoice' ? 'on' : ''}`} onClick={() => setMode('invoice')}>{incoming ? say('Factures client', 'Client invoices') : say('Facture fournisseur', 'Supplier invoice')}</button>}
+          {targets.length > 0 && <button className={`btn sm ${mode === 'transfer' ? 'on' : ''}`} onClick={() => setMode('transfer')}>{say('Virement interne', 'Internal transfer')}</button>}
         </>}
         <span className="small muted" style={{ marginLeft: 'auto' }}>{txn.description}</span>
       </div>
-      {mode === 'invoice' ? (
-        <Field label={incoming ? say('Facture client ouverte', 'Open client invoice') : say('Facture fournisseur à régler', 'Supplier invoice to pay')}>
+      {mode === 'transfer' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <Field label={incoming ? say('Venant du compte', 'From the account') : say('Vers le compte', 'To the account')}>
+              <Select className="in" style={{ width: 280 }} value={targetId} onChange={(e) => { setTargetId(e.target.value); setCounterpartId(''); setOtherAmount(''); }}>{targets.map((b) => <option key={b.id} value={b.id}>{b.favorite ? '★ ' : ''}{b.isCash ? say('Caisse', 'Cash') : b.bankName} · {b.name} ({b.currency})</option>)}</Select>
+            </Field>
+            {target && candidates.length > 0 && (
+              <Field label={say(`Sa ligne de relevé (${incoming ? 'sortie' : 'entrée'})`, `Its statement line (${incoming ? 'out' : 'in'})`)}>
+                <Select className="in" style={{ width: 320 }} value={counterpartId} onChange={(e) => setCounterpartId(e.target.value)}>
+                  <option value="">{say('— aucune : montant ci-contre —', '— none: amount beside —')}</option>
+                  {candidates.map((t) => <option key={t.id} value={t.id}>{t.date} · {target.currency} {fmt(t.amount)} · {t.description}</option>)}
+                </Select>
+              </Field>
+            )}
+            {target && !counterpartId && (
+              <Field label={say(`Montant ${incoming ? 'parti' : 'arrivé'} (${target.currency})`, `Amount ${incoming ? 'sent' : 'received'} (${target.currency})`)}>
+                <input className="in num" style={{ width: 150 }} value={otherAmount} onChange={(e) => setOtherAmount(e.target.value)} placeholder={target.currency === bank.currency ? fmt(total) : say('au cours du tableau', "at the table's rate")} />
+              </Field>
+            )}
+          </div>
+          {target && target.currency !== bank.currency && (
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }} className="small">
+              <span>{say('Une perte de change va en', 'A loss goes to')}</span>
+              <label><input type="radio" checked={difference === 'fx'} onChange={() => setDifference('fx')} /> {say('perte de change', 'FX loss')}</label>
+              <label><input type="radio" checked={difference === 'fee'} onChange={() => setDifference('fee')} /> {say('commission de cession', 'currency-sale commission')}</label>
+              <span className="muted">{say('(un gain va en gain de change ; les deux écritures passent par le compte de virements de fonds, soldé)', '(a gain goes to FX gain; both entries go through the funds-transfer account, left at zero)')}</span>
+            </div>
+          )}
+          {transferPreview && !transferPreview.error && <div className="small">{transferPreview.diff.length ? transferPreview.diff.map((d) => say(`Écart ${fmt(Math.abs(d.amount))} en ${d.code}`, `Difference ${fmt(Math.abs(d.amount))} to ${d.code}`)).join(' · ') : say('Aucun écart', 'No difference')}{counterpartId ? say(' · les deux lignes seront rapprochées', ' · both lines will be reconciled') : ''}</div>}
+        </div>
+      ) : mode === 'invoice' && incoming ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Field label={say('Client', 'Client')}><Select recent="customers" className="in" style={{ width: 280 }} value={customerId} onChange={(e) => { setCustomerId(e.target.value); setAmounts({}); }}><option value="">{say('— client —', '— client —')}</option>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
+          {customerId && <AllocationEditor entityId={entityId} customerId={customerId} currency={bank.currency} total={total} amounts={amounts} onChange={setAmounts} />}
+        </div>
+      ) : mode === 'invoice' ? (
+        <Field label={say('Facture fournisseur à régler', 'Supplier invoice to pay')}>
           <Select className="in" value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)}><option value="">{say('— facture —', '— invoice —')}</option>{invoices.map((i) => <option key={i.id} value={i.id}>{i.label}</option>)}</Select>
         </Field>
       ) : (
@@ -208,7 +291,7 @@ export function AssignLine({ entityId, txn, parked, onDone }: { entityId: Id; tx
           {partyAccount && <div className="small muted">{say(`Un compte de tiers ne lettre aucune facture : pour solder une facture, choisissez « ${incoming ? 'Facture client' : 'Facture fournisseur'} »${parked ? ' depuis une ligne non encore mise en attente' : ''}.`, `A third-party account matches no invoice: to settle an invoice, choose “${incoming ? 'Client invoice' : 'Supplier invoice'}”${parked ? ' from a line not yet moved to suspense' : ''}.`)}</div>}
         </>
       )}
-      {check && (mode === 'invoice' ? !!invoiceId : left === 0) && <div className="banner warn">{check}</div>}
+      {check && (mode === 'transfer' ? !!target : mode === 'invoice' ? (incoming ? !!customerId : !!invoiceId) : left === 0) && <div className="banner warn">{check}</div>}
       <div className="actions">
         <button className="btn" onClick={onDone}>{say('Annuler', 'Cancel')}</button>
         <button className="btn primary" disabled={!!check} onClick={save}>{parked ? say('Reclasser', 'Reclassify') : say('Comptabiliser', 'Post')}</button>

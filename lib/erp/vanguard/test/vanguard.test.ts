@@ -384,7 +384,7 @@ describe("the modules", () => {
 
     // a draft edited (lines rewritten, WHT taken off) and deleted by a partner, through the database (2026-11-17)
     const ras7 = starred.state.taxCodes.find((t) => t.entityId === audit && t.code === "RAS-7")!.id;
-    const draftInput = { entityId: audit, customerId: customer, date: "2026-05-30", currency: "MRU" as const, withholdingCodeId: ras7, lines: [{ description: "Brouillon", quantity: 1, unitPrice: 100000, serviceCategory: "AUDIT" }] };
+    const draftInput = { entityId: audit, customerId: customer, date: "2026-05-30", currency: "MRU" as const, lines: [{ description: "Brouillon", quantity: 1, unitPrice: 100000, serviceCategory: "AUDIT", withholdingCodeId: ras7 }] };
     const drafted = await change("aicha", (s) => domain.createInvoice(s, draftInput));
     const draftId = drafted.browser[1].id;
     expect(drafted.state.salesInvoices.find((i) => i.id === draftId)).toMatchObject({ status: "draft", withholdingAmount: 7000 });
@@ -410,7 +410,16 @@ describe("the modules", () => {
     const noted = await change("aicha", (s) => domain.updateTaxCode(s, vat16, { legalMentionFr: "TVA 16 % facturée", legalMentionEn: "VAT 16 % charged" }));
     expect(noted.state.taxCodes.find((t) => t.id === vat16)).toMatchObject({ legalMentionFr: "TVA 16 % facturée", legalMentionEn: "VAT 16 % charged" });
     expect((await asSystem(() => readInvoiceByLink(tx, mixedInv.publicToken!)))!.data.notes!.map((n) => n.en)).toEqual([expect.stringContaining("GTA Project"), "VAT 16 % charged"]);
-    // a line saved before 0019 has neither column: it reads as bearing the invoice's WHT
+    // re-saved as read back (a line without WHT has no code): it keeps none (Sidaty, 2026-11-23)
+    const resaved = await change("aicha", (s) => {
+      const draft = domain.createInvoice(s, { entityId: audit, customerId: customer, date: "2026-05-31", currency: "MRU", lines: mixedInv.lines.map((l) => ({ description: l.description, quantity: l.quantity, unitPrice: l.unitPrice, serviceCategory: l.serviceCategory, withholdingCodeId: l.withholdingCodeId })) });
+      return domain.updateInvoice(draft[0], draft[1].id, { entityId: audit, customerId: customer, date: "2026-05-31", currency: "MRU", withholdingCodeId: ras7, lines: draft[1].lines.map((l) => ({ description: l.description, quantity: l.quantity, unitPrice: l.unitPrice, serviceCategory: l.serviceCategory, withholdingCodeId: l.withholdingCodeId })) });
+    });
+    const resavedInv = resaved.state.salesInvoices.find((i) => i.id === resaved.browser[1].id)!;
+    expect(resavedInv.withholdingAmount).toBe(7000);
+    // a posted invoice from before 0019 has neither column on its lines: reading it (credit notes, revaluation) takes the
+    // WHT it was posted with, computed on all its lines
+
     await asSystem(() => tx.query("update erp.sales_invoice_line set withholding_code_id = null, withholding_rate = null where invoice_id = $1", [mixedInv.id]));
     const reread = (await load("aicha")).state.salesInvoices.find((i) => i.id === mixedInv.id)!;
     expect(reread.lines.every((l) => l.withholdingRate === undefined && l.withholdingCodeId === undefined)).toBe(true);
@@ -455,6 +464,53 @@ describe("the modules", () => {
     expect(changed.state.bankRules.find((r) => r.id === rule.id)).toMatchObject({ pattern: "CERTIF CHQ|CERTIFICATION CHEQUE", bankAccountId: bank });
     const gone = await change("aicha", (s) => domain.deleteBankRule(s, rule.id!));
     expect(gone.state.bankRules.some((r) => r.id === rule.id)).toBe(false);
+  });
+
+  it("Sidaty's corrections (0021): lettering later and unlettering, a small difference decided by the administrator, a line unmatched and deleted, the management rules, an empty year deleted", async () => {
+    const exo = (s: State) => s.taxCodes.find((t) => t.entityId === audit && t.code === "EXO")!.id;
+    const invoiceOf = async (amount: number) => {
+      const made = await change("aicha", (s) => { const [s1, inv] = domain.createInvoice(s, { entityId: audit, customerId: customer, date: "2026-06-05", currency: "MRU", lines: [{ description: "Mission", quantity: 1, unitPrice: amount, serviceCategory: "AUDIT", taxCodeId: exo(s) }] }); return domain.postInvoice(s1, inv.id); });
+      return made.browser[1].id as string;
+    };
+    // an invoice of 1 000 paid 999,99: the cent is the administrator's decision, nothing automatic
+    const a = await invoiceOf(1000);
+    const paid = await change("aicha", (s) => domain.recordPayment(s, { entityId: audit, customerId: customer, date: "2026-06-06", currency: "MRU", amountTxn: 999.99, bankAccountId: bank, invoiceId: a }));
+    expect(paid.state.allocations.find((x) => x.invoiceId === a)!.label).toContain("→");
+    expect(domain.settlementCandidates(paid.state, audit).some((c) => c.kind === "invoice" && c.invoice.id === a)).toBe(true);
+    await expect(change("aicha", (s) => domain.settleInvoiceDifference(s, a))).rejects.toThrow();
+    const settled = await change("adm", (s) => domain.settleInvoiceDifference(s, a, { date: "2026-06-06" }));
+    expect(settled.state.salesInvoices.find((i) => i.id === a)).toMatchObject({ status: "paid", writeOffTxn: 0.01 });
+    // a receipt of 500 without an invoice, lettered later, then unlettered with its reason
+    const b = await invoiceOf(500);
+    const onAccount = await change("aicha", (s) => domain.recordPayment(s, { entityId: audit, customerId: customer, date: "2026-06-07", currency: "MRU", amountTxn: 500, bankAccountId: bank }));
+    const pay = onAccount.browser[1].id as string;
+    expect(domain.unletteredPayments(onAccount.state, audit, customer).map((u) => u.payment.id)).toContain(pay);
+    const lettered = await change("aicha", (s) => domain.letterPayment(s, pay, [{ invoiceId: b, amountTxn: 500 }]));
+    const alloc = lettered.state.allocations.find((x) => x.paymentId === pay)!;
+    expect(lettered.state.salesInvoices.find((i) => i.id === b)!.status).toBe("paid");
+    const unlettered = await change("aicha", (s) => domain.unletterAllocation(s, alloc.id, "mauvaise facture"));
+    expect(unlettered.state.allocations.some((x) => x.id === alloc.id)).toBe(false);
+    expect(unlettered.state.salesInvoices.find((i) => i.id === b)).toMatchObject({ status: "posted", amountPaidTxn: 0 });
+    expect(await asSystem(() => tx.query("select reason, status from erp.deletion_request where table_name = 'allocation' and row_id = $1", [alloc.id]))).toEqual([{ reason: "mauvaise facture", status: "approved" }]);
+    // a statement line booked, unmatched (its entry reversed), then deleted by a partner, with its reason kept
+    const imported = await change("aicha", (s) => domain.importStatement(s, bank, [{ date: "2026-06-08", amount: -800, description: "FRAIS EN DOUBLE" }]));
+    const line = imported.state.bankTransactions.find((t) => t.description === "FRAIS EN DOUBLE")!;
+    const booked = await change("aicha", (s) => domain.bookByRule(s, line.id, "BANK_FEES"));
+    const entryId = booked.state.bankTransactions.find((t) => t.id === line.id)!.journalEntryId!;
+    const unmatched = await change("aicha", (s) => domain.unmatchStatementLine(s, line.id, "import en double"));
+    expect(unmatched.state.bankTransactions.find((t) => t.id === line.id)!.status).toBe("unmatched");
+    expect(unmatched.state.entries.find((e) => e.id === entryId)!.status).toBe("reversed");
+    await change("awa", (s) => domain.requestDeletion(s, { table: "bank_transaction", rowId: line.id, label: "FRAIS EN DOUBLE", reason: "import en double", entityId: audit }).state);
+    expect(await asSystem(() => tx.query("select 1 from erp.bank_transaction where id = $1", [line.id]))).toHaveLength(0);
+    expect(await asSystem(() => tx.query("select reason, status from erp.deletion_request where table_name = 'bank_transaction' and row_id = $1", [line.id]))).toEqual([{ reason: "import en double", status: "approved" }]);
+    // the management rules, saved on the entity
+    const ruled = await change("adm", (s) => domain.setAccountingOptions(s, audit, { settlementTolerance: 400, preparerMayApprove: true }));
+    expect(ruled.state.entities.find((e) => e.id === audit)).toMatchObject({ settlementTolerance: 400, preparerMayApprove: true });
+    // an empty fiscal year opened too early, deleted by the administrator, its periods with it
+    const opened = await change("adm", (s) => domain.createFiscalYear(s, audit, 2027));
+    const fy = opened.state.fiscalYears.find((f) => f.entityId === audit && f.label === "2027")!;
+    await change("adm", (s) => domain.requestDeletion(s, { table: "fiscal_year", rowId: fy.id, label: "2027", reason: "créé trop tôt", entityId: audit }).state);
+    expect(await asSystem(() => tx.query("select 1 from erp.fiscal_year where id = $1 union all select 1 from erp.period where fiscal_year_id = $1", [fy.id]))).toHaveLength(0);
   });
 
   it("suppliers: a supplier, an invoice approved by a partner, then paid", async () => {

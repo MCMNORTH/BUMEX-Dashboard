@@ -150,7 +150,10 @@ export function approveSupplierInvoice(state: State, id: Id): State {
   const si = state.supplierInvoices.find((s) => s.id === id);
   if (!si) throw new DomainError('not_found', 'Facture fournisseur inconnue');
   if (si.status !== 'pending_approval') throw new DomainError('state', 'Facture déjà traitée');
-  if (si.preparedBy === state.session.actorId) throw new DomainError('segregation', 'Le préparateur ne peut pas approuver sa propre facture');
+  // [bumex-one] the separation of tasks stays the rule; an entity with one accountant lifts it (Comptabilité ›
+  // Journaux · tiers › Règles de gestion; Sidaty, 2026-11-23). The thresholds still choose who may approve.
+  const preparerMay = state.entities.find((e) => e.id === si.entityId)?.preparerMayApprove;
+  if (si.preparedBy === state.session.actorId && !preparerMay) throw new DomainError('segregation', 'Le préparateur ne peut pas approuver sa propre facture');
   if (si.approverRole === 'partner' && !PARTNER_ROLES.includes(state.session.role)) throw new DomainError('forbidden', 'Approbation réservée à un associé (seuil dépassé)');
   if (si.approverRole === 'manager' && !['admin', 'partner', 'raf', 'manager'].includes(state.session.role)) throw new DomainError('forbidden', 'Approbation réservée à un manager');
   return postSupplierInvoice(state, si, 'Approuvée et comptabilisée')[0];

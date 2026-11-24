@@ -25,24 +25,32 @@ export function seedAssetCategories(state: State, entityId: Id): State {
   return s;
 }
 
-export function addAssetCategory(state: State, input: { entityId: Id; code: string; name: string; lifeMonths: number; method: DepreciationMethod; assetAccountId: Id; accDeprAccountId: Id }): [State, AssetCategory] {
+export function addAssetCategory(state: State, input: { entityId: Id; code: string; name: string; lifeMonths: number; method: DepreciationMethod; assetAccountId: Id; accDeprAccountId?: Id; nonDepreciable?: boolean }): [State, AssetCategory] {
   requireRole(state, [...PARTNER_ROLES, 'accountant', 'manager'], 'de paramétrer les immobilisations');
   const code = input.code.trim().toUpperCase();
   if (!/^[A-Z0-9_]{2,16}$/.test(code)) throw new DomainError('code', 'Code de catégorie : 2 à 16 caractères');
   if (state.assetCategories.some((c) => c.entityId === input.entityId && c.code === code)) throw new DomainError('exists', `La catégorie ${code} existe déjà`);
-  if (!(input.lifeMonths >= 6 && input.lifeMonths <= 600)) throw new DomainError('life', 'Durée entre 6 et 600 mois');
+  // [bumex-one] a non-depreciable category (land, 0021) has neither duration nor depreciation account: the database
+  // keeps a duration all the same, the longest
+  const lifeMonths = input.nonDepreciable && !(input.lifeMonths >= 6 && input.lifeMonths <= 600) ? 600 : input.lifeMonths;
+  if (!(lifeMonths >= 6 && lifeMonths <= 600)) throw new DomainError('life', 'Durée entre 6 et 600 mois');
   accountById(state, input.assetAccountId);
-  accountById(state, input.accDeprAccountId);
+  if (!input.nonDepreciable || input.accDeprAccountId) {
+    if (!input.accDeprAccountId) throw new DomainError('account', "Compte d'amortissement requis");
+    accountById(state, input.accDeprAccountId);
+  }
   const [s1, id] = nextId(state, 'acat');
-  const cat: AssetCategory = { ...input, id, code, name: input.name.trim() };
+  const cat: AssetCategory = { ...input, lifeMonths, accDeprAccountId: input.accDeprAccountId as Id, nonDepreciable: input.nonDepreciable || undefined, id, code, name: input.name.trim() };
   return [audit({ ...s1, assetCategories: [...s1.assetCategories, cat] }, 'asset_category', id, 'I', `Catégorie ${cat.name}`, input.entityId), cat];
 }
 
-export function updateAssetCategory(state: State, id: Id, patch: Partial<Pick<AssetCategory, 'name' | 'lifeMonths' | 'method' | 'assetAccountId' | 'accDeprAccountId'>>): [State, AssetCategory] {
+export function updateAssetCategory(state: State, id: Id, patch: Partial<Pick<AssetCategory, 'name' | 'lifeMonths' | 'method' | 'assetAccountId' | 'accDeprAccountId' | 'nonDepreciable'>>): [State, AssetCategory] {
   requireRole(state, [...PARTNER_ROLES, 'accountant', 'manager'], 'de paramétrer les immobilisations');
   const c = state.assetCategories.find((x) => x.id === id);
   if (!c) throw new DomainError('not_found', 'Catégorie inconnue');
   const next = { ...c, ...patch };
+  // [bumex-one] a category whose assets were already depreciated cannot stop depreciating
+  if (next.nonDepreciable && !c.nonDepreciable && state.assets.some((a) => a.categoryId === id && a.accumulated > 0)) throw new DomainError('state', 'Des immobilisations de cette catégorie sont déjà amorties');
   return [audit({ ...state, assetCategories: state.assetCategories.map((x) => (x.id === id ? next : x)) }, 'asset_category', id, 'U', `Catégorie ${next.name} modifiée`, c.entityId), next];
 }
 
@@ -68,12 +76,14 @@ export interface AssetInput {
   acquisition?: { credit: 'supplier' | 'bank'; bankAccountId?: Id; vatAmount?: number } | null; // post Dr asset / Cr supplier or bank
 }
 
-// [bumex-one] Land is not depreciated (asked on 2026-11-17): a category coded LAND / TERRAIN(S), named "Terrain(s)…" or
-// "… non amortissable(s)". Its assets have no schedule, no residual value, no service date, duration or method of their
-// own (the form shows N/A); "Agencements de terrains" stay depreciable.
+// [bumex-one] Land is not depreciated (asked on 2026-11-17): a category marked "non amortissable" (0021, Sidaty's
+// corrections of 2026-11-23), or — before — coded LAND / TERRAIN(S), named "Terrain(s)…" or "… non amortissable(s)".
+// Its assets have no schedule, no residual value, no service date, duration or method of their own (the form shows
+// N/A): they stay on the balance sheet at cost. "Agencements de terrains" stay depreciable.
 const fold = (v: string | undefined) => (v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
-export function isLandCategory(c: Pick<AssetCategory, 'code' | 'name'> | undefined): boolean {
+export function isLandCategory(c: Pick<AssetCategory, 'code' | 'name' | 'nonDepreciable'> | undefined): boolean {
   if (!c) return false;
+  if (c.nonDepreciable) return true;
   const code = fold(c.code), name = fold(c.name);
   return /^(land|terrains?)$/.test(code) || /^terrains?\b/.test(name) || /\bnon[\s-]?amortissables?\b/.test(name);
 }

@@ -133,6 +133,7 @@ export interface FxRevaluationRow {
   accountId: Id;
   customerId?: Id;
   supplierId?: Id;
+  bankAccountId?: Id; // [bumex-one] a bank row's account (its statement balance beside, Sidaty 2026-11-23)
 }
 
 export interface FxRevaluation {
@@ -171,13 +172,15 @@ export function fxRevaluation(state: State, entityId: Id, fiscalYearId: Id): FxR
     const amountTxn = r2(sum(mine.filter(({ line }) => line.currency === bank.currency).map(({ line }) => line.debitTxn - line.creditTxn)));
     const book = r2(sum(mine.map(({ line }) => line.debit - line.credit)));
     if (!amountTxn && !book) continue;
-    row({ kind: 'bank', label: `${bank.bankName} · ${bank.name}`, currency: bank.currency, amountTxn, rate: rateOf(bank.currency), book, accountId: bank.glAccountId });
+    row({ kind: 'bank', label: `${bank.bankName} · ${bank.name}`, currency: bank.currency, amountTxn, rate: rateOf(bank.currency), book, accountId: bank.glAccountId, bankAccountId: bank.id });
   }
 
   for (const inv of state.salesInvoices.filter((i) => i.entityId === entityId && i.currency !== func && invoiceAccounted(i) && i.date <= date)) {
     const paid = sum(state.allocations.filter((a) => a.invoiceId === inv.id && (state.customerPayments.find((p) => p.id === a.paymentId)?.date ?? '9999') <= date).map((a) => a.amountTxn));
     const credited = sum(state.creditNotes.filter((c) => c.originalInvoiceId === inv.id && c.date <= date).map((c) => r2(c.totalTtc - r2(sum(c.lines.filter((l) => lineWithholdingRate(inv, l) > 0).map((l) => l.lineHt)) * inv.withholdingRate))));
-    const open = r2(inv.netPayable - paid - credited);
+    // [bumex-one] a small difference the administrator wrote off (0021), when its entry is dated before
+    const writtenOff = inv.writeOffTxn && (state.entries.find((e) => e.id === inv.writeOffEntryId)?.date ?? '9999') <= date ? inv.writeOffTxn : 0;
+    const open = r2(inv.netPayable - paid - credited - writtenOff);
     if (open <= 0.004) continue;
     const customer = state.customers.find((c) => c.id === inv.customerId)!;
     row({ kind: 'receivable', label: `${inv.number ?? '—'} · ${customer.name}`, currency: inv.currency, amountTxn: open, rate: rateOf(inv.currency), book: r2(open * inv.fxRate), accountId: arAccountFor(state, entityId, customer).id, customerId: customer.id });

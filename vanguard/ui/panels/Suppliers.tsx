@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   createSupplierInvoice, approveSupplierInvoice, rejectSupplierInvoice, paySupplierInvoice, supplierPayables, addSupplier, updateSupplier, fxRate, mapped, APPROVAL_THRESHOLDS, nextThirdPartyCode, collectiveFor, accountBalance,
   fmt, r2, parseAmount, type Id, type Currency, type CounterpartyRegime, type SupplierInvoice,
-  favoritesFirst, // [bumex-one]
+  favoritesFirst, DomainError, // [bumex-one]
 } from '@bumex/domain';
 import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, STATUS_KIND, STATUS_FR, StatusChip, DeleteButton, downloadXlsx, entryRef } from '../common';
 import { textAsk } from '../../one/ask'; // [bumex-one] Fluent's dialog, not the browser's (2026-11-20)
 import { Select } from '../Select';
 import { useSay, sayNow } from '../../one/say';
+import { englishMessage } from '../../one/engine-messages'; // [bumex-one]
 import { PageRefresh } from '../../one/PageRefresh'; // [bumex-one] ↻ at the right of the header (2026-11-22)
 // [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
@@ -49,7 +50,21 @@ function approverLabel(si: SupplierInvoice, say: Say): string {
   return si.approverRole === 'partner' ? say(`Associé (≥ ${fmt(APPROVAL_THRESHOLDS.partner, 0)})`, `Partner (≥ ${fmt(APPROVAL_THRESHOLDS.partner, 0)})`) : si.approverRole === 'manager' ? say(`Manager (≥ ${fmt(APPROVAL_THRESHOLDS.manager, 0)})`, `Manager (≥ ${fmt(APPROVAL_THRESHOLDS.manager, 0)})`) : say('Aucun · comptabilisée à la saisie', 'None · posted on entry');
 }
 
+// [bumex-one] Why the person cannot approve, said before the click (Sidaty, 2026-11-23): who prepared it (unless the
+// entity allows it, Comptabilité › Journaux · tiers › Règles de gestion), the threshold's role.
+function useApprovalBlock() {
+  const { state } = useStore();
+  const say = useSay();
+  return (id: Id): string | null => {
+    try { approveSupplierInvoice(state, id); return null; } catch (err) {
+      const m = err instanceof DomainError ? err.message : String(err);
+      return m === 'Le préparateur ne peut pas approuver sa propre facture' ? say("Vous l'avez saisie : un autre l'approuve, ou autorisez le préparateur (Comptabilité › Journaux · tiers › Règles de gestion)", 'You entered it: someone else approves it, or allow the preparer (Accounting › Journals · third parties › Management rules)') : say(m, englishMessage(m));
+    }
+  };
+}
+
 function Invoices({ entityId, onPay }: { entityId: Id; onPay: (id: Id) => void }) {
+  const approvalBlock = useApprovalBlock(); // [bumex-one]
   const { state, t, apply } = useStore();
   const say = useSay();
   const [filter, setFilter] = useState<'all' | 'pending' | 'open' | 'paid' | 'rejected'>('all');
@@ -81,7 +96,7 @@ function Invoices({ entityId, onPay }: { entityId: Id; onPay: (id: Id) => void }
                     <td className="num">{si.currency !== 'MRU' ? si.currency + ' ' : ''}{fmt(si.totalHt)}</td><td className="num">{fmt(si.totalTax)}</td><td className="num">{si.withholdingAmount ? fmt(si.withholdingAmount) : '—'}</td><td className="num">{fmt(si.netPayable)}</td><td className="num">{fmt(si.amountPaid)}</td>
                     <td><StatusChip status={si.status} />{si.status === 'pending_approval' && <div className="small muted">{approverLabel(si, say)}</div>}</td>
                     <td style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
-                      {si.status === 'pending_approval' && <><button className="btn sm primary" onClick={() => apply((s) => approveSupplierInvoice(s, si.id), say('Approuvée et comptabilisée', 'Approved and posted'))}>{say('Approuver', 'Approve')}</button>{' '}<button className="btn sm" onClick={() => { void textAsk({ title: say('Rejeter la facture', 'Reject invoice'), label: say('Motif du rejet', 'Reason for rejection'), required: true, confirm: say('Rejeter', 'Reject'), danger: true }).then((reason) => { if (reason) apply((s) => rejectSupplierInvoice(s, si.id, reason), sayNow('Facture rejetée', 'Invoice rejected')); }); }}>{say('Rejeter', 'Reject')}</button></>}
+                      {si.status === 'pending_approval' && <><button className="btn sm primary" disabled={!!approvalBlock(si.id)} title={approvalBlock(si.id) ?? undefined} onClick={() => apply((s) => approveSupplierInvoice(s, si.id), say('Approuvée et comptabilisée', 'Approved and posted'))}>{say('Approuver', 'Approve')}</button>{' '}<button className="btn sm" onClick={() => { void textAsk({ title: say('Rejeter la facture', 'Reject invoice'), label: say('Motif du rejet', 'Reason for rejection'), required: true, confirm: say('Rejeter', 'Reject'), danger: true }).then((reason) => { if (reason) apply((s) => rejectSupplierInvoice(s, si.id, reason), sayNow('Facture rejetée', 'Invoice rejected')); }); }}>{say('Rejeter', 'Reject')}</button></>}
                       {si.status === 'posted' && <button className="btn sm primary" onClick={() => onPay(si.id)}>{say('Régler', 'Pay')}</button>}
                     </td>
                   </tr>

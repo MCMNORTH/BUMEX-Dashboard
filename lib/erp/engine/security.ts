@@ -123,7 +123,7 @@ export function signInAs(state: State, userId: Id): State {
 
 // ---- deletions -------------------------------------------------------------------------------------------
 
-export const PROTECTED_TABLES = ['customer', 'supplier', 'employee', 'asset', 'engagement', 'loan', 'account', 'app_user', 'task', 'archive', 'assignment', 'sales_invoice'] as const; // [bumex-one] sales_invoice: drafts
+export const PROTECTED_TABLES = ['customer', 'supplier', 'employee', 'asset', 'engagement', 'loan', 'account', 'app_user', 'task', 'archive', 'assignment', 'sales_invoice', 'bank_transaction', 'fiscal_year'] as const; // [bumex-one] sales_invoice: drafts; bank_transaction, fiscal_year: Sidaty's corrections (2026-11-23)
 export type ProtectedTable = (typeof PROTECTED_TABLES)[number];
 
 export type DeletionExecutor = (state: State, rowId: Id) => State;
@@ -164,8 +164,46 @@ export const DELETION_EXECUTORS: Record<ProtectedTable, DeletionExecutor> = {
     if (!a) throw new DomainError('not_found', 'Compte inconnu');
     if (a.isStatutory) throw new DomainError('statutory', 'Compte statutaire : non supprimable');
     if (s.entries.some((e) => e.lines.some((l) => l.accountId === id))) throw new DomainError('in_use', 'Compte mouvementé : le désactiver au lieu de le supprimer');
-    if (s.mappings.some((m) => m.accountId === id)) throw new DomainError('in_use', 'Compte utilisé par un paramétrage (mapping)');
+    const mapping = s.mappings.find((m) => m.accountId === id);
+    if (mapping) throw new DomainError('in_use', `Compte utilisé par le paramétrage ${mapping.key}${mapping.qualifier ? ':' + mapping.qualifier : ''}`);
+    // [bumex-one] everything else that points to an account, said rather than refused by the database (Sidaty, 2026-11-23)
+    const who = (s.customers.find((c) => c.arAccountId === id)?.name)
+      ?? (s.suppliers.find((c) => c.apAccountId === id || c.expenseAccountId === id)?.name);
+    if (who) throw new DomainError('in_use', `Compte du tiers ${who} : changer sa fiche d'abord`);
+    const code = s.taxCodes.find((t) => t.collectedAccountId === id || t.deductibleAccountId === id);
+    if (code) throw new DomainError('in_use', `Compte du code taxe ${code.code}`);
+    const bank = s.bankAccounts.find((b) => b.glAccountId === id);
+    if (bank) throw new DomainError('in_use', `Compte du compte bancaire ${bank.name}`);
+    const category = s.assetCategories.find((c) => c.assetAccountId === id || c.accDeprAccountId === id);
+    if (category) throw new DomainError('in_use', `Compte de la catégorie d'immobilisations ${category.code}`);
+    if (s.bankRules.some((r) => r.accountId === id)) throw new DomainError('in_use', 'Compte utilisé par une règle de rapprochement bancaire');
+    if (s.accounts.some((x) => x.collectiveId === id)) throw new DomainError('in_use', 'Compte collectif de comptes auxiliaires');
     return { ...s, accounts: s.accounts.filter((x) => x.id !== id) };
+  },
+  // [bumex-one] a statement line imported by mistake (a wrong sign, a duplicate): only while it is to process; a line
+  // already booked or matched is un-matched first (bank.ts unmatchStatementLine). The account's statement balance loses it.
+  bank_transaction: (s, id) => {
+    const t = s.bankTransactions.find((x) => x.id === id);
+    if (!t) throw new DomainError('not_found', 'Ligne inconnue');
+    if (t.status !== 'unmatched') throw new DomainError('state', 'Ligne déjà rapprochée ou comptabilisée : la dérapprocher d\'abord');
+    if (s.customerPayments.some((p) => p.bankTransactionId === id)) throw new DomainError('in_use', 'Ligne liée à un encaissement : la dérapprocher d\'abord');
+    return {
+      ...s,
+      bankTransactions: s.bankTransactions.filter((x) => x.id !== id),
+      bankAccounts: s.bankAccounts.map((b) => (b.id === t.bankAccountId ? { ...b, statementBalance: Math.round((b.statementBalance - t.amount) * 100) / 100 } : b)),
+    };
+  },
+  // [bumex-one] a fiscal year opened too early: the last of its entity, without any entry (drafts included) nor
+  // depreciation, never closed; by the administrator only
+  fiscal_year: (s, id) => {
+    const fy = s.fiscalYears.find((f) => f.id === id);
+    if (!fy) throw new DomainError('not_found', 'Exercice inconnu');
+    if (s.session.role !== 'admin') throw new DomainError('forbidden', "Supprimer un exercice est réservé à l'administrateur");
+    if (fy.isClosed) throw new DomainError('state', 'Exercice clôturé : non supprimable');
+    if (s.fiscalYears.some((f) => f.entityId === fy.entityId && f.start > fy.end)) throw new DomainError('state', 'Un exercice suivant existe : supprimer le dernier d\'abord');
+    if (s.entries.some((e) => e.fiscalYearId === id)) throw new DomainError('in_use', 'Exercice avec des écritures (brouillons compris) : non supprimable');
+    if (s.depreciationRuns.some((r) => r.fiscalYearId === id)) throw new DomainError('in_use', 'Exercice avec des dotations aux amortissements : non supprimable');
+    return { ...s, periods: s.periods.filter((p) => p.fiscalYearId !== id), fiscalYears: s.fiscalYears.filter((f) => f.id !== id) };
   },
   app_user: (s, id) => {
     if (s.session.userId === id) throw new DomainError('self_delete', 'Impossible de supprimer son propre compte');
@@ -201,7 +239,11 @@ export function requestDeletion(state: State, input: { table: ProtectedTable; ro
   if (canDecideDeletions(state)) {
     // dry run first so that nothing is logged when the row cannot go
     const next = DELETION_EXECUTORS[input.table](state, input.rowId);
-    return { state: audit(next, input.table, input.rowId, 'D', `Supprimé · ${input.label} · motif : ${input.reason.trim()}`, input.entityId), executed: true };
+    // [bumex-one] kept with its reason, as decided by whoever deleted (Réglages › Suppressions; Sidaty, 2026-11-23)
+    const [s1, id] = nextId(next, 'del');
+    const now = new Date().toISOString();
+    const done: DeletionRequest = { id, entityId: input.entityId, table: input.table, rowId: input.rowId, label: input.label, reason: input.reason.trim(), requestedBy: state.session.actorId, requestedByName: state.session.actorName, requestedAt: now, status: 'approved', decidedBy: state.session.actorId, decidedAt: now, decisionNote: 'supprimé directement' };
+    return { state: audit({ ...s1, deletionRequests: [...s1.deletionRequests, done] }, input.table, input.rowId, 'D', `Supprimé · ${input.label} · motif : ${input.reason.trim()}`, input.entityId), executed: true, request: done };
   }
   if (!POSTING_ROLES.includes(state.session.role) && !['task', 'assignment'].includes(input.table)) throw new DomainError('forbidden', 'Votre rôle ne permet pas de demander cette suppression');
   // a request: check now that it could be executed, so the approver is not asked for something impossible

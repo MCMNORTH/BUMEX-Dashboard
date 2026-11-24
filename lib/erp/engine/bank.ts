@@ -2,7 +2,7 @@ import type { State, Id, ISODate, Currency, BankTransaction, BankAccount, BankRu
 import { DomainError } from './types';
 import { r2, sum, addDays, daysBetween } from './money';
 import { nextId, audit, mapped, fxRate, requirePost, bankJournalFor, requireRole, PARTNER_ROLES } from './core';
-import { createDraft, postEntry, accountBalance, type DraftLineInput } from './ledger';
+import { createDraft, postEntry, accountBalance, reverseOnOpenDate, type DraftLineInput } from './ledger';
 import { sha256 } from './sha256';
 import { openInvoices } from './sales';
 
@@ -126,30 +126,165 @@ export function bookToSuspense(state: State, txnId: Id): [State, Id] {
   return bookByRule(state, txnId, 'SUSPENSE');
 }
 
-// bank_transfer.v1 — Dr target bank / Cr source bank; both statement lines matched at once
-export function bookTransfer(state: State, txnId: Id, targetBankAccountId: Id): [State, Id] {
+// bank_transfer.v2 — an internal transfer between two accounts of the entity, both statement lines matched at once.
+// [bumex-one] Reworked on Sidaty's corrections (2026-11-23):
+// - it follows the line's sign: money out of this account goes to the other one; money in comes from it (a cash
+//   deposit: the bank's incoming line, from the cash desk);
+// - the other side's amount is the real one: its statement line (counterpartTxnId), or a typed amount; in the same
+//   currency, the same amount (its line found if it is there); without either, the table's rates;
+// - the same currency: one entry, Dr destination / Cr origin;
+// - two currencies (selling EUR for MRU): two entries, each in its account's currency, through the transit account
+//   TRANSFER_TRANSIT (580001 at BUMEX SA), which they leave at zero: the origin's at the table rate, the destination's
+//   for the amount received, the difference to the FX loss (678) or gain (778) — or a loss to FX_SALE_FEE (635102,
+//   "commission de cession") if chosen.
+export interface TransferOptions {
+  counterpartTxnId?: Id; // the other account's statement line, matched too
+  amount?: number; // the other side's amount, typed, when it has no statement line
+  difference?: 'fx' | 'fee'; // where a loss goes (a gain always goes to FX_GAIN)
+}
+
+export function bookTransfer(state: State, txnId: Id, otherBankAccountId: Id, opts: TransferOptions = {}): [State, Id] {
   requirePost(state);
   const txn = state.bankTransactions.find((t) => t.id === txnId);
   if (!txn) throw new DomainError('not_found', 'Ligne inconnue');
-  const source = state.bankAccounts.find((b) => b.id === txn.bankAccountId)!;
-  const target = state.bankAccounts.find((b) => b.id === targetBankAccountId);
-  if (!target || target.entityId !== source.entityId) throw new DomainError('not_found', 'Compte cible inconnu');
-  const entity = state.entities.find((e) => e.id === source.entityId)!;
-  const amt = Math.abs(txn.amount);
-  const rateSrc = fxRate(state, source.currency, entity.functionalCurrency, txn.date);
-  const rateTgt = fxRate(state, target.currency, entity.functionalCurrency, txn.date);
-  const amtTgt = r2((amt * rateSrc) / rateTgt);
-  const journal = bankJournalFor(state, source);
-  // booked in functional currency so that two currencies can meet in one entry
+  if (txn.status !== 'unmatched') throw new DomainError('state', 'Ligne déjà rapprochée ou comptabilisée');
+  const here = state.bankAccounts.find((b) => b.id === txn.bankAccountId)!;
+  const other = state.bankAccounts.find((b) => b.id === otherBankAccountId);
+  if (!other || other.entityId !== here.entityId || other.id === here.id) throw new DomainError('not_found', 'Compte cible inconnu');
+  const entity = state.entities.find((e) => e.id === here.entityId)!;
+  const func = entity.functionalCurrency;
+  const out = txn.amount < 0;
+  const hereAmt = r2(Math.abs(txn.amount));
+  const rateOf = (b: BankAccount, date: ISODate) => fxRate(state, b.currency, func, date);
+
+  // the other side: its line, a typed amount, the same amount, or the table's rates
+  let counterpart: BankTransaction | undefined;
+  let otherAmt: number;
+  if (opts.counterpartTxnId) {
+    counterpart = state.bankTransactions.find((t) => t.id === opts.counterpartTxnId);
+    if (!counterpart || counterpart.bankAccountId !== other.id) throw new DomainError('not_found', `Ligne de relevé inconnue sur ${other.name}`);
+    if (counterpart.status !== 'unmatched') throw new DomainError('state', `La ligne de ${other.name} est déjà rapprochée`);
+    if (Math.sign(counterpart.amount) === Math.sign(txn.amount)) throw new DomainError('state', `La ligne de ${other.name} doit aller en sens inverse`);
+    otherAmt = r2(Math.abs(counterpart.amount));
+  } else if (opts.amount !== undefined) {
+    otherAmt = r2(opts.amount);
+    if (!(otherAmt > 0)) throw new DomainError('amount', 'Montant positif requis');
+  } else {
+    otherAmt = other.currency === here.currency ? hereAmt : r2((hereAmt * rateOf(here, txn.date)) / rateOf(other, txn.date));
+    counterpart = state.bankTransactions.find((t) => t.bankAccountId === other.id && t.status === 'unmatched' && Math.sign(t.amount) === -Math.sign(txn.amount) && Math.abs(Math.abs(t.amount) - otherAmt) < 0.01 && Math.abs(daysBetween(t.date, txn.date)) <= 3);
+  }
+  const [origin, destination] = out ? [here, other] : [other, here];
+  const [originAmt, destAmt] = out ? [hereAmt, otherAmt] : [otherAmt, hereAmt];
+  const [originLine, destLine] = out ? [txn, counterpart] : [counterpart, txn];
+  const originDate = originLine?.date ?? txn.date;
+  const destDate = destLine?.date ?? txn.date;
+  const label = `Virement interne ${origin.name} → ${destination.name}`;
+  const match = (st: State, line: BankTransaction | undefined, entryId: Id) => (line ? st.bankTransactions.map((t) => (t.id === line.id ? { ...t, status: 'matched' as const, journalEntryId: entryId } : t)) : st.bankTransactions);
+
+  if (origin.currency === destination.currency) {
+    if (Math.abs(originAmt - destAmt) > 0.004) throw new DomainError('amount', `Montants différents entre les deux comptes (${originAmt} / ${destAmt}) : affectez la différence à part`);
+    const [s1, draft] = createDraft(state, {
+      entityId: here.entityId, journalId: bankJournalFor(state, origin).id, date: originDate, description: label, currency: origin.currency, fxRate: rateOf(origin, originDate),
+      sourceType: 'bank_transaction', sourceId: txn.id, postingRule: 'bank_transfer.v2',
+      lines: [
+        { accountId: destination.glAccountId, description: `Virement interne depuis ${origin.name}`, debitTxn: destAmt, bankAccountId: destination.id },
+        { accountId: origin.glAccountId, description: `Virement interne vers ${destination.name}`, creditTxn: originAmt, bankAccountId: origin.id },
+      ],
+    });
+    const [s2, posted] = postEntry(s1, draft.id);
+    const s3 = { ...s2, bankTransactions: match({ ...s2, bankTransactions: match(s2, txn, posted.id) }, counterpart, posted.id) };
+    return [audit(s3, 'bank_transaction', txnId, 'U', `${label}${counterpart ? ' · les deux lignes rapprochées' : ''}`, here.entityId), posted.id];
+  }
+
+  let transit: { id: Id };
+  try { transit = mapped(state, here.entityId, 'TRANSFER_TRANSIT'); } catch { throw new DomainError('mapping_missing', 'Paramétrez le compte de virements de fonds (TRANSFER_TRANSIT) dans Comptabilité › Journaux · tiers'); }
+  const rO = rateOf(origin, originDate);
+  const rD = rateOf(destination, destDate);
+  const value = r2(originAmt * rO); // what leaves the origin, functional: the transit gives it back exactly
+  // 1. out of the origin, in its currency, into the transit account
+  const [s1, d1] = createDraft(state, {
+    entityId: here.entityId, journalId: bankJournalFor(state, origin).id, date: originDate, description: label, currency: origin.currency, fxRate: rO,
+    sourceType: 'bank_transaction', sourceId: txn.id, postingRule: 'bank_transfer.v2', // both entries of a transfer: the same source line
+    lines: [
+      { accountId: transit.id, description: `Virement de fonds vers ${destination.name}`, debitTxn: originAmt },
+      { accountId: origin.glAccountId, description: `Virement interne vers ${destination.name}`, creditTxn: originAmt, bankAccountId: origin.id },
+    ],
+  });
+  const [s2, e1] = postEntry(s1, d1.id);
+  // 2. into the destination, in its currency, for the amount received; the difference to FX gain or loss (or fees)
+  const received = r2(destAmt * rD);
+  const diff = r2(received - value); // > 0: received more than it was worth → gain
+  const transitTxn = r2(value / rD);
   const lines: DraftLineInput[] = [
-    { accountId: target.glAccountId, description: `Virement interne vers ${target.name}`, debitTxn: r2(amtTgt * rateTgt), bankAccountId: target.id },
-    { accountId: source.glAccountId, description: `Virement interne depuis ${source.name}`, creditTxn: r2(amt * rateSrc), bankAccountId: source.id },
+    { accountId: destination.glAccountId, description: `Virement interne depuis ${origin.name}`, debitTxn: destAmt, bankAccountId: destination.id },
+    { accountId: transit.id, description: `Virement de fonds depuis ${origin.name}`, creditTxn: transitTxn, credit: value },
   ];
-  const [s1, draft] = createDraft(state, { entityId: source.entityId, journalId: journal.id, date: txn.date, description: `Virement interne ${source.name} → ${target.name}`, currency: entity.functionalCurrency, fxRate: 1, sourceType: 'bank_transaction', sourceId: txn.id, postingRule: 'bank_transfer.v1', lines });
-  const [s2, posted] = postEntry(s1, draft.id);
-  const counterpart = s2.bankTransactions.find((t) => t.bankAccountId === target.id && t.status === 'unmatched' && Math.abs(t.amount - amtTgt) < 0.01 && Math.abs(daysBetween(t.date, txn.date)) <= 3);
-  const txns = s2.bankTransactions.map((t) => (t.id === txnId || (counterpart && t.id === counterpart.id) ? { ...t, status: 'matched' as const, journalEntryId: posted.id } : t));
-  return [audit({ ...s2, bankTransactions: txns }, 'bank_transaction', txnId, 'U', 'Virement interne comptabilisé', source.entityId), posted.id];
+  if (diff < 0) {
+    const loss = opts.difference === 'fee' ? mapped(state, here.entityId, 'FX_SALE_FEE') : mapped(state, here.entityId, 'FX_LOSS');
+    lines.push({ accountId: loss.id, description: opts.difference === 'fee' ? `Commission de cession ${origin.currency} → ${destination.currency}` : `Perte de change sur virement ${origin.currency} → ${destination.currency}`, debitTxn: Math.max(0, r2(transitTxn - destAmt)), debit: -diff });
+  } else if (diff > 0) {
+    lines.push({ accountId: mapped(state, here.entityId, 'FX_GAIN').id, description: `Gain de change sur virement ${origin.currency} → ${destination.currency}`, creditTxn: Math.max(0, r2(destAmt - transitTxn)), credit: diff });
+  }
+  const [s3, d2] = createDraft(s2, {
+    entityId: here.entityId, journalId: bankJournalFor(state, destination).id, date: destDate, description: label, currency: destination.currency, fxRate: rD,
+    sourceType: 'bank_transaction', sourceId: txn.id, postingRule: 'bank_transfer.v2', lines,
+  });
+  const [s4, e2] = postEntry(s3, d2.id);
+  const s5 = { ...s4, bankTransactions: match({ ...s4, bankTransactions: match(s4, originLine, e1.id) }, destLine, e2.id) };
+  return [audit(s5, 'bank_transaction', txnId, 'U', `${label} · ${originAmt} ${origin.currency} → ${destAmt} ${destination.currency}${diff ? ` · écart ${diff}` : ''}`, here.entityId), e2.id];
+}
+
+// [bumex-one] Un-matching a statement line (Sidaty, 2026-11-23): what it did is undone — the entries it booked are
+// reversed (on their own date when still open, else today), with the reason, and the other statement line of a
+// transfer is un-matched too; a receipt it was matched to stays, without its line. The line is to process again, and can
+// then be deleted (security.ts) if it was imported by mistake.
+export function unmatchStatementLine(state: State, txnId: Id, reason: string): State {
+  requirePost(state);
+  if (reason.trim().length < 4) throw new DomainError('reason', 'Indiquer le motif du dérapprochement');
+  const txn = state.bankTransactions.find((t) => t.id === txnId);
+  if (!txn) throw new DomainError('not_found', 'Ligne inconnue');
+  if (txn.status === 'unmatched') throw new DomainError('state', 'Ligne non rapprochée');
+  const bank = state.bankAccounts.find((b) => b.id === txn.bankAccountId)!;
+  const why = `dérapprochement : ${reason.trim()}`;
+  let s = state;
+  const lines = new Set([txnId]);
+  const payment = s.customerPayments.find((p) => p.bankTransactionId === txnId || (txn.journalEntryId && p.journalEntryId === txn.journalEntryId));
+  const supplierPayment = s.supplierPayments.find((p) => txn.journalEntryId && p.journalEntryId === txn.journalEntryId);
+  if (payment || supplierPayment) {
+    // the receipt or the supplier payment stays as a document; only its link to the line goes
+    if (payment) s = { ...s, customerPayments: s.customerPayments.map((p) => (p.id === payment.id ? { ...p, bankTransactionId: undefined } : p)) };
+  } else {
+    // what the line booked — its entry, a reclassification out of the suspense account, both entries of a transfer and
+    // the other account's line — followed from line to entry and back until nothing new comes
+    const entries = new Set<Id>();
+    for (let grew = true; grew; ) {
+      grew = false;
+      const add = <T,>(set: Set<T>, v: T | undefined) => { if (v !== undefined && !set.has(v)) { set.add(v); grew = true; } };
+      for (const t of s.bankTransactions) {
+        if (t.status === 'unmatched') continue;
+        if (lines.has(t.id)) add(entries, t.journalEntryId);
+        else if (t.journalEntryId && entries.has(t.journalEntryId)) add(lines, t.id);
+      }
+      for (const e of s.entries) {
+        if (e.sourceType !== 'bank_transaction' || e.status !== 'posted' || !e.sourceId) continue;
+        if (lines.has(e.sourceId)) add(entries, e.id);
+        else if (entries.has(e.id) && s.bankTransactions.some((t) => t.id === e.sourceId && t.status !== 'unmatched')) add(lines, e.sourceId);
+      }
+    }
+    for (const id of entries) if (s.entries.find((e) => e.id === id)?.status === 'posted') s = reverseOnOpenDate(s, id, why)[0];
+  }
+  s = { ...s, bankTransactions: s.bankTransactions.map((t) => (lines.has(t.id) ? { ...t, status: 'unmatched' as const, journalEntryId: undefined } : t)) };
+  return audit(s, 'bank_transaction', txnId, 'U', `Ligne dérapprochée · ${txn.description} · motif : ${reason.trim()}`, bank.entityId);
+}
+
+// [bumex-one] An account's statement balance on a day: its last imported balance, less the lines after that day (for
+// the year-end revaluation, beside the books' balance in the account's currency).
+export function statementBalanceAt(state: State, bankAccountId: Id, date: ISODate): { balance: number; asOf: ISODate } | null {
+  const bank = state.bankAccounts.find((b) => b.id === bankAccountId);
+  if (!bank || !bank.statementDate) return null;
+  if (bank.statementDate <= date) return { balance: bank.statementBalance, asOf: bank.statementDate };
+  const after = sum(state.bankTransactions.filter((t) => t.bankAccountId === bankAccountId && t.date > date && t.date <= bank.statementDate!).map((t) => t.amount));
+  return { balance: r2(bank.statementBalance - after), asOf: date };
 }
 
 // ---- [bumex-one] a statement line to any account (asked by Sidaty on 2026-11-18) ----------------------------------------

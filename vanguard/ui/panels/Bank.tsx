@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  bankSummary, suggestFor, matchToPayment, recordPayment, bookByRule, bookToSuspense, bookTransfer, assignStatementLine, applyBankRules, suspenseSummary, splitOf, importStatement, parseStatementCsv, cashForecast, loanSummaries, loanSchedule, addLoan, payInstalment, headcount,
+  bankSummary, suggestFor, matchToPayment, recordPayment, bookByRule, bookToSuspense, bookTransfer, assignStatementLine, applyBankRules, suspenseSummary, splitOf, unmatchStatementLine, importStatement, parseStatementCsv, cashForecast, loanSummaries, loanSchedule, addLoan, payInstalment, headcount,
   addBankAccount, updateBankAccount, setBankAccountActive, favoritesFirst, setLoanSchedule, updateLoan, parseScheduleRows, checkManualSchedule,
   fmt, r2, addDays, parseAmount, type Id, type BankTransaction, type Currency, type Loan, type ManualInstalment, type BankAccount,
 } from '@bumex/domain';
@@ -8,8 +8,9 @@ import { useStore } from '../../store';
 import { Tabs, Field, Chip, D, Money, DeleteButton, downloadXlsx, readXlsx, entryRef } from '../common';
 import { Select } from '../Select';
 import { WideNote } from '../../one/WideNote'; // [mobile]
-import { AssignLine, BankRules, propositionOf } from '../../one/BankAssign'; // [bumex-one] a line to any account, rules on the label
+import { AssignLine, BankRules, propositionOf, type AssignMode } from '../../one/BankAssign'; // [bumex-one] a line to any account, rules on the label
 import { useSay } from '../../one/say';
+import { textAsk } from '../../one/ask'; // [bumex-one] the reason of an unmatching
 import { PageRefresh } from '../../one/PageRefresh'; // [bumex-one] ↻ at the right of the header (2026-11-22)
 // [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
@@ -158,8 +159,16 @@ function Recon({ entityId }: { entityId: Id }) {
   const banks = favoritesFirst(state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && !b.isCash)); // [bumex-one] favourites first
   const [bankId, setBankId] = useState(banks[0]?.id ?? '');
   // [bumex-one] the lines to explain, or those put into the suspense account (asked by Sidaty on 2026-11-18, one/BankAssign.tsx)
-  const [view, setView] = useState<'todo' | 'parked'>('todo');
+  const [view, setView] = useState<'todo' | 'parked' | 'done'>('todo');
   const [open, setOpen] = useState<Id | null>(null);
+  // [bumex-one] the form opened on a mode (a transfer between two currencies: its other side, Sidaty 2026-11-23)
+  const [openAs, setOpenAs] = useState<{ mode: AssignMode; target?: Id } | undefined>();
+  const openLine = (id: Id, as?: { mode: AssignMode; target?: Id }) => { setOpenAs(as); setOpen(open === id && !as ? null : id); };
+  const done = state.bankTransactions.filter((x) => x.bankAccountId === bankId && x.status !== 'unmatched').sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 150);
+  const unmatch = async (txn: BankTransaction) => {
+    const reason = await textAsk({ title: say('Dérapprocher la ligne', 'Unmatch the line'), message: say(`${txn.description} · ${fmt(txn.amount)} — ses écritures sont extournées (un encaissement lié reste, sans sa ligne)`, `${txn.description} · ${fmt(txn.amount)} — its entries are reversed (a linked receipt stays, without its line)`), label: say('Motif', 'Reason'), required: true, confirm: say('Dérapprocher', 'Unmatch'), danger: true });
+    if (reason) apply((st) => unmatchStatementLine(st, txn.id, reason), say('Ligne dérapprochée, à traiter de nouveau', 'Line unmatched, to process again'));
+  };
   const rows = state.bankTransactions.filter((x) => x.bankAccountId === bankId && x.status === 'unmatched').sort((a, b) => (a.date < b.date ? 1 : -1));
   const suspense = useMemo(() => suspenseSummary(state, entityId), [state, entityId]);
   const parked = suspense.pending.filter((p) => p.txn.bankAccountId === bankId).map((p) => p.txn).sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -176,7 +185,11 @@ function Recon({ entityId }: { entityId: Id }) {
   };
   const act = (txn: BankTransaction) => {
     if (view === 'parked') {
-      return <td style={{ whiteSpace: 'nowrap' }}><button className="btn sm primary" onClick={() => setOpen(open === txn.id ? null : txn.id)}>{say('Reclasser…', 'Reclassify…')}</button></td>;
+      return <td style={{ whiteSpace: 'nowrap' }}><button className="btn sm primary" onClick={() => openLine(txn.id)}>{say('Reclasser…', 'Reclassify…')}</button>{' '}<button className="btn sm" onClick={() => unmatch(txn)}>{say('Dérapprocher…', 'Unmatch…')}</button></td>;
+    }
+    if (view === 'done') {
+      const entry = state.entries.find((e) => e.id === txn.journalEntryId);
+      return <td style={{ whiteSpace: 'nowrap' }}><span className="small muted">{entry ? entryRef(state, entry) : ''}</span>{' '}<button className="btn sm" onClick={() => unmatch(txn)}>{say('Dérapprocher…', 'Unmatch…')}</button></td>;
     }
     const s = suggestFor(state, txn);
     return (
@@ -185,13 +198,15 @@ function Recon({ entityId }: { entityId: Id }) {
         {s.kind === 'invoice' && <button className="btn sm primary" onClick={() => apply((st) => recordPayment(st, { entityId, customerId: s.invoice.customerId, date: txn.date, currency: bank!.currency, amountTxn: txn.amount, bankAccountId: bankId, invoiceId: s.invoice.id, bankTransactionId: txn.id, reference: txn.reference ?? s.invoice.number }), say('Encaissement comptabilisé, facture lettrée, ligne rapprochée', 'Receipt posted, invoice matched, line reconciled'))}>{say('Encaisser et rapprocher', 'Record payment and reconcile')}</button>}
         {s.kind === 'assign' && <button className="btn sm primary" onClick={() => apply((st) => assignStatementLine(st, txn.id, [splitOf(s.rule, Math.abs(txn.amount))], s.rule.label), say('Comptabilisée par règle', 'Posted by rule'))}>{say('Comptabiliser', 'Post')}</button>}
         {s.kind === 'rule' && <button className="btn sm primary" onClick={() => apply((st) => bookByRule(st, txn.id, s.mappingKey), say('Comptabilisée par règle', 'Posted by rule'))}>{say('Comptabiliser', 'Post')}</button>}
-        {s.kind === 'transfer' && targets.map((o) => <button key={o.id} className="btn sm primary" style={{ marginRight: 4 }} onClick={() => apply((st) => bookTransfer(st, txn.id, o.id), say('Virement interne comptabilisé, les deux lignes rapprochées', 'Internal transfer posted, both lines reconciled'))}>{say('Virement vers', 'Transfer to')} {o.name}</button>)}
-        {' '}<button className={`btn sm ${s.kind === 'none' ? 'primary' : ''}`} onClick={() => setOpen(open === txn.id ? null : txn.id)}>{say('Affecter…', 'Assign…')}</button>
+        {/* [bumex-one] in the same currency at once; between two currencies, the form asks for the other side's real amount */}
+        {s.kind === 'transfer' && targets.map((o) => <button key={o.id} className="btn sm primary" style={{ marginRight: 4 }} onClick={() => (o.currency === bank?.currency ? apply((st) => bookTransfer(st, txn.id, o.id), say('Virement interne comptabilisé, les lignes rapprochées', 'Internal transfer posted, the lines reconciled')) : openLine(txn.id, { mode: 'transfer', target: o.id }))}>{txn.amount < 0 ? say('Virement vers', 'Transfer to') : say('Virement depuis', 'Transfer from')} {o.name}{o.currency !== bank?.currency ? '…' : ''}</button>)}
+        {' '}<button className={`btn sm ${s.kind === 'none' ? 'primary' : ''}`} onClick={() => openLine(txn.id)}>{say('Affecter…', 'Assign…')}</button>
         {' '}<button className="btn sm" onClick={() => apply((st) => bookToSuspense(st, txn.id), say(`Mise en attente (${suspenseAccount?.code ?? '488'})`, `Moved to suspense (${suspenseAccount?.code ?? '488'})`))}>{say('Mettre en attente', 'Move to suspense')}</button>
+        {' '}<DeleteButton table="bank_transaction" rowId={txn.id} label={`${txn.date} · ${txn.description} · ${fmt(txn.amount)}`} entityId={entityId} />{/* [bumex-one] a line imported by mistake */}
       </td>
     );
   };
-  const list = view === 'todo' ? rows : parked;
+  const list = view === 'todo' ? rows : view === 'parked' ? parked : done;
   return (
     <div className="card flush">
       <WideNote />{/* [mobile] */}
@@ -199,8 +214,9 @@ function Recon({ entityId }: { entityId: Id }) {
         <Select className="in" style={{ width: 300 }} value={bankId} onChange={(e) => { setBankId(e.target.value); setOpen(null); }}>{banks.map((b) => <option key={b.id} value={b.id}>{b.favorite ? '★ ' : ''}{b.bankName} · {b.name} ({b.currency})</option>)}</Select>
         <button className={`btn sm ${view === 'todo' ? 'on' : ''}`} onClick={() => { setView('todo'); setOpen(null); }}>{say('À traiter', 'To process')} · {rows.length}</button>
         <button className={`btn sm ${view === 'parked' ? 'on' : ''}`} onClick={() => { setView('parked'); setOpen(null); }}>{say('En attente', 'In suspense')}{suspenseAccount ? ` (${suspenseAccount.code})` : ''} · {parked.length}</button>
+        <button className={`btn sm ${view === 'done' ? 'on' : ''}`} onClick={() => { setView('done'); setOpen(null); }}>{say('Rapprochées', 'Reconciled')}</button>
         {view === 'todo' && byRule > 0 && <button className="btn sm primary" onClick={runRules}>{say('Comptabiliser par les règles', 'Post by rules')} · {byRule}</button>}
-        <span className="muted small">{view === 'todo' ? say('une ligne mise en attente compte comme écriture non comptabilisée sur la façade', 'a line moved to suspense counts as an unposted entry on the building facade') : say('reclassées par une écriture d\'OD, le compte bancaire inchangé', 'reclassified by a miscellaneous entry, the bank account unchanged')}</span>
+        <span className="muted small">{view === 'todo' ? say('une ligne mise en attente compte comme écriture non comptabilisée sur la façade', 'a line moved to suspense counts as an unposted entry on the building facade') : view === 'parked' ? say('reclassées par une écriture d\'OD, le compte bancaire inchangé', 'reclassified by a miscellaneous entry, the bank account unchanged') : say('les 150 plus récentes ; dérapprocher extourne leurs écritures', 'the 150 latest; unmatching reverses their entries')}</span>
       </div>
       {view === 'parked' && suspenseAccount && (
         <div className={`banner ${Math.abs(pendingTotal - suspense.balance) > 0.004 ? 'warn' : ''}`} style={{ margin: '0 10px 10px' }}>
@@ -212,13 +228,13 @@ function Recon({ entityId }: { entityId: Id }) {
       <table>
         <thead><tr><th>{say('Date', 'Date')}</th><th>{say('Libellé relevé', 'Statement description')}</th><th className="num">{say('Montant', 'Amount')}</th><th>{say('Proposition', 'Suggestion')}</th><th>{say('Action', 'Action')}</th></tr></thead>
         <tbody>
-          {list.length === 0 && <tr><td colSpan={5} className="muted">{view === 'todo' ? say('Tout est rapproché sur ce compte.', 'Everything is reconciled on this account.') : say('Aucune ligne de ce compte en attente.', 'No lines from this account in suspense.')}</td></tr>}
+          {list.length === 0 && <tr><td colSpan={5} className="muted">{view === 'todo' ? say('Tout est rapproché sur ce compte.', 'Everything is reconciled on this account.') : view === 'parked' ? say('Aucune ligne de ce compte en attente.', 'No lines from this account in suspense.') : say('Aucune ligne rapprochée sur ce compte.', 'No reconciled line on this account.')}</td></tr>}
           {list.map((txn) => {
-            const p = propositionOf(state, txn, view === 'parked');
+            const p = view === 'done' ? { label: txn.status === 'matched' ? say('rapprochée', 'reconciled') : say('comptabilisée', 'posted'), kind: 'good' as const } : propositionOf(state, txn, view === 'parked');
             return (
               <Fragment key={txn.id}>
                 <tr><td><D iso={txn.date} /></td><td>{txn.description}</td><td className="num" style={{ color: txn.amount < 0 ? 'var(--crit)' : undefined }}>{fmt(txn.amount)}</td><td><Chip kind={p.kind}>{p.label}</Chip></td>{act(txn)}</tr>
-                {open === txn.id && <tr><td colSpan={5} style={{ background: 'var(--paper, transparent)' }}><AssignLine entityId={entityId} txn={txn} parked={view === 'parked'} onDone={() => setOpen(null)} /></td></tr>}
+                {open === txn.id && view !== 'done' && <tr><td colSpan={5} style={{ background: 'var(--paper, transparent)' }}><AssignLine key={`${txn.id}|${openAs?.mode ?? ''}|${openAs?.target ?? ''}`} entityId={entityId} txn={txn} parked={view === 'parked'} onDone={() => setOpen(null)} initialMode={openAs?.mode} initialTarget={openAs?.target} /></td></tr>}
               </Fragment>
             );
           })}

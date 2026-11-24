@@ -1,10 +1,10 @@
-import type { State, Id, ISODate, Currency, SalesInvoice, SalesInvoiceLine, CreditNote, CustomerPayment, Allocation, Customer, CounterpartyRegime } from './types';
+import type { State, Id, ISODate, Currency, SalesInvoice, SalesInvoiceLine, CreditNote, CustomerPayment, Allocation, Customer, CounterpartyRegime, DeletionRequest } from './types';
 import { DomainError } from './types';
 import { r2, sum, addDays, daysBetween } from './money';
 import { nextId, audit, fxRate, mapped, nextNumber, requirePost, accountById, arAccountFor, bankJournalFor } from './core';
 import { nextThirdPartyCode, checkThirdPartyCode, ensureAuxiliaryAccount } from './chart';
 import { resolveTaxCode, revenueAccountFor } from './tax';
-import { createDraft, postEntry, type DraftLineInput } from './ledger';
+import { createDraft, postEntry, reverseOnOpenDate, type DraftLineInput } from './ledger';
 
 export interface InvoiceLineInput {
   description: string;
@@ -13,7 +13,7 @@ export interface InvoiceLineInput {
   serviceCategory: string;
   taxCodeId?: Id; // override
   revenueAccountId?: Id; // override
-  withholdingCodeId?: Id | null; // [bumex-one] the line's WHT: undefined = the document's, null = none
+  withholdingCodeId?: Id | null; // [bumex-one] the line's WHT; none (undefined or null) = not applicable, never the header's (Sidaty, 2026-11-23)
 }
 
 export interface InvoiceInput {
@@ -26,7 +26,7 @@ export interface InvoiceInput {
   fxRate?: number;
   paymentMode?: string;
   bankAccountId?: Id;
-  withholdingCodeId?: Id | null; // undefined = the customer's default, null = none
+  withholdingCodeId?: Id | null; // [bumex-one] ignored since 2026-11-23: the WHT is each line's (InvoiceLineInput), the invoice's their total
   regime?: CounterpartyRegime; // this invoice's regime for the tax rules; undefined = the customer's
   number?: string; // [bumex-one] typed by hand (importing the old invoices, 2026-11-17); empty = numbered on validation
   lines: InvoiceLineInput[];
@@ -50,7 +50,10 @@ function withholdingOf(state: State, lines: SalesInvoiceLine[]): { id?: Id; rate
   return { id: tc.id, rate: tc.rate, amount: r2(sum(bearing.map((l) => l.lineHt)) * tc.rate) };
 }
 
-// A line's WHT rate: its own, or — a line from before WHT per line — the invoice's.
+// A line's WHT rate: its own. Lines computed since WHT per line (0019) always carry one (0 = none); a line without any
+// can only come from an invoice posted before, whose WHT was computed on all its lines: it reads the invoice's, so a
+// credit note or the revaluation of such an invoice matches what it posted. Entering or saving an invoice never does
+// (computeLines).
 export function lineWithholdingRate(inv: Pick<SalesInvoice, 'withholdingAmount' | 'withholdingRate'>, line: Pick<SalesInvoiceLine, 'withholdingRate'>): number {
   return line.withholdingRate ?? (inv.withholdingAmount > 0 ? inv.withholdingRate : 0);
 }
@@ -64,10 +67,12 @@ function customerOf(state: State, id: Id): Customer {
 export function computeLines(state: State, input: InvoiceInput): { lines: SalesInvoiceLine[]; mention?: string } {
   const card = customerOf(state, input.customerId);
   const customer = input.regime ? { ...card, regime: input.regime } : card;
-  const documentWht = input.withholdingCodeId === undefined ? card.withholdingCodeId : input.withholdingCodeId ?? undefined;
   let mention: string | undefined;
   const lines = input.lines.map((l, i) => {
-    const whtId = l.withholdingCodeId === undefined ? documentWht : l.withholdingCodeId ?? undefined;
+    // [bumex-one] a line without a WHT code bears none: it never takes the header's or the customer card's (asked by
+    // Sidaty on 2026-11-23 — a "none" line read back without its code took the header's on the next save, 70 became 140).
+    // The card's WHT is the form's proposal for a new line (Clients.tsx), nothing more.
+    const whtId = l.withholdingCodeId ?? undefined;
     const wtc = whtId ? state.taxCodes.find((t) => t.id === whtId) : undefined;
     if (whtId && (!wtc || wtc.kind !== 'withholding')) throw new DomainError('tax_code', 'Code de retenue à la source inconnu');
     const tc = l.taxCodeId ? state.taxCodes.find((t) => t.id === l.taxCodeId) : resolveTaxCode(state, input.entityId, customer, l.serviceCategory, input.date);
@@ -258,9 +263,14 @@ export function createCreditNote(state: State, invoiceId: Id, reason: string, da
 
 // customer_payment.v1 + allocation.v1 — Dr bank / Cr AR at the payment-date rate; the FX difference
 // between the invoice-date value and the payment-date value of the settled amount goes to 778 / 678.
+// [bumex-one] A receipt settles one invoice, several, or none yet (asked by Sidaty on 2026-11-23): `allocations` spreads
+// it ([{invoiceId, amountTxn}]), what is left stays to letter later (letterPayment); `invoiceId` is the one-invoice
+// form. A small difference left over is proposed to the administrator (settlementCandidates), never booked on its own.
+export interface PaymentAllocationInput { invoiceId: Id; amountTxn: number }
+
 export function recordPayment(
   state: State,
-  input: { entityId: Id; customerId: Id; date: ISODate; currency: Currency; amountTxn: number; bankAccountId: Id; method?: string; reference?: string; invoiceId?: Id; bankTransactionId?: Id },
+  input: { entityId: Id; customerId: Id; date: ISODate; currency: Currency; amountTxn: number; bankAccountId: Id; method?: string; reference?: string; invoiceId?: Id; allocations?: PaymentAllocationInput[]; bankTransactionId?: Id },
 ): [State, CustomerPayment] {
   requirePost(state);
   const customer = customerOf(state, input.customerId);
@@ -268,6 +278,7 @@ export function recordPayment(
   const bank = state.bankAccounts.find((b) => b.id === input.bankAccountId);
   if (!bank) throw new DomainError('not_found', 'Compte bancaire inconnu');
   if (bank.currency !== input.currency) throw new DomainError('currency', `Le compte ${bank.name} est en ${bank.currency}`);
+  if (!(r2(input.amountTxn) > 0)) throw new DomainError('amount', 'Montant positif requis');
   const rate = fxRate(state, input.currency, entity.functionalCurrency, input.date);
   const [s1, id] = nextId(state, 'pay');
   const [s2, number] = nextNumber(s1, input.entityId, 'customer_payment', '', input.date, 'EN{YY}{MM}-{SEQ4}', 'month');
@@ -283,19 +294,45 @@ export function recordPayment(
   let s5: State = { ...s4, customerPayments: [...s4.customerPayments, payment] };
   if (input.bankTransactionId) s5 = { ...s5, bankTransactions: s5.bankTransactions.map((t) => (t.id === input.bankTransactionId ? { ...t, status: 'matched' as const, journalEntryId: posted.id } : t)) };
   s5 = audit(s5, 'customer_payment', id, 'I', `Encaissement ${number}`, input.entityId);
-  if (input.invoiceId) s5 = allocate(s5, id, input.invoiceId, input.amountTxn)[0];
-  return [s5, payment];
+  // one invoice: what it still owes at most (the rest of the receipt stays to letter, or is a small overpayment)
+  const wanted = input.allocations ?? (input.invoiceId ? [{ invoiceId: input.invoiceId, amountTxn: Math.min(input.amountTxn, openOf(s5, input.invoiceId)) }] : []);
+  if (wanted.length) s5 = letterPayment(s5, id, wanted)[0];
+  return [s5, s5.customerPayments.find((p) => p.id === id)!];
 }
 
-export function allocate(state: State, paymentId: Id, invoiceId: Id, amountTxn: number): [State, Allocation] {
+// what an invoice still owes, in its currency
+function openOf(state: State, invoiceId: Id): number {
+  const inv = state.salesInvoices.find((i) => i.id === invoiceId);
+  if (!inv) throw new DomainError('not_found', 'Facture inconnue');
+  return r2(inv.netPayable - inv.amountPaidTxn);
+}
+
+// [bumex-one] What a receipt has not settled yet: its amount, less its allocations and what was taken to income.
+export function paymentRemainder(state: State, payment: Pick<CustomerPayment, 'id' | 'amountTxn' | 'writeOffTxn'>): number {
+  return r2(payment.amountTxn - sum(state.allocations.filter((a) => a.paymentId === payment.id).map((a) => a.amountTxn)) - (payment.writeOffTxn ?? 0));
+}
+
+// The receipts of an entity (or a client) not wholly lettered, with what is left of each.
+export function unletteredPayments(state: State, entityId: Id, customerId?: Id): { payment: CustomerPayment; remainder: number }[] {
+  return state.customerPayments
+    .filter((p) => p.entityId === entityId && (!customerId || p.customerId === customerId) && p.status !== 'cancelled')
+    .map((payment) => ({ payment, remainder: paymentRemainder(state, payment) }))
+    .filter((x) => x.remainder > 0.004)
+    .sort((a, b) => (a.payment.date < b.payment.date ? -1 : 1));
+}
+
+export function allocate(state: State, paymentId: Id, invoiceId: Id, amountTxn: number, date?: ISODate): [State, Allocation] {
   const pay = state.customerPayments.find((p) => p.id === paymentId);
   const inv = state.salesInvoices.find((i) => i.id === invoiceId);
   if (!pay || !inv) throw new DomainError('not_found', 'Paiement ou facture inconnu');
   if (!invoiceAccounted(inv)) throw new DomainError('state', 'Lettrage possible sur une facture comptabilisée uniquement');
   if (inv.currency !== pay.currency) throw new DomainError('currency', 'Devises différentes entre la facture et le paiement');
+  // [bumex-one] the same client, and never more than the receipt has left
+  if (inv.customerId !== pay.customerId || inv.entityId !== pay.entityId) throw new DomainError('customer', `La facture ${inv.number ?? ''} est celle d'un autre client`);
   const open = r2(inv.netPayable - inv.amountPaidTxn);
   const amt = r2(Math.min(amountTxn, open));
   if (amt <= 0) throw new DomainError('amount', 'Rien à lettrer');
+  if (amt > paymentRemainder(state, pay) + 0.004) throw new DomainError('amount', `Le lettrage (${amt}) dépasse le reste de l'encaissement (${paymentRemainder(state, pay)})`);
   const atDoc = r2(amt * inv.fxRate);
   const atPay = r2(amt * pay.fxRate);
   const diff = r2(atPay - atDoc);
@@ -312,15 +349,194 @@ export function allocate(state: State, paymentId: Id, invoiceId: Id, amountTxn: 
     const lines: DraftLineInput[] = diff > 0
       ? [{ accountId: ar.id, description: `Écart de change ${inv.number}`, debitTxn: Math.abs(diff), customerId: customer.id }, { accountId: gainLoss.id, description: `Gain de change ${inv.number}`, creditTxn: Math.abs(diff) }]
       : [{ accountId: gainLoss.id, description: `Perte de change ${inv.number}`, debitTxn: Math.abs(diff) }, { accountId: ar.id, description: `Écart de change ${inv.number}`, creditTxn: Math.abs(diff), customerId: customer.id }];
-    const [s2, draft] = createDraft(s, { entityId: inv.entityId, journalId: journal.id, date: pay.date, description: `Écart de change sur ${inv.number}`, currency: entity.functionalCurrency, fxRate: 1, sourceType: 'allocation', sourceId: id, postingRule: 'allocation.v1', lines });
+    const [s2, draft] = createDraft(s, { entityId: inv.entityId, journalId: journal.id, date: date ?? pay.date, description: `Écart de change sur ${inv.number}`, currency: entity.functionalCurrency, fxRate: 1, sourceType: 'allocation', sourceId: id, postingRule: 'allocation.v1', lines });
     const [s3, posted] = postEntry(s2, draft.id);
     s = s3;
     entryId = posted.id;
   }
-  const alloc: Allocation = { id, entityId: inv.entityId, paymentId, invoiceId, amountTxn: amt, amountAtDocRate: atDoc, amountAtPayRate: atPay, fxDifference: diff, journalEntryId: entryId };
+  const alloc: Allocation = { id, entityId: inv.entityId, paymentId, invoiceId, amountTxn: amt, amountAtDocRate: atDoc, amountAtPayRate: atPay, fxDifference: diff, journalEntryId: entryId, label: `${pay.number ?? ''} → ${inv.number ?? ''} · ${amt} ${inv.currency}` };
   const paid = r2(inv.amountPaidTxn + amt);
   const invoices = s.salesInvoices.map((i) => (i.id === invoiceId ? { ...i, amountPaidTxn: paid, status: paid >= i.netPayable - 0.004 ? ('paid' as const) : i.status } : i));
   return [audit({ ...s, allocations: [...s.allocations, alloc], salesInvoices: invoices }, 'allocation', id, 'I', `Lettrage ${inv.number} ${amt}`, inv.entityId), alloc];
+}
+
+// [bumex-one] Lettering a receipt afterwards, or spreading it: all or part of what it has left, to one or more open
+// invoices of the same client and currency. The FX differences, invoice by invoice, are dated the receipt's day (or
+// `date`, when that day's period is closed).
+export function letterPayment(state: State, paymentId: Id, allocations: PaymentAllocationInput[], opts: { date?: ISODate } = {}): [State, Allocation[]] {
+  requirePost(state);
+  const pay = state.customerPayments.find((p) => p.id === paymentId);
+  if (!pay) throw new DomainError('not_found', 'Encaissement inconnu');
+  const wanted = allocations.map((a) => ({ invoiceId: a.invoiceId, amountTxn: r2(a.amountTxn) })).filter((a) => a.amountTxn > 0);
+  if (!wanted.length) throw new DomainError('amount', 'Rien à lettrer');
+  if (new Set(wanted.map((a) => a.invoiceId)).size !== wanted.length) throw new DomainError('amount', 'Une facture apparaît deux fois');
+  const total = r2(sum(wanted.map((a) => a.amountTxn)));
+  const left = paymentRemainder(state, pay);
+  if (total > left + 0.004) throw new DomainError('amount', `Le lettrage (${total}) dépasse le reste de l'encaissement (${left})`);
+  let s = state;
+  const made: Allocation[] = [];
+  for (const a of wanted) {
+    const [s1, alloc] = allocate(s, paymentId, a.invoiceId, a.amountTxn, opts.date);
+    s = s1;
+    made.push(alloc);
+  }
+  // a receipt that changes what an invoice owes reopens the administrator's decision on its small difference
+  const touched = new Set(wanted.map((a) => a.invoiceId));
+  s = { ...s, salesInvoices: s.salesInvoices.map((i) => (touched.has(i.id) && i.writeOffRefused ? { ...i, writeOffRefused: false } : i)), customerPayments: s.customerPayments.map((p) => (p.id === paymentId && p.writeOffRefused ? { ...p, writeOffRefused: false } : p)) };
+  return [s, made];
+}
+
+// [bumex-one] Small settlement differences (Sidaty, 2026-11-23; decided by the administrator, asked on 2026-11-24): an
+// invoice its receipts left open by up to the entity's tolerance (500 MRU, or its value in the currency), or a receipt
+// that paid its invoices and a little more, is listed; the administrator books it — a loss to SETTLEMENT_LOSS (638001
+// at BUMEX SA), a gain to SETTLEMENT_GAIN (748000) — or keeps it open. Nothing moves the bank.
+export function settlementTolerance(state: State, entityId: Id): number {
+  return state.entities.find((e) => e.id === entityId)?.settlementTolerance ?? 500;
+}
+
+export type SettlementCandidate =
+  | { kind: 'invoice'; invoice: SalesInvoice; customer: Customer; amount: number; functional: number }
+  | { kind: 'payment'; payment: CustomerPayment; customer: Customer; amount: number; functional: number };
+
+export function settlementCandidates(state: State, entityId: Id): SettlementCandidate[] {
+  const tolerance = settlementTolerance(state, entityId);
+  const out: SettlementCandidate[] = [];
+  for (const inv of state.salesInvoices) {
+    if (inv.entityId !== entityId || !invoiceAccounted(inv) || inv.writeOffRefused) continue;
+    const open = r2(inv.netPayable - inv.amountPaidTxn);
+    if (open <= 0.004 || r2(open * inv.fxRate) > tolerance || !state.allocations.some((a) => a.invoiceId === inv.id)) continue;
+    out.push({ kind: 'invoice', invoice: inv, customer: customerOf(state, inv.customerId), amount: open, functional: r2(open * inv.fxRate) });
+  }
+  for (const pay of state.customerPayments) {
+    if (pay.entityId !== entityId || pay.writeOffRefused) continue;
+    const mine = state.allocations.filter((a) => a.paymentId === pay.id);
+    if (!mine.length) continue; // a receipt on account is lettered later, never written off
+    const rest = paymentRemainder(state, pay);
+    if (rest <= 0.004 || r2(rest * pay.fxRate) > tolerance) continue;
+    if (!mine.every((a) => { const i = state.salesInvoices.find((x) => x.id === a.invoiceId); return !!i && i.netPayable - i.amountPaidTxn <= 0.004; })) continue;
+    out.push({ kind: 'payment', payment: pay, customer: customerOf(state, pay.customerId), amount: rest, functional: r2(rest * pay.fxRate) });
+  }
+  return out;
+}
+
+function requireAdmin(state: State) {
+  if (state.session.role !== 'admin') throw new DomainError('forbidden', "Décision réservée à l'administrateur");
+}
+
+// The administrator keeps a small difference open: it leaves the list until a receipt changes it.
+export function keepDifferenceOpen(state: State, kind: 'invoice' | 'payment', id: Id): State {
+  requireAdmin(state);
+  if (kind === 'invoice') {
+    const inv = state.salesInvoices.find((i) => i.id === id);
+    if (!inv) throw new DomainError('not_found', 'Facture inconnue');
+    return audit({ ...state, salesInvoices: state.salesInvoices.map((i) => (i.id === id ? { ...i, writeOffRefused: true } : i)) }, 'sales_invoice', id, 'U', `Écart de règlement laissé ouvert ${inv.number ?? ''}`, inv.entityId);
+  }
+  const pay = state.customerPayments.find((p) => p.id === id);
+  if (!pay) throw new DomainError('not_found', 'Encaissement inconnu');
+  return audit({ ...state, customerPayments: state.customerPayments.map((p) => (p.id === id ? { ...p, writeOffRefused: true } : p)) }, 'customer_payment', id, 'U', `Trop-perçu laissé ouvert ${pay.number ?? ''}`, pay.entityId);
+}
+
+// The administrator takes a receipt's small overpayment to income.
+export function settleOverpayment(state: State, paymentId: Id, date?: ISODate): [State, Id] {
+  requirePost(state);
+  requireAdmin(state);
+  const pay = state.customerPayments.find((p) => p.id === paymentId);
+  if (!pay) throw new DomainError('not_found', 'Encaissement inconnu');
+  const rest = paymentRemainder(state, pay);
+  if (rest <= 0.004) throw new DomainError('amount', 'Rien à solder');
+  if (r2(rest * pay.fxRate) > settlementTolerance(state, pay.entityId)) throw new DomainError('amount', 'Reste au-delà du seuil : le lettrer sur une facture');
+  const s = writeOffOverpayment(state, paymentId, rest, date ?? state.today);
+  return [s, s.customerPayments.find((p) => p.id === paymentId)!.writeOffEntryId!];
+}
+
+// settlement_difference.v1 — Dr the account chosen (SETTLEMENT_LOSS by default) / Cr the client, at the invoice's rate
+function writeOffInvoice(state: State, inv: SalesInvoice, amount: number, date: ISODate, label: string, accountId?: Id): [State, Id] {
+  const customer = customerOf(state, inv.customerId);
+  const ar = arAccountFor(state, inv.entityId, customer);
+  const target = accountId ? accountById(state, accountId) : mapped(state, inv.entityId, 'SETTLEMENT_LOSS');
+  const journal = state.journals.find((j) => j.entityId === inv.entityId && j.kind === 'misc')!;
+  const [s1, draft] = createDraft(state, {
+    entityId: inv.entityId, journalId: journal.id, date, description: `${label} ${inv.number ?? ''} ${customer.name}`, currency: inv.currency, fxRate: inv.fxRate,
+    sourceType: 'sales_invoice', sourceId: inv.id, postingRule: 'settlement_difference.v1',
+    lines: [{ accountId: target.id, description: `${label} ${inv.number ?? ''}`, debitTxn: amount }, { accountId: ar.id, description: `${label} ${inv.number ?? ''}`, creditTxn: amount, customerId: customer.id }],
+  });
+  const [s2, posted] = postEntry(s1, draft.id);
+  const paid = r2(inv.amountPaidTxn + amount);
+  const invoices = s2.salesInvoices.map((i) => (i.id === inv.id ? { ...i, amountPaidTxn: paid, status: paid >= i.netPayable - 0.004 ? ('paid' as const) : i.status, writeOffTxn: r2((i.writeOffTxn ?? 0) + amount), writeOffEntryId: posted.id } : i));
+  return [audit({ ...s2, salesInvoices: invoices }, 'sales_invoice', inv.id, 'U', `${label} ${amount} ${inv.currency} soldé en ${target.code}`, inv.entityId), posted.id];
+}
+
+// settlement_difference.v1 — Dr the client / Cr SETTLEMENT_GAIN, at the receipt's rate
+function writeOffOverpayment(state: State, paymentId: Id, amount: number, date: ISODate): State {
+  const pay = state.customerPayments.find((p) => p.id === paymentId)!;
+  const customer = customerOf(state, pay.customerId);
+  const ar = arAccountFor(state, pay.entityId, customer);
+  const gain = mapped(state, pay.entityId, 'SETTLEMENT_GAIN');
+  const journal = state.journals.find((j) => j.entityId === pay.entityId && j.kind === 'misc')!;
+  const [s1, draft] = createDraft(state, {
+    entityId: pay.entityId, journalId: journal.id, date, description: `Trop-perçu ${pay.number ?? ''} ${customer.name}`, currency: pay.currency, fxRate: pay.fxRate,
+    sourceType: 'customer_payment', sourceId: pay.id, postingRule: 'settlement_difference.v1',
+    lines: [{ accountId: ar.id, description: `Trop-perçu ${pay.number ?? ''}`, debitTxn: amount, customerId: customer.id }, { accountId: gain.id, description: `Trop-perçu ${pay.number ?? ''}`, creditTxn: amount }],
+  });
+  const [s2, posted] = postEntry(s1, draft.id);
+  const payments = s2.customerPayments.map((p) => (p.id === paymentId ? { ...p, writeOffTxn: r2((p.writeOffTxn ?? 0) + amount), writeOffEntryId: posted.id } : p));
+  return audit({ ...s2, customerPayments: payments }, 'customer_payment', paymentId, 'U', `Trop-perçu ${amount} ${pay.currency} soldé en ${gain.code}`, pay.entityId);
+}
+
+// [bumex-one] "Solder avec écart", the administrator's decision: what an invoice still owes, settled without money. Within
+// the tolerance, a loss to SETTLEMENT_LOSS with no reason; beyond it (70 USD the client's bank kept), to the account
+// chosen, with a reason.
+export function settleInvoiceDifference(state: State, invoiceId: Id, opts: { accountId?: Id; reason?: string; date?: ISODate } = {}): [State, Id] {
+  requirePost(state);
+  requireAdmin(state);
+  const inv = state.salesInvoices.find((i) => i.id === invoiceId);
+  if (!inv) throw new DomainError('not_found', 'Facture inconnue');
+  if (!invoiceAccounted(inv)) throw new DomainError('state', 'Lettrage possible sur une facture comptabilisée uniquement');
+  const open = r2(inv.netPayable - inv.amountPaidTxn);
+  if (open <= 0.004) throw new DomainError('amount', 'Rien à solder');
+  const within = r2(open * inv.fxRate) <= settlementTolerance(state, inv.entityId);
+  const reason = opts.reason?.trim() ?? '';
+  if (!within && reason.length < 4) throw new DomainError('reason', 'Écart au-delà du seuil : indiquer le motif');
+  if (opts.accountId) {
+    const a = state.accounts.find((x) => x.id === opts.accountId && x.entityId === inv.entityId);
+    if (!a || !a.isPostable || !a.active) throw new DomainError('account', 'Compte inconnu, non imputable ou inactif');
+  }
+  return writeOffInvoice(state, inv, open, opts.date ?? state.today, reason ? `Écart de règlement (${reason})` : 'Écart de règlement', opts.accountId);
+}
+
+// [bumex-one] Unlettering: an allocation undone, its invoice open again, with a reason kept (Réglages › Suppressions).
+// Its FX difference is reversed; so is a small difference settled with it (the invoice's, the receipt's), the
+// settlement no longer standing.
+export function unletterAllocation(state: State, allocationId: Id, reason: string): State {
+  requirePost(state);
+  if (reason.trim().length < 4) throw new DomainError('reason', 'Indiquer le motif du délettrage');
+  const alloc = state.allocations.find((a) => a.id === allocationId);
+  if (!alloc) throw new DomainError('not_found', 'Lettrage inconnu');
+  const inv = state.salesInvoices.find((i) => i.id === alloc.invoiceId)!;
+  const pay = state.customerPayments.find((p) => p.id === alloc.paymentId)!;
+  const why = `délettrage : ${reason.trim()}`;
+  let s = state;
+  if (alloc.journalEntryId && s.entries.find((e) => e.id === alloc.journalEntryId)?.status === 'posted') s = reverseOnOpenDate(s, alloc.journalEntryId, why)[0];
+  let invWriteOff = 0;
+  if ((inv.writeOffTxn ?? 0) > 0 && inv.writeOffEntryId) {
+    if (s.entries.find((e) => e.id === inv.writeOffEntryId)?.status === 'posted') s = reverseOnOpenDate(s, inv.writeOffEntryId, why)[0];
+    invWriteOff = inv.writeOffTxn!;
+  }
+  if ((pay.writeOffTxn ?? 0) > 0 && pay.writeOffEntryId) {
+    if (s.entries.find((e) => e.id === pay.writeOffEntryId)?.status === 'posted') s = reverseOnOpenDate(s, pay.writeOffEntryId, why)[0];
+    s = { ...s, customerPayments: s.customerPayments.map((p) => (p.id === pay.id ? { ...p, writeOffTxn: 0, writeOffEntryId: undefined } : p)) };
+  }
+  const paid = r2(inv.amountPaidTxn - alloc.amountTxn - invWriteOff);
+  s = {
+    ...s,
+    allocations: s.allocations.filter((a) => a.id !== allocationId),
+    salesInvoices: s.salesInvoices.map((i) => (i.id === inv.id ? { ...i, amountPaidTxn: paid, status: i.status === 'paid' && paid < i.netPayable - 0.004 ? ('posted' as const) : i.status, writeOffTxn: invWriteOff ? 0 : i.writeOffTxn, writeOffEntryId: invWriteOff ? undefined : i.writeOffEntryId, writeOffRefused: false } : i)),
+  };
+  const [s1, id] = nextId(s, 'del');
+  const now = new Date().toISOString();
+  const label = alloc.label ?? `${pay.number ?? ''} → ${inv.number ?? ''} · ${alloc.amountTxn} ${inv.currency}`;
+  const trace: DeletionRequest = { id, entityId: inv.entityId, table: 'allocation', rowId: allocationId, label: `Lettrage ${label}`, reason: reason.trim(), requestedBy: state.session.actorId, requestedByName: state.session.actorName, requestedAt: now, status: 'approved', decidedBy: state.session.actorId, decidedAt: now, decisionNote: 'délettrage' };
+  return audit({ ...s1, deletionRequests: [...s1.deletionRequests, trace] }, 'allocation', allocationId, 'D', `Délettrage ${label} · motif : ${reason.trim()}`, inv.entityId);
 }
 
 // ---- receivables reports ----------------------------------------------------------

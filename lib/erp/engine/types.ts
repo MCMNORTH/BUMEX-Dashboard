@@ -80,6 +80,8 @@ export interface Entity {
   coaTemplate: CoaTemplate;
   fxMethod: FxMethod;
   cashThreshold: number;
+  settlementTolerance?: number; // [bumex-one] 0021: a difference up to this (functional) settles an invoice on its own
+  preparerMayApprove?: boolean; // [bumex-one] 0021: who prepared a supplier invoice may approve it (one accountant)
   floorOrder: number;
   isHolding: boolean;
   isTest?: boolean; // [bumex-one] the test floor (BUMEX Testing, the basement, 0011): left out of the group's figures
@@ -313,6 +315,9 @@ export interface SalesInvoice {
   journalEntryId?: Id;
   legalMentionFr?: string;
   dunningLevel: number;
+  writeOffTxn?: number; // [bumex-one] 0021: the small difference written off (underpaid), invoice currency
+  writeOffEntryId?: Id;
+  writeOffRefused?: boolean; // [bumex-one] 0021: the administrator kept its small difference open
   lastDunningDate?: ISODate;
   publicToken?: string; // [bumex-one] the invoice's link, its QR code (/i/<token>, 0018), given by the database
 }
@@ -351,6 +356,9 @@ export interface CustomerPayment {
   reference?: string;
   journalEntryId?: Id;
   bankTransactionId?: Id;
+  writeOffTxn?: number; // [bumex-one] 0021: what the client paid too much, taken to income
+  writeOffEntryId?: Id;
+  writeOffRefused?: boolean; // [bumex-one] 0021: the administrator kept it to letter rather than to income
 }
 
 export interface Allocation {
@@ -363,6 +371,7 @@ export interface Allocation {
   amountAtPayRate: number;
   fxDifference: number;
   journalEntryId?: Id;
+  label?: string; // [bumex-one] 0021: "EN2605-0001 → IN2605-0003", for the history
 }
 
 export interface Supplier {
@@ -598,6 +607,7 @@ export interface AssetCategory {
   method: DepreciationMethod;
   assetAccountId: Id;
   accDeprAccountId: Id;
+  nonDepreciable?: boolean; // [bumex-one] 0021: land — no depreciation, kept at cost
 }
 
 export interface Asset {

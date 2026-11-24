@@ -12,6 +12,7 @@ import { useSay } from '../../one/say'; // [bumex-one]
 import { Tabs, Field, Chip, D, Money, DeleteButton, downloadXlsx } from '../common';
 import { fieldsAsk } from '../../one/ask'; // [bumex-one] Fluent's dialog, not the browser's (2026-11-20)
 import { accountingStatus, paymentStatus } from '../../one/invoice-status'; // [bumex-one] two statuses: in the books, paid
+import { ReceiptsRoom, CustomerUnlettered } from '../../one/Lettering'; // [bumex-one] lettering, small differences
 import { Select } from '../Select';
 import { WideNote } from '../../one/WideNote'; // [mobile]
 import { InvoiceSheet, defaultInvoiceLang, type InvoiceLang, type InvoiceSheetData } from '../../one/InvoiceSheet'; // [bumex-one] the invoice as printed
@@ -271,8 +272,8 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
   const olderWht = (id: string) => (id && id !== whtCode?.id ? state.taxCodes.find((x) => x.id === id) : undefined);
   const [lines, setLines] = useState<LineForm[]>(() => editing?.lines.length
     ? editing.lines.map((l) => ({ description: l.description, quantity: String(l.quantity), unitPrice: String(l.unitPrice), serviceCategory: l.serviceCategory, taxCodeId: l.taxCodeId ?? '', revenueAccountId: l.revenueAccountId ?? '',
-        // a line from before WHT per line bears the invoice's
-        whtId: l.withholdingRate !== undefined ? l.withholdingCodeId ?? '' : editing.withholdingAmount > 0 ? editing.withholdingCodeId ?? '' : '' }))
+        // a line without a WHT code opens as "Non applicable", never with the invoice's (Sidaty, 2026-11-23)
+        whtId: l.withholdingCodeId ?? '' }))
     : [emptyLine(cardWht(customer))]);
   // the explanations, folded into a "?" (asked on 2026-11-17): the form gets the width; the choice is remembered here
   const [help, setHelpState] = useState(() => { try { return localStorage.getItem(HELP_KEY) === 'open'; } catch { return false; } });
@@ -435,44 +436,10 @@ function NewInvoice({ entityId, editing, onDone }: { entityId: Id; editing?: Sal
   );
 }
 
+// [bumex-one] Receipts spread over invoices, lettered later, unlettered; the small differences decided by the
+// administrator (Sidaty's corrections, 2026-11-23): vanguard/one/Lettering.tsx.
 function Payments({ entityId, preselect }: { entityId: Id; preselect: Id | null }) {
-  const { state, t, apply } = useStore();
-  const say = useSay(); // [bumex-one]
-  const open = openInvoices(state, entityId);
-  const [invoiceId, setInvoiceId] = useState(preselect ?? open[0]?.invoice.id ?? '');
-  const sel = open.find((o) => o.invoice.id === invoiceId);
-  const [amount, setAmount] = useState(sel ? String(sel.openTxn) : '');
-  const [date, setDate] = useState(state.today);
-  const banks = favoritesFirst(state.bankAccounts.filter((b) => b.entityId === entityId && b.active !== false && b.currency === (sel?.invoice.currency ?? 'MRU')));
-  const [bankId, setBankId] = useState(banks[0]?.id ?? '');
-  const [ref, setRef] = useState('');
-  const [tracked, setTracked] = useState(invoiceId);
-  if (tracked !== invoiceId) { setTracked(invoiceId); const o = open.find((x) => x.invoice.id === invoiceId); setAmount(o ? String(o.openTxn) : ''); const b = favoritesFirst(state.bankAccounts.filter((x) => x.entityId === entityId && x.active !== false && x.currency === o?.invoice.currency))[0]; if (b) setBankId(b.id); }
-  const payments = state.customerPayments.filter((p) => p.entityId === entityId).sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 40);
-  return (
-    <div className="cols">
-      <div className="grow">
-        <div className="card flush">
-          <table>
-            <thead><tr><th>{say('N°', 'No.')}</th><th>{t('date')}</th><th>{t('customer')}</th><th className="num">{t('amount')}</th><th>{say('Banque', 'Bank')}</th><th>{say('Référence', 'Reference')}</th><th>{say('Rapproché', 'Reconciled')}</th></tr></thead>
-            <tbody>{payments.map((p) => <tr key={p.id}><td className="mono">{p.number}</td><td><D iso={p.date} /></td><td>{state.customers.find((c) => c.id === p.customerId)?.name}</td><td className="num">{p.currency} {fmt(p.amountTxn)}</td><td>{state.bankAccounts.find((b) => b.id === p.bankAccountId)?.name}</td><td className="small">{p.reference}</td><td>{p.bankTransactionId ? <Chip kind="good">{say('oui', 'yes')}</Chip> : <Chip kind="warn">{say('en attente du relevé', 'awaiting statement')}</Chip>}</td></tr>)}</tbody>
-          </table>
-        </div>
-      </div>
-      <aside className="side">
-        <div className="card">
-          <h2>{say('Encaissement', 'Receipt')}</h2>
-          <Field label={say('Facture ouverte', 'Open invoice')}><Select className="in" value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)}>{open.map((o) => <option key={o.invoice.id} value={o.invoice.id}>{o.invoice.number} · {o.customer.name} · {o.invoice.currency} {fmt(o.openTxn)}</option>)}</Select></Field>
-          <Field label={say(`${t('amount')} reçu (${sel?.invoice.currency ?? ''})`, `${t('amount')} received (${sel?.invoice.currency ?? ''})`)} style={{ marginTop: 8 }}><input className="in num" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
-          <Field label={t('date')} style={{ marginTop: 8 }}><input className="in mono" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-          <Field label={say('Compte bancaire (même devise)', 'Bank account (same currency)')} style={{ marginTop: 8 }}><Select className="in" value={bankId} onChange={(e) => setBankId(e.target.value)}>{banks.map((b) => <option key={b.id} value={b.id}>{b.favorite ? '★ ' : ''}{b.bankName} · {b.name}</option>)}</Select></Field>
-          <Field label={say('Référence', 'Reference')} style={{ marginTop: 8 }}><input className="in" value={ref} onChange={(e) => setRef(e.target.value)} /></Field>
-          <button className="btn primary" style={{ marginTop: 10, width: '100%', justifyContent: 'center' }} disabled={!sel || !bankId} onClick={() => { const amt = parseAmount(amount); if (!sel || amt === null) return; apply((s) => recordPayment(s, { entityId, customerId: sel.customer.id, date, currency: sel.invoice.currency, amountTxn: amt, bankAccountId: bankId, invoiceId: sel.invoice.id, reference: ref || sel.invoice.number }), say("Encaissement comptabilisé et lettré", 'Receipt posted and matched')); }}>{say("Enregistrer l'encaissement", 'Save receipt')}</button>
-          <div className="small muted" style={{ marginTop: 8 }}>{say("Lettrage automatique ; en devise, l'écart entre le cours de la facture et celui du jour est passé en 778 / 678.", "Automatic matching; in a foreign currency, the difference between the invoice's rate and the day's rate is posted to 778 / 678.")}</div>
-        </div>
-      </aside>
-    </div>
-  );
+  return <ReceiptsRoom entityId={entityId} preselect={preselect} />;
 }
 
 function AgingView({ entityId }: { entityId: Id }) {
@@ -602,6 +569,7 @@ function Customers({ entityId }: { entityId: Id }) {
             <button className="btn primary" disabled={!name.trim()} onClick={save}>{editing ? say('Enregistrer', 'Save') : say('Créer', 'Create')}</button>
           </div>
         </div>
+        {editing && <CustomerUnlettered entityId={entityId} customerId={editing.id} />}{/* [bumex-one] the receipts not wholly lettered (Sidaty, 2026-11-23) */}
       </aside>
     </div>
   );

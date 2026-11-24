@@ -74,7 +74,8 @@ function bankAccount(ctx: Ctx, entityId: Id, name: string, bankName: string, cur
 }
 
 function invoice(ctx: Ctx, entityId: Id, customerId: Id, date: string, currency: Currency, lines: { description: string; amount: number; category?: string }[], opts: { dueDays?: number; bankAccountId?: Id; engagementId?: Id; revenueAccountId?: Id } = {}) {
-  const [s1, inv] = createInvoice(ctx.s, { entityId, customerId, date, currency, dueDays: opts.dueDays, bankAccountId: opts.bankAccountId, engagementId: opts.engagementId, lines: lines.map((l) => ({ description: l.description, quantity: 1, unitPrice: l.amount, serviceCategory: l.category ?? 'AUDIT', revenueAccountId: opts.revenueAccountId })) });
+  const wht = ctx.s.customers.find((c) => c.id === customerId)?.withholdingCodeId; // [bumex-one] the card's WHT on each line, as the form proposes it
+  const [s1, inv] = createInvoice(ctx.s, { entityId, customerId, date, currency, dueDays: opts.dueDays, bankAccountId: opts.bankAccountId, engagementId: opts.engagementId, lines: lines.map((l) => ({ description: l.description, quantity: 1, unitPrice: l.amount, serviceCategory: l.category ?? 'AUDIT', revenueAccountId: opts.revenueAccountId, withholdingCodeId: wht })) });
   const [s2, posted] = postInvoice(s1, inv.id);
   ctx.s = s2;
   return posted;

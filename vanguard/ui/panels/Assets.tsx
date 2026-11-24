@@ -319,8 +319,10 @@ function Categories({ entityId }: { entityId: Id }) {
   const [method, setMethod] = useState<DepreciationMethod>('linear');
   const [assetAcc, setAssetAcc] = useState(assetAccounts[0]?.id ?? '');
   const [deprAcc, setDeprAcc] = useState(deprAccounts[0]?.id ?? '');
-  const load = (id: Id | null) => { const c = cats.find((x) => x.id === id); setEditId(id); setCode(c?.code ?? ''); setName(c?.name ?? ''); setLife(String(c?.lifeMonths ?? 60)); setMethod(c?.method ?? 'linear'); setAssetAcc(c?.assetAccountId ?? assetAccounts[0]?.id ?? ''); setDeprAcc(c?.accDeprAccountId ?? deprAccounts[0]?.id ?? ''); };
-  const save = () => { if (apply((s) => (editing ? updateAssetCategory(s, editing.id, { name, lifeMonths: Number(life), method, assetAccountId: assetAcc, accDeprAccountId: deprAcc }) : addAssetCategory(s, { entityId, code: code.trim().toUpperCase(), name, lifeMonths: Number(life), method, assetAccountId: assetAcc, accDeprAccountId: deprAcc })), editing ? say('Catégorie mise à jour', 'Category updated') : say('Catégorie créée', 'Category created'))) load(null); };
+  // [bumex-one] a category that does not depreciate (land; Sidaty, 2026-11-23): no duration, method nor depreciation account
+  const [nonDepr, setNonDepr] = useState(false);
+  const load = (id: Id | null) => { const c = cats.find((x) => x.id === id); setEditId(id); setCode(c?.code ?? ''); setName(c?.name ?? ''); setLife(String(c?.lifeMonths ?? 60)); setMethod(c?.method ?? 'linear'); setAssetAcc(c?.assetAccountId ?? assetAccounts[0]?.id ?? ''); setDeprAcc(c?.accDeprAccountId ?? deprAccounts[0]?.id ?? ''); setNonDepr(!!c?.nonDepreciable); };
+  const save = () => { if (apply((s) => (editing ? updateAssetCategory(s, editing.id, { name, lifeMonths: nonDepr ? editing.lifeMonths : Number(life), method, assetAccountId: assetAcc, accDeprAccountId: nonDepr ? editing.accDeprAccountId : deprAcc, nonDepreciable: nonDepr }) : addAssetCategory(s, { entityId, code: code.trim().toUpperCase(), name, lifeMonths: nonDepr ? 600 : Number(life), method, assetAccountId: assetAcc, accDeprAccountId: nonDepr ? undefined : deprAcc, nonDepreciable: nonDepr })), editing ? say('Catégorie mise à jour', 'Category updated') : say('Catégorie créée', 'Category created'))) load(null); };
   return (
     <div className="cols">
       <div className="grow">
@@ -336,15 +338,16 @@ function Categories({ entityId }: { entityId: Id }) {
           <h2>{editing ? `${say('Catégorie', 'Category')} · ${editing.code}` : say('Nouvelle catégorie', 'New category')}</h2>
           {!editing && <Field label={say('Code (clé de paramétrage)', 'Code (settings key)')}><input className="in mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder="EQUIPMENT" /></Field>}
           <Field label={say('Nom', 'Name')} style={{ marginTop: 8 }}><input className="in" value={name} onChange={(e) => setName(e.target.value)} /></Field>
-          <div className="grid2" style={{ marginTop: 8 }}>
+          <label className="small" style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 8 }}><input type="checkbox" checked={nonDepr} onChange={(e) => setNonDepr(e.target.checked)} />{say('Non amortissable (terrains) : aucune dotation, reste au bilan à son coût', 'Not depreciable (land): no depreciation, stays on the balance sheet at cost')}</label>
+          {!nonDepr && <div className="grid2" style={{ marginTop: 8 }}>
             <Field label={say('Durée par défaut (mois)', 'Default useful life (months)')}><input className="in num" value={life} onChange={(e) => setLife(e.target.value)} /></Field>
             <Field label={say('Méthode', 'Method')}><Select className="in" value={method} onChange={(e) => setMethod(e.target.value as DepreciationMethod)}><option value="linear">{say('Linéaire', 'Straight-line')}</option><option value="declining">{say('Dégressif', 'Declining balance')}</option></Select></Field>
-          </div>
+          </div>}
           <Field label={say("Compte d'immobilisation", 'Fixed asset account')} style={{ marginTop: 8 }}><Select recent="accounts" className="in mono" value={assetAcc} onChange={(e) => setAssetAcc(e.target.value)}>{assetAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
-          <Field label={say("Compte d'amortissements", 'Accumulated depreciation account')} style={{ marginTop: 8 }}><Select recent="accounts" className="in mono" value={deprAcc} onChange={(e) => setDeprAcc(e.target.value)}>{deprAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>
+          {!nonDepr && <Field label={say("Compte d'amortissements", 'Accumulated depreciation account')} style={{ marginTop: 8 }}><Select recent="accounts" className="in mono" value={deprAcc} onChange={(e) => setDeprAcc(e.target.value)}>{deprAccounts.map((a) => <option key={a.id} value={a.id}>{a.code} {a.nameFr}</option>)}</Select></Field>}
           <div className="actions" style={{ marginTop: 10 }}>
             {editing && <button className="btn" onClick={() => load(null)}>{say('Annuler', 'Cancel')}</button>}
-            <button className="btn primary" disabled={!name.trim() || (!editing && !code.trim()) || !assetAcc || !deprAcc} onClick={save}>{editing ? say('Enregistrer', 'Save') : say('Créer', 'Create')}</button>
+            <button className="btn primary" disabled={!name.trim() || (!editing && !code.trim()) || !assetAcc || (!nonDepr && !deprAcc)} onClick={save}>{editing ? say('Enregistrer', 'Save') : say('Créer', 'Create')}</button>
           </div>
           <div className="small muted" style={{ marginTop: 8 }}>{say('Le compte de dotation (68) se règle par clé DEPR_EXPENSE:<code> dans le plan comptable ; à défaut, le compte de dotation général est utilisé.', 'The depreciation charge account (68) is set with the key DEPR_EXPENSE:<code> in the chart of accounts; otherwise, the general depreciation charge account is used.')}</div>
         </div>

@@ -23,14 +23,16 @@ const PCM: [string, string, AccountKind, boolean?][] = [
   ['48', 'Comptes de régularisation', 'asset', true], ['484', 'Différences de conversion, actif', 'asset'], ['485', 'Différences de conversion, passif', 'liability'], ['488', 'Comptes d\'attente et à régulariser', 'asset'],
   ['55', 'Banques', 'asset', true], ['5501', 'Banque, compte principal MRU', 'asset'], ['5502', 'Banque, compte USD', 'asset'], ['5503', 'Banque, compte EUR', 'asset'],
   ['56', 'Caisse', 'asset', true], ['560', 'Caisse siège', 'asset'],
+  ['58', 'Virements internes', 'asset', true], ['580', 'Virements de fonds', 'asset'], // [bumex-one] an internal transfer between two currencies
   ['62', 'Charges externes liées à l\'investissement', 'expense', true], ['6200', 'Locations mobilières et immobilières', 'expense'], ['6230', 'Assurances multirisque', 'expense'],
-  ['63', 'Charges externes liées à l\'activité', 'expense', true], ['6310', 'Voyages et déplacements', 'expense'], ['632', 'Frais postaux et télécommunications', 'expense'], ['6331', 'Honoraires', 'expense'], ['6333', 'Traitement automatique des informations', 'expense'], ['635', 'Services bancaires', 'expense'], ['638', 'Charges diverses', 'expense'],
+  ['63', 'Charges externes liées à l\'activité', 'expense', true], ['6310', 'Voyages et déplacements', 'expense'], ['632', 'Frais postaux et télécommunications', 'expense'], ['6331', 'Honoraires', 'expense'], ['6333', 'Traitement automatique des informations', 'expense'], ['635', 'Services bancaires', 'expense'], ['637', 'Commissions de cession de devises', 'expense'], ['638', 'Charges diverses', 'expense'],
   ['64', 'Charges et pertes diverses', 'expense', true], ['646', 'Créances irrécouvrables', 'expense'],
   ['65', 'Frais de personnel', 'expense', true], ['6500', 'Salaires, appointements', 'expense'], ['6510', 'Indemnités et primes', 'expense'], ['6520', 'Cotisations de sécurité sociale (CNSS)', 'expense'], ['6530', 'Cotisations d\'assurance maladie (CNAM)', 'expense'],
   ['66', 'Impôts, taxes et versements assimilés', 'expense', true], ['6601', 'Patente et droit de licence', 'expense'],
   ['67', 'Charges financières', 'expense', true], ['671', 'Intérêts des emprunts', 'expense'], ['673', 'Intérêts bancaires et sur opérations de financement', 'expense'], ['678', 'Différences de change (pertes)', 'expense'],
   ['68', 'Dotations aux amortissements et provisions', 'expense', true], ['680', 'Dotations aux amortissements', 'expense'], ['687', 'Dotations aux provisions pour risques et charges', 'expense'],
   ['70', 'Ventes, production vendue', 'income', true], ['7017', 'Prestations de services', 'income'], ['701711', 'Prestations de services exonérées à l\'intérieur', 'income'], ['701712', 'Exportations de prestations de services exonérées', 'income'], ['701713', 'Exportations de prestations de services imposables', 'income'], ['701721', 'Prestations de services soumises à taux réduit', 'income'], ['701722', 'Prestations de services soumises à taux normal', 'income'],
+  ['74', 'Autres produits', 'income', true], ['748', 'Autres produits exceptionnels', 'income'], // [bumex-one] what a client paid too much
   ['77', 'Produits financiers', 'income', true], ['772', 'Revenus des comptes courants et des dépôts', 'income'], ['778', 'Différences de change (gains)', 'income'],
   ['78', 'Reprises sur amortissements et provisions', 'income', true], ['787', 'Reprises sur provisions pour risques et charges', 'income'],
   ['84', 'Résultats de cession d\'éléments de l\'actif', 'income', true], ['840', 'Plus-values de cession', 'income'], ['849', 'Moins-values de cession', 'expense'],
@@ -144,6 +146,7 @@ export function seedChart(state: State, entityId: Id, template: CoaTemplate): St
           map('REVENUE', 'taxable_standard', '701722'), map('REVENUE', 'taxable_reduced', '701721'), map('REVENUE', 'exempt_domestic', '701711'), map('REVENUE', 'export_exempt', '701712'), map('REVENUE', 'export_taxable', '701713'),
           map('FX_GAIN', '', '778'), map('FX_LOSS', '', '678'), map('FX_CONV_ASSET', '', '484'), map('FX_CONV_LIAB', '', '485'), map('FX_PROV', '', '1905'), map('FX_PROV_EXPENSE', '', '687'), map('FX_PROV_REVERSAL', '', '787'),
           map('BANK_FEES', '', '635'), map('BANK_INTEREST_EXPENSE', '', '673'), map('BANK_INTEREST_INCOME', '', '772'), map('SUSPENSE', '', '488'), map('CASH', '', '560'),
+          map('TRANSFER_TRANSIT', '', '580'), map('FX_SALE_FEE', '', '637'), map('SETTLEMENT_LOSS', '', '638'), map('SETTLEMENT_GAIN', '', '748'), // [bumex-one] 0021
           map('IC_CURRENT', '', '457'), map('RETAINED_EARNINGS', '', '120'), map('RESULT_PENDING', '', '130'),
           map('DEPR_EXPENSE', '', '680'), map('ACC_DEPR', 'IT', '2814'), map('ASSET', 'IT', '2183'), map('DISPOSAL_GAIN', '', '840'), map('DISPOSAL_LOSS', '', '849'), map('DISPOSAL_RECEIVABLE', '', '462'),
           map('ASSET', 'VEHICLE', '2182'), map('ACC_DEPR', 'VEHICLE', '2812'), map('ASSET', 'FITTINGS', '2181'), map('ACC_DEPR', 'FITTINGS', '2811'), map('ASSET', 'FURNITURE', '2184'), map('ACC_DEPR', 'FURNITURE', '2815'), map('ASSET', 'SOFTWARE', '2050'), map('ACC_DEPR', 'SOFTWARE', '2805'),
@@ -323,6 +326,34 @@ export const DEFAULT_THIRD_PARTY_RULES: ThirdPartyRules = { customerPrefix: 'C',
 export function thirdPartyRulesFor(state: State, entityId: Id): ThirdPartyRules {
   const e = state.entities.find((x) => x.id === entityId);
   return { ...DEFAULT_THIRD_PARTY_RULES, ...(e?.thirdPartyRules ?? {}) };
+}
+
+// [bumex-one] The entity's management rules (0021; Sidaty, 2026-11-23): the tolerance under which the administrator may
+// settle a small difference without a reason (functional currency), and whether who prepared a supplier invoice may
+// approve it. They relax controls: a partner, the RAF or the administrator sets them.
+export function setAccountingOptions(state: State, entityId: Id, options: { settlementTolerance?: number; preparerMayApprove?: boolean }): State {
+  requireRole(state, PARTNER_ROLES, 'de modifier les règles de gestion');
+  const entity = state.entities.find((e) => e.id === entityId);
+  if (!entity) throw new DomainError('not_found', 'Entité inconnue');
+  const tolerance = options.settlementTolerance ?? entity.settlementTolerance ?? 500;
+  if (!(tolerance >= 0 && tolerance <= 100000)) throw new DomainError('tolerance', 'Seuil des écarts de règlement entre 0 et 100 000');
+  const next = { ...entity, settlementTolerance: Math.round(tolerance * 100) / 100, preparerMayApprove: options.preparerMayApprove ?? entity.preparerMayApprove ?? false };
+  return audit({ ...state, entities: state.entities.map((e) => (e.id === entityId ? next : e)) }, 'entity', entityId, 'U', `Règles de gestion · seuil des écarts ${next.settlementTolerance} · le préparateur ${next.preparerMayApprove ? 'peut' : 'ne peut pas'} approuver`, entityId);
+}
+
+// [bumex-one] The accounts the corrections of 2026-11-23 post to, chosen per entity (Comptabilité › Journaux · tiers ›
+// Comptes de paramétrage): BUMEX SA's are set by migration 0021, another entity sets its own.
+export const EDITABLE_MAPPINGS = ['TRANSFER_TRANSIT', 'FX_SALE_FEE', 'SETTLEMENT_LOSS', 'SETTLEMENT_GAIN'] as const;
+export type EditableMapping = (typeof EDITABLE_MAPPINGS)[number];
+
+export function setAccountMapping(state: State, entityId: Id, key: EditableMapping, accountId: Id): State {
+  requireRole(state, PARTNER_ROLES, 'de modifier le paramétrage des comptes');
+  if (!EDITABLE_MAPPINGS.includes(key)) throw new DomainError('mapping', 'Paramétrage non modifiable ici');
+  const a = state.accounts.find((x) => x.id === accountId && x.entityId === entityId);
+  if (!a || !a.isPostable || !a.active || a.isAuxiliary) throw new DomainError('account', 'Compte inconnu, non imputable ou inactif');
+  const exists = state.mappings.some((m) => m.entityId === entityId && m.key === key && m.qualifier === '');
+  const mappings = exists ? state.mappings.map((m) => (m.entityId === entityId && m.key === key && m.qualifier === '' ? { ...m, accountId } : m)) : [...state.mappings, { entityId, key, qualifier: '', accountId }];
+  return audit({ ...state, mappings }, 'account_mapping', `${entityId}|${key}`, exists ? 'U' : 'I', `Paramétrage ${key} → ${a.code}`, entityId);
 }
 
 export function setThirdPartyRules(state: State, entityId: Id, rules: Partial<ThirdPartyRules>): State {

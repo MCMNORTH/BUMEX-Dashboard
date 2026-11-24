@@ -66,10 +66,12 @@ const entities: Writer<Entity> = {
     const updated = await tx.query(
       `update erp.entity set name = $2, nif = $3, address_lines = $4, cash_threshold = $5, account_code_length = $6,
               coa_template = $7::erp.coa_template, fx_method = $8::erp.fx_method,
-              phone = $9, fax = $10, email = $11, web = $12, capital_amount = $13, capital_currency = $14, logo_url = $15
+              phone = $9, fax = $10, email = $11, web = $12, capital_amount = $13, capital_currency = $14, logo_url = $15,
+              settlement_tolerance = $16, preparer_may_approve = $17
         where id = $1 and erp.can_see_entity(id) returning id`,
       [after.id, after.name, nil(after.nif), nil(after.address), after.cashThreshold, after.accountCodeLength ?? 6, after.coaTemplate, after.fxMethod,
-        nil(after.phone), nil(after.fax), nil(after.email), nil(after.web), nil(after.capitalAmount), nil(after.capitalCurrency), nil(after.logoUrl)],
+        nil(after.phone), nil(after.fax), nil(after.email), nil(after.web), nil(after.capitalAmount), nil(after.capitalCurrency), nil(after.logoUrl),
+        after.settlementTolerance ?? 500, after.preparerMayApprove ?? false],
     );
     if (!updated.length) throw new VanguardSaveError("Entité non autorisée.");
     const rules = after.thirdPartyRules;
@@ -91,6 +93,7 @@ const fiscalYears: Writer<FiscalYear> = {
   add: (tx, fy) =>
     tx.query("insert into erp.fiscal_year (id, entity_id, label, start_date, end_date) values ($1, $2, $3, $4, $5)", [fy.id, fy.entityId, fy.label, fy.start, fy.end]),
   change: (tx, _, fy) => tx.query("update erp.fiscal_year set is_closed = $2 where id = $1", [fy.id, fy.isClosed]),
+  remove: (tx, fy) => tx.query("delete from erp.fiscal_year where id = $1", [fy.id]), // [bumex-one] an empty last year (security.ts)
 };
 
 const periods: Writer<Period> = {
@@ -100,6 +103,7 @@ const periods: Writer<Period> = {
       p.id, p.entityId, p.fiscalYearId, p.periodNo, p.start, p.end, p.status,
     ]),
   change: (tx, _, p) => tx.query("update erp.period set status = $2::erp.period_status where id = $1", [p.id, p.status]),
+  remove: (tx, p) => tx.query("delete from erp.period where id = $1", [p.id]), // [bumex-one] with its year
 };
 
 const accounts: Writer<Account> = {
@@ -247,10 +251,18 @@ const entries: Writer<JournalEntry> = {
 
 const deletionRequests: Writer<DeletionRequest> = {
   key: byId,
+  // [bumex-one] a deletion a partner or the administrator executes at once is kept too, approved by them, with its
+  // reason (security.ts requestDeletion; Sidaty's corrections, 2026-11-23: "avec le motif et une trace")
   add: (tx, r) =>
-    tx.query("insert into erp.deletion_request (id, entity_id, table_name, row_id, label, reason) values ($1, $2, $3, $4, $5, $6)", [
-      r.id, nil(r.entityId), r.table, r.rowId, r.label, r.reason,
-    ]),
+    r.status === "pending"
+      ? tx.query("insert into erp.deletion_request (id, entity_id, table_name, row_id, label, reason) values ($1, $2, $3, $4, $5, $6)", [
+          r.id, nil(r.entityId), r.table, r.rowId, r.label, r.reason,
+        ])
+      : tx.query(
+          `insert into erp.deletion_request (id, entity_id, table_name, row_id, label, reason, status, decided_by, decided_at, decision_note)
+           values ($1, $2, $3, $4, $5, $6, $7, erp.actor_id(), now(), $8)`,
+          [r.id, nil(r.entityId), r.table, r.rowId, r.label, r.reason, r.status, nil(r.decisionNote)],
+        ),
   change: (tx, _, r) => tx.query("update erp.deletion_request set status = $2, decision_note = $3 where id = $1", [r.id, r.status, nil(r.decisionNote)]),
 };
 

@@ -16,6 +16,10 @@ export interface DraftLineInput {
   bankAccountId?: Id;
   assetId?: Id;
   employeeId?: Id;
+  // [bumex-one] the functional amounts, when they are not the transaction amounts at the entry's rate (an internal
+  // transfer between two currencies: the transit account gives back exactly what it received, bank.ts bookTransfer)
+  debit?: number;
+  credit?: number;
 }
 
 export interface DraftInput {
@@ -50,8 +54,8 @@ function buildLines(state: State, input: DraftInput): JournalLine[] {
       fxRate: rate,
       debitTxn: dt,
       creditTxn: ct,
-      debit: r2(dt * rate),
-      credit: r2(ct * rate),
+      debit: l.debit !== undefined ? r2(l.debit) : r2(dt * rate),
+      credit: l.credit !== undefined ? r2(l.credit) : r2(ct * rate),
       customerId: l.customerId,
       supplierId: l.supplierId,
       engagementId: l.engagementId,
@@ -235,6 +239,24 @@ export function postEntry(state: State, entryId: Id): [State, JournalEntry] {
     chains: { ...s1.chains, [chainKey]: { lastHash: posted.hash, length: head.length + 1 } },
   };
   return [audit(s2, 'journal_entry', entryId, 'U', `Comptabilisée n° ${seq}`, e.entityId), posted];
+}
+
+// [bumex-one] Whether an entry dated so can still be posted by this person (its period open, its year not closed).
+export function acceptsPosting(state: State, entityId: Id, date: ISODate): boolean {
+  try {
+    const p = periodFor(state, entityId, date);
+    if (p.status === 'locked' || state.fiscalYears.find((f) => f.id === p.fiscalYearId)?.isClosed) return false;
+    return p.status !== 'soft_closed' || PARTNER_ROLES.includes(state.session.role);
+  } catch {
+    return false;
+  }
+}
+
+// [bumex-one] Undoing what an entry did, on its own date when that period is still open, else today.
+export function reverseOnOpenDate(state: State, entryId: Id, reason: string): [State, JournalEntry] {
+  const e = state.entries.find((x) => x.id === entryId);
+  if (!e) throw new DomainError('not_found', 'Écriture inconnue');
+  return reverseEntry(state, entryId, acceptsPosting(state, e.entityId, e.date) ? e.date : state.today, reason);
 }
 
 export function reverseEntry(state: State, entryId: Id, date: ISODate, reason: string): [State, JournalEntry] {

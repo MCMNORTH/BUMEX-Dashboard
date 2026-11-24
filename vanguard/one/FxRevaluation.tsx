@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { fxRevaluation, postFxRevaluation, fmt, r2, type Id, type FxRevaluationRow } from '@bumex/domain';
+import { fxRevaluation, postFxRevaluation, statementBalanceAt, fmt, r2, type Id, type FxRevaluationRow } from '@bumex/domain';
 import { useStore } from '../store';
 import { Chip, D } from '../ui/common';
 import { useSay } from './say';
@@ -24,12 +24,23 @@ export function FxRevaluationCard({ entityId, fiscalYearId }: { entityId: Id; fi
     return gain ? say('485 · écart passif', '485 · translation gain') : say('484 · écart actif', '484 · translation loss');
   };
   const effect = r2(rv.rows.reduce((a, r) => a + (r.kind === 'payable' ? -r.diff : r.diff), 0)); // + : the books gain
+  // [bumex-one] a bank's balance in its currency beside its statement's on the same day (Sidaty, 2026-11-23): the
+  // revaluation is only as right as the books' foreign balance
+  const statementOf = (r: FxRevaluationRow) => (r.kind === 'bank' && r.bankAccountId ? statementBalanceAt(state, r.bankAccountId, rv.date) : null);
+  const apart = rv.rows.filter((r) => { const st = statementOf(r); return st && Math.abs(st.balance - r.amountTxn) > 0.004; });
+  const statementCell = (r: FxRevaluationRow) => {
+    const st = statementOf(r);
+    if (!st) return r.kind === 'bank' ? <span className="small muted">{say('aucun relevé', 'no statement')}</span> : '—';
+    const differs = Math.abs(st.balance - r.amountTxn) > 0.004;
+    return <span title={st.asOf !== rv.date ? say(`dernier relevé importé au ${st.asOf}`, `last statement imported on ${st.asOf}`) : undefined}>{differs ? <Chip kind="warn">{fmt(st.balance)}</Chip> : fmt(st.balance)}{st.asOf !== rv.date ? <span className="small muted"> · {st.asOf}</span> : null}</span>;
+  };
   return (
     <div style={{ borderTop: '1px solid var(--line)', marginTop: 12, paddingTop: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <b>{say('Réévaluation des devises au', 'Foreign currencies revalued at')} <D iso={rv.date} /></b>
         {rv.done ? <Chip kind="good">{say('comptabilisée', 'posted')}</Chip> : rv.missing.length ? <Chip kind="crit">{say('taux manquant', 'rate missing')} · {rv.missing.join(', ')}</Chip> : <Chip kind="warn">{say(`à faire · ${moving.length} élément(s)`, `to do · ${moving.length} item(s)`)}</Chip>}
         {!rv.done && !rv.missing.length && <span className="small muted">{say('écart net', 'net difference')} {fmt(effect)}</span>}
+        {apart.length > 0 && <Chip kind="warn">{say(`${apart.length} banque(s) : livres ≠ relevé`, `${apart.length} bank(s): books ≠ statement`)}</Chip>}
         <button className="btn sm" style={{ marginLeft: 'auto' }} onClick={() => setOpen((o) => !o)}>{open ? say('Masquer', 'Hide') : say('Détail', 'Details')}</button>
       </div>
       {open && (
@@ -42,11 +53,11 @@ export function FxRevaluationCard({ entityId, fiscalYearId }: { entityId: Id; fi
           )}
           <div style={{ overflowX: 'auto' }}>
             <table>
-              <thead><tr><th>{say('Nature', 'Kind')}</th><th>{say('Élément', 'Item')}</th><th className="num">{say('Montant', 'Amount')}</th><th className="num">{say('Taux', 'Rate')}</th><th className="num">{say('Au livre', 'Book')}</th><th className="num">{say('Réévalué', 'Revalued')}</th><th className="num">{say('Écart', 'Difference')}</th><th>{say('Compte', 'Account')}</th></tr></thead>
+              <thead><tr><th>{say('Nature', 'Kind')}</th><th>{say('Élément', 'Item')}</th><th className="num">{say('Montant', 'Amount')}</th><th className="num">{say('Relevé', 'Statement')}</th><th className="num">{say('Taux', 'Rate')}</th><th className="num">{say('Au livre', 'Book')}</th><th className="num">{say('Réévalué', 'Revalued')}</th><th className="num">{say('Écart', 'Difference')}</th><th>{say('Compte', 'Account')}</th></tr></thead>
               <tbody>
                 {rv.rows.map((r, i) => (
                   <tr key={i} style={{ opacity: r.diff ? 1 : 0.55 }}>
-                    <td className="small">{say(KIND[r.kind][0], KIND[r.kind][1])}</td><td>{r.label}</td><td className="num">{r.currency} {fmt(r.amountTxn)}</td><td className="num">{r.rate || '—'}</td>
+                    <td className="small">{say(KIND[r.kind][0], KIND[r.kind][1])}</td><td>{r.label}</td><td className="num">{r.currency} {fmt(r.amountTxn)}</td><td className="num">{statementCell(r)}</td><td className="num">{r.rate || '—'}</td>
                     <td className="num">{fmt(r.book)}</td><td className="num">{fmt(r.revalued)}</td><td className="num">{fmt(r.diff)}</td><td className="small">{r.diff ? target(r) : '—'}</td>
                   </tr>
                 ))}

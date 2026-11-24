@@ -167,7 +167,7 @@ describe('sales', () => {
   it('carries VAT 16 % and WHT 7 % together: the client pays TTC − 7 % of HT, the entry balances, a credit note reverses both (2026-11-17)', () => {
     const customer = cust('standard');
     const wht = base.taxCodes.find((t) => t.entityId === AUD && t.code === 'RAS-7')!;
-    const [s1, inv] = createInvoice(base, { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU', withholdingCodeId: wht.id, lines: [{ description: 'Audit', quantity: 1, unitPrice: 100000, serviceCategory: 'AUDIT' }] });
+    const [s1, inv] = createInvoice(base, { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU', lines: [{ description: 'Audit', quantity: 1, unitPrice: 100000, serviceCategory: 'AUDIT', withholdingCodeId: wht.id }] });
     expect(inv).toMatchObject({ totalHt: 100000, totalTax: 16000, totalTtc: 116000, withholdingRate: 0.07, withholdingAmount: 7000, netPayable: 109000 });
     const [s2, posted] = postInvoice(s1, inv.id);
     const e = s2.entries.find((x) => x.id === posted.journalEntryId)!;
@@ -178,8 +178,8 @@ describe('sales', () => {
     const cn = s3.entries.find((x) => x.sourceType === 'credit_note' && x.lines.some((l) => l.accountId === wht.deductibleAccountId))!;
     expect(cn.lines.find((l) => l.accountId === wht.deductibleAccountId)!.credit).toBe(7000);
     expect(r2(trialBalance(s3, AUD).reduce((a, r) => a + r.balance, 0))).toBe(0);
-    // WHT 0 %: none, whatever the card says
-    const [, none] = createInvoice(base, { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU', withholdingCodeId: null, lines: [{ description: 'Audit', quantity: 1, unitPrice: 100000, serviceCategory: 'AUDIT' }] });
+    // a line without a WHT code bears none, whatever the header or the card says (Sidaty, 2026-11-23)
+    const [, none] = createInvoice(base, { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU', withholdingCodeId: wht.id, lines: [{ description: 'Audit', quantity: 1, unitPrice: 100000, serviceCategory: 'AUDIT' }] });
     expect(none).toMatchObject({ withholdingAmount: 0, netPayable: 116000 });
   });
   it('sets the WHT per line: only the lines bearing it are withheld, in the entry, the credit notes and the statement (2026-11-17)', () => {
@@ -263,12 +263,30 @@ describe('sales', () => {
     const customer = cust('standard');
     const wht = base.taxCodes.find((t) => t.entityId === AUD && t.code === 'RAS-7')!;
     const gtaExo = base.taxCodes.find((t) => t.entityId === AUD && t.code === 'GTA-EXO')!;
-    const input = { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU' as const, withholdingCodeId: wht.id, lines: [{ description: 'Audit', quantity: 1, unitPrice: 94742.04, serviceCategory: 'AUDIT', taxCodeId: gtaExo.id }] };
+    const input = { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU' as const, lines: [{ description: 'Audit', quantity: 1, unitPrice: 94742.04, serviceCategory: 'AUDIT', taxCodeId: gtaExo.id, withholdingCodeId: wht.id }] };
     const [s1, old] = createInvoice(base, input);
-    // the form loads the stored codes back (explicit tax code and revenue account, the invoice's WHT)
-    const [, again] = updateInvoice(s1, old.id, { ...input, lines: old.lines.map((l) => ({ description: l.description, quantity: l.quantity, unitPrice: l.unitPrice, serviceCategory: l.serviceCategory, taxCodeId: l.taxCodeId, revenueAccountId: l.revenueAccountId })), withholdingCodeId: old.withholdingCodeId });
+    // the form loads the stored codes back (explicit tax code and revenue account, each line's WHT)
+    const [, again] = updateInvoice(s1, old.id, { ...input, lines: old.lines.map((l) => ({ description: l.description, quantity: l.quantity, unitPrice: l.unitPrice, serviceCategory: l.serviceCategory, taxCodeId: l.taxCodeId, revenueAccountId: l.revenueAccountId, withholdingCodeId: l.withholdingCodeId })) });
     expect(again).toMatchObject({ totalHt: old.totalHt, totalTax: 0, withholdingAmount: 6631.94, netPayable: 88110.1, legalMentionFr: old.legalMentionFr });
     expect(again.lines[0]).toMatchObject({ taxCodeId: gtaExo.id, revenueAccountId: old.lines[0].revenueAccountId });
+  });
+  it("keeps a line without WHT without it, however many times the draft is saved (Sidaty's test, 2026-11-23)", () => {
+    const customer = cust('standard');
+    const wht = base.taxCodes.find((t) => t.entityId === AUD && t.code === 'RAS-7')!;
+    // header RAS-7, line 1 at 1 000 with RAS-7, line 2 at 1 000 without
+    const input = { entityId: AUD, customerId: customer.id, date: TODAY, currency: 'MRU' as const, withholdingCodeId: wht.id, lines: [
+      { description: 'Ligne 1', quantity: 1, unitPrice: 1000, serviceCategory: 'AUDIT', withholdingCodeId: wht.id },
+      { description: 'Ligne 2', quantity: 1, unitPrice: 1000, serviceCategory: 'AUDIT', withholdingCodeId: null },
+    ] };
+    let [s, inv] = createInvoice(base, input);
+    expect(inv.withholdingAmount).toBe(70);
+    for (let i = 0; i < 3; i++) {
+      // the lines as read back from the database: a line without WHT has no code at all
+      const lines = inv.lines.map((l) => ({ description: l.description, quantity: l.quantity, unitPrice: l.unitPrice, serviceCategory: l.serviceCategory, taxCodeId: l.taxCodeId, revenueAccountId: l.revenueAccountId, withholdingCodeId: l.withholdingCodeId }));
+      [s, inv] = updateInvoice(s, inv.id, { ...input, lines });
+      expect(inv.withholdingAmount).toBe(70);
+      expect(inv.lines.map((l) => l.withholdingCodeId ?? null)).toEqual([wht.id, null]);
+    }
   });
   it('posts the export invoice in USD at the day rate with no VAT, on 701712', () => {
     const inv = base.salesInvoices.find((i) => i.number === 'IN2610-0116')!;
