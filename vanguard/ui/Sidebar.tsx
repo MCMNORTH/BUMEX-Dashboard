@@ -2,10 +2,11 @@ import { useMemo } from 'react';
 import { allFloors, floorSignals, canOpenRoom, taskStats, archiveQueue } from '@bumex/domain';
 import { useStore, MODULE_ROOM } from '../store';
 import type { Room } from '../i18n';
-import { Icon, Lamp } from './common';
+import { Icon } from './common';
 import { MyDayButton } from '../one/MyDay'; // [bumex-one]
 import { useScreen } from '../one/screen'; // [mobile]
 import { useSay } from '../one/say';
+import { FloorLamps } from '../one/FloorLamps'; // [bumex-one] the lamps say what they are
 // [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 // The left rail: slim by default, expandable for labels. It routes to the existing modules and the new ones; the
@@ -85,7 +86,7 @@ export function FloorList({ onPick }: { onPick: () => void }) {
           }}
         >
           <span><b>{f.entity.isTest ? '−1' : state.entities.filter((e) => !e.isTest).length - f.entity.floorOrder}</b> {f.entity.name}<span className="small muted" style={{ marginLeft: 6 }}>{f.entity.activity}</span></span>
-          {f.visible ? <span className="sigs"><Lamp kind={f.cashSignal} letter="T" /><Lamp kind={f.overdueSignal} letter={say('C', 'R')} /><Lamp kind={f.engagementSignal} letter={say('M', 'E')} /><Lamp kind={f.draftSignal === 'good' ? 'off' : f.draftSignal} letter={say('É', 'J')} /></span> : <span className="small">{say('non autorisé', 'not authorised')}</span>}
+          {f.visible ? <FloorLamps f={f} /> : <span className="small">{say('non autorisé', 'not authorised')}</span>}
         </button>
       ))}
     </>

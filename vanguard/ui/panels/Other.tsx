@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { groupFigures, archiveEngagement, planningCalendar, fmt, r2, type Id } from '@bumex/domain';
 import { useStore } from '../../store';
-import { Chip, D, STATUS_KIND, STATUS_FR, StatusChip, Lamp, Tabs } from '../common';
+import { Chip, D, STATUS_KIND, STATUS_FR, StatusChip, Tabs } from '../common';
 import { worstSignal } from '../../three/Building';
 import { PlanningView, AvailabilityView } from './Planning';
 import { MissionList } from '../../one/MissionList'; // [bumex-one] missions are BUMEX One's projects: cards or a list
@@ -11,6 +11,7 @@ import { MissionPanel } from '../../one/Mission'; // [bumex-one] a mission's pag
 import { CalendarView } from '../../one/Calendar'; // [bumex-one] BUMEX One's Calendar
 import { MilestonesView } from '../../one/Milestones'; // [bumex-one] BUMEX One's Roadmap
 import { PageRefresh } from '../../one/PageRefresh'; // [bumex-one] ↻ at the right of the header (2026-11-22)
+import { FloorLamps } from '../../one/FloorLamps'; // [bumex-one] the lamps say what they are
 // [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
 type MissionsTab = 'board' | 'week' | 'calendar' | 'milestones' | 'billing' | 'planning' | 'availability'; // [bumex-one] week, calendar, milestones, billing
@@ -131,7 +132,7 @@ export function PenthousePanel() {
                 <tbody>
                   {g.floors.map((f) => (
                     <tr key={f.entity.id}><td>{f.entity.name}</td><td>{f.entity.functionalCurrency}</td><td>{f.entity.coaTemplate}</td><td className="num">{fmt(f.revenue, 0)}</td><td className="num">{fmt(f.result, 0)}</td><td className="num">{fmt(f.cash, 0)}</td><td className="num">{fmt(f.overdue, 0)}</td><td>{f.lateEngagements} / {f.engagements}</td><td className="num">{f.drafts}</td>
-                      <td><span className="sigs"><Lamp kind={f.cashSignal} letter="T" /><Lamp kind={f.overdueSignal} letter={say('C', 'R')} /><Lamp kind={f.engagementSignal} letter={say('M', 'E')} /><Lamp kind={f.draftSignal === 'good' ? 'off' : f.draftSignal} letter={say('É', 'J')} /> <Chip kind={worstSignal(f) === 'off' ? 'dim' : worstSignal(f)}>{worstSignal(f)}</Chip></span></td>
+                      <td><span className="sigs"><FloorLamps f={f} /> <Chip kind={worstSignal(f) === 'off' ? 'dim' : worstSignal(f)}>{worstSignal(f)}</Chip></span></td>
                       <td>{f.visible && !f.entity.isHolding && <button className="btn sm" onClick={() => { goFloor(f.entity.id); openRoom(null); }}>{say('Entrer', 'Enter')}</button>}</td></tr>
                   ))}
                 </tbody>

@@ -1,21 +1,15 @@
 import { useMemo } from 'react';
 import { allFloors, floorSignals, canUseModule, fmt, type FloorSignals } from '@bumex/domain';
 import { useStore } from '../store';
-import { Lamp, Chip, Icon } from './common';
+import { Chip, Icon } from './common';
 import { worstSignal } from '../three/Building';
 import { useSay } from '../one/say';
+import { FloorLamps } from '../one/FloorLamps';
 // [bumex-one] bilingual: every text follows the person's language, say('français', 'English') (vanguard/one/say.ts, 2026-11-21)
 
+// [bumex-one] the lamps say on hover what they are (one/FloorLamps.tsx, 2026-11-24)
 function Sigs({ f }: { f: FloorSignals }) {
-  const say = useSay();
-  return (
-    <span className="sigs">
-      <Lamp kind={f.cashSignal} letter="T" />
-      <Lamp kind={f.overdueSignal} letter={say('C', 'R')} />
-      <Lamp kind={f.engagementSignal} letter={say('M', 'E')} />
-      <Lamp kind={f.draftSignal === 'good' ? 'off' : f.draftSignal} letter={say('É', 'J')} />
-    </span>
-  );
+  return <FloorLamps f={f} />;
 }
 
 export function TowerHud() {

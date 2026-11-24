@@ -20,8 +20,9 @@ export function Chip({ kind, children }: { kind: 'good' | 'warn' | 'crit' | 'dim
   return <span className={`chip ${kind}`}>{children}</span>;
 }
 
-export function Lamp({ kind, letter }: { kind: 'good' | 'warn' | 'crit' | 'off'; letter: string }) {
-  return <span className={`lamp ${kind}`}>{letter}</span>;
+export function Lamp({ kind, letter, title }: { kind: 'good' | 'warn' | 'crit' | 'off'; letter: string; title?: string }) {
+  // [bumex-one] what the lamp measures, on hover (one/FloorLamps.tsx, 2026-11-24)
+  return <span className={`lamp ${kind}`} title={title} role={title ? 'img' : undefined} aria-label={title}>{letter}</span>;
 }
 
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: T; label: ReactNode }[]; value: T; onChange: (t: T) => void }) {
