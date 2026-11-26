@@ -6,7 +6,7 @@ import { VanguardSaveError } from "@/lib/erp/vanguard/save";
 import { TableRefusal } from "@/lib/erp/vanguard/tables";
 import type { Locale } from "@/lib/i18n/config";
 
-type Rule = { code: string; match?: RegExp; fr: string; en: string };
+type Rule = { code: string; match?: RegExp; fr: string; en: string; log?: boolean }; // log: the details go to the server's log too
 
 // The database guards (0001–0006) raise technical English; these are the sentences Vanguard shows.
 const rules: Rule[] = [
@@ -45,6 +45,10 @@ const rules: Rule[] = [
   { code: "P0001", match: /cannot remove their own/, fr: "Un administrateur ERP ne peut pas retirer son propre accès.", en: "An ERP administrator cannot remove their own access." },
   { code: "23505", fr: "Ce code ou ce numéro existe déjà.", en: "This code or number already exists." },
   { code: "23503", fr: "Cet élément est encore utilisé ailleurs.", en: "This item is still used elsewhere." },
+  // What the engine should have refused in words first (ledger.ts settleDraft; ticket of 2026-11-26): a reason all the
+  // same, and the database's own message in the server's log.
+  { code: "23502", fr: "Une donnée obligatoire manque : rien n'a été enregistré.", en: "A required value is missing: nothing was saved.", log: true },
+  { code: "23514", fr: "Une valeur sort des limites permises : rien n'a été enregistré.", en: "A value is outside the allowed limits: nothing was saved.", log: true },
 ];
 
 // The engine's refusals are already worded (in French, as the screens); the database's go through the rules.
@@ -56,6 +60,7 @@ export function vanguardErrorMessage(error: unknown, locale: Locale) {
   const message = error instanceof Error ? error.message : String(error);
   const rule = rules.find((r) => r.code === code && (!r.match || r.match.test(message)));
   if (rule) {
+    if (rule.log) console.error("[erp:vanguard]", code, message);
     return rule[locale];
   }
   console.error("[erp:vanguard]", code, message);

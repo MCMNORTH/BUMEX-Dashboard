@@ -218,6 +218,19 @@ describe("changes made in Vanguard", () => {
     const removed = await change("aicha", (s) => domain.deleteDraft(s, id));
     expect(removed.state.entries.some((e) => e.id === id)).toBe(false);
   });
+
+  // ticket of 2026-11-26: such an entry was shown « enregistré », then refused by the database ("The change could not be saved.")
+  it("a manual entry without its currency, rate or amounts in currency is saved and posted in the entity's", async () => {
+    const { browser, state } = await change("aicha", (s) => {
+      const d = draft(s, 3000);
+      const lines = d.lines.map((l) => ({ accountId: l.accountId, description: l.description, debit: l.debitTxn || undefined, credit: l.creditTxn || undefined }));
+      const [s1, e] = domain.createDraft(s, { entityId: d.entityId, journalId: d.journalId, date: d.date, description: "OD sans devise", lines } as DraftInput);
+      return domain.postEntry(s1, e.id);
+    });
+    const entry = state.entries.find((e) => e.id === browser[1].id)!;
+    expect(entry).toMatchObject({ status: "posted", currency: "MRU", fxRate: 1 });
+    expect(entry.lines.map((l) => [l.currency, l.fxRate, l.debitTxn, l.creditTxn, l.debit, l.credit])).toEqual([["MRU", 1, 3000, 0, 3000, 0], ["MRU", 1, 0, 3000, 0, 3000]]);
+  });
 });
 
 describe("what the server refuses", () => {
@@ -251,6 +264,20 @@ describe("what the server refuses", () => {
     const attempt = send("aicha", forged([{ name: "createFiscalYear", input: 0, args: [it_, 2026], ids: Array.from({ length: 13 }, () => crypto.randomUUID()) }]));
     const error = await attempt.catch((e: unknown) => e);
     expect(vanguardErrorMessage(error, "fr")).toBe("Ce module n'est pas ouvert à votre accès sur cette entité.");
+  });
+
+  it("an entry the database would refuse is refused by the replay, in words (ticket of 2026-11-26)", async () => {
+    const { state } = await load("aicha");
+    const refusal = (input: DraftInput) => send("aicha", forged([{ name: "createDraft", input: 0, args: [input], ids: [crypto.randomUUID()] }])).catch((e: unknown) => e);
+    const foreign = await refusal({ ...draft(state), currency: "EUR" });
+    expect(foreign).toBeInstanceOf(DomainError);
+    expect(vanguardErrorMessage(foreign, "fr")).toBe("Cours de change requis pour une écriture en EUR");
+    const both = await refusal({ ...draft(state), lines: [{ ...draft(state).lines[0], creditTxn: 10 }, draft(state).lines[1]] });
+    expect(vanguardErrorMessage(both, "fr")).toBe("Ligne 1 : débit et crédit sur la même ligne");
+    // what the engine let through all the same: a reason, never the bare « could not be saved »
+    const notNull = Object.assign(new Error('null value in column "currency" of relation "journal_entry" violates not-null constraint'), { code: "23502" });
+    expect(vanguardErrorMessage(notNull, "fr")).toBe("Une donnée obligatoire manque : rien n'a été enregistré.");
+    expect(vanguardErrorMessage(notNull, "en")).toBe("A required value is missing: nothing was saved.");
   });
 
   it("a period locked by a partner refuses a posting checked by the database too", async () => {

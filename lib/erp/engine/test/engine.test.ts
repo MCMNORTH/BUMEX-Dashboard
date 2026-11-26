@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  buildDemo, entityByCode, createDraft, postEntry, reverseEntry, checkPostable, verifyChain, setPeriodStatus, setFiscalYearClosed,
+  buildDemo, entityByCode, createDraft, updateDraft, type DraftInput, postEntry, reverseEntry, checkPostable, verifyChain, setPeriodStatus, setFiscalYearClosed,
   trialBalance, accountByCode, createInvoice, updateInvoice, requestDeletion, lineWithholdingRate, withholdingStatement, validateInvoice, postInvoice, recordPayment, createCreditNote, aging, openInvoices,
   importStatement, parseStatementCsv, suggestFor, bookByRule, bookTransfer, bankSummary, cashForecast, floorSignals, groupFigures,
   addAccount, r2, type State, DomainError, resolveTaxCode, computeLines, sha256, entryHash, approveSupplierInvoice,
@@ -116,6 +116,26 @@ describe('ledger guarantees', () => {
     const [s, a] = addAccount(base, AUD, '7017121', 'Audit export', 'income');
     expect(a.isPostable).toBe(true);
     expect(s.accounts.length).toBe(base.accounts.length + 1);
+  });
+  // [bumex-one] ticket of 2026-11-26: shown « enregistré », then refused by the database without a reason
+  it("takes a manual entry without its currency in the entity's, at 1, its amounts as its amounts in currency", () => {
+    const input = { entityId: AUD, journalId: od(base), date: TODAY, description: 'OD', lines: [{ accountId: acc(base, '6310'), debit: 250 }, { accountId: acc(base, '560'), credit: 250 }] } as DraftInput;
+    const [s, e] = createDraft(base, input);
+    expect(e).toMatchObject({ currency: 'MRU', fxRate: 1 });
+    expect(e.lines.map((l) => [l.currency, l.fxRate, l.debitTxn, l.creditTxn, l.debit, l.credit])).toEqual([['MRU', 1, 250, 0, 250, 0], ['MRU', 1, 0, 250, 0, 250]]);
+    expect(() => postEntry(s, e.id)).not.toThrow();
+  });
+  it('refuses in words what the database would refuse: no rate for another currency, a negative or non-numeric amount, both sides on a line', () => {
+    const lines = (d: number, c: number) => [{ accountId: acc(base, '6310'), debitTxn: d, creditTxn: c }, { accountId: acc(base, '560'), creditTxn: 100 }];
+    const input: DraftInput = { entityId: AUD, journalId: od(base), date: TODAY, description: 'OD', currency: 'MRU', lines: lines(100, 0) };
+    expect(() => createDraft(base, { ...input, currency: 'EUR' })).toThrow('Cours de change requis pour une écriture en EUR');
+    expect(() => createDraft(base, { ...input, currency: 'EUR', fxRate: 0 })).toThrow('Cours de change invalide : 0');
+    expect(() => createDraft(base, { ...input, lines: lines(-100, 0) })).toThrow('Ligne 1 : montant négatif ou invalide');
+    expect(() => createDraft(base, { ...input, lines: lines('100' as never, 0) })).toThrow('Ligne 1 : montant négatif ou invalide');
+    expect(() => createDraft(base, { ...input, lines: lines(100, 100) })).toThrow('Ligne 1 : débit et crédit sur la même ligne');
+    const [s, e] = createDraft(base, input);
+    expect(() => updateDraft(s, e.id, { lines: lines(Number.NaN, 0) })).toThrow('Ligne 1 : montant négatif ou invalide');
+    expect(updateDraft(s, e.id, { description: 'OD corrigée' }).entries.find((x) => x.id === e.id)).toMatchObject({ currency: 'MRU', fxRate: 1, description: 'OD corrigée' });
   });
 });
 

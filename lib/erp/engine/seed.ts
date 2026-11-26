@@ -106,7 +106,9 @@ function opening(ctx: Ctx, entityId: Id, date: string, bank: Record<string, numb
   const tpl = ctx.s.entities.find((e) => e.id === entityId)!.coaTemplate;
   const capitalCode = tpl === 'PCM' ? '101' : tpl === 'CGNC' ? '1111' : '101';
   lines.push({ accountId: accountByCode(ctx.s, entityId, capitalCode).id, description: 'Capital', creditTxn: capital });
-  lines.push({ accountId: mapped(ctx.s, entityId, 'RETAINED_EARNINGS').id, description: 'Report à nouveau', creditTxn: r2(total - capital) });
+  // [bumex-one] a loss carried forward is a debit, not a negative credit (refused by ledger.ts, as by the database)
+  const carried = r2(total - capital);
+  lines.push({ accountId: mapped(ctx.s, entityId, 'RETAINED_EARNINGS').id, description: 'Report à nouveau', ...(carried >= 0 ? { creditTxn: carried } : { debitTxn: -carried }) });
   post(ctx, entityId, 'misc', date, `À nouveau ${yearOf(date)}`, lines, undefined, 1, 'opening');
 }
 

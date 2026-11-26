@@ -41,11 +41,40 @@ export function periodFor(state: State, entityId: Id, date: ISODate): Period {
   return p;
 }
 
+// [bumex-one] A draft as the database takes it, or refused here in words (ticket of 2026-11-26: a manual entry without
+// its currency was shown « enregistré », then refused by the database with no reason). The screen and the server's
+// replay both run it, so a refusal comes before anything is said saved.
+// - no currency: the entity's, at 1 (the entry form's own default); another currency needs its rate;
+// - in the entity's currency at 1, a line given by its amounts alone (debit / credit) has them as its transaction
+//   amounts (a transfer's lines give both: bank.ts bookTransfer);
+// - amounts are numbers, none negative; never a debit and a credit on one line (buildLines).
+function settleDraft(state: State, input: DraftInput): DraftInput & { fxRate: number } {
+  if (!Array.isArray(input.lines)) throw new DomainError('empty', 'Aucune ligne');
+  const functional = state.entities.find((e) => e.id === input.entityId)?.functionalCurrency;
+  const currency = input.currency ?? functional;
+  if (!currency) throw new DomainError('currency', "Devise de l'écriture manquante");
+  const fxRate = input.fxRate ?? (currency === functional ? 1 : undefined);
+  if (fxRate === undefined) throw new DomainError('fx_rate', `Cours de change requis pour une écriture en ${currency}`);
+  if (typeof fxRate !== 'number' || !Number.isFinite(fxRate) || fxRate <= 0) throw new DomainError('fx_rate', `Cours de change invalide : ${fxRate}`);
+  const atPar = currency === functional && fxRate === 1;
+  const lines = input.lines.map((l, i) => {
+    const line = atPar && l.debitTxn === undefined && l.creditTxn === undefined ? { ...l, debitTxn: l.debit, creditTxn: l.credit } : l;
+    const amounts = [line.debitTxn, line.creditTxn, line.debit, line.credit].filter((a) => a !== undefined);
+    if (!amounts.every((a) => typeof a === 'number' && Number.isFinite(a) && a >= 0)) throw new DomainError('amount', `Ligne ${i + 1} : montant négatif ou invalide`);
+    return line;
+  });
+  return { ...input, currency, fxRate, lines };
+}
+
 function buildLines(state: State, input: DraftInput): JournalLine[] {
   const rate = input.fxRate ?? 1;
   return input.lines.map((l, i) => {
     const dt = r2(l.debitTxn ?? 0);
     const ct = r2(l.creditTxn ?? 0);
+    const debit = l.debit !== undefined ? r2(l.debit) : r2(dt * rate);
+    const credit = l.credit !== undefined ? r2(l.credit) : r2(ct * rate);
+    // [bumex-one] the database's check (journal_line), said in words (settleDraft)
+    if ((dt > 0 && ct > 0) || (debit > 0 && credit > 0)) throw new DomainError('amount', `Ligne ${i + 1} : débit et crédit sur la même ligne`);
     return {
       lineNo: i + 1,
       accountId: l.accountId,
@@ -54,8 +83,8 @@ function buildLines(state: State, input: DraftInput): JournalLine[] {
       fxRate: rate,
       debitTxn: dt,
       creditTxn: ct,
-      debit: l.debit !== undefined ? r2(l.debit) : r2(dt * rate),
-      credit: l.credit !== undefined ? r2(l.credit) : r2(ct * rate),
+      debit,
+      credit,
       customerId: l.customerId,
       supplierId: l.supplierId,
       engagementId: l.engagementId,
@@ -81,7 +110,8 @@ function squareRounding(lines: JournalLine[]): JournalLine[] {
   return out;
 }
 
-export function createDraft(state: State, input: DraftInput): [State, JournalEntry] {
+export function createDraft(state: State, draft: DraftInput): [State, JournalEntry] {
+  const input = settleDraft(state, draft); // [bumex-one]
   const period = periodFor(state, input.entityId, input.date);
   const [s1, id] = nextId(state, 'je');
   const lines = squareRounding(buildLines(state, input));
@@ -138,6 +168,7 @@ export function updateDraft(state: State, entryId: Id, patch: Partial<DraftInput
         employeeId: l.employeeId,
       })),
   };
+  const settled = settleDraft(state, merged); // [bumex-one]
   const updated: JournalEntry = {
     ...e,
     journalId: merged.journalId,
@@ -145,9 +176,9 @@ export function updateDraft(state: State, entryId: Id, patch: Partial<DraftInput
     fiscalYearId: period.fiscalYearId,
     periodId: period.id,
     description: merged.description,
-    currency: merged.currency,
-    fxRate: merged.fxRate ?? 1,
-    lines: squareRounding(buildLines(state, merged)),
+    currency: settled.currency,
+    fxRate: settled.fxRate,
+    lines: squareRounding(buildLines(state, settled)),
   };
   return { ...state, entries: state.entries.map((x) => (x.id === entryId ? updated : x)) };
 }
